@@ -79,8 +79,13 @@ void JPEnv::loadJVM(const string& vmPath, char ignoreUnrecognized, const StringV
 		RAISE(JPypeException, "Unable to start JVM");
 	}
 
-	JPTypeManager::init();
+	// First thing we need to get all of our jni methods loaded
 	JPJni::init();
+
+	// After we have the jni methods we can preload the type tables
+	JPTypeManager::init();
+
+	// Then we can install the proxy code
 	JPProxy::init();
 
 	TRACE_OUT;

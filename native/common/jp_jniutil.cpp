@@ -126,7 +126,7 @@ void init()
 	getDeclaredConstructorsID = JPEnv::getJava()->GetMethodID(s_ClassClass, "getDeclaredConstructors", "()[Ljava/lang/reflect/Constructor;");
 	getConstructorsID = JPEnv::getJava()->GetMethodID(s_ClassClass, "getConstructors", "()[Ljava/lang/reflect/Constructor;");
 	isInterfaceID = JPEnv::getJava()->GetMethodID(s_ClassClass, "isInterface", "()Z");
-	isInterfaceID = JPEnv::getJava()->GetMethodID(s_ClassClass, "isArray", "()Z");
+	isArrayID = JPEnv::getJava()->GetMethodID(s_ClassClass, "isArray", "()Z");
 	getClassModifiersID = JPEnv::getJava()->GetMethodID(s_ClassClass, "getModifiers", "()I");
 	getInterfacesID = JPEnv::getJava()->GetMethodID(s_ClassClass, "getInterfaces", "()[Ljava/lang/Class;");
 	getComponentTypeID = JPEnv::getJava()->GetMethodID(s_ClassClass, "getComponentType", "()Ljava/lang/Class;");
