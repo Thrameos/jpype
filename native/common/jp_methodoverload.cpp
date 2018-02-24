@@ -213,7 +213,8 @@ EMatchType JPMethodOverload::matches(bool ignoreFirst, vector<HostRef*>& arg)
 			return _none;
 		}
 	}
-	
+
+  TRACE1("Direct match");	
 	for (unsigned int i = 0; i < len; i++)
 	{
 		if (i == 0 && ignoreFirst)
@@ -225,6 +226,7 @@ EMatchType JPMethodOverload::matches(bool ignoreFirst, vector<HostRef*>& arg)
 		JPType* type = m_ArgumentsTypeCache[i];
 		
 		EMatchType match = type->canConvertToJava(obj);
+		TRACE2(type->getName().getSimpleName(), match);
 		if (match < _implicit)
 		{
 			return _none;

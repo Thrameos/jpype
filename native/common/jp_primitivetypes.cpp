@@ -25,10 +25,14 @@ JPPrimitiveType::JPPrimitiveType(JPTypeName::ETypes type, bool isObject, const s
 		m_Type(JPTypeName::fromType(type)),
 		m_IsObject(isObject)
 {
+	TRACE_IN("JPPrimitiveType::JPPrimitiveType");
+	TRACE2(boxedName, m_Type.getSimpleName());
 	m_native_class=(jclass)JPEnv::getJava()->NewGlobalRef(JPJni::findPrimitiveClass(boxedName));
 
 	// Get the boxed java class
 	m_boxed_class=(jclass)JPEnv::getJava()->NewGlobalRef(JPJni::findClass(boxedName));
+	TRACE2(m_native_class, m_boxed_class);
+	TRACE_OUT;
 }
 
 JPPrimitiveType::~JPPrimitiveType()

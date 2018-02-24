@@ -149,7 +149,7 @@ HostRef* JPClass::getArrayItem(jarray a, int ndx)
 	jobjectArray array = (jobjectArray)a;	
 	
 	jobject obj = JPEnv::getJava()->GetObjectArrayElement(array, ndx);
-	return convertObjectToHostRef(obj)
+	return convertObjectToHostRef(obj);
 	TRACE_OUT;
 }
 
@@ -244,7 +244,6 @@ HostRef* JPStringType::asHostObject(jvalue val)
 
 EMatchType JPStringType::canConvertToJava(HostRef* obj)
 {
-	TRACE_IN("JPStringType::canConvertToJava");
 	JPLocalFrame frame;
 
 	if (obj == NULL || JPEnv::getHost()->isNone(obj))
@@ -278,7 +277,6 @@ EMatchType JPStringType::canConvertToJava(HostRef* obj)
 		}
 	}
 	return _none;
-	TRACE_OUT;
 }
 
 jvalue JPStringType::convertToJava(HostRef* obj)

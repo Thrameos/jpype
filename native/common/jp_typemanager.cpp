@@ -33,6 +33,7 @@ namespace JPTypeManager {
 
 void registerPrimitiveClass(JPPrimitiveType* type)
 {
+	TRACE_IN("JPTypeManager::registerPrimitiveClass");
 	// Add to the etype to type table
 	JPTypeName::ETypes etype = type->getEType();
 	JPTypeName name = type->getName();
@@ -41,6 +42,11 @@ void registerPrimitiveClass(JPPrimitiveType* type)
 
 	int hash = JPJni::hashCode(cls);
 	javaClassMap[hash] = type;
+	TRACE1(JPJni::getName(cls).getSimpleName());
+	TRACE1(hash);
+	TRACE1(type->getNativeClass());
+
+	TRACE_OUT;
 }
 
 void init()
@@ -88,6 +94,7 @@ JPType* findClass(jclass cls)
 
 	TRACE_IN("JPTypeManager::findClass");
 	TRACE1(JPJni::getName(cls).getSimpleName());
+	TRACE1(hash);
 
 	// No we havent got it .. lets load it!!!
 	JPLocalFrame frame;

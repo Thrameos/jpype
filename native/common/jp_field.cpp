@@ -19,8 +19,6 @@
 // fld is a java.lang.reflect.Field instance
 JPField::JPField(JPClass* clazz, jobject fld)
 {
-	TRACE_IN("JPField::JPField1");
-	
 	m_Class = clazz;
 	m_Field = JPEnv::getJava()->NewGlobalRef(fld);
 	
@@ -31,17 +29,12 @@ JPField::JPField(JPClass* clazz, jobject fld)
 	m_FieldID = JPEnv::getJava()->FromReflectedField(fld);
 	m_Type = (jclass)JPEnv::getJava()->NewGlobalRef(JPJni::getType(m_Field));	
 	m_TypeName = JPJni::getName(m_Type);
-
-	TRACE2("field type", JPJni::getName(m_Type).getSimpleName());
-	TRACE_OUT
 }
 
 JPField::~JPField() NO_EXCEPT_FALSE
 {
-	TRACE_IN("JPField::~JPField");
 	JPEnv::getJava()->DeleteGlobalRef(m_Field);
 	JPEnv::getJava()->DeleteGlobalRef(m_Type);
-	TRACE_OUT;
 }
 	
 bool JPField::isStatic() const

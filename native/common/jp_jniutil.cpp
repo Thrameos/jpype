@@ -701,8 +701,8 @@ jclass findPrimitiveClass(const std::string& name)
 {
 	JPLocalFrame frame;
 	jclass cls = JPEnv::getJava()->FindClass(name.c_str());
-	jfieldID fid = JPEnv::getJava()->GetStaticFieldID(byteClass, "TYPE", "Ljava/lang/Class;");
-	jclass res = (jclass)JPEnv::getJava()->GetStaticObjectField(byteClass, fid);
+	jfieldID fid = JPEnv::getJava()->GetStaticFieldID(cls, "TYPE", "Ljava/lang/Class;");
+	jclass res = (jclass)JPEnv::getJava()->GetStaticObjectField(cls, fid);
 	return frame.keep(res);
 }
 
