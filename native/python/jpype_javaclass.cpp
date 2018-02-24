@@ -34,11 +34,10 @@ PyObject* JPypeJavaClass::findClass(PyObject* obj, PyObject* args)
 
 		JPTypeName name = JPTypeName::fromSimple(cname);
 
-		JPClass* claz = JPTypeManager::findClass(name);
+		JPClass* claz = (JPClass*)JPTypeManager::findClass(name.findClass());
 		if (claz == NULL)
 		{
-			Py_INCREF(Py_None);
-			return Py_None;
+			Py_RETURN_NONE;
 		}
 
 		PyObject* res = (PyObject*)PyJPClass::alloc(claz);
@@ -48,9 +47,7 @@ PyObject* JPypeJavaClass::findClass(PyObject* obj, PyObject* args)
 	PY_STANDARD_CATCH;  
 
 	PyErr_Clear();
-
-	Py_INCREF(Py_None);
-	return Py_None;
+	Py_RETURN_NONE;
 
 	TRACE_OUT;
 }

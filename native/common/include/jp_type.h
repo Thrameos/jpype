@@ -43,10 +43,10 @@ protected :
 	}
 	
 public :
-	virtual HostRef*   getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType) = 0 ;
+	virtual HostRef*   getStaticValue(jclass c, jfieldID fid) = 0 ;
 	virtual void       setStaticValue(jclass c, jfieldID fid, HostRef* val) = 0 ;
 
-	virtual HostRef*   getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType) = 0 ;
+	virtual HostRef*   getInstanceValue(jobject c, jfieldID fid) = 0 ;
 	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val) = 0 ;
 
 	virtual HostRef*   asHostObject(jvalue val) = 0 ;
@@ -60,7 +60,6 @@ public :
 	virtual jobject    convertToJavaObject(HostRef* obj) = 0;
 
 	virtual bool       isObjectType() const = 0;
-	virtual const JPTypeName& getObjectType() const = 0;
 	
 	virtual HostRef*   invokeStatic(jclass, jmethodID, jvalue*) = 0;
 	virtual HostRef*   invoke(jobject, jclass, jmethodID, jvalue*) = 0;

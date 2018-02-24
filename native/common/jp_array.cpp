@@ -16,11 +16,11 @@
 *****************************************************************************/   
 #include <jpype.h>
 
-JPArray::JPArray(const JPTypeName& name, jarray inst)
+JPArray::JPArray(JPArrayClass* cls, jarray inst)
 {
 	TRACE_IN("JPArray::JPArray");
-	TRACE1(name.getSimpleName());
-	m_Class = JPTypeManager::findArrayClass(name);
+	TRACE1(cls->getName().getSimpleName());
+	m_Class = cls;
 	m_Object = (jarray)JPEnv::getJava()->NewGlobalRef(inst);
 	TRACE2("len=",getLength());
 	TRACE_OUT;

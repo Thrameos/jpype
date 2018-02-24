@@ -16,8 +16,9 @@
 *****************************************************************************/
 #include <jpype.h>
 
-JPClass::JPClass(const JPTypeName& n, jclass c) :
-	JPClassBase(n, c),
+JPClass::JPClass(jclass c) :
+	m_Class((jclass)JPEnv::getJava()->NewGlobalRef(c)),
+	m_Name(JPJni::getName(c)),
 	m_SuperClass(NULL),
 	m_Constructors(NULL)
 {
@@ -45,6 +46,7 @@ JPClass::~JPClass()
 		delete fldit2->second;
 	}
 
+	JPEnv::getJava()->DeleteGlobalRef(m_Class);	
 }
 
 void JPClass::postLoad()
@@ -73,8 +75,7 @@ void JPClass::loadSuperClass()
 
 		if (baseClass != NULL)
 		{
-			JPTypeName baseClassName = JPJni::getName(baseClass);
-			m_SuperClass = JPTypeManager::findClass(baseClassName);
+			m_SuperClass = (JPClass*)JPTypeManager::findClass(baseClass);
 		}
 	}
 	TRACE_OUT;
@@ -89,8 +90,7 @@ void JPClass::loadSuperInterfaces()
 
 	for (vector<jclass>::iterator it = intf.begin(); it != intf.end(); it++)
 	{
-		JPTypeName intfName = JPJni::getName(*it);
-		JPClass* interface = JPTypeManager::findClass(intfName);
+		JPClass* interface = (JPClass*)JPTypeManager::findClass(*it);
 		m_SuperInterfaces.push_back(interface);
 	}
 	TRACE_OUT;
@@ -220,15 +220,20 @@ HostRef* JPClass::asHostObject(jvalue obj)
 		return JPEnv::getHost()->getNone();
 	}
 
-	JPTypeName name = JPJni::getClassName(obj.l);
-	if (name.getType() ==JPTypeName::_array)
+	jclass cls = JPJni::getClass(obj.l);
+	if (JPJni::isArray(cls))
 	{
-		JPType* arrayType = JPTypeManager::getType(name);
+		JPType* arrayType = JPTypeManager::findClass(cls);
 		return arrayType->asHostObject(obj);
 	}
 
-	return JPEnv::getHost()->newObject(new JPObject(name, obj.l));
+	return JPEnv::getHost()->newObject(new JPObject((JPClass*)JPTypeManager::findClass(cls), obj.l));
 	TRACE_OUT;
+}
+
+long JPClass::getClassModifiers()
+{
+	return JPJni::getClassModifiers(m_Class);
 }
 
 const char* java_lang = "java.lang.";
@@ -437,8 +442,7 @@ jvalue JPClass::convertToJava(HostRef* obj)
 	
 		if (JPEnv::getHost()->isString(obj))
 		{
-			JPTypeName name = JPTypeName::fromSimple("java.lang.String");
-			JPType* type = JPTypeManager::getType(name);
+			JPType* type = JPTypeManager::getPrimitiveType(JPTypeName::_string);
 			res = type->convertToJava(obj);
 			res.l = frame.keep(res.l);
 			return res;
@@ -447,40 +451,36 @@ jvalue JPClass::convertToJava(HostRef* obj)
 		if (simpleName == "java.lang.Class")
 		{
 			JPClass* w = JPEnv::getHost()->asClass(obj);
-		  jclass lr = w->getClass();
-		  res.l = lr;
+			jclass lr = w->getNativeClass();
+			res.l = lr;
 		}
 
 		if (simpleName == "java.lang.Object")
 		{
 			if (JPEnv::getHost()->isInt(obj))
 			{
-				JPTypeName tname = JPTypeName::fromType(JPTypeName::_int);
-				JPType* t = JPTypeManager::getType(tname);
+				JPType* t = JPTypeManager::getPrimitiveType(JPTypeName::_int);
 				res.l = frame.keep(t->convertToJavaObject(obj));
 				return res;
 			}
 
 			else if (JPEnv::getHost()->isLong(obj))
 			{
-				JPTypeName tname = JPTypeName::fromType(JPTypeName::_long);
-				JPType* t = JPTypeManager::getType(tname);
+				JPType* t = JPTypeManager::getPrimitiveType(JPTypeName::_long);
 				res.l = frame.keep(t->convertToJavaObject(obj));
 				return res;
 			}
 
 			else if (JPEnv::getHost()->isFloat(obj))
 			{
-				JPTypeName tname = JPTypeName::fromType(JPTypeName::_double);
-				JPType* t = JPTypeManager::getType(tname);
+				JPType* t = JPTypeManager::getPrimitiveType(JPTypeName::_double);
 				res.l = frame.keep(t->convertToJavaObject(obj));
 				return res;
 			}
 
 			else if (JPEnv::getHost()->isBoolean(obj))
 			{
-				JPTypeName tname = JPTypeName::fromType(JPTypeName::_boolean);
-				JPType* t = JPTypeManager::getType(tname);
+				JPType* t = JPTypeManager::getPrimitiveType(JPTypeName::_boolean);
 				res.l = frame.keep(t->convertToJavaObject(obj));
 				return res;
 			}
@@ -495,8 +495,7 @@ jvalue JPClass::convertToJava(HostRef* obj)
 
 			else if (JPEnv::getHost()->isClass(obj))
 			{
-				JPTypeName name = JPTypeName::fromSimple("java.lang.Class");
-				JPType* type = JPTypeManager::getType(name);
+				JPType* type = JPTypeManager::findClass(JPJni::s_ClassClass);
 				res.l = frame.keep(type->convertToJavaObject(obj));
 				return res;
 			}
@@ -620,6 +619,11 @@ string JPClass::describe()
 	return out.str();
 }
 
+bool JPClass::isArray()
+{
+	return JPJni::isArray(m_Class);
+}
+
 bool JPClass::isAbstract()
 {
 	return JPJni::isAbstract(m_Class);
@@ -643,8 +647,19 @@ const vector<JPClass*>& JPClass::getInterfaces() const
 bool JPClass::isSubclass(JPClass* o)
 {
 	JPLocalFrame frame;
-
-	jclass jo = o->getClass();
-
+	jclass jo = o->getNativeClass();
 	return JPEnv::getJava()->IsAssignableFrom(m_Class, jo);
 }
+
+vector<JPMethod*>  JPClass::getMethods() const
+{
+	vector<JPMethod*> res;
+	res.reserve(m_Methods.size());
+	for (map<string, JPMethod*>::const_iterator cur = m_Methods.begin(); cur != m_Methods.end(); cur++)
+	{
+		res.push_back(cur->second);
+	}
+	return res;
+}
+
+

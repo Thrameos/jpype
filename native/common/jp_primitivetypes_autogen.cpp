@@ -157,7 +157,7 @@ jarray JPByteType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewByteArray(sz);
 }
 
-HostRef* JPByteType::getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* JPByteType::getStaticValue(jclass c, jfieldID fid) 
 {
     jvalue v;
     v.b = JPEnv::getJava()->GetStaticByteField(c, fid);
@@ -165,7 +165,7 @@ HostRef* JPByteType::getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType)
     return asHostObject(v);
 }
 
-HostRef* JPByteType::getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* JPByteType::getInstanceValue(jobject c, jfieldID fid) 
 {
     jvalue v;
     v.b = JPEnv::getJava()->GetByteField(c, fid);
@@ -306,7 +306,7 @@ jarray JPShortType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewShortArray(sz);
 }
 
-HostRef* JPShortType::getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* JPShortType::getStaticValue(jclass c, jfieldID fid) 
 {
     jvalue v;
     v.s = JPEnv::getJava()->GetStaticShortField(c, fid);
@@ -314,7 +314,7 @@ HostRef* JPShortType::getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType
     return asHostObject(v);
 }
 
-HostRef* JPShortType::getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* JPShortType::getInstanceValue(jobject c, jfieldID fid) 
 {
     jvalue v;
     v.s = JPEnv::getJava()->GetShortField(c, fid);
@@ -455,7 +455,7 @@ jarray JPIntType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewIntArray(sz);
 }
 
-HostRef* JPIntType::getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* JPIntType::getStaticValue(jclass c, jfieldID fid) 
 {
     jvalue v;
     v.i = JPEnv::getJava()->GetStaticIntField(c, fid);
@@ -463,7 +463,7 @@ HostRef* JPIntType::getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType)
     return asHostObject(v);
 }
 
-HostRef* JPIntType::getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* JPIntType::getInstanceValue(jobject c, jfieldID fid) 
 {
     jvalue v;
     v.i = JPEnv::getJava()->GetIntField(c, fid);
@@ -604,7 +604,7 @@ jarray JPLongType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewLongArray(sz);
 }
 
-HostRef* JPLongType::getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* JPLongType::getStaticValue(jclass c, jfieldID fid) 
 {
     jvalue v;
     v.j = JPEnv::getJava()->GetStaticLongField(c, fid);
@@ -612,7 +612,7 @@ HostRef* JPLongType::getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType)
     return asHostObject(v);
 }
 
-HostRef* JPLongType::getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* JPLongType::getInstanceValue(jobject c, jfieldID fid) 
 {
     jvalue v;
     v.j = JPEnv::getJava()->GetLongField(c, fid);
@@ -755,7 +755,7 @@ jarray JPFloatType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewFloatArray(sz);
 }
 
-HostRef* JPFloatType::getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* JPFloatType::getStaticValue(jclass c, jfieldID fid) 
 {
     jvalue v;
     v.f = JPEnv::getJava()->GetStaticFloatField(c, fid);
@@ -763,7 +763,7 @@ HostRef* JPFloatType::getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType
     return asHostObject(v);
 }
 
-HostRef* JPFloatType::getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* JPFloatType::getInstanceValue(jobject c, jfieldID fid) 
 {
     jvalue v;
     v.f = JPEnv::getJava()->GetFloatField(c, fid);
@@ -903,7 +903,7 @@ jarray JPDoubleType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewDoubleArray(sz);
 }
 
-HostRef* JPDoubleType::getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* JPDoubleType::getStaticValue(jclass c, jfieldID fid) 
 {
     jvalue v;
     v.d = JPEnv::getJava()->GetStaticDoubleField(c, fid);
@@ -911,7 +911,7 @@ HostRef* JPDoubleType::getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtTyp
     return asHostObject(v);
 }
 
-HostRef* JPDoubleType::getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* JPDoubleType::getInstanceValue(jobject c, jfieldID fid) 
 {
     jvalue v;
     v.d = JPEnv::getJava()->GetDoubleField(c, fid);
@@ -1052,7 +1052,7 @@ jarray JPCharType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewCharArray(sz);
 }
 
-HostRef* JPCharType::getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* JPCharType::getStaticValue(jclass c, jfieldID fid) 
 {
     jvalue v;
     v.c = JPEnv::getJava()->GetStaticCharField(c, fid);
@@ -1060,7 +1060,7 @@ HostRef* JPCharType::getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType)
     return asHostObject(v);
 }
 
-HostRef* JPCharType::getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* JPCharType::getInstanceValue(jobject c, jfieldID fid) 
 {
     jvalue v;
     v.c = JPEnv::getJava()->GetCharField(c, fid);
@@ -1225,7 +1225,7 @@ jarray JPBooleanType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewBooleanArray(sz);
 }
 
-HostRef* JPBooleanType::getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* JPBooleanType::getStaticValue(jclass c, jfieldID fid) 
 {
     jvalue v;
     v.z = JPEnv::getJava()->GetStaticBooleanField(c, fid);
@@ -1233,7 +1233,7 @@ HostRef* JPBooleanType::getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtTy
     return asHostObject(v);
 }
 
-HostRef* JPBooleanType::getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* JPBooleanType::getInstanceValue(jobject c, jfieldID fid) 
 {
     jvalue v;
     v.z = JPEnv::getJava()->GetBooleanField(c, fid);

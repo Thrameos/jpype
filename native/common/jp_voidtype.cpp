@@ -16,12 +16,12 @@
 *****************************************************************************/   
 #include <jpype.h>
 
-HostRef* JPVoidType::getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* JPVoidType::getStaticValue(jclass c, jfieldID fid) 
 {
 	RAISE(JPypeException, "void cannot be the type of a static field.");
 }
 
-HostRef* JPVoidType::getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* JPVoidType::getInstanceValue(jobject c, jfieldID fid) 
 {
 	RAISE(JPypeException, "void cannot be the type of a field.");
 }

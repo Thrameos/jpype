@@ -65,9 +65,7 @@ PyObject* JPypeModule::startup(PyObject* obj, PyObject* args)
 		}
 
 		JPEnv::loadJVM(cVmPath, ignoreUnrecognized, args);
-
-		Py_INCREF(Py_None);
-		return Py_None;
+		Py_RETURN_NONE;
 	}
 	PY_STANDARD_CATCH
 
@@ -96,9 +94,7 @@ PyObject* JPypeModule::attach(PyObject* obj, PyObject* args)
 
 		string cVmPath = JPyString::asString(vmPath);
 		JPEnv::attachJVM(cVmPath);
-
-		Py_INCREF(Py_None);
-		return Py_None;
+		Py_RETURN_NONE;
 	}
 	PY_STANDARD_CATCH
 
@@ -116,9 +112,7 @@ PyObject* JPypeModule::dumpJVMStats(PyObject* obj)
 	//cerr << "\tfield gets           : " << fieldGets << endl;
 	//cerr << "\tfield sets           : " << fieldSets << endl;
 	cerr << "\tclasses loaded       : " << JPTypeManager::getLoadedClasses() << endl;
-
-	Py_INCREF(Py_None);	
-	return Py_None;
+	Py_RETURN_NONE;
 }
 
 PyObject* JPypeModule::shutdown(PyObject* obj)
@@ -138,9 +132,7 @@ PyObject* JPypeModule::shutdown(PyObject* obj)
 
 		JPEnv::getJava()->shutdown();
 		cerr << "JVM has been shutdown" << endl;
-		
-		Py_INCREF(Py_None);		
-		return Py_None;
+		Py_RETURN_NONE;
 	}
 	PY_STANDARD_CATCH;
 
@@ -167,7 +159,7 @@ PyObject* JPypeModule::synchronized(PyObject* obj, PyObject* args)
 		else if (desc == "JPClass")
 		{
 			JPClass* jpo = (JPClass*)JPyCObject::asVoidPtr(o);
-			obj = jpo->getClass();
+			obj = jpo->getNativeClass();
 		}
 		else if (desc == "JPArray")
 		{
@@ -177,7 +169,7 @@ PyObject* JPypeModule::synchronized(PyObject* obj, PyObject* args)
 		else if (desc == "JPArrayClass")
 		{
 			JPArrayClass* jpo = (JPArrayClass*)JPyCObject::asVoidPtr(o);
-			obj = jpo->getClass();
+			obj = jpo->getNativeClass();
 		}
 		else if (hostEnv->isWrapper(o) && hostEnv->getWrapperTypeName(o).isObjectType())
 		{
@@ -197,8 +189,7 @@ PyObject* JPypeModule::synchronized(PyObject* obj, PyObject* args)
 
 	PyErr_Clear();
 
-	Py_INCREF(Py_None);
-	return Py_None;
+	Py_RETURN_NONE;
 
 	TRACE_OUT;
 }
@@ -222,8 +213,7 @@ PyObject* JPypeModule::attachThread(PyObject* obj)
 
 	try {
 		JPEnv::attachCurrentThread();
-		Py_INCREF(Py_None);
-		return Py_None;
+		Py_RETURN_NONE;
 	}
 	PY_STANDARD_CATCH;
 
@@ -240,8 +230,7 @@ PyObject* JPypeModule::detachThread(PyObject* obj)
 
 	try {
 		JPEnv::getJava()->DetachCurrentThread();
-		Py_INCREF(Py_None);
-		return Py_None;
+		Py_RETURN_NONE;
 	}
 	PY_STANDARD_CATCH;
 
@@ -318,9 +307,7 @@ PyObject* JPypeModule::attachThreadAsDaemon(PyObject* obj)
 
 	try {
 		JPEnv::attachCurrentThreadAsDaemon();
-
-		Py_INCREF(Py_None);
-		return Py_None;
+		Py_RETURN_NONE;
 	}
 	PY_STANDARD_CATCH;
 
@@ -341,9 +328,7 @@ PyObject* JPypeModule::startReferenceQueue(PyObject* obj, PyObject* args)
 		JPyArg::parseTuple(args, "i", &i);
 
 		JPJni::startJPypeReferenceQueue(i == 1);
-
-		Py_INCREF(Py_None);
-		return Py_None;
+		Py_RETURN_NONE;
 	}
 	PY_STANDARD_CATCH;
 
@@ -360,9 +345,7 @@ PyObject* JPypeModule::stopReferenceQueue(PyObject* obj)
 
 	try {
 		JPJni::stopJPypeReferenceQueue();
-
-		Py_INCREF(Py_None);
-		return Py_None;
+		Py_RETURN_NONE;
 	}
 	PY_STANDARD_CATCH;
 
@@ -391,8 +374,7 @@ PyObject* JPypeModule::setConvertStringObjects(PyObject* obj, PyObject* args)
 			JPEnv::getJava()->setConvertStringObjects(false);
 		}
 
-		Py_INCREF(Py_None);
-		return Py_None;
+		Py_RETURN_NONE;
 	}
 	PY_STANDARD_CATCH;
 

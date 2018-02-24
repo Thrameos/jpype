@@ -50,14 +50,12 @@ JNIEXPORT jobject JNICALL Java_jpype_JPypeInvocationHandler_hostInvoke(
 		for (int i = 0; i < argLen; i++)
 		{
 			jclass c = (jclass)JPEnv::getJava()->GetObjectArrayElement(types, i);
-			JPTypeName t = JPJni::getName(c);
-
 			jobject obj = JPEnv::getJava()->GetObjectArrayElement(args, i);
 
 			jvalue v;
 			v.l = obj;
 
-			HostRef* o = JPTypeManager::getType(t)->asHostObjectFromObject(v);
+			HostRef* o = JPTypeManager::findClass(c)->asHostObjectFromObject(v);
 			cleaner.add(o);
 			hostArgs.push_back(o);
 
@@ -84,7 +82,9 @@ JNIEXPORT jobject JNICALL Java_jpype_JPypeInvocationHandler_hostInvoke(
 			return NULL;
 		}
 
-		JPType* rt = JPTypeManager::getType(returnT);
+		JPType* rt = JPTypeManager::findClass(returnType);
+		// What if rt is NULL?
+		
 		if (rt->canConvertToJava(returnValue) == _none)
 		{
 			JPEnv::getJava()->ThrowNew(JPJni::s_RuntimeExceptionClass, "Return value is not compatible with required type.");

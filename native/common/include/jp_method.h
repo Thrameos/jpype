@@ -19,6 +19,11 @@
 
 class JPObject;
 
+/** 
+ * JPMethod represents a collection of Methods which share the same name.
+ * It does not correspond to a java object.
+ *
+ */
 class JPMethod
 {
 public :
@@ -26,10 +31,7 @@ public :
 	 * Create a new method based on class and a name;
 	 */
 	JPMethod(jclass clazz, const string& name, bool isConstructor);
-	virtual ~JPMethod()
-	{
-		JPEnv::getJava()->DeleteGlobalRef(m_Class);
-	}
+	virtual ~JPMethod();
 
 
 public :
@@ -63,7 +65,7 @@ private :
 
 	jclass                        m_Class;
 	string                        m_Name;
-	map<string, JPMethodOverload> m_Overloads;
+	map<string, JPMethodOverload*> m_Overloads;
 
 	struct OverloadData {
 		OverloadData(JPMethodOverload* o) : m_Overload(o) {}

@@ -16,12 +16,6 @@
 *****************************************************************************/   
 #include <jpype.h>
 
-JPObject::JPObject(JPTypeName& c, jobject o)
-{
-	m_Class = JPTypeManager::findClass(c);
-	m_Object = JPEnv::getJava()->NewGlobalRef(o);
-}
-  
 JPObject::JPObject(JPClass* c, jobject o)
 {
 	m_Class = c;

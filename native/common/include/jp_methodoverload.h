@@ -20,9 +20,9 @@
 class JPObject;
 class JPMethodOverload
 {
-public :
-	JPMethodOverload();
+private:
 	JPMethodOverload(const JPMethodOverload& o);
+public :
 	JPMethodOverload(JPClass* claz, jobject mth);
 	
 	virtual ~JPMethodOverload();
@@ -55,7 +55,7 @@ public :
 
 	const JPTypeName& getReturnType() const
 	{
-		return m_ReturnType;
+		return m_ReturnTypeName;
 	}
 
 	unsigned char getArgumentCount() const
@@ -75,8 +75,9 @@ private :
 	JPClass*                 m_Class;
 	jobject                  m_Method;
 	jmethodID                m_MethodID;
-	JPTypeName               m_ReturnType;
-	vector<JPTypeName>       m_Arguments;
+	jclass                   m_ReturnType;
+	JPTypeName               m_ReturnTypeName;
+	vector<jclass>           m_Arguments;
 	bool                     m_IsStatic;
 	bool                     m_IsFinal;
 	bool                     m_IsVarArgs;

@@ -41,7 +41,7 @@ PyObject* JPypeJavaArray::findArrayClass(PyObject* obj, PyObject* args)
 		JPyArg::parseTuple(args, "s", &cname);
 
 		JPTypeName name = JPTypeName::fromSimple(cname);
-		JPArrayClass* claz = JPTypeManager::findArrayClass(name);
+		JPArrayClass* claz = (JPArrayClass*)JPTypeManager::findClass(name.findClass());
 		if (claz == NULL)
 		{
 			Py_RETURN_NONE;
@@ -109,7 +109,7 @@ PyObject* JPypeJavaArray::getArraySlice(PyObject* self, PyObject* arg)
 		else if (hi > length) hi = length;
 		if (lo > hi) lo = hi;
 
-		const JPTypeName& componentName = a->getType()->getObjectType().getComponentName();
+		const JPTypeName& componentName = a->getType()->getName().getComponentName();
 		const string& name = componentName.getNativeName();
 		if(is_primitive(name[0]))
 		{
@@ -159,7 +159,7 @@ PyObject* JPypeJavaArray::setArraySlice(PyObject* self, PyObject* arg)
 		else if (hi > length) hi = length;
 		if (lo > hi) lo = hi;
 
-		const JPTypeName& componentName = a->getType()->getObjectType().getComponentName();
+		const JPTypeName& componentName = a->getType()->getName().getComponentName();
 		const string& name = componentName.getNativeName();
 
 		if(is_primitive(name[0]))

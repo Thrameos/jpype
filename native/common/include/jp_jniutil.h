@@ -46,9 +46,24 @@ namespace JPJni
 
 	jstring javaStringFromJCharString(JCharString& str);
 
+	/**
+	 * Get a typename from an object.  
+	 * Trying to remove this method.
+	 */
 	JPTypeName getClassName(jobject obj);
+
+	/** 
+	 * Get the class for an object.
+	 * Returns a local reference to the class.
+	 */
 	jclass getClass(jobject obj);
+
 	jstring toString(jobject obj);
+
+	/**
+	* java.lang.Class.isArray()
+	*/
+	bool            isArray(jclass);
 
 	/**
 	* java.lang.Class.isInterface()
@@ -141,12 +156,12 @@ namespace JPJni
 	/**
 	* java.lang.reflect.Field.getType
 	*/
-	JPTypeName getType(jobject fld);
+	jclass getType(jobject fld);
 
 	/**
 	* java.lang.reflect.Method.getReturnType
 	*/
-	JPTypeName getReturnType(jobject);
+	jclass getReturnType(jobject);
 
 	/**
 	* java.lang.reflect.Method.isSynthetic()
@@ -158,12 +173,18 @@ namespace JPJni
 	*/
 	bool isVarArgsMethod(jobject);
 
+	/** 
+	 * Get the type for elements of an array.  
+	 * Only applies to array classes.
+	 */
+	jclass getComponentType(jclass);
+
 	jint hashCode(jobject);
 
 	/**
 	* java.lang.reflect.Method.getParameterTypes
 	*/
-	vector<JPTypeName> getParameterTypes(jobject, bool);
+	vector<jclass> getParameterTypes(jobject, bool);
 
 	bool isConstructor(jobject);
 	string getStackTrace(jthrowable th);
@@ -176,15 +197,19 @@ namespace JPJni
 	bool booleanValue(jobject);
 	jchar charValue(jobject);
 
-	jclass getByteClass();
-	jclass getShortClass();
-	jclass getIntegerClass();
-	jclass getLongClass();
-	jclass getFloatClass();
-	jclass getDoubleClass();
-	jclass getCharacterClass();
-	jclass getBooleanClass();
-	jclass getVoidClass();
+	/** Get the class for using a java native name.
+	 *  Use the specification name for the Boxed type as the argument.
+	 *  Returns a local reference.
+	 */
+	jclass findClass(const std::string& name);
+
+	/** Get the class for a primitive type.  
+	 *  Use the specification name for the java native Boxed type as the argument.
+	 *
+	 *  Class names are java native.
+	 *  Returns a local reference.
+	 */
+	jclass findPrimitiveClass(const std::string& name);
 };
 
 #endif // _JPJNIUTIL_H_

@@ -27,6 +27,13 @@ JPMethod::JPMethod(jclass clazz, const string& name, bool isConstructor) :
 	m_Class = (jclass)JPEnv::getJava()->NewGlobalRef(clazz);
 }
 
+JPMethod::~JPMethod()
+{
+	JPEnv::getJava()->DeleteGlobalRef(m_Class);
+	for (map<string, JPMethodOverload*>::iterator it = m_Overloads.begin(); it != m_Overloads.end(); it++)
+		delete it->second;
+}
+	
 const string& JPMethod::getName() const
 {
 	return m_Name;
@@ -40,9 +47,9 @@ string JPMethod::getClassName() const
 
 bool JPMethod::hasStatic()
 {
-	for (map<string, JPMethodOverload>::iterator it = m_Overloads.begin(); it != m_Overloads.end(); it++)
+	for (map<string, JPMethodOverload*>::iterator it = m_Overloads.begin(); it != m_Overloads.end(); it++)
 	{
-		if (it->second.isStatic())
+		if (it->second->isStatic())
 		{
 			return true;
 		}
@@ -52,21 +59,20 @@ bool JPMethod::hasStatic()
 	
 void JPMethod::addOverload(JPClass* claz, jobject mth) 
 {
-	JPMethodOverload over(claz, mth);
-
-	m_Overloads[over.getSignature()] = over;	
+	JPMethodOverload* over = new JPMethodOverload(claz, mth);
+	m_Overloads[over->getSignature()] = over;
 }
 
 void JPMethod::addOverloads(JPMethod* o)
 {
 	TRACE_IN("JPMethod::addOverloads");
 	
-	for (map<string, JPMethodOverload>::iterator it = o->m_Overloads.begin(); it != o->m_Overloads.end(); it++)
+	for (map<string, JPMethodOverload*>::iterator it = o->m_Overloads.begin(); it != o->m_Overloads.end(); it++)
 	{
 		bool found = false;
-		for (map<string, JPMethodOverload>::iterator cur = m_Overloads.begin(); cur != m_Overloads.end(); cur++)
+		for (map<string, JPMethodOverload*>::iterator cur = m_Overloads.begin(); cur != m_Overloads.end(); cur++)
 		{
-			if (cur->second.isSameOverload(it->second))
+			if (cur->second->isSameOverload(*(it->second)))
 			{
 				found = true;
 				break;
@@ -134,8 +140,8 @@ void JPMethod::ensureOverloadOrderCache()
 	if(m_Overloads.size() == m_OverloadOrderCache.size()) { return; }
 	m_OverloadOrderCache.clear();
 	std::vector<JPMethodOverload*> overloads;
-	for (std::map<string, JPMethodOverload>::iterator it = m_Overloads.begin(); it != m_Overloads.end(); ++it) {
-		overloads.push_back(&it->second);
+	for (std::map<string, JPMethodOverload*>::iterator it = m_Overloads.begin(); it != m_Overloads.end(); ++it) {
+		overloads.push_back(it->second);
 	}
 
 
@@ -227,32 +233,32 @@ string JPMethod::describe(string prefix)
 		name = "__init__";
 	}
 	stringstream str;
-	for (map<string, JPMethodOverload>::iterator cur = m_Overloads.begin(); cur != m_Overloads.end(); cur++)
+	for (map<string, JPMethodOverload*>::iterator cur = m_Overloads.begin(); cur != m_Overloads.end(); cur++)
 	{
 		str << prefix << "public ";
 		if (! m_IsConstructor)
 		{
-			if (cur->second.isStatic())
+			if (cur->second->isStatic())
 			{
 				str << "static ";
 			}
-			else if (cur->second.isFinal())
+			else if (cur->second->isFinal())
 			{
 				str << "final ";
 			}
 
-			str << cur->second.getReturnType().getSimpleName() << " ";
+			str << cur->second->getReturnType().getSimpleName() << " ";
 		}
-		str << name << cur->second.getArgumentString() << ";" << endl;
+		str << name << cur->second->getArgumentString() << ";" << endl;
 	}
 	return str.str();
 }
 
 bool JPMethod::isBeanMutator()
 {
-	for (map<string, JPMethodOverload>::iterator cur = m_Overloads.begin(); cur != m_Overloads.end(); cur++)
+	for (map<string, JPMethodOverload*>::iterator cur = m_Overloads.begin(); cur != m_Overloads.end(); cur++)
 	{
-		if ( (! cur->second.isStatic()) && cur->second.getReturnType().getSimpleName() == "void" && cur->second.getArgumentCount() == 2)
+		if ( (! cur->second->isStatic()) && cur->second->getReturnType().getSimpleName() == "void" && cur->second->getArgumentCount() == 2)
 		{
 			return true;
 		}
@@ -262,9 +268,9 @@ bool JPMethod::isBeanMutator()
 
 bool JPMethod::isBeanAccessor()
 {
-	for (map<string, JPMethodOverload>::iterator cur = m_Overloads.begin(); cur != m_Overloads.end(); cur++)
+	for (map<string, JPMethodOverload*>::iterator cur = m_Overloads.begin(); cur != m_Overloads.end(); cur++)
 	{
-		if ( (! cur->second.isStatic()) && cur->second.getReturnType().getSimpleName() != "void" && cur->second.getArgumentCount() == 1)
+		if ( (! cur->second->isStatic()) && cur->second->getReturnType().getSimpleName() != "void" && cur->second->getArgumentCount() == 1)
 		{
 			return true;
 		}
@@ -277,9 +283,9 @@ string JPMethod::matchReport(vector<HostRef*>& args)
 	stringstream res;
 	res << "Match report for method " << m_Name << ", has " << m_Overloads.size() << " overloads." << endl;
 
-	for (map<string, JPMethodOverload>::iterator cur = m_Overloads.begin(); cur != m_Overloads.end(); cur++)
+	for (map<string, JPMethodOverload*>::iterator cur = m_Overloads.begin(); cur != m_Overloads.end(); cur++)
 	{
-		res << "  " << cur->second.matchReport(args);
+		res << "  " << cur->second->matchReport(args);
 	}
 
 	return res.str();

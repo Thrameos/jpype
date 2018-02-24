@@ -32,6 +32,7 @@ JPJavaEnv* JPEnv::getJava()
 {
 	return s_Java;
 }
+
 HostEnvironment* JPEnv::getHost()
 {
 	return s_Host;
@@ -191,11 +192,11 @@ void JPypeTracer::trace1(const char* name, const string& msg)
 	}
 }
 
-JPLocalFrame::JPLocalFrame(int i)
+JPLocalFrame::JPLocalFrame(size_t i)
 {
 	// FIXME check return code
 	popped=false;
-	JPEnv::getJava()->PushLocalFrame(i);
+	JPEnv::getJava()->PushLocalFrame((int)i);
 }
 
 jobject JPLocalFrame::keep(jobject obj)

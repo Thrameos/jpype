@@ -72,6 +72,11 @@ void JPTypeName::init()
 	}
 
 }
+
+jclass JPTypeName::findClass() const
+{
+	return JPJni::findClass(getNativeName());
+}
 	
 JPTypeName JPTypeName::fromType(JPTypeName::ETypes t)
 {

@@ -40,7 +40,11 @@ PyObject* convertToJValue(PyObject* self, PyObject* arg)
 		JPyArg::parseTuple(arg, "sO", &tname, &value);
 
 		JPTypeName name = JPTypeName::fromSimple(tname);
-		JPType* type = JPTypeManager::getType(name);
+		JPType* type = JPTypeManager::findClass(name.findClass());
+		if (type==NULL)
+		{
+			Py_RETURN_NONE;
+		}
 
 		HostRef ref(value);
 		jvalue v = type->convertToJava(&ref);
@@ -88,7 +92,7 @@ PyObject* JPypeJavaProxy::createProxy(PyObject*, PyObject* arg)
 
 			PyObject* claz = JPyObject::getAttrString(subObj, "__javaclass__");
 			PyJPClass* c = (PyJPClass*)claz;
-			jclass jc = c->m_Class->getClass();
+			jclass jc = c->m_Class->getNativeClass();
 			interfaces.push_back(jc);
 		}
 		
@@ -210,10 +214,11 @@ void JPypeJavaException::errorOccurred()
 
 	jclass ec = JPJni::getClass(th);
 	JPTypeName tn = JPJni::getName(ec);
-	JPClass* jpclass = JPTypeManager::findClass(tn);
+	JPClass* jpclass = (JPClass*)JPTypeManager::findClass(tn.findClass());
+	// FIXME nothing checks if the class is valiid before using it
 
 	PyObject* jexclass = hostEnv->getJavaShadowClass(jpclass);
-	HostRef* pyth = hostEnv->newObject(new JPObject(tn, th));
+	HostRef* pyth = hostEnv->newObject(new JPObject(jpclass, th));
 	cleaner.add(pyth);
 
 	PyObject* args = JPySequence::newTuple(2);

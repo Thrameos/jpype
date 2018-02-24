@@ -16,81 +16,67 @@
 *****************************************************************************/   
 #include <jpype.h>
 
-HostRef* JPObjectType::getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* convertObjectToHostRef(jobject obj)
 {
-	TRACE_IN("JPObjectType::getStaticValue");
+	if (obj == NULL)
+		return JPEnv::getHost()->getNone();
+
+	jvalue v;
+	v.l = obj;
+	
+	jclass cls = JPJni::getClass(v.l);
+	JPType* type = JPTypeManager::findClass(cls);
+	return type->asHostObject(v);
+}
+
+
+HostRef* JPClass::getStaticValue(jclass c, jfieldID fid) 
+{
+	TRACE_IN("JPClass::getStaticValue");
 	JPLocalFrame frame;
 
 	jobject r = JPEnv::getJava()->GetStaticObjectField(c, fid);
-
-	jvalue v;
-	v.l = r;
-	
-	JPTypeName name = JPJni::getClassName(v.l);
-	JPType* type = JPTypeManager::getType(name);
-	return type->asHostObject(v);
+	return convertObjectToHostRef(r);
 
 	TRACE_OUT;
 }
 
-HostRef* JPObjectType::getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType) 
+HostRef* JPClass::getInstanceValue(jobject c, jfieldID fid) 
 {
-	TRACE_IN("JPObjectType::getInstanceValue");
+	TRACE_IN("JPClass::getInstanceValue");
 	JPLocalFrame frame;
 	jobject r = JPEnv::getJava()->GetObjectField(c, fid);
-
-	jvalue v;
-	v.l = r;
-	
-	JPTypeName name = JPJni::getClassName(v.l);
-	JPType* type = JPTypeManager::getType(name);
-	return type->asHostObject(v);
+	return convertObjectToHostRef(r);
 
 	TRACE_OUT;
 }
 
-HostRef* JPObjectType::invokeStatic(jclass claz, jmethodID mth, jvalue* val)
+HostRef* JPClass::invokeStatic(jclass claz, jmethodID mth, jvalue* val)
 {
-	TRACE_IN("JPObjectType::invokeStatic");
+	TRACE_IN("JPClass::invokeStatic");
 	JPLocalFrame frame;
 	
 	jobject res = JPEnv::getJava()->CallStaticObjectMethodA(claz, mth, val);
-
-	jvalue v;
-	v.l = res;
-
-	JPTypeName name = JPJni::getClassName(v.l);
-	JPType* type = JPTypeManager::getType(name);
-	return type->asHostObject(v);
+	return convertObjectToHostRef(res);
 
 	TRACE_OUT;
 }
 
-HostRef* JPObjectType::invoke(jobject claz, jclass clazz, jmethodID mth, jvalue* val)
+HostRef* JPClass::invoke(jobject claz, jclass clazz, jmethodID mth, jvalue* val)
 {
-	TRACE_IN("JPObjectType::invoke");
+	TRACE_IN("JPClass::invoke");
 	JPLocalFrame frame;
 
 	// Call method
 	jobject res = JPEnv::getJava()->CallNonvirtualObjectMethodA(claz, clazz, mth, val);
-
-	// Get the return type
-	JPTypeName name = JPJni::getClassName(res);
-	JPType* type = JPTypeManager::getType(name);
-
-	// Convert the object
-	jvalue v;
-	v.l = res;
-	HostRef* ref = type->asHostObject(v);
-	TRACE1("Successfully converted to host reference");
-	return ref;
+	return convertObjectToHostRef(res);
 	
 	TRACE_OUT;
 }
 
-void JPObjectType::setStaticValue(jclass c, jfieldID fid, HostRef* obj) 
+void JPClass::setStaticValue(jclass c, jfieldID fid, HostRef* obj) 
 {
-	TRACE_IN("JPObjectType::setStaticValue");
+	TRACE_IN("JPClass::setStaticValue");
 	JPLocalFrame frame;
 
 	jobject val = convertToJava(obj).l;
@@ -99,9 +85,9 @@ void JPObjectType::setStaticValue(jclass c, jfieldID fid, HostRef* obj)
 	TRACE_OUT;
 }
 
-void JPObjectType::setInstanceValue(jobject c, jfieldID fid, HostRef* obj) 
+void JPClass::setInstanceValue(jobject c, jfieldID fid, HostRef* obj) 
 {
-	TRACE_IN("JPObjectType::setInstanceValue");
+	TRACE_IN("JPClass::setInstanceValue");
 	JPLocalFrame frame;
 
 	jobject val = convertToJava(obj).l;
@@ -110,35 +96,27 @@ void JPObjectType::setInstanceValue(jobject c, jfieldID fid, HostRef* obj)
 	TRACE_OUT;
 }
 
-jarray JPObjectType::newArrayInstance(int sz)
+jarray JPClass::newArrayInstance(int sz)
 {
-	return JPEnv::getJava()->NewObjectArray(sz, getClass(), NULL);
+	return JPEnv::getJava()->NewObjectArray(sz, getNativeClass(), NULL);
 }
 
-vector<HostRef*> JPObjectType::getArrayRange(jarray a, int start, int length)
+vector<HostRef*> JPClass::getArrayRange(jarray a, int start, int length)
 {
 	jobjectArray array = (jobjectArray)a;	
 	JPLocalFrame frame;
 	
 	vector<HostRef*> res;
 	
-	jvalue v;
 	for (int i = 0; i < length; i++)
 	{
-		v.l = JPEnv::getJava()->GetObjectArrayElement(array, i+start);
-
-		JPTypeName name = JPJni::getClassName(v.l);
-		JPType* t = JPTypeManager::getType(name);
-		
-		HostRef* pv = t->asHostObject(v);		
-
-		res.push_back(pv);
+		res.push_back(convertObjectToHostRef( JPEnv::getJava()->GetObjectArrayElement(array, i+start) ));
 	}
 	
 	return res;  
 }
 
-void JPObjectType::setArrayRange(jarray a, int start, int length, vector<HostRef*>& vals)
+void JPClass::setArrayRange(jarray a, int start, int length, vector<HostRef*>& vals)
 {
 	JPLocalFrame frame(8+length);
 	jobjectArray array = (jobjectArray)a;	
@@ -154,7 +132,7 @@ void JPObjectType::setArrayRange(jarray a, int start, int length, vector<HostRef
 	}
 }
 
-void JPObjectType::setArrayItem(jarray a, int ndx, HostRef* val)
+void JPClass::setArrayItem(jarray a, int ndx, HostRef* val)
 {
 	JPLocalFrame frame;
 	jobjectArray array = (jobjectArray)a;	
@@ -164,63 +142,70 @@ void JPObjectType::setArrayItem(jarray a, int ndx, HostRef* val)
 	JPEnv::getJava()->SetObjectArrayElement(array, ndx, v.l);		
 }
 
-HostRef* JPObjectType::getArrayItem(jarray a, int ndx)
+HostRef* JPClass::getArrayItem(jarray a, int ndx)
 {
 	JPLocalFrame frame;
-	TRACE_IN("JPObjectType::getArrayItem");
+	TRACE_IN("JPClass::getArrayItem");
 	jobjectArray array = (jobjectArray)a;	
 	
 	jobject obj = JPEnv::getJava()->GetObjectArrayElement(array, ndx);
-	
-	if (obj == NULL)
-	{
-		return JPEnv::getHost()->getNone();
-	}
-	
-	jvalue v;
-	v.l = obj;
-
-	JPTypeName name = JPJni::getClassName(v.l);
-	JPType* t = JPTypeManager::getType(name);
-	
-	return t->asHostObject(v);
+	return convertObjectToHostRef(obj)
 	TRACE_OUT;
 }
 
-jobject JPObjectType::convertToJavaObject(HostRef* obj)
+jobject JPClass::convertToJavaObject(HostRef* obj)
 {
 	jvalue v = convertToJava(obj);
 	return v.l;
 }
 
-HostRef* JPObjectType::asHostObjectFromObject(jvalue val)
+HostRef* JPClass::asHostObjectFromObject(jvalue val)
 {
 	return asHostObject(val);
 }
 
-HostRef* JPObjectType::convertToDirectBuffer(HostRef* src)
+HostRef* JPClass::convertToDirectBuffer(HostRef* src)
 {
 	RAISE(JPypeException, "Unable to convert to Direct Buffer");
 }
 
-bool JPObjectType::isSubTypeOf(const JPType& other) const
+bool JPClass::isSubTypeOf(const JPType& other) const
 {
-	const JPObjectType* otherObjectType = dynamic_cast<const JPObjectType*>(&other);
+	const JPClass* otherObjectType = dynamic_cast<const JPClass*>(&other);
 	if (!otherObjectType)
 	{
 		return false;
 	}
 	JPLocalFrame frame;
-	jclass ourClass = getClass();
-	jclass otherClass = otherObjectType->getClass();
+	jclass ourClass = getNativeClass();
+	jclass otherClass = otherObjectType->getNativeClass();
 	// IsAssignableFrom is a jni method and the order of parameters is counterintuitive
 	bool otherIsSuperType = JPEnv::getJava()->IsAssignableFrom(ourClass, otherClass);
 	//std::cout << other.getName().getSimpleName() << " isSuperType of " << getName().getSimpleName() << " " << otherIsSuperType << std::endl;
 	return otherIsSuperType;
 }
 
+PyObject* JPClass::getArrayRangeToSequence(jarray, int start, int length)
+{
+	RAISE(JPypeException, "not impled for void*");
+}
+	
+void JPClass::setArrayRange(jarray, int start, int len, PyObject*) 
+{
+	RAISE(JPypeException, "not impled for void*");
+}
+
+
 
 //-------------------------------------------------------------------------------
+
+JPStringType::JPStringType():
+	JPClass(JPJni::s_StringClass)
+{
+}
+
+JPStringType::~JPStringType()
+{}
 
 HostRef* JPStringType::asHostObject(jvalue val) 
 {
@@ -339,10 +324,5 @@ jvalue JPStringType::convertToJava(HostRef* obj)
 	
 	return v;
 	TRACE_OUT;
-}
-
-jclass JPStringType::getClass() const
-{
-  return JPJni::s_StringClass;
 }
 

@@ -20,10 +20,10 @@
 /**
  * Class to wrap Java Class and provide low-level behavior
  */
-class JPArrayClass : public JPClassBase
+class JPArrayClass : public JPClass
 {
 public :
-	JPArrayClass(const JPTypeName& tname, jclass c);
+	JPArrayClass(jclass c);
 	virtual~ JPArrayClass();
 
 public : // JPType implementation
@@ -37,6 +37,9 @@ public : // JPType implementation
 	}
 
 	JPArray* newInstance(int length);
+
+	virtual void postLoad()
+	{}
 
 public :
 	JPType* m_ComponentType;

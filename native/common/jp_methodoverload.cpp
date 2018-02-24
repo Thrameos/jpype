@@ -16,28 +16,9 @@
 *****************************************************************************/   
 #include <jpype.h>
 
-JPMethodOverload::JPMethodOverload()
-{
-	m_Method = NULL;
-	m_ReturnTypeCache = NULL;
-}
-
-JPMethodOverload::JPMethodOverload(const JPMethodOverload& o) :
-	m_Class(o.m_Class),
-	m_MethodID(o.m_MethodID),
-	m_ReturnType(o.m_ReturnType),
-	m_Arguments(o.m_Arguments),
-	m_IsStatic(o.m_IsStatic),
-	m_IsFinal(o.m_IsFinal),
-	m_IsVarArgs(o.m_IsVarArgs),
-	m_IsConstructor(o.m_IsConstructor)
-{
-	m_Method = JPEnv::getJava()->NewGlobalRef(o.m_Method);
-	m_ReturnTypeCache = NULL;
-}
-
 JPMethodOverload::JPMethodOverload(JPClass* claz, jobject mth)
 {
+	JPLocalFrame frame;
 	m_Class = claz;
 	m_Method = JPEnv::getJava()->NewGlobalRef(mth);
 	m_ReturnTypeCache = NULL;
@@ -55,7 +36,8 @@ JPMethodOverload::JPMethodOverload(JPClass* claz, jobject mth)
 	// return type
 	if (! m_IsConstructor)
 	{
-		m_ReturnType = JPJni::getReturnType(m_Method);
+		m_ReturnType = (jclass)JPEnv::getJava()->NewGlobalRef(JPJni::getReturnType(m_Method));
+		m_ReturnTypeName = JPJni::getName(m_ReturnType);
 	}
 
 	// arguments
@@ -63,13 +45,23 @@ JPMethodOverload::JPMethodOverload(JPClass* claz, jobject mth)
 	// Add the implicit "this" argument
 	if (! m_IsStatic && ! m_IsConstructor)
 	{
-		m_Arguments.insert(m_Arguments.begin(), 1, claz->getName());
+		m_Arguments.insert(m_Arguments.begin(), 1, claz->getNativeClass());
+	}
+
+	// Convert to global references
+	for (size_t i =0; i<m_Arguments.size(); ++i)
+	{
+		m_Arguments[i] = (jclass)JPEnv::getJava()->NewGlobalRef(m_Arguments[i]);
 	}
 }
 
 JPMethodOverload::~JPMethodOverload()
 {
 	JPEnv::getJava()->DeleteGlobalRef(m_Method);
+	if (m_ReturnType!=0)
+		JPEnv::getJava()->DeleteGlobalRef(m_ReturnType);
+	for (size_t i =0; i<m_Arguments.size(); ++i)
+		JPEnv::getJava()->DeleteGlobalRef(m_Arguments[i]);
 }
 
 string JPMethodOverload::getSignature()
@@ -78,9 +70,9 @@ string JPMethodOverload::getSignature()
 	
 	res << "(";
 	
-	for (vector<JPTypeName>::iterator it = m_Arguments.begin(); it != m_Arguments.end(); it++)
+	for (vector<jclass>::iterator it = m_Arguments.begin(); it != m_Arguments.end(); it++)
 	{
-		res << it->getNativeName();
+		res << JPJni::getName(*it).getNativeName();
 	}
 	
 	res << ")" ;
@@ -95,7 +87,7 @@ string JPMethodOverload::getArgumentString()
 	res << "(";
 	
 	bool first = true;
-	for (vector<JPTypeName>::iterator it = m_Arguments.begin(); it != m_Arguments.end(); it++)
+	for (vector<jclass>::iterator it = m_Arguments.begin(); it != m_Arguments.end(); it++)
 	{
 		if (! first)
 		{
@@ -105,7 +97,7 @@ string JPMethodOverload::getArgumentString()
 		{
 			first = false;
 		}
-		res << it->getSimpleName();
+		res << JPJni::getName(*it).getSimpleName();
 	}
 	
 	res << ")";
@@ -135,12 +127,9 @@ bool JPMethodOverload::isSameOverload(JPMethodOverload& o)
 	}
 	for (unsigned int i = start; i < m_Arguments.size() && i < o.m_Arguments.size(); i++)
 	{
-		JPTypeName& mine = m_Arguments[i];
-		JPTypeName& his = o.m_Arguments[i];
-		const string& mineSimple = mine.getSimpleName();
-		const string& hisSimple = his.getSimpleName();
-
-		if (mineSimple != hisSimple)
+		jclass mine = m_Arguments[i];
+		jclass his = o.m_Arguments[i];
+		if (!JPEnv::getJava()->IsSameObject((jobject)mine, (jobject)his))
 		{
 			return false;
 		}
@@ -305,7 +294,7 @@ HostRef* JPMethodOverload::invokeStatic(vector<HostRef*>& arg)
 	JPLocalFrame frame(8+alen);
 	JPMallocCleaner<jvalue> v(alen);
 	packArgs(v, arg, 0);
-	jclass claz = m_Class->getClass();
+	jclass claz = m_Class->getNativeClass();
 	JPType* retType = m_ReturnTypeCache;
 
 	return retType->invokeStatic(claz, m_MethodID, v.borrow());
@@ -331,7 +320,7 @@ HostRef* JPMethodOverload::invokeInstance(vector<HostRef*>& arg)
 		JPType* retType = m_ReturnTypeCache;
 	
 		jobject c = selfObj->getObject();
-		jclass clazz = m_Class->getClass();
+		jclass clazz = m_Class->getNativeClass();
 	
 		res = retType->invoke(c, clazz, m_MethodID, v.borrow());
 		TRACE1("Call finished");
@@ -358,8 +347,7 @@ JPObject* JPMethodOverload::invokeConstructor(jclass claz, vector<HostRef*>& arg
 	val.l = JPEnv::getJava()->NewObjectA(claz, m_MethodID, v.borrow());
 	TRACE1("Object created");
 	
-	JPTypeName name = JPJni::getName(claz);
-	return new JPObject(name, val.l);
+	return new JPObject((JPClass*)JPTypeManager::findClass(claz), val.l);
 
 	TRACE_OUT;
 }
@@ -368,10 +356,10 @@ string JPMethodOverload::matchReport(vector<HostRef*>& args)
 {
 	stringstream res;
 
-	res << m_ReturnType.getNativeName() << " (";
+	res << m_ReturnTypeName.getNativeName() << " (";
 
 	bool isFirst = true;
-	for (vector<JPTypeName>::iterator it = m_Arguments.begin(); it != m_Arguments.end(); it++)
+	for (vector<jclass>::iterator it = m_Arguments.begin(); it != m_Arguments.end(); it++)
 	{
 		if (isFirst && ! isStatic())
 		{
@@ -379,7 +367,7 @@ string JPMethodOverload::matchReport(vector<HostRef*>& args)
 			continue;
 		}
 		isFirst = false;
-		res << it->getNativeName();
+		res << JPJni::getName(*it).getNativeName();
 	}
 	
 	res << ") ==> ";
@@ -445,11 +433,11 @@ void JPMethodOverload::ensureTypeCache() const
 	m_ArgumentsTypeCache.clear(); 
 	for (size_t i = 0; i < m_Arguments.size(); ++i) 
 	{
-		m_ArgumentsTypeCache.push_back(JPTypeManager::getType(m_Arguments[i]));
+		m_ArgumentsTypeCache.push_back(JPTypeManager::findClass(m_Arguments[i]));
 	}
 	if (!m_IsConstructor) 
 	{
-		m_ReturnTypeCache = JPTypeManager::getType(m_ReturnType);
+		m_ReturnTypeCache = JPTypeManager::findClass(m_ReturnType);
 	}
 //	TRACE_OUT;
 }

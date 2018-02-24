@@ -28,7 +28,7 @@ typedef _object PyObject;
 class JPArray : public JPObjectBase
 {
 public :
-	JPArray(const JPTypeName& name, jarray inst);
+	JPArray(JPArrayClass* cls, jarray inst);
 	virtual~ JPArray();
 
 public :

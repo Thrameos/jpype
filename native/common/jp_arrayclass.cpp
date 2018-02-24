@@ -18,11 +18,10 @@
 
 
 
-JPArrayClass::JPArrayClass(const JPTypeName& tname, jclass c) :
-	JPClassBase(tname, c)
+JPArrayClass::JPArrayClass(jclass c) :
+	JPClass(c)
 {
-	JPTypeName compname = m_Name.getComponentName();
-	m_ComponentType = JPTypeManager::getType(compname);
+	m_ComponentType = JPTypeManager::findClass(JPJni::getComponentType(c));
 }
 
 JPArrayClass::~JPArrayClass()
@@ -51,7 +50,7 @@ EMatchType JPArrayClass::canConvertToJava(HostRef* o)
 			return _exact;
 		}
 		
-		if (JPEnv::getJava()->IsAssignableFrom(ca->m_Class, m_Class))
+		if (JPEnv::getJava()->IsAssignableFrom(ca->getNativeClass(), getNativeClass()))
 		{
 			return _implicit;
 		}
@@ -97,7 +96,7 @@ HostRef* JPArrayClass::asHostObject(jvalue val)
 	{
 		return JPEnv::getHost()->getNone();
 	}
-	return JPEnv::getHost()->newArray(new JPArray(m_Name, (jarray)val.l));
+	return JPEnv::getHost()->newArray(new JPArray(this, (jarray)val.l));
 	TRACE_OUT;
 }
 
@@ -171,14 +170,15 @@ jvalue JPArrayClass::convertToJavaVector(vector<HostRef*>& refs, size_t start, s
 {
 	JPLocalFrame frame;
 	TRACE_IN("JPArrayClass::convertToJavaVector");
-	int length = end-start;
+	size_t length = end-start;
+	// FIXME java used jint for jsize, which means we have signed 32 to unsigned 64 issues.
 
-	jarray array = m_ComponentType->newArrayInstance(length);
+	jarray array = m_ComponentType->newArrayInstance((int)length);
 	jvalue res;
 		
 	for (size_t i = start; i < end ; i++)
 	{
-		m_ComponentType->setArrayItem(array, i-start, refs[i]);
+		m_ComponentType->setArrayItem(array, (int)(i-start), refs[i]);
 	}
 	res.l = frame.keep(array);
 	return res;
@@ -189,6 +189,6 @@ JPArray* JPArrayClass::newInstance(int length)
 {	
 	JPLocalFrame frame;
 	jarray array = m_ComponentType->newArrayInstance(length);
-	return  new JPArray(getName(), array);
+	return  new JPArray(this, array);
 }
 

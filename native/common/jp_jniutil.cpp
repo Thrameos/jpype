@@ -31,7 +31,9 @@ namespace { // impl detail
 	jmethodID getDeclaredConstructorsID;
 	jmethodID getConstructorsID;
 	jmethodID isInterfaceID;
+	jmethodID isArrayID;
 	jmethodID getClassModifiersID;
+	jmethodID getComponentTypeID;
 
 	jclass modifierClass;
 	jmethodID isStaticID;
@@ -124,8 +126,10 @@ void init()
 	getDeclaredConstructorsID = JPEnv::getJava()->GetMethodID(s_ClassClass, "getDeclaredConstructors", "()[Ljava/lang/reflect/Constructor;");
 	getConstructorsID = JPEnv::getJava()->GetMethodID(s_ClassClass, "getConstructors", "()[Ljava/lang/reflect/Constructor;");
 	isInterfaceID = JPEnv::getJava()->GetMethodID(s_ClassClass, "isInterface", "()Z");
+	isInterfaceID = JPEnv::getJava()->GetMethodID(s_ClassClass, "isArray", "()Z");
 	getClassModifiersID = JPEnv::getJava()->GetMethodID(s_ClassClass, "getModifiers", "()I");
 	getInterfacesID = JPEnv::getJava()->GetMethodID(s_ClassClass, "getInterfaces", "()[Ljava/lang/Class;");
+	getComponentTypeID = JPEnv::getJava()->GetMethodID(s_ClassClass, "getComponentType", "()Ljava/lang/Class;");
 
 	modifierClass = (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("java/lang/reflect/Modifier"));
 	isStaticID = JPEnv::getJava()->GetStaticMethodID(modifierClass, "isStatic", "(I)Z");
@@ -331,6 +335,18 @@ static string convertToSimpleName(jclass c)
 	}
 
 	return name;
+}
+
+jclass getComponentType(jclass clazz)
+{
+	return (jclass)JPEnv::getJava()->CallObjectMethod(clazz, getComponentTypeID);
+}
+
+bool isArray(jclass clazz)
+{
+	JPLocalFrame frame;
+	jboolean b = JPEnv::getJava()->CallBooleanMethod(clazz, isArrayID);
+	return (b ? true : false);
 }
 
 bool isInterface(jclass clazz)
@@ -548,43 +564,35 @@ jint hashCode(jobject obj)
 	return JPEnv::getJava()->CallIntMethod(obj, hashCodeID);
 }
 
-JPTypeName getType(jobject fld)
+// Returns a local reference
+jclass getType(jobject fld)
 {
-	JPLocalFrame frame;
-	TRACE_IN("getType");
-
-	jclass c = (jclass)JPEnv::getJava()->CallObjectMethod(fld, getTypeID);
-
-	return getName(c);
-	TRACE_OUT;
+	return (jclass)JPEnv::getJava()->CallObjectMethod(fld, getTypeID);
 }
 
-JPTypeName getReturnType(jobject o)
+// Returns a local reference
+jclass getReturnType(jobject o)
 {
-	JPLocalFrame frame;
-	jclass c = (jclass)JPEnv::getJava()->CallObjectMethod(o, getReturnTypeID);
-
-	return getName(c);
+	return (jclass)JPEnv::getJava()->CallObjectMethod(o, getReturnTypeID);
 }
 
 bool isMethodSynthetic(jobject o)
 {
 	JPLocalFrame frame;
-  jboolean res = JPEnv::getJava()->CallBooleanMethod(o, isSyntheticMethodID);
-  return (res ? true : false);
+	jboolean res = JPEnv::getJava()->CallBooleanMethod(o, isSyntheticMethodID);
+	return (res ? true : false);
 }
 
 bool isVarArgsMethod(jobject o)
 {
 	JPLocalFrame frame;
-  jboolean res = JPEnv::getJava()->CallBooleanMethod(o, isVarArgsMethodID);
-  return (res ? true : false);
+	jboolean res = JPEnv::getJava()->CallBooleanMethod(o, isVarArgsMethodID);
+	return (res ? true : false);
 }
 
-vector<JPTypeName> getParameterTypes(jobject o, bool isConstructor)
+vector<jclass> getParameterTypes(jobject o, bool isConstructor)
 {
-	JPLocalFrame frame;
-	vector<JPTypeName> args;
+	vector<jclass> args;
 
 	jobjectArray types ;
 	if (isConstructor)
@@ -601,10 +609,7 @@ vector<JPTypeName> getParameterTypes(jobject o, bool isConstructor)
 		JPLocalFrame frame2(4+len);
 		for (int i = 0; i < len; i++)
 		{
-			jclass c = (jclass)JPEnv::getJava()->GetObjectArrayElement(types, i);
-
-			JPTypeName name = getName(c);
-			args.push_back(name);
+			args.push_back( (jclass)JPEnv::getJava()->GetObjectArrayElement(types, i) );
 		}
 	}
 	return args;
@@ -683,85 +688,22 @@ jchar charValue(jobject obj)
 	return JPEnv::getJava()->CallCharMethod(obj, charValueID);
 }
 
-jclass getByteClass()
+// Lookup a java class.
+// This is a local reference and must be referenced if held
+jclass findClass(const std::string& name)
 {
-	jclass byteClass = (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("java/lang/Byte"));
+	return JPEnv::getJava()->FindClass(name.c_str());
+}
+
+// Lookup Class.TYPE static field, used by the typemanager
+// This is a local reference and must be referenced if held
+jclass findPrimitiveClass(const std::string& name)
+{
+	JPLocalFrame frame;
+	jclass cls = JPEnv::getJava()->FindClass(name.c_str());
 	jfieldID fid = JPEnv::getJava()->GetStaticFieldID(byteClass, "TYPE", "Ljava/lang/Class;");
 	jclass res = (jclass)JPEnv::getJava()->GetStaticObjectField(byteClass, fid);
-	JPEnv::getJava()->DeleteGlobalRef(byteClass);
-	return res;
-}
-
-jclass getShortClass()
-{
-	jclass shortClass = (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("java/lang/Short"));
-	jfieldID fid = JPEnv::getJava()->GetStaticFieldID(shortClass, "TYPE", "Ljava/lang/Class;");
-	jclass res = (jclass)JPEnv::getJava()->GetStaticObjectField(shortClass, fid);
-	JPEnv::getJava()->DeleteGlobalRef(shortClass);
-	return res;
-}
-
-jclass getIntegerClass()
-{
-	jclass intClass = (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("java/lang/Integer"));
-	jfieldID fid = JPEnv::getJava()->GetStaticFieldID(intClass, "TYPE", "Ljava/lang/Class;");
-	jclass res = (jclass)JPEnv::getJava()->GetStaticObjectField(intClass, fid);
-	JPEnv::getJava()->DeleteGlobalRef(intClass);
-	return res;
-}
-
-jclass getLongClass()
-{
-	jclass longClass = (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("java/lang/Long"));
-	jfieldID fid = JPEnv::getJava()->GetStaticFieldID(longClass, "TYPE", "Ljava/lang/Class;");
-	jclass res = (jclass)JPEnv::getJava()->GetStaticObjectField(longClass, fid);
-	JPEnv::getJava()->DeleteGlobalRef(longClass);
-	return res;
-}
-
-jclass getFloatClass()
-{
-	jclass floatClass = (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("java/lang/Float"));
-	jfieldID fid = JPEnv::getJava()->GetStaticFieldID(floatClass, "TYPE", "Ljava/lang/Class;");
-	jclass res = (jclass)JPEnv::getJava()->GetStaticObjectField(floatClass, fid);
-	JPEnv::getJava()->DeleteGlobalRef(floatClass);
-	return res;
-}
-
-jclass getDoubleClass()
-{
-	jclass doubleClass= (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("java/lang/Double"));
-	jfieldID fid = JPEnv::getJava()->GetStaticFieldID(doubleClass, "TYPE", "Ljava/lang/Class;");
-	jclass res = (jclass)JPEnv::getJava()->GetStaticObjectField(doubleClass, fid);
-	JPEnv::getJava()->DeleteGlobalRef(doubleClass);
-	return res;
-}
-
-jclass getCharacterClass()
-{
-	jclass charClass = (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("java/lang/Character"));
-	jfieldID fid = JPEnv::getJava()->GetStaticFieldID(charClass, "TYPE", "Ljava/lang/Class;");
-	jclass res = (jclass)JPEnv::getJava()->GetStaticObjectField(charClass, fid);
-	JPEnv::getJava()->DeleteGlobalRef(charClass);
-	return res;
-}
-
-jclass getBooleanClass()
-{
-	jclass booleanClass = (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("java/lang/Boolean"));
-	jfieldID fid = JPEnv::getJava()->GetStaticFieldID(booleanClass, "TYPE", "Ljava/lang/Class;");
-	jclass res = (jclass)JPEnv::getJava()->GetStaticObjectField(booleanClass, fid);
-	JPEnv::getJava()->DeleteGlobalRef(booleanClass);
-	return res;
-}
-
-jclass getVoidClass()
-{
-	jclass voidClass= (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("java/lang/Void"));
-	jfieldID fid = JPEnv::getJava()->GetStaticFieldID(voidClass, "TYPE", "Ljava/lang/Class;");
-	jclass res = (jclass)JPEnv::getJava()->GetStaticObjectField(voidClass, fid);
-	JPEnv::getJava()->DeleteGlobalRef(voidClass);
-	return res;
+	return frame.keep(res);
 }
 
 void startJPypeReferenceQueue(bool useJavaThread)

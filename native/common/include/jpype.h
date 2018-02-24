@@ -127,10 +127,13 @@ void longToHexString(long value, char* outStr);
 /** Definition of commonly used template types */
 typedef vector<string> StringVector;
 
+class JPClass;
+class JPField;
+class JPMethod;
 
 // Base utility headers
-#include "jp_typename.h"
 #include "jp_utility.h"
+#include "jp_typename.h"
 #include "jp_javaenv.h"
 #include "jp_hostenv.h"
 #include "jp_env.h"
@@ -140,12 +143,12 @@ typedef vector<string> StringVector;
 // Other header files
 #include "jp_type.h"
 #include "jp_primitivetypes.h"
-#include "jp_objecttypes.h"
+#include "jp_class.h"
+#include "jp_stringtype.h"
 
 #include "jp_field.h"
 #include "jp_methodoverload.h"
 #include "jp_method.h"
-#include "jp_classbase.h"
 #include "jp_class.h"
 #include "jp_arrayclass.h"
 #include "jp_typemanager.h"

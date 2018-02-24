@@ -203,6 +203,12 @@ jobject JPJavaEnv::NewGlobalRef(jobject a0)
 }
 
 
+bool JPJavaEnv::IsSameObject(jobject a, jobject b)
+{
+	JNIEnv* env = getJNIEnv();
+	return env->functions->IsSameObject(env, a, b);
+}
+
 
 bool JPJavaEnv::ExceptionCheck()
 {

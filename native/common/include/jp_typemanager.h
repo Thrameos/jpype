@@ -25,28 +25,28 @@ namespace JPTypeManager
 	/**
 	 * Initialize the type manager caches
 	 */
-	void                         init();
+	void init();
 	
 	/**
 	 * delete allocated typenames, should only be called at program termination
 	 */
-	void                         shutdown();
+	void shutdown();
 
-	JPType*                      getType(const JPTypeName& name);
+
+	JPType* getPrimitiveType(JPTypeName::ETypes etype);
 	
 	/**
 	 * The pointer returned is NOT owned by the caller
+	 *
+	 * Will be JType, JClass or JArrayClass based on the type
+	 * 
+	 * May return NULL if the java class does not exist.
 	 */
-	JPClass*					   findClass(const JPTypeName&);
+	JPType* findClass(jclass cls);
 
-	/**
-	 * The pointer returned is NOT owned by the caller
-	 */
-	JPArrayClass*			   findArrayClass(const JPTypeName&);
+	void flushCache();
 
-	void                        flushCache();
-
-	int                         getLoadedClasses();
+	int getLoadedClasses();
 }
 
 #endif // _JPCLASS_H_

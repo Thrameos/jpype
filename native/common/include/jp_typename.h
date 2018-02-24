@@ -84,6 +84,8 @@ public :
 	/** Factory method from a simple, human-readable name */
 	static JPTypeName fromSimple(const char* name);
 	static JPTypeName fromType(ETypes t);
+
+	jclass findClass() const;
 	
 	const string& getSimpleName() const
 	{

@@ -20,41 +20,73 @@
 /**
  * Class to wrap Java Class and provide low-level behavior
  */
-class JPClass : public JPClassBase
+class JPClass : public JPType
 {
 public :
-	JPClass(const JPTypeName& tname, jclass c);
+	JPClass(jclass c);
 	virtual~ JPClass();
 
 public :
+	virtual jclass getNativeClass() const
+	{
+		return m_Class;
+	}
+
+	virtual const JPTypeName&  getName() const
+	{
+		return m_Name;
+	}
+	
+	virtual bool      isObjectType() const
+	{ 
+		return true; 
+	}
+
+public : // JPType implementation
+	virtual HostRef*   asHostObject(jvalue val);
+	virtual EMatchType canConvertToJava(HostRef* obj);
+	virtual jvalue     convertToJava(HostRef* obj);
+	
+	// JPType implementation
+	virtual HostRef* getStaticValue(jclass c, jfieldID fid);
+	virtual void      setStaticValue(jclass c, jfieldID fid, HostRef* val);
+	virtual HostRef* getInstanceValue(jobject c, jfieldID fid);
+	virtual void      setInstanceValue(jobject c, jfieldID fid, HostRef* val);
+	virtual HostRef*   asHostObjectFromObject(jvalue val);
+
+	virtual jobject convertToJavaObject(HostRef* obj);
+
+	virtual HostRef* invokeStatic(jclass, jmethodID, jvalue*);
+	virtual HostRef* invoke(jobject, jclass clazz, jmethodID, jvalue*);
+
+	virtual jarray    newArrayInstance(int size);
+	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);
+	virtual void      setArrayRange(jarray, int start, int length, vector<HostRef*>& vals);
+	virtual HostRef* getArrayItem(jarray, int ndx);
+	virtual void      setArrayItem(jarray, int ndx, HostRef* val);
+	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
+	virtual void setArrayRange(jarray, int start, int len, PyObject*);
+
+	virtual HostRef*   convertToDirectBuffer(HostRef* src);
+	virtual bool isSubTypeOf(const JPType& other) const;
+
+public:
+	// Class specific implementation
 	/** 
 	 * Called to fully load base classes and members 
 	 */
-	void postLoad();
+	virtual void postLoad();
 	
 	HostRef*                getStaticAttribute(const string& attr_name);
 	void                    setStaticAttribute(const string& attr_name, HostRef* val);
 	
 	JPObject*               newInstance(vector<HostRef*>& args);
-	
+
 	JPField*                getInstanceField(const string& name);
 	JPField*                getStaticField(const string& name);
-	JPMethod*				getMethod(const string& name);
-	vector<JPMethod*>		getMethods() const
-	{
-		vector<JPMethod*> res;
-		res.reserve(m_Methods.size());
-		for (map<string, JPMethod*>::const_iterator cur = m_Methods.begin(); cur != m_Methods.end(); cur++)
-		{
-			res.push_back(cur->second);
-		}
-		return res;
-	}
+	JPMethod*		getMethod(const string& name);
 
-	jclass getClass()
-	{
-		return m_Class;
-	}
+	vector<JPMethod*>	getMethods() const;
 
 	map<string, JPField*>& getStaticFields()
 	{
@@ -66,12 +98,15 @@ public :
 		return m_InstanceFields;
 	}
 
+	bool isArray();
 	bool isFinal();
 	bool isAbstract();
 	bool isInterface()
 	{
 		return m_IsInterface;
 	}
+
+	long getClassModifiers();
 
 	JPClass* getSuperClass();
 	const vector<JPClass*>& getInterfaces() const;
@@ -80,11 +115,7 @@ public :
 	
 	string describe();
 
-public : // JPType implementation
-	virtual HostRef*   asHostObject(jvalue val);
-	virtual EMatchType canConvertToJava(HostRef* obj);
-	virtual jvalue     convertToJava(HostRef* obj);
-	
+
 private :
 	void loadSuperClass();	
 	void loadSuperInterfaces();	
@@ -95,13 +126,17 @@ private :
 	jobject buildObjectWrapper(HostRef* obj);
 
 private :
+	jclass                  m_Class;
+	JPTypeName              m_Name;
+
+	// Caches for class fields, methods, ctors, and parents
 	bool                    m_IsInterface;
-	JPClass*				m_SuperClass;
-	vector<JPClass*>		m_SuperInterfaces;
+	JPClass*		m_SuperClass;
+	vector<JPClass*>	m_SuperInterfaces;
 	map<string, JPField*>   m_StaticFields;
 	map<string, JPField*>   m_InstanceFields;
 	map<string, JPMethod*>	m_Methods;
-	JPMethod*				m_Constructors;
+	JPMethod*		m_Constructors;
 };
 
 

@@ -22,18 +22,17 @@
  */
 class JPField
 {
+private:
+	JPField(const JPField&);
+
 public :
 	/**
-	 * default constructor
-	 */
-	JPField();
-	
-	/**
 	 * Create a new field based on class and java.lang.Field object
+	 *
+	 * clazz is the class with the field
+	 * fld is the Field instance (java.lang.Field)
 	 */
 	JPField(JPClass* clazz, jobject fld);
-	
-	JPField(const JPField&);
 	
 	/**
 	 * destructor
@@ -46,7 +45,7 @@ public :
 	const string& getName() const;
 	const JPTypeName& getType() const
 	{
-		return m_Type;
+		return m_TypeName;
 	}
 	
 	HostRef* getStaticAttribute();
@@ -61,13 +60,14 @@ public :
 	}
 
 private :
-	string                 m_Name;
-	JPClass*			   m_Class;
-	bool                   m_IsStatic;
-	bool                   m_IsFinal;
-	jobject                m_Field;
-	jfieldID               m_FieldID;
-	JPTypeName             m_Type;
+	string     m_Name;
+	JPClass*   m_Class;
+	bool       m_IsStatic;
+	bool       m_IsFinal;
+	jobject    m_Field;
+	jfieldID   m_FieldID;
+	jclass     m_Type;
+	JPTypeName m_TypeName;
 };
 
 #endif // _JPFIELD_H_

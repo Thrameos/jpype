@@ -139,9 +139,7 @@ PyObject* PyJPField::setStaticAttribute(PyObject* o, PyObject* arg)
 		HostRef v(value);
 
 		self->m_Field->setStaticAttribute(&v);
-
-		Py_INCREF(Py_None);
-		return Py_None;
+		Py_RETURN_NONE;
 	}
 	PY_STANDARD_CATCH
 
@@ -165,9 +163,7 @@ PyObject* PyJPField::setInstanceAttribute(PyObject* o, PyObject* arg)
 		jobject jobj = obj->getObject();
 
 		self->m_Field->setAttribute(jobj, &ref);
-
-		Py_INCREF(Py_None);
-		return Py_None;
+		Py_RETURN_NONE;
 	}
 	PY_STANDARD_CATCH
 

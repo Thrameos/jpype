@@ -21,7 +21,6 @@ class JPObject : public JPObjectBase
 {
 public :
 	JPObject(JPClass* clazz, jobject inst);
-	JPObject(JPTypeName& clazz, jobject inst);
 	virtual ~JPObject();
 	
 
