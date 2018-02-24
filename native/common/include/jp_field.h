@@ -32,7 +32,7 @@ public :
 	 * clazz is the class with the field
 	 * fld is the Field instance (java.lang.Field)
 	 */
-	JPField(JPClass* clazz, jobject fld);
+	JPField(JPObjectClass* clazz, jobject fld);
 	
 	/**
 	 * destructor
@@ -61,7 +61,7 @@ public :
 
 private :
 	string     m_Name;
-	JPClass*   m_Class;
+	JPObjectClass*   m_Class;
 	bool       m_IsStatic;
 	bool       m_IsFinal;
 	jobject    m_Field;

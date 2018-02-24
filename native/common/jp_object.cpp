@@ -16,7 +16,7 @@
 *****************************************************************************/   
 #include <jpype.h>
 
-JPObject::JPObject(JPClass* c, jobject o)
+JPObject::JPObject(JPObjectClass* c, jobject o)
 {
 	m_Class = c;
 	m_Object = JPEnv::getJava()->NewGlobalRef(o);

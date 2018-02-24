@@ -23,7 +23,7 @@ class JPMethodOverload
 private:
 	JPMethodOverload(const JPMethodOverload& o);
 public :
-	JPMethodOverload(JPClass* claz, jobject mth);
+	JPMethodOverload(JPObjectClass* claz, jobject mth);
 	
 	virtual ~JPMethodOverload();
 	
@@ -72,7 +72,7 @@ public :
 private:
 	void ensureTypeCache() const;
 private :
-	JPClass*                 m_Class;
+	JPObjectClass*                 m_Class;
 	jobject                  m_Method;
 	jmethodID                m_MethodID;
 	jclass                   m_ReturnType;
@@ -82,8 +82,8 @@ private :
 	bool                     m_IsFinal;
 	bool                     m_IsVarArgs;
 	bool                     m_IsConstructor;
-	mutable vector<JPType*>  m_ArgumentsTypeCache;
-	mutable JPType*          m_ReturnTypeCache;
+	mutable vector<JPClass*>  m_ArgumentsTypeCache;
+	mutable JPClass*          m_ReturnTypeCache;
 };
 
 #endif // _JPMETHODOVERLOAD_H_

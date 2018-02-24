@@ -57,7 +57,6 @@ public :
 	}
 
 public : // Wrapper
-	virtual JPType* getType();
 	virtual jvalue  getValue();
 	virtual JCharString toString();
 

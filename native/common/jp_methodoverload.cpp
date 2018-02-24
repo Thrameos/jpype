@@ -16,7 +16,7 @@
 *****************************************************************************/   
 #include <jpype.h>
 
-JPMethodOverload::JPMethodOverload(JPClass* claz, jobject mth)
+JPMethodOverload::JPMethodOverload(JPObjectClass* claz, jobject mth)
 {
 	JPLocalFrame frame;
 	m_Class = claz;
@@ -138,11 +138,11 @@ bool JPMethodOverload::isSameOverload(JPMethodOverload& o)
 	TRACE_OUT;
 }
 
-EMatchType matchVars(vector<HostRef*>& arg, size_t start, JPType* vartype)
+EMatchType matchVars(vector<HostRef*>& arg, size_t start, JPClass* vartype)
 {
 	TRACE_IN("JPMethodOverload::matchVars");
 	JPArrayClass* arraytype = (JPArrayClass*) vartype;
-	JPType* type = arraytype->getComponentType();
+	JPClass* type = arraytype->getComponentType();
 	size_t len = arg.size();
 
 	EMatchType lastMatch = _exact;
@@ -182,7 +182,7 @@ EMatchType JPMethodOverload::matches(bool ignoreFirst, vector<HostRef*>& arg)
 	}
 	else
 	{
-		JPType* type = m_ArgumentsTypeCache[tlen-1];
+		JPClass* type = m_ArgumentsTypeCache[tlen-1];
 		if (len < tlen-1)
 		{
 			return _none;
@@ -223,7 +223,7 @@ EMatchType JPMethodOverload::matches(bool ignoreFirst, vector<HostRef*>& arg)
 		}
 
 		HostRef* obj = arg[i];
-		JPType* type = m_ArgumentsTypeCache[i];
+		JPClass* type = m_ArgumentsTypeCache[i];
 		
 		EMatchType match = type->canConvertToJava(obj);
 		TRACE2(type->getName().getSimpleName(), match);
@@ -254,7 +254,7 @@ void JPMethodOverload::packArgs(JPMallocCleaner<jvalue>& v, vector<HostRef*>& ar
 		if (len == tlen)
 		{
 			HostRef* obj = arg[len-1];
-			JPType* type = m_ArgumentsTypeCache[tlen-1];
+			JPClass* type = m_ArgumentsTypeCache[tlen-1];
 		  if (type->canConvertToJava(obj) < _implicit)
 			{
 				len = tlen-1;
@@ -273,7 +273,7 @@ void JPMethodOverload::packArgs(JPMallocCleaner<jvalue>& v, vector<HostRef*>& ar
 	{
 		TRACE2("Convert ",i);
 		HostRef* obj = arg[i];
-		JPType* type = m_ArgumentsTypeCache[i];
+		JPClass* type = m_ArgumentsTypeCache[i];
 
 		v[i-skip] = type->convertToJava(obj);		
 	}
@@ -297,7 +297,7 @@ HostRef* JPMethodOverload::invokeStatic(vector<HostRef*>& arg)
 	JPMallocCleaner<jvalue> v(alen);
 	packArgs(v, arg, 0);
 	jclass claz = m_Class->getNativeClass();
-	JPType* retType = m_ReturnTypeCache;
+	JPClass* retType = m_ReturnTypeCache;
 
 	return retType->invokeStatic(claz, m_MethodID, v.borrow());
 	TRACE_OUT;
@@ -319,7 +319,7 @@ HostRef* JPMethodOverload::invokeInstance(vector<HostRef*>& arg)
 	
 		JPMallocCleaner<jvalue> v(alen-1);
 		packArgs(v, arg, 1);
-		JPType* retType = m_ReturnTypeCache;
+		JPClass* retType = m_ReturnTypeCache;
 	
 		jobject c = selfObj->getObject();
 		jclass clazz = m_Class->getNativeClass();
@@ -349,7 +349,7 @@ JPObject* JPMethodOverload::invokeConstructor(jclass claz, vector<HostRef*>& arg
 	val.l = JPEnv::getJava()->NewObjectA(claz, m_MethodID, v.borrow());
 	TRACE1("Object created");
 	
-	return new JPObject((JPClass*)JPTypeManager::findClass(claz), val.l);
+	return new JPObject((JPObjectClass*)JPTypeManager::findClass(claz), val.l);
 
 	TRACE_OUT;
 }
@@ -415,8 +415,8 @@ bool JPMethodOverload::isMoreSpecificThan(JPMethodOverload& other) const
 		return false;
 	}
 	for (size_t i = 0; i < numParametersThis; ++i) {
-		const JPType* thisArgType = m_ArgumentsTypeCache[startThis + i];
-		const JPType* otherArgType = other.m_ArgumentsTypeCache[startOther + i];
+		const JPClass* thisArgType = m_ArgumentsTypeCache[startThis + i];
+		const JPClass* otherArgType = other.m_ArgumentsTypeCache[startOther + i];
 		if (!thisArgType->isSubTypeOf(*otherArgType)) {
 			return false;
 		}

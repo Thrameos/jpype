@@ -214,8 +214,8 @@ void JPypeJavaException::errorOccurred()
 
 	jclass ec = JPJni::getClass(th);
 	JPTypeName tn = JPJni::getName(ec);
-	JPClass* jpclass = (JPClass*)JPTypeManager::findClass(tn.findClass());
-	// FIXME nothing checks if the class is valiid before using it
+	JPObjectClass* jpclass = dynamic_cast<JPObjectClass*>(JPTypeManager::findClass(tn.findClass()));
+	// FIXME nothing checks if the class is valid before using it
 
 	PyObject* jexclass = hostEnv->getJavaShadowClass(jpclass);
 	HostRef* pyth = hostEnv->newObject(new JPObject(jpclass, th));

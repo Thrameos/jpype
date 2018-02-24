@@ -82,7 +82,7 @@ JNIEXPORT jobject JNICALL Java_jpype_JPypeInvocationHandler_hostInvoke(
 			return NULL;
 		}
 
-		JPType* rt = JPTypeManager::findClass(returnType);
+		JPClass* rt = JPTypeManager::findClass(returnType);
 		// What if rt is NULL?
 		
 		if (rt->canConvertToJava(returnValue) == _none)

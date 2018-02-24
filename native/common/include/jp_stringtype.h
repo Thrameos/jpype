@@ -17,7 +17,7 @@
 #ifndef _JPPSTRINGTYPE_H_
 #define _JPPSTRINGTYPE_H_
 
-class JPStringType : public JPClass
+class JPStringType : public JPObjectClass
 {
 public :
 	JPStringType();

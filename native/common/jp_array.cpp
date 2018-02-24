@@ -39,7 +39,7 @@ int JPArray::getLength()
 vector<HostRef*> JPArray::getRange(int start, int stop)
 {
 	TRACE_IN("JPArray::getRange");
-	JPType* compType = m_Class->getComponentType();
+	JPClass* compType = m_Class->getComponentType();
 	TRACE2("Compoennt type", compType->getName().getSimpleName());
 	
 	vector<HostRef*> res = compType->getArrayRange(m_Object, start, stop-start);
@@ -51,7 +51,7 @@ vector<HostRef*> JPArray::getRange(int start, int stop)
 PyObject* JPArray::getSequenceFromRange(int start, int stop)
 {
 //	TRACE_IN("JPArray::getSequenceFromRange");
-	JPType* compType = m_Class->getComponentType();
+	JPClass* compType = m_Class->getComponentType();
 //	TRACE2("Component type", compType->getName().getSimpleName());
 
 	return compType->getArrayRangeToSequence(m_Object, start, stop);
@@ -60,7 +60,7 @@ PyObject* JPArray::getSequenceFromRange(int start, int stop)
 
 void JPArray::setRange(int start, int stop, vector<HostRef*>& val)
 {
-	JPType* compType = m_Class->getComponentType();
+	JPClass* compType = m_Class->getComponentType();
 	
 	unsigned int len = stop-start;
 	size_t plength = val.size();
@@ -86,7 +86,7 @@ void JPArray::setRange(int start, int stop, vector<HostRef*>& val)
 
 void JPArray::setRange(int start, int stop, PyObject* sequence)
 {
-	JPType* compType = m_Class->getComponentType();
+	JPClass* compType = m_Class->getComponentType();
 	unsigned int len = stop-start;
 	// check bounds of sequence which is to be assigned
 	HostRef h(sequence);
@@ -104,7 +104,7 @@ void JPArray::setRange(int start, int stop, PyObject* sequence)
 
 void JPArray::setItem(int ndx, HostRef* val)
 {
-	JPType* compType = m_Class->getComponentType();
+	JPClass* compType = m_Class->getComponentType();
 	if (compType->canConvertToJava(val) <= _explicit)
 	{
 		RAISE(JPypeException, "Unable to convert.");
@@ -115,14 +115,9 @@ void JPArray::setItem(int ndx, HostRef* val)
 
 HostRef* JPArray::getItem(int ndx)
 {
-	JPType* compType = m_Class->getComponentType();
+	JPClass* compType = m_Class->getComponentType();
 
 	return compType->getArrayItem(m_Object, ndx);
-}
-
-JPType* JPArray::getType()
-{
-	return m_Class;
 }
 
 jvalue  JPArray::getValue()
@@ -131,6 +126,7 @@ jvalue  JPArray::getValue()
 	val.l = JPEnv::getJava()->NewLocalRef(m_Object);
 	return val;
 }
+
 JCharString JPArray::toString()
 {
 	static const char* value = "Array wrapper";

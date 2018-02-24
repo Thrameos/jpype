@@ -20,11 +20,10 @@
 class JPObject : public JPObjectBase
 {
 public :
-	JPObject(JPClass* clazz, jobject inst);
+	JPObject(JPObjectClass* clazz, jobject inst);
 	virtual ~JPObject();
 	
-
-	JPClass* getClass()
+	JPObjectClass* getClass()
 	{
 		return m_Class;
 	}
@@ -40,7 +39,7 @@ public :
 	void     setAttribute(const string& name, HostRef* value);
 
 private :
-	JPClass* m_Class;
+	JPObjectClass* m_Class;
 	jobject	 m_Object;
 };
 

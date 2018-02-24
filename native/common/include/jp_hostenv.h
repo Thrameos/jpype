@@ -41,7 +41,7 @@ private :
 // Pre-declare those required types
 class JPArray;
 class JPArrayClass;
-class JPClass;
+class JPObjectClass;
 class JPMethod;
 class JPObject;
 class JPProxy;
@@ -100,8 +100,8 @@ public :
 	virtual HostRef* newObject(JPObject*) = 0;
 
 	virtual bool                   isClass(HostRef*) = 0;
-	virtual HostRef* newClass(JPClass*) = 0;
-	virtual JPClass* asClass(HostRef*) = 0;
+	virtual HostRef* newClass(JPObjectClass*) = 0;
+	virtual JPObjectClass* asClass(HostRef*) = 0;
 
 	virtual bool                        isArrayClass(HostRef*) = 0;
 	virtual HostRef* newArrayClass(JPArrayClass*) = 0;

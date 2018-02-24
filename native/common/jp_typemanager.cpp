@@ -21,59 +21,48 @@ namespace {
 // 1) TODO: test on HP-UX platform. Cause: it is suspected to be an undefined order of initialization of static objects
 //
 //  2) TODO: in any case, use of static objects may impose problems in multi-threaded environment.
-	typedef map<JPTypeName::ETypes, JPType*> TypeMap;
-	typedef map<int, JPType* > JavaClassMap;
-
-	TypeMap typeMap;
+	typedef map<int, JPClass* > JavaClassMap;
 	JavaClassMap javaClassMap;
-
 }
 
 namespace JPTypeManager {
+JPClass *_void  = 0;
+JPClass *_boolean  = 0;
+JPClass *_byte  = 0;
+JPClass *_short  = 0;
+JPClass *_long  = 0;
+JPClass *_int  = 0;
+JPClass *_float  = 0;
+JPClass *_double  = 0;
+JPClass *_java_lang_String  = 0;
 
-void registerPrimitiveClass(JPPrimitiveType* type)
+void registerPrimitiveClass(JPClass* type)
 {
-	TRACE_IN("JPTypeManager::registerPrimitiveClass");
-	// Add to the etype to type table
-	JPTypeName::ETypes etype = type->getEType();
-	JPTypeName name = type->getName();
 	jclass cls = type->getNativeClass();
-	typeMap[etype] = type;
-
 	int hash = JPJni::hashCode(cls);
 	javaClassMap[hash] = type;
-	TRACE1(JPJni::getName(cls).getSimpleName());
-	TRACE1(hash);
-	TRACE1(type->getNativeClass());
-
-	TRACE_OUT;
 }
 
 void init()
 {
 	// Preload the primitive types
-	registerPrimitiveClass(new JPVoidType());
-	registerPrimitiveClass(new JPBooleanType());
-	registerPrimitiveClass(new JPByteType());
-	registerPrimitiveClass(new JPShortType());
-	registerPrimitiveClass(new JPIntType());
-	registerPrimitiveClass(new JPLongType());
-	registerPrimitiveClass(new JPFloatType());
-	registerPrimitiveClass(new JPDoubleType());
+	registerPrimitiveClass(_void=new JPVoidType());
+	registerPrimitiveClass(_boolean=new JPBooleanType());
+	registerPrimitiveClass(_byte=new JPByteType());
+	registerPrimitiveClass(_short=new JPShortType());
+	registerPrimitiveClass(_int=new JPIntType());
+	registerPrimitiveClass(_long=new JPLongType());
+	registerPrimitiveClass(_float=new JPFloatType());
+	registerPrimitiveClass(_double=new JPDoubleType());
 
 	// Preload the string type
 	JPStringType* strType= new JPStringType();
 	strType->postLoad();
-	typeMap[JPTypeName::_string] = strType;
 	javaClassMap[JPJni::hashCode(strType->getNativeClass())]=strType;
+	_java_lang_String = strType;
 }
 
-JPType* getPrimitiveType(JPTypeName::ETypes etype)
-{
-	return typeMap[etype];
-}
-
-JPType* findClass(jclass cls)
+JPClass* findClass(jclass cls)
 {
 	if (JPEnv::getJava()==0)
 		return 0;
@@ -106,7 +95,7 @@ JPType* findClass(jclass cls)
 	}
 	else
 	{
-		res = new JPClass(cls);
+		res = new JPObjectClass(cls);
 	}
 
 	// Finish loading it
@@ -121,12 +110,6 @@ JPType* findClass(jclass cls)
 void shutdown()
 {
 	flushCache();
-
-	// delete primitive types
-	for(TypeMap::iterator i = typeMap.begin(); i != typeMap.end(); ++i)
-	{
-		delete i->second;
-	}
 }
 
 void flushCache()

@@ -26,15 +26,24 @@ public :
 	JPArrayClass(jclass c);
 	virtual~ JPArrayClass();
 
-public : // JPType implementation
+public : // JPClass implementation
+
+	virtual bool      isObjectType() const
+	{ 
+		return true; 
+	}
+
 	virtual HostRef*    asHostObject(jvalue val);
 	virtual EMatchType  canConvertToJava(HostRef* obj);
 	virtual jvalue      convertToJava(HostRef* obj);
 	virtual jvalue      convertToJavaVector(vector<HostRef*>& refs, size_t start, size_t end);
-	virtual JPType*     getComponentType()
+	virtual JPClass*     getComponentType()
 	{
 		return m_ComponentType;
 	}
+
+	PyObject* getArrayRangeToSequence(jarray, int start, int length);
+  void setArrayRange(jarray, int start, int len, PyObject*);
 
 	JPArray* newInstance(int length);
 
@@ -42,7 +51,7 @@ public : // JPType implementation
 	{}
 
 public :
-	JPType* m_ComponentType;
+	JPClass* m_ComponentType;
 };
 
 

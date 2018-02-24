@@ -17,7 +17,7 @@
 #include <jpype.h>
 
 JPStringType::JPStringType():
-	JPClass(JPJni::s_StringClass)
+	JPObjectClass(JPJni::s_StringClass)
 {
 }
 
@@ -86,7 +86,7 @@ EMatchType JPStringType::canConvertToJava(HostRef* obj)
 	if (JPEnv::getHost()->isObject(obj))
 	{
 		JPObject* o = JPEnv::getHost()->asObject(obj);
-		JPClass* oc = o->getClass();
+		JPObjectClass* oc = o->getClass();
 		if (oc->getName().getSimpleName() == "java.lang.String")
 		{
 			return _exact;
@@ -115,7 +115,7 @@ jvalue JPStringType::convertToJava(HostRef* obj)
 	{
 		JPObject* o = JPEnv::getHost()->asObject(obj);
 
-		JPClass* oc = o->getClass();
+		JPObjectClass* oc = o->getClass();
 		if (oc->getName().getSimpleName() == "java.lang.String")
 		{
 			v.l = o->getObject(); 

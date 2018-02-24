@@ -120,7 +120,7 @@ public :
 
 	
 
-	PyObject* getJavaShadowClass(JPClass* jc);
+	PyObject* getJavaShadowClass(JPObjectClass* jc);
 
 private :
 	PyObject* m_PythonJavaObject;
@@ -188,8 +188,8 @@ public :
 	virtual JPObject* asObject(HostRef*);
 
 	virtual bool isClass(HostRef*);
-	virtual HostRef* newClass(JPClass*);
-	virtual JPClass* asClass(HostRef*);
+	virtual HostRef* newClass(JPObjectClass*);
+	virtual JPObjectClass* asClass(HostRef*);
 
 	virtual bool isArrayClass(HostRef*);
 	virtual HostRef* newArrayClass(JPArrayClass*);

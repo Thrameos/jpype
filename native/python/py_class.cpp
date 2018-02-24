@@ -138,7 +138,7 @@ PyObject* PyJPClass::getBaseClass(PyObject* o, PyObject* arg)
 	try {
 		PyJPClass* self = (PyJPClass*)o;
 
-		JPClass* base = self->m_Class->getSuperClass();
+		JPObjectClass* base = self->m_Class->getSuperClass();
 		if (base == NULL)
 		{
 			Py_RETURN_NONE;
@@ -160,12 +160,12 @@ PyObject* PyJPClass::getBaseInterfaces(PyObject* o, PyObject* arg)
 	try {
 		PyJPClass* self = (PyJPClass*)o;
 
-		const vector<JPClass*>& baseItf = self->m_Class->getInterfaces();
+		const vector<JPObjectClass*>& baseItf = self->m_Class->getInterfaces();
 
 		PyObject* result = JPySequence::newTuple((int)baseItf.size());
 		for (unsigned int i = 0; i < baseItf.size(); i++)
 		{
-			JPClass* base = baseItf[i];
+			JPObjectClass* base = baseItf[i];
 			PyObject* obj = (PyObject*)PyJPClass::alloc(base);
 			JPySequence::setItem(result, i, obj);
 		}
@@ -305,7 +305,7 @@ PyObject* PyJPClass::isSubclass(PyObject* o, PyObject* arg)
 
 		JPyArg::parseTuple(arg, "s", &other);
 		JPTypeName name = JPTypeName::fromSimple(other);
-		JPClass* otherClass = (JPClass*) JPTypeManager::findClass(name.findClass());
+		JPObjectClass* otherClass = (JPObjectClass*) JPTypeManager::findClass(name.findClass());
 
 		if (self->m_Class->isSubclass(otherClass))
 		{
@@ -347,7 +347,7 @@ PyObject* convert(vector<jobject> objs, const char * className)
 	JPCleaner cleaner;
 	PyObject* res = JPySequence::newTuple((int)objs.size());
 	JPTypeName typeName = JPTypeName::fromSimple(className);
-	JPClass* classType = (JPClass*)JPTypeManager::findClass(typeName.findClass());
+	JPObjectClass* classType = dynamic_cast<JPObjectClass*>(JPTypeManager::findClass(typeName.findClass()));
 	for (size_t i = 0; i < objs.size(); i++)
 	{
 		jvalue v;

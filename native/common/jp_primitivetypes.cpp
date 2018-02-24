@@ -20,48 +20,42 @@
  * when passing arguments and returns.
  */
 
-JPPrimitiveType::JPPrimitiveType(JPTypeName::ETypes type, bool isObject, const string& boxedName) :
-		m_etype(type),
-		m_Type(JPTypeName::fromType(type)),
-		m_IsObject(isObject)
+JPPrimitiveType::JPPrimitiveType(JPTypeName::ETypes type, const string& boxedName) :
+    JPClass(JPJni::findPrimitiveClass(boxedName)),
+		m_etype(type)
 {
-	TRACE_IN("JPPrimitiveType::JPPrimitiveType");
-	TRACE2(boxedName, m_Type.getSimpleName());
-	m_native_class=(jclass)JPEnv::getJava()->NewGlobalRef(JPJni::findPrimitiveClass(boxedName));
+  m_Name = JPTypeName::fromType(type);
 
 	// Get the boxed java class
 	m_boxed_class=(jclass)JPEnv::getJava()->NewGlobalRef(JPJni::findClass(boxedName));
-	TRACE2(m_native_class, m_boxed_class);
-	TRACE_OUT;
 }
 
 JPPrimitiveType::~JPPrimitiveType()
 {
-	JPEnv::getJava()->DeleteGlobalRef(m_native_class);
 	JPEnv::getJava()->DeleteGlobalRef(m_boxed_class);
 }
 	
 
 // These are singletons created by the type manager.
-JPVoidType::JPVoidType() : JPPrimitiveType(JPTypeName::_void, false, "java/lang/Void") {}
-JPBooleanType::JPBooleanType() : JPPrimitiveType(JPTypeName::_boolean, false, "java/lang/Boolean") {}
-JPByteType::JPByteType() : JPPrimitiveType(JPTypeName::_byte, false, "java/lang/Byte") {}
-JPCharType::JPCharType() : JPPrimitiveType(JPTypeName::_char, false, "java/lang/Character") {}
-JPShortType::JPShortType() : JPPrimitiveType(JPTypeName::_short, false, "java/lang/Short") {}
-JPIntType::JPIntType() : JPPrimitiveType(JPTypeName::_int, false, "java/lang/Integer") {}
-JPLongType::JPLongType() : JPPrimitiveType(JPTypeName::_long, false, "java/lang/Long") {}
-JPFloatType::JPFloatType() : JPPrimitiveType(JPTypeName::_float, false, "java/lang/Float") {}
-JPDoubleType::JPDoubleType() : JPPrimitiveType(JPTypeName::_double, false, "java/lang/Double") {}
+JPVoidType::JPVoidType() : JPPrimitiveType(JPTypeName::_void, "java/lang/Void") {}
+JPBooleanType::JPBooleanType() : JPPrimitiveType(JPTypeName::_boolean, "java/lang/Boolean") {}
+JPByteType::JPByteType() : JPPrimitiveType(JPTypeName::_byte, "java/lang/Byte") {}
+JPCharType::JPCharType() : JPPrimitiveType(JPTypeName::_char, "java/lang/Character") {}
+JPShortType::JPShortType() : JPPrimitiveType(JPTypeName::_short, "java/lang/Short") {}
+JPIntType::JPIntType() : JPPrimitiveType(JPTypeName::_int, "java/lang/Integer") {}
+JPLongType::JPLongType() : JPPrimitiveType(JPTypeName::_long, "java/lang/Long") {}
+JPFloatType::JPFloatType() : JPPrimitiveType(JPTypeName::_float, "java/lang/Float") {}
+JPDoubleType::JPDoubleType() : JPPrimitiveType(JPTypeName::_double, "java/lang/Double") {}
 
-JPClass* JPPrimitiveType::getBoxedClass()
+JPObjectClass* JPPrimitiveType::getBoxedClass()
 {
-	return (JPClass*) JPTypeManager::findClass(m_boxed_class);
+	return (JPObjectClass*) JPTypeManager::findClass(m_boxed_class);
 }
 
 jobject JPPrimitiveType::convertToJavaObject(HostRef* obj)
 {
 	JPLocalFrame frame;
-	JPClass* c = getBoxedClass();
+	JPObjectClass* c = getBoxedClass();
 
 	vector<HostRef*> args(1);
 	args[0] = obj;
@@ -159,7 +153,7 @@ HostRef* JPByteType::convertToDirectBuffer(HostRef* src)
 		jvalue v;
 		v.l = obj;
 		jclass cls = JPJni::getClass(obj);
-		JPType* type = JPTypeManager::findClass(cls);
+		JPClass* type = JPTypeManager::findClass(cls);
 		return type->asHostObject(v);
 	}
 

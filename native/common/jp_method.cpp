@@ -57,7 +57,7 @@ bool JPMethod::hasStatic()
 	return false;
 }
 	
-void JPMethod::addOverload(JPClass* claz, jobject mth) 
+void JPMethod::addOverload(JPObjectClass* claz, jobject mth) 
 {
 	JPMethodOverload* over = new JPMethodOverload(claz, mth);
 	m_Overloads[over->getSignature()] = over;

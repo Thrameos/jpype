@@ -156,9 +156,9 @@ PyObject* JPypeModule::synchronized(PyObject* obj, PyObject* args)
 			JPObject* jpo = (JPObject*)JPyCObject::asVoidPtr(o);
 			obj = jpo->getObject();
 		}
-		else if (desc == "JPClass")
+		else if (desc == "JPObjectClass")
 		{
-			JPClass* jpo = (JPClass*)JPyCObject::asVoidPtr(o);
+			JPObjectClass* jpo = (JPObjectClass*)JPyCObject::asVoidPtr(o);
 			obj = jpo->getNativeClass();
 		}
 		else if (desc == "JPArray")
@@ -278,7 +278,7 @@ PyObject* JPypeModule::raiseJava(PyObject* , PyObject* args)
 		//}
 		//
 		//// check if claz is an instance of Throwable
-		//JPClass* claz = obj->getClass();
+		//JPObjectClass* claz = obj->getClass();
 		//jclass jc = claz->getClass();
 		//cleaner.add(jc);
 		//if (! JPJni::isThrowable(jc))

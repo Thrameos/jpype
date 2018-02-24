@@ -38,7 +38,7 @@ public :
 	const string& getName() const;
 	string getClassName() const;
 	
-	void addOverload(JPClass* clazz, jobject mth);
+	void addOverload(JPObjectClass* clazz, jobject mth);
 	void addOverloads(JPMethod* o);
 	
 	bool hasStatic(); 

@@ -17,36 +17,23 @@
 #ifndef _JPPRIMITIVETYPE_H_
 #define _JPPRIMITIVETYPE_H_
 
-class JPPrimitiveType : public JPType
+class JPPrimitiveType : public JPClass
 {
 protected :
-	JPPrimitiveType(JPTypeName::ETypes type, bool isObject, const string& boxedNative);
+	JPPrimitiveType(JPTypeName::ETypes type, const string& boxedNative);
 	
 	virtual ~JPPrimitiveType();
 	
 private :
 	JPTypeName::ETypes m_etype;
-	JPTypeName m_Type;
-	bool       m_IsObject;
-	jclass     m_native_class;
 	jclass     m_boxed_class;
 
 public :
 	virtual bool       isObjectType() const
 	{ 
-		return m_IsObject; 
+		return false;
 	}
 
-	virtual const JPTypeName& getName() const
-	{
-		return m_Type;
-	}
-
-	virtual jclass getNativeClass() const
-	{
-		return m_native_class;
-	}
-	
 	virtual jobject	   convertToJavaObject(HostRef* obj);
 
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length) = 0;
@@ -61,7 +48,7 @@ public :
 	/** 
 	 * Conversion type to change a primitive to a boxed type.
 	 */
-	JPClass* getBoxedClass();
+	JPObjectClass* getBoxedClass();
 };
 
 class JPVoidType : public JPPrimitiveType
@@ -100,7 +87,7 @@ public : // JPType implementation
 	}
 
 	virtual HostRef*   convertToDirectBuffer(HostRef* src);
-	virtual bool isSubTypeOf(const JPType& other) const
+	virtual bool isSubTypeOf(const JPClass& other) const
 	{
 		return other.getName().getType() == JPTypeName::_void;
 	}
@@ -140,7 +127,7 @@ public : // JPType implementation
 
 	virtual HostRef*   convertToDirectBuffer(HostRef* src);
 
-	virtual bool isSubTypeOf(const JPType& other) const
+	virtual bool isSubTypeOf(const JPClass& other) const
 	{
 		JPTypeName::ETypes otherType = other.getName().getType();
 		return otherType == JPTypeName::_byte
@@ -184,7 +171,7 @@ public : // JPType implementation
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 
 	virtual HostRef*   convertToDirectBuffer(HostRef* src);
-	virtual bool isSubTypeOf(const JPType& other) const
+	virtual bool isSubTypeOf(const JPClass& other) const
 	{
 		JPTypeName::ETypes otherType = other.getName().getType();
 		return otherType == JPTypeName::_short
@@ -228,7 +215,7 @@ public : // JPType implementation
 
 	virtual HostRef*   convertToDirectBuffer(HostRef* src);
 
-	virtual bool isSubTypeOf(const JPType& other) const
+	virtual bool isSubTypeOf(const JPClass& other) const
 	{
 		JPTypeName::ETypes otherType = other.getName().getType();
 		return otherType == JPTypeName::_int
@@ -269,7 +256,7 @@ public : // JPType implementation
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 
 	virtual HostRef*   convertToDirectBuffer(HostRef* src);
-	virtual bool isSubTypeOf(const JPType& other) const
+	virtual bool isSubTypeOf(const JPClass& other) const
 	{
 		JPTypeName::ETypes otherType = other.getName().getType();
 		return otherType == JPTypeName::_long
@@ -309,7 +296,7 @@ public : // JPType implementation
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 	
 	virtual HostRef*   convertToDirectBuffer(HostRef* src);
-	virtual bool isSubTypeOf(const JPType& other) const
+	virtual bool isSubTypeOf(const JPClass& other) const
 	{
 		JPTypeName::ETypes otherType = other.getName().getType();
 		return otherType == JPTypeName::_float
@@ -349,7 +336,7 @@ public : // JPType implementation
 	
 	virtual HostRef*   convertToDirectBuffer(HostRef* src);
 
-	virtual bool isSubTypeOf(const JPType& other) const
+	virtual bool isSubTypeOf(const JPClass& other) const
 	{
 		JPTypeName::ETypes otherType = other.getName().getType();
 		return otherType == JPTypeName::_double;
@@ -388,7 +375,7 @@ public : // JPType implementation
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 	
 	virtual HostRef*   convertToDirectBuffer(HostRef* src);
-	virtual bool isSubTypeOf(const JPType& other) const
+	virtual bool isSubTypeOf(const JPClass& other) const
 	{
 		JPTypeName::ETypes otherType = other.getName().getType();
 		return otherType == JPTypeName::_char
@@ -431,7 +418,7 @@ public : // JPType implementation
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 	
 	virtual HostRef*   convertToDirectBuffer(HostRef* src);
-	virtual bool isSubTypeOf(const JPType& other) const
+	virtual bool isSubTypeOf(const JPClass& other) const
 	{
 		JPTypeName::ETypes otherType = other.getName().getType();
 		return otherType == JPTypeName::_boolean;

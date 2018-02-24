@@ -247,7 +247,7 @@ HostRef* PythonHostEnvironment::newObject(JPObject* obj)
 	TRACE_IN("PythonHostEnvironment::newObject");
 	TRACE2("classname", obj->getClass()->getName().getSimpleName());
 
-	JPClass* jc = obj->getClass();
+	JPObjectClass* jc = obj->getClass();
 	JPTypeName name = jc->getName();
 
 	PyObject* pyClass = getJavaShadowClass(jc);
@@ -275,7 +275,7 @@ bool PythonHostEnvironment::isClass(HostRef* ref)
 	return JPyObject::isInstance(self, m_PythonJavaClass);
 }
 
-HostRef* PythonHostEnvironment::newClass(JPClass* m)
+HostRef* PythonHostEnvironment::newClass(JPObjectClass* m)
 {
 	PyJPClass* co = PyJPClass::alloc(m);
 
@@ -288,7 +288,7 @@ HostRef* PythonHostEnvironment::newClass(JPClass* m)
 	return new HostRef(pyClass, false);
 }
 
-JPClass* PythonHostEnvironment::asClass(HostRef* ref)
+JPObjectClass* PythonHostEnvironment::asClass(HostRef* ref)
 {
 	PyObject* self = UNWRAP(ref);
 	PyObject* claz = JPyObject::getAttrString(self, "__javaclass__");
@@ -571,7 +571,7 @@ jvalue PythonHostEnvironment::getWrapperValue(HostRef* obj)
 	return getWrapperValue(UNWRAP(obj));
 }
 
-PyObject* PythonHostEnvironment::getJavaShadowClass(JPClass* jc)
+PyObject* PythonHostEnvironment::getJavaShadowClass(JPObjectClass* jc)
 {
 	PyJPClass* cls = PyJPClass::alloc(jc);
 	PyObject* args = JPySequence::newTuple(1);

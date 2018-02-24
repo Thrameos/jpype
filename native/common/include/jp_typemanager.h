@@ -22,6 +22,16 @@
  */
 namespace JPTypeManager
 {
+  extern JPClass *_void;
+  extern JPClass *_boolean;
+  extern JPClass *_byte;
+  extern JPClass *_short;
+  extern JPClass *_long;
+  extern JPClass *_int;
+  extern JPClass *_float ;
+  extern JPClass *_double;
+  extern JPClass *_java_lang_String;
+
 	/**
 	 * Initialize the type manager caches
 	 */
@@ -32,9 +42,6 @@ namespace JPTypeManager
 	 */
 	void shutdown();
 
-
-	JPType* getPrimitiveType(JPTypeName::ETypes etype);
-	
 	/**
 	 * The pointer returned is NOT owned by the caller
 	 *
@@ -42,7 +49,7 @@ namespace JPTypeManager
 	 * 
 	 * May return NULL if the java class does not exist.
 	 */
-	JPType* findClass(jclass cls);
+	JPClass* findClass(jclass cls);
 
 	void flushCache();
 
