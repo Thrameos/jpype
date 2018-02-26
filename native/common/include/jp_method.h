@@ -30,7 +30,7 @@ public :
 	/**
 	 * Create a new method based on class and a name;
 	 */
-	JPMethod(jclass clazz, const string& name, bool isConstructor);
+	JPMethod(JPObjectClass* clazz, const string& name, bool isConstructor);
 	virtual ~JPMethod();
 
 
@@ -63,8 +63,8 @@ public :
 private :
 	JPMethodOverload* findOverload(vector<HostRef*>& arg, bool needStatic);
 
-	jclass                        m_Class;
-	string                        m_Name;
+	JPObjectClass*                 m_Class;
+	string                         m_Name;
 	map<string, JPMethodOverload*> m_Overloads;
 
 	struct OverloadData {

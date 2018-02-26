@@ -25,11 +25,14 @@ namespace JPTypeManager
   extern JPClass *_void;
   extern JPClass *_boolean;
   extern JPClass *_byte;
+  extern JPClass *_char;
   extern JPClass *_short;
   extern JPClass *_long;
   extern JPClass *_int;
   extern JPClass *_float ;
   extern JPClass *_double;
+  extern JPClass *_java_lang_Object;
+  extern JPClass *_java_lang_Class;
   extern JPClass *_java_lang_String;
 
 	/**

@@ -41,7 +41,7 @@ PyObject* JPypeJavaArray::findArrayClass(PyObject* obj, PyObject* args)
 		JPyArg::parseTuple(args, "s", &cname);
 
 		JPTypeName name = JPTypeName::fromSimple(cname);
-		JPArrayClass* claz = (JPArrayClass*)JPTypeManager::findClass(name.findClass());
+		JPArrayClass* claz = (JPArrayClass*)name.findClass();
 		if (claz == NULL)
 		{
 			Py_RETURN_NONE;
@@ -109,9 +109,8 @@ PyObject* JPypeJavaArray::getArraySlice(PyObject* self, PyObject* arg)
 		else if (hi > length) hi = length;
 		if (lo > hi) lo = hi;
 
-		const JPTypeName& componentName = a->getType()->getName().getComponentName();
-		const string& name = componentName.getNativeName();
-		if(is_primitive(name[0]))
+		JPClass* component=a->getClass()->getComponentType();
+		if (!component->isObjectType())
 		{
 			// for primitive types, we have fast sequence generation available
 			return a->getSequenceFromRange(lo, hi);
@@ -159,10 +158,8 @@ PyObject* JPypeJavaArray::setArraySlice(PyObject* self, PyObject* arg)
 		else if (hi > length) hi = length;
 		if (lo > hi) lo = hi;
 
-		const JPTypeName& componentName = a->getType()->getName().getComponentName();
-		const string& name = componentName.getNativeName();
-
-		if(is_primitive(name[0]))
+		JPClass* component = a->getClass()->getComponentType();
+		if (!component->isObjectType())
 		{
 			// for primitive types, we have fast setters available
 			a->setRange(lo, hi, sequence);

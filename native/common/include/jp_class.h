@@ -42,16 +42,16 @@ public :
 	virtual EMatchType  canConvertToJava(HostRef* obj) = 0;
 	virtual jvalue      convertToJava(HostRef* obj) = 0;
 
-	virtual HostRef* getStaticValue(jclass c, jfieldID fid);
-	virtual void      setStaticValue(jclass c, jfieldID fid, HostRef* val);
+	virtual HostRef* getStaticValue(JPClass* c, jfieldID fid);
+	virtual void      setStaticValue(JPClass* c, jfieldID fid, HostRef* val);
 	virtual HostRef* getInstanceValue(jobject c, jfieldID fid);
 	virtual void      setInstanceValue(jobject c, jfieldID fid, HostRef* val);
 	virtual HostRef*   asHostObjectFromObject(jvalue val);
 
 	virtual jobject convertToJavaObject(HostRef* obj);
 
-	virtual HostRef* invokeStatic(jclass, jmethodID, jvalue*);
-	virtual HostRef* invoke(jobject, jclass clazz, jmethodID, jvalue*);
+	virtual HostRef* invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual HostRef* invoke(jobject, JPClass* clazz, jmethodID, jvalue*);
 
 	virtual jarray    newArrayInstance(int size);
 	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);

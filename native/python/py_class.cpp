@@ -95,7 +95,7 @@ void PyJPClass::initType(PyObject* module)
 	PyModule_AddObject(module, "_JavaClass", (PyObject*)&classClassType); 
 }
 
-PyJPClass* PyJPClass::alloc(JPClass* cls)
+PyJPClass* PyJPClass::alloc(JPObjectClass* cls)
 {
 	PyJPClass* res = PyObject_New(PyJPClass, &classClassType);
 
@@ -305,7 +305,7 @@ PyObject* PyJPClass::isSubclass(PyObject* o, PyObject* arg)
 
 		JPyArg::parseTuple(arg, "s", &other);
 		JPTypeName name = JPTypeName::fromSimple(other);
-		JPObjectClass* otherClass = (JPObjectClass*) JPTypeManager::findClass(name.findClass());
+		JPObjectClass* otherClass = (JPObjectClass*) name.findClass();
 
 		if (self->m_Class->isSubclass(otherClass))
 		{
@@ -347,7 +347,8 @@ PyObject* convert(vector<jobject> objs, const char * className)
 	JPCleaner cleaner;
 	PyObject* res = JPySequence::newTuple((int)objs.size());
 	JPTypeName typeName = JPTypeName::fromSimple(className);
-	JPObjectClass* classType = dynamic_cast<JPObjectClass*>(JPTypeManager::findClass(typeName.findClass()));
+	JPObjectClass* classType = dynamic_cast<JPObjectClass*>(typeName.findClass());
+	// FIXME what happens if classType is NULL
 	for (size_t i = 0; i < objs.size(); i++)
 	{
 		jvalue v;

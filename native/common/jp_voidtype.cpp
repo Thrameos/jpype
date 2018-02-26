@@ -16,7 +16,7 @@
 *****************************************************************************/   
 #include <jpype.h>
 
-HostRef* JPVoidType::getStaticValue(jclass c, jfieldID fid) 
+HostRef* JPVoidType::getStaticValue(JPClass* c, jfieldID fid) 
 {
 	RAISE(JPypeException, "void cannot be the type of a static field.");
 }
@@ -48,19 +48,19 @@ jvalue JPVoidType::convertToJava(HostRef* obj)
 	return res;
 }
 
-HostRef* JPVoidType::invokeStatic(jclass claz, jmethodID mth, jvalue* val)
+HostRef* JPVoidType::invokeStatic(JPClass* clazz, jmethodID mth, jvalue* val)
 {
-	JPEnv::getJava()->CallStaticVoidMethodA(claz, mth, val);
+	JPEnv::getJava()->CallStaticVoidMethodA(clazz->getNativeClass(), mth, val);
 	return JPEnv::getHost()->getNone();
 }
 
-HostRef* JPVoidType::invoke(jobject claz, jclass clazz, jmethodID mth, jvalue* val)
+HostRef* JPVoidType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
 {
-	JPEnv::getJava()->CallVoidMethodA(claz, mth, val);
+	JPEnv::getJava()->CallVoidMethodA(obj, mth, val);
 	return JPEnv::getHost()->getNone();
 }
 
-void JPVoidType::setStaticValue(jclass c, jfieldID fid, HostRef*) 
+void JPVoidType::setStaticValue(JPClass* c, jfieldID fid, HostRef*) 
 {
 	RAISE(JPypeException, "void cannot be the type of a static field.");
 }

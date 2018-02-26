@@ -296,10 +296,8 @@ HostRef* JPMethodOverload::invokeStatic(vector<HostRef*>& arg)
 	JPLocalFrame frame(8+alen);
 	JPMallocCleaner<jvalue> v(alen);
 	packArgs(v, arg, 0);
-	jclass claz = m_Class->getNativeClass();
 	JPClass* retType = m_ReturnTypeCache;
-
-	return retType->invokeStatic(claz, m_MethodID, v.borrow());
+	return retType->invokeStatic(m_Class, m_MethodID, v.borrow());
 	TRACE_OUT;
 }
 
@@ -322,9 +320,7 @@ HostRef* JPMethodOverload::invokeInstance(vector<HostRef*>& arg)
 		JPClass* retType = m_ReturnTypeCache;
 	
 		jobject c = selfObj->getObject();
-		jclass clazz = m_Class->getNativeClass();
-	
-		res = retType->invoke(c, clazz, m_MethodID, v.borrow());
+		res = retType->invoke(c, m_Class, m_MethodID, v.borrow());
 		TRACE1("Call finished");
 	}
 	TRACE1("Call successfull");
@@ -334,7 +330,7 @@ HostRef* JPMethodOverload::invokeInstance(vector<HostRef*>& arg)
 	TRACE_OUT;
 }
 
-JPObject* JPMethodOverload::invokeConstructor(jclass claz, vector<HostRef*>& arg)
+JPObject* JPMethodOverload::invokeConstructor(JPObjectClass* claz, vector<HostRef*>& arg)
 {
 	TRACE_IN("JPMethodOverload::invokeConstructor");
 	ensureTypeCache();
@@ -346,10 +342,10 @@ JPObject* JPMethodOverload::invokeConstructor(jclass claz, vector<HostRef*>& arg
 	packArgs(v, arg, 0);
 	
 	jvalue val;
-	val.l = JPEnv::getJava()->NewObjectA(claz, m_MethodID, v.borrow());
+	val.l = JPEnv::getJava()->NewObjectA(claz->getNativeClass(), m_MethodID, v.borrow());
 	TRACE1("Object created");
 	
-	return new JPObject((JPObjectClass*)JPTypeManager::findClass(claz), val.l);
+	return new JPObject(claz, val.l);
 
 	TRACE_OUT;
 }

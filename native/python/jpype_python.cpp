@@ -40,7 +40,7 @@ PyObject* convertToJValue(PyObject* self, PyObject* arg)
 		JPyArg::parseTuple(arg, "sO", &tname, &value);
 
 		JPTypeName name = JPTypeName::fromSimple(tname);
-		JPType* type = JPTypeManager::findClass(name.findClass());
+		JPClass* type = name.findClass();
 		if (type==NULL)
 		{
 			Py_RETURN_NONE;
@@ -214,7 +214,7 @@ void JPypeJavaException::errorOccurred()
 
 	jclass ec = JPJni::getClass(th);
 	JPTypeName tn = JPJni::getName(ec);
-	JPObjectClass* jpclass = dynamic_cast<JPObjectClass*>(JPTypeManager::findClass(tn.findClass()));
+	JPObjectClass* jpclass = dynamic_cast<JPObjectClass*>(tn.findClass());
 	// FIXME nothing checks if the class is valid before using it
 
 	PyObject* jexclass = hostEnv->getJavaShadowClass(jpclass);

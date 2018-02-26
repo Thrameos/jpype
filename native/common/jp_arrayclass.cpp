@@ -55,13 +55,13 @@ EMatchType JPArrayClass::canConvertToJava(HostRef* o)
 			return _implicit;
 		}
 	}
-	else if (JPEnv::getHost()->isUnicodeString(o) && m_ComponentType->getName().getType() ==JPTypeName::_char)
+	else if (JPEnv::getHost()->isUnicodeString(o) && m_ComponentType==JPTypeManager::_char)
 	{
 		TRACE1("char[]");
 		// Strings are also char[]
 		return _implicit;
 	}
-	else if (JPEnv::getHost()->isByteString(o) && m_ComponentType->getName().getType() ==JPTypeName::_byte)
+	else if (JPEnv::getHost()->isByteString(o) && m_ComponentType==JPTypeManager::_byte)
 	{
 		TRACE1("char[]");
 		// Strings are also char[]
@@ -113,7 +113,7 @@ jvalue JPArrayClass::convertToJava(HostRef* obj)
 		JPArray* a = JPEnv::getHost()->asArray(obj);
 		res = a->getValue();		
 	}
-	else if (JPEnv::getHost()->isByteString(obj) && m_ComponentType->getName().getType() == JPTypeName::_byte && sizeof(char) == sizeof(jbyte))
+	else if (JPEnv::getHost()->isByteString(obj) && m_ComponentType==JPTypeManager::_byte && sizeof(char) == sizeof(jbyte))
 	{
 		TRACE1("char[]");
 		char* rawData;
@@ -129,7 +129,7 @@ jvalue JPArrayClass::convertToJava(HostRef* obj)
 		
 		res.l = array;
 	}
-	else if (JPEnv::getHost()->isUnicodeString(obj) && m_ComponentType->getName().getType() == JPTypeName::_char && JPEnv::getHost()->getUnicodeSize() == sizeof(jchar))
+	else if (JPEnv::getHost()->isUnicodeString(obj) && m_ComponentType==JPTypeManager::_char && JPEnv::getHost()->getUnicodeSize() == sizeof(jchar))
 	{
 		TRACE1("uchar[]");
 		jchar* rawData;

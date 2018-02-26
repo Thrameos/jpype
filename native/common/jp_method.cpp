@@ -20,16 +20,15 @@
 #include <set>
 #include <algorithm>
 
-JPMethod::JPMethod(jclass clazz, const string& name, bool isConstructor) :
+JPMethod::JPMethod(JPObjectClass* clazz, const string& name, bool isConstructor) :
+	m_Class(clazz),
 	m_Name(name),
 	m_IsConstructor(isConstructor)
 {
-	m_Class = (jclass)JPEnv::getJava()->NewGlobalRef(clazz);
 }
 
 JPMethod::~JPMethod()
 {
-	JPEnv::getJava()->DeleteGlobalRef(m_Class);
 	for (map<string, JPMethodOverload*>::iterator it = m_Overloads.begin(); it != m_Overloads.end(); it++)
 		delete it->second;
 }
@@ -41,8 +40,7 @@ const string& JPMethod::getName() const
 
 string JPMethod::getClassName() const
 {
-	JPTypeName name = JPJni::getClassName(m_Class);
-	return name.getSimpleName();
+	return m_Class->getName().getSimpleName();
 }
 
 bool JPMethod::hasStatic()

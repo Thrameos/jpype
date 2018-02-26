@@ -20,12 +20,11 @@
 class JPPrimitiveType : public JPClass
 {
 protected :
-	JPPrimitiveType(JPTypeName::ETypes type, const string& boxedNative);
+	JPPrimitiveType(const string& boxedNative);
 	
 	virtual ~JPPrimitiveType();
 	
 private :
-	JPTypeName::ETypes m_etype;
 	jclass     m_boxed_class;
 
 public :
@@ -39,11 +38,6 @@ public :
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length) = 0;
 
 	virtual void setArrayRange(jarray, int, int, PyObject*) = 0;
-
-	JPTypeName::ETypes getEType()
-	{
-		return m_etype;
-	}
 
 	/** 
 	 * Conversion type to change a primitive to a boxed type.
@@ -61,16 +55,16 @@ public :
 	}
 	
 public : // JPType implementation
-	virtual HostRef*  getStaticValue(jclass c, jfieldID fid);
-	virtual void       setStaticValue(jclass c, jfieldID fid, HostRef* val);
+	virtual HostRef*  getStaticValue(JPClass* c, jfieldID fid);
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, HostRef* val);
 	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid);
 	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
 	virtual HostRef*  asHostObject(jvalue val);
 	virtual HostRef*   asHostObjectFromObject(jvalue val);
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);	
-	virtual HostRef*  invokeStatic(jclass, jmethodID, jvalue*);
-	virtual HostRef*  invoke(jobject, jclass, jmethodID, jvalue*);
+	virtual HostRef*  invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual HostRef*  invoke(jobject, JPClass*, jmethodID, jvalue*);
 
 	virtual jarray    newArrayInstance(int size);
 	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);
@@ -103,8 +97,8 @@ public :
 	}
 
 public : // JPType implementation
-	virtual HostRef*  getStaticValue(jclass c, jfieldID fid);
-	virtual void       setStaticValue(jclass c, jfieldID fid, HostRef* val);
+	virtual HostRef*  getStaticValue(JPClass* c, jfieldID fid);
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, HostRef* val);
 	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid);
 	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
 	virtual HostRef*  asHostObject(jvalue val);
@@ -112,8 +106,8 @@ public : // JPType implementation
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);
 	
-	virtual HostRef*  invokeStatic(jclass, jmethodID, jvalue*);
-	virtual HostRef*  invoke(jobject, jclass, jmethodID, jvalue*);
+	virtual HostRef*  invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual HostRef*  invoke(jobject, JPClass*, jmethodID, jvalue*);
 
 	virtual jarray    newArrayInstance(int size);
 	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);
@@ -150,8 +144,8 @@ public :
 	}
 
 public : // JPType implementation
-	virtual HostRef*  getStaticValue(jclass c, jfieldID fid);
-	virtual void       setStaticValue(jclass c, jfieldID fid, HostRef* val);
+	virtual HostRef*  getStaticValue(JPClass* c, jfieldID fid);
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, HostRef* val);
 	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid);
 	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
 	virtual HostRef*  asHostObject(jvalue val);
@@ -159,8 +153,8 @@ public : // JPType implementation
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);
 	
-	virtual HostRef*  invokeStatic(jclass, jmethodID, jvalue*);
-	virtual HostRef*  invoke(jobject, jclass, jmethodID, jvalue*);
+	virtual HostRef*  invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual HostRef*  invoke(jobject, JPClass*, jmethodID, jvalue*);
 
 	virtual jarray    newArrayInstance(int size);
 	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);
@@ -193,8 +187,8 @@ public :
 	}
 
 public : // JPType implementation
-	virtual HostRef*  getStaticValue(jclass c, jfieldID fid);
-	virtual void       setStaticValue(jclass c, jfieldID fid, HostRef* val);
+	virtual HostRef*  getStaticValue(JPClass* c, jfieldID fid);
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, HostRef* val);
 	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid);
 	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
 	virtual HostRef*  asHostObject(jvalue val);
@@ -202,8 +196,8 @@ public : // JPType implementation
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);
 	
-	virtual HostRef*  invokeStatic(jclass, jmethodID, jvalue*);
-	virtual HostRef*  invoke(jobject, jclass, jmethodID, jvalue*);
+	virtual HostRef*  invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual HostRef*  invoke(jobject, JPClass*, jmethodID, jvalue*);
 
 	virtual jarray    newArrayInstance(int size);
 	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);
@@ -235,8 +229,8 @@ public :
 	}
 
 public : // JPType implementation
-	virtual HostRef*  getStaticValue(jclass c, jfieldID fid);
-	virtual void       setStaticValue(jclass c, jfieldID fid, HostRef* val);
+	virtual HostRef*  getStaticValue(JPClass* c, jfieldID fid);
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, HostRef* val);
 	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid);
 	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
 	virtual HostRef*  asHostObject(jvalue val);
@@ -244,8 +238,8 @@ public : // JPType implementation
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);
 	
-	virtual HostRef*  invokeStatic(jclass, jmethodID, jvalue*);
-	virtual HostRef*  invoke(jobject, jclass, jmethodID, jvalue*);
+	virtual HostRef*  invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual HostRef*  invoke(jobject, JPClass*, jmethodID, jvalue*);
 
 	virtual jarray    newArrayInstance(int size);
 	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);
@@ -275,8 +269,8 @@ public :
 	}
 
 public : // JPType implementation
-	virtual HostRef*  getStaticValue(jclass c, jfieldID fid);
-	virtual void       setStaticValue(jclass c, jfieldID fid, HostRef* val);
+	virtual HostRef*  getStaticValue(JPClass* c, jfieldID fid);
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, HostRef* val);
 	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid);
 	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
 	virtual HostRef*  asHostObject(jvalue val);
@@ -284,8 +278,8 @@ public : // JPType implementation
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);
 	
-	virtual HostRef*  invokeStatic(jclass, jmethodID, jvalue*);
-	virtual HostRef*  invoke(jobject, jclass, jmethodID, jvalue*);
+	virtual HostRef*  invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual HostRef*  invoke(jobject, JPClass*, jmethodID, jvalue*);
 
 	virtual jarray    newArrayInstance(int size);
 	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);
@@ -314,8 +308,8 @@ public :
 	}
 
 public : // JPType implementation
-	virtual HostRef*  getStaticValue(jclass c, jfieldID fid);
-	virtual void       setStaticValue(jclass c, jfieldID fid, HostRef* val);
+	virtual HostRef*  getStaticValue(JPClass* c, jfieldID fid);
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, HostRef* val);
 	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid);
 	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
 	virtual HostRef*  asHostObject(jvalue val);
@@ -323,8 +317,8 @@ public : // JPType implementation
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);
 	
-	virtual HostRef*  invokeStatic(jclass, jmethodID, jvalue*);
-	virtual HostRef*  invoke(jobject, jclass, jmethodID, jvalue*);
+	virtual HostRef*  invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual HostRef*  invoke(jobject, JPClass*, jmethodID, jvalue*);
 
 	virtual jarray    newArrayInstance(int size);
 	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);
@@ -354,8 +348,8 @@ public :
 	}
 
 public : // JPType implementation
-	virtual HostRef*   getStaticValue(jclass c, jfieldID fid);
-	virtual void       setStaticValue(jclass c, jfieldID fid, HostRef* val);
+	virtual HostRef*   getStaticValue(JPClass* c, jfieldID fid);
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, HostRef* val);
 	virtual HostRef*   getInstanceValue(jobject c, jfieldID fid);
 	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
 	virtual HostRef*   asHostObject(jvalue val);
@@ -363,8 +357,8 @@ public : // JPType implementation
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);
 	
-	virtual HostRef*   invokeStatic(jclass, jmethodID, jvalue*);
-	virtual HostRef*   invoke(jobject, jclass, jmethodID, jvalue*);
+	virtual HostRef*   invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual HostRef*   invoke(jobject, JPClass*, jmethodID, jvalue*);
 
 	virtual jarray    newArrayInstance(int size);
 	virtual vector<HostRef*>  getArrayRange(jarray, int start, int length);
@@ -397,8 +391,8 @@ public :
 	}
 
 public : // JPType implementation
-	virtual HostRef*  getStaticValue(jclass c, jfieldID fid);
-	virtual void       setStaticValue(jclass c, jfieldID fid, HostRef* val);
+	virtual HostRef*  getStaticValue(JPClass* c, jfieldID fid);
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, HostRef* val);
 	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid);
 	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
 	virtual HostRef*  asHostObject(jvalue val);
@@ -406,8 +400,8 @@ public : // JPType implementation
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);
 	
-	virtual HostRef*  invokeStatic(jclass, jmethodID, jvalue*);
-	virtual HostRef*  invoke(jobject, jclass, jmethodID, jvalue*);
+	virtual HostRef*  invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual HostRef*  invoke(jobject, JPClass*, jmethodID, jvalue*);
 
 	virtual jarray    newArrayInstance(int size);
 	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);

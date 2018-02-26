@@ -19,6 +19,7 @@
 
 namespace JPJni
 {
+	extern jclass s_ObjectClass;
 	extern jclass s_ClassClass;
 	extern jclass s_StringClass;
 	extern jclass s_NoSuchMethodErrorClass;

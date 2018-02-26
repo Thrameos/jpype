@@ -20,12 +20,9 @@
  * when passing arguments and returns.
  */
 
-JPPrimitiveType::JPPrimitiveType(JPTypeName::ETypes type, const string& boxedName) :
-    JPClass(JPJni::findPrimitiveClass(boxedName)),
-		m_etype(type)
+JPPrimitiveType::JPPrimitiveType(const string& boxedName) :
+    JPClass(JPJni::findPrimitiveClass(boxedName))
 {
-  m_Name = JPTypeName::fromType(type);
-
 	// Get the boxed java class
 	m_boxed_class=(jclass)JPEnv::getJava()->NewGlobalRef(JPJni::findClass(boxedName));
 }
@@ -37,19 +34,29 @@ JPPrimitiveType::~JPPrimitiveType()
 	
 
 // These are singletons created by the type manager.
-JPVoidType::JPVoidType() : JPPrimitiveType(JPTypeName::_void, "java/lang/Void") {}
-JPBooleanType::JPBooleanType() : JPPrimitiveType(JPTypeName::_boolean, "java/lang/Boolean") {}
-JPByteType::JPByteType() : JPPrimitiveType(JPTypeName::_byte, "java/lang/Byte") {}
-JPCharType::JPCharType() : JPPrimitiveType(JPTypeName::_char, "java/lang/Character") {}
-JPShortType::JPShortType() : JPPrimitiveType(JPTypeName::_short, "java/lang/Short") {}
-JPIntType::JPIntType() : JPPrimitiveType(JPTypeName::_int, "java/lang/Integer") {}
-JPLongType::JPLongType() : JPPrimitiveType(JPTypeName::_long, "java/lang/Long") {}
-JPFloatType::JPFloatType() : JPPrimitiveType(JPTypeName::_float, "java/lang/Float") {}
-JPDoubleType::JPDoubleType() : JPPrimitiveType(JPTypeName::_double, "java/lang/Double") {}
+JPVoidType::JPVoidType() : JPPrimitiveType("java/lang/Void") {}
+JPBooleanType::JPBooleanType() : JPPrimitiveType("java/lang/Boolean") {}
+JPByteType::JPByteType() : JPPrimitiveType("java/lang/Byte") {}
+JPCharType::JPCharType() : JPPrimitiveType("java/lang/Character") {}
+JPShortType::JPShortType() : JPPrimitiveType("java/lang/Short") {}
+JPIntType::JPIntType() : JPPrimitiveType("java/lang/Integer") {}
+JPLongType::JPLongType() : JPPrimitiveType("java/lang/Long") {}
+JPFloatType::JPFloatType() : JPPrimitiveType("java/lang/Float") {}
+JPDoubleType::JPDoubleType() : JPPrimitiveType("java/lang/Double") {}
 
 JPObjectClass* JPPrimitiveType::getBoxedClass()
 {
 	return (JPObjectClass*) JPTypeManager::findClass(m_boxed_class);
+}
+
+bool checkWrapper(HostRef* obj, JPClass* cls)
+{
+	if (JPEnv::getHost()->isWrapper(obj))
+	{
+		JPClass* name = JPEnv::getHost()->getWrapperClass(obj);
+		return (name == cls);
+	}
+	return false;
 }
 
 jobject JPPrimitiveType::convertToJavaObject(HostRef* obj)
@@ -94,15 +101,10 @@ EMatchType JPByteType::canConvertToJava(HostRef* obj)
 		return _implicit;
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (checkWrapper(obj, JPTypeManager::_byte))
 	{
-		JPTypeName name = JPEnv::getHost()->getWrapperTypeName(obj);
-		if (name.getType() == JPTypeName::_byte)
-		{
-			return _exact;
-		}
+		return _exact;
 	}
-
 
 	return _none;
 }
@@ -191,13 +193,9 @@ EMatchType JPShortType::canConvertToJava(HostRef* obj)
 		return _implicit;
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (checkWrapper(obj, JPTypeManager::_short))
 	{
-		JPTypeName name = JPEnv::getHost()->getWrapperTypeName(obj);
-		if (name.getType() == JPTypeName::_short)
-		{
-			return _exact;
-		}
+		return _exact;
 	}
 
 	return _none;
@@ -276,13 +274,9 @@ EMatchType JPIntType::canConvertToJava(HostRef* obj)
 		return _implicit;
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (checkWrapper(obj, JPTypeManager::_int))
 	{
-		JPTypeName name = JPEnv::getHost()->getWrapperTypeName(obj);
-		if (name.getType() == JPTypeName::_int)
-		{
-			return _exact;
-		}
+		return _exact;
 	}
 
 	return _none;
@@ -362,13 +356,9 @@ EMatchType JPLongType::canConvertToJava(HostRef* obj)
 		return _exact;
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (checkWrapper(obj, JPTypeManager::_long))
 	{
-		JPTypeName name = JPEnv::getHost()->getWrapperTypeName(obj);
-		if (name.getType() == JPTypeName::_long)
-		{
-			return _exact;
-		}
+		return _exact;
 	}
 
 	return _none;
@@ -432,13 +422,9 @@ EMatchType JPFloatType::canConvertToJava(HostRef* obj)
 		return _implicit;
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (checkWrapper(obj, JPTypeManager::_float))
 	{
-		JPTypeName name = JPEnv::getHost()->getWrapperTypeName(obj);
-		if (name.getType() == JPTypeName::_float)
-		{
-			return _exact;
-		}
+		return _exact;
 	}
 
 	// Java allows conversion to any type with a longer range even if lossy
@@ -520,13 +506,9 @@ EMatchType JPDoubleType::canConvertToJava(HostRef* obj)
 		return _exact;
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (checkWrapper(obj, JPTypeManager::_double))
 	{
-		JPTypeName name = JPEnv::getHost()->getWrapperTypeName(obj);
-		if (name.getType() == JPTypeName::_double)
-		{
-			return _exact;
-		}
+		return _exact;
 	}
 
 	// Java allows conversion to any type with a longer range even if lossy
@@ -598,13 +580,9 @@ EMatchType JPCharType::canConvertToJava(HostRef* obj)
 		return _implicit;
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (checkWrapper(obj, JPTypeManager::_char))
 	{
-		JPTypeName name = JPEnv::getHost()->getWrapperTypeName(obj);
-		if (name.getType() == JPTypeName::_char)
-		{
-			return _exact;
-		}
+		return _exact;
 	}
 
 	return _none;
@@ -661,13 +639,9 @@ EMatchType JPBooleanType::canConvertToJava(HostRef* obj)
 		return _implicit;
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (checkWrapper(obj, JPTypeManager::_boolean))
 	{
-		JPTypeName name = JPEnv::getHost()->getWrapperTypeName(obj);
-		if (name.getType() == JPTypeName::_boolean)
-		{
-			return _exact;
-		}
+		return _exact;
 	}
 
 	return _none;

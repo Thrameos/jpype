@@ -29,11 +29,14 @@ namespace JPTypeManager {
 JPClass *_void  = 0;
 JPClass *_boolean  = 0;
 JPClass *_byte  = 0;
+JPClass *_char  = 0;
 JPClass *_short  = 0;
 JPClass *_long  = 0;
 JPClass *_int  = 0;
 JPClass *_float  = 0;
 JPClass *_double  = 0;
+JPClass *_java_lang_Object  = 0;
+JPClass *_java_lang_Class  = 0;
 JPClass *_java_lang_String  = 0;
 
 void registerPrimitiveClass(JPClass* type)
@@ -49,6 +52,7 @@ void init()
 	registerPrimitiveClass(_void=new JPVoidType());
 	registerPrimitiveClass(_boolean=new JPBooleanType());
 	registerPrimitiveClass(_byte=new JPByteType());
+	registerPrimitiveClass(_char=new JPCharType());
 	registerPrimitiveClass(_short=new JPShortType());
 	registerPrimitiveClass(_int=new JPIntType());
 	registerPrimitiveClass(_long=new JPLongType());
@@ -56,10 +60,14 @@ void init()
 	registerPrimitiveClass(_double=new JPDoubleType());
 
 	// Preload the string type
-	JPStringType* strType= new JPStringType();
+	JPStringClass* strType= new JPStringClass();
 	strType->postLoad();
 	javaClassMap[JPJni::hashCode(strType->getNativeClass())]=strType;
 	_java_lang_String = strType;
+
+	// Preload types for matching
+	_java_lang_Object = findClass(JPJni::s_ObjectClass);
+	_java_lang_Class = findClass(JPJni::s_ClassClass);
 }
 
 JPClass* findClass(jclass cls)

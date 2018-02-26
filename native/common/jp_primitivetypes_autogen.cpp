@@ -157,10 +157,10 @@ jarray JPByteType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewByteArray(sz);
 }
 
-HostRef* JPByteType::getStaticValue(jclass c, jfieldID fid) 
+HostRef* JPByteType::getStaticValue(JPClass* clazz, jfieldID fid) 
 {
     jvalue v;
-    v.b = JPEnv::getJava()->GetStaticByteField(c, fid);
+    v.b = JPEnv::getJava()->GetStaticByteField(clazz->getNativeClass(), fid);
     
     return asHostObject(v);
 }
@@ -173,24 +173,24 @@ HostRef* JPByteType::getInstanceValue(jobject c, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPByteType::invokeStatic(jclass claz, jmethodID mth, jvalue* val)
+HostRef* JPByteType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
 {
     jvalue v;
-    v.b = JPEnv::getJava()->CallStaticByteMethodA(claz, mth, val);
+    v.b = JPEnv::getJava()->CallStaticByteMethodA(claz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-HostRef* JPByteType::invoke(jobject obj, jclass clazz, jmethodID mth, jvalue* val)
+HostRef* JPByteType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
 {
     jvalue v;
-    v.b = JPEnv::getJava()->CallNonvirtualByteMethodA(obj, clazz, mth, val);
+    v.b = JPEnv::getJava()->CallNonvirtualByteMethodA(obj, clazz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-void JPByteType::setStaticValue(jclass c, jfieldID fid, HostRef* obj) 
+void JPByteType::setStaticValue(JPClass* clazz, jfieldID fid, HostRef* obj) 
 {
     jbyte val = convertToJava(obj).b;
-    JPEnv::getJava()->SetStaticByteField(c, fid, val);
+    JPEnv::getJava()->SetStaticByteField(clazz->getNativeClass(), fid, val);
 }
 
 void JPByteType::setInstanceValue(jobject c, jfieldID fid, HostRef* obj) 
@@ -306,10 +306,10 @@ jarray JPShortType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewShortArray(sz);
 }
 
-HostRef* JPShortType::getStaticValue(jclass c, jfieldID fid) 
+HostRef* JPShortType::getStaticValue(JPClass* clazz, jfieldID fid) 
 {
     jvalue v;
-    v.s = JPEnv::getJava()->GetStaticShortField(c, fid);
+    v.s = JPEnv::getJava()->GetStaticShortField(clazz->getNativeClass(), fid);
     
     return asHostObject(v);
 }
@@ -322,24 +322,24 @@ HostRef* JPShortType::getInstanceValue(jobject c, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPShortType::invokeStatic(jclass claz, jmethodID mth, jvalue* val)
+HostRef* JPShortType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
 {
     jvalue v;
-    v.s = JPEnv::getJava()->CallStaticShortMethodA(claz, mth, val);
+    v.s = JPEnv::getJava()->CallStaticShortMethodA(claz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-HostRef* JPShortType::invoke(jobject obj, jclass clazz, jmethodID mth, jvalue* val)
+HostRef* JPShortType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
 {
     jvalue v;
-    v.s = JPEnv::getJava()->CallNonvirtualShortMethodA(obj, clazz, mth, val);
+    v.s = JPEnv::getJava()->CallNonvirtualShortMethodA(obj, clazz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-void JPShortType::setStaticValue(jclass c, jfieldID fid, HostRef* obj) 
+void JPShortType::setStaticValue(JPClass* clazz, jfieldID fid, HostRef* obj) 
 {
     jshort val = convertToJava(obj).s;
-    JPEnv::getJava()->SetStaticShortField(c, fid, val);
+    JPEnv::getJava()->SetStaticShortField(clazz->getNativeClass(), fid, val);
 }
 
 void JPShortType::setInstanceValue(jobject c, jfieldID fid, HostRef* obj) 
@@ -455,40 +455,40 @@ jarray JPIntType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewIntArray(sz);
 }
 
-HostRef* JPIntType::getStaticValue(jclass c, jfieldID fid) 
+HostRef* JPIntType::getStaticValue(JPClass* clazz, jfieldID fid) 
 {
     jvalue v;
-    v.i = JPEnv::getJava()->GetStaticIntField(c, fid);
+    v.i = JPEnv::getJava()->GetStaticIntField(clazz->getNativeClass(), fid);
     
     return asHostObject(v);
 }
 
-HostRef* JPIntType::getInstanceValue(jobject c, jfieldID fid) 
+HostRef* JPIntType::getInstanceValue(jobject obj, jfieldID fid) 
 {
     jvalue v;
-    v.i = JPEnv::getJava()->GetIntField(c, fid);
+    v.i = JPEnv::getJava()->GetIntField(obj, fid);
     
     return asHostObject(v);
 }
 
-HostRef* JPIntType::invokeStatic(jclass claz, jmethodID mth, jvalue* val)
+HostRef* JPIntType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
 {
     jvalue v;
-    v.i = JPEnv::getJava()->CallStaticIntMethodA(claz, mth, val);
+    v.i = JPEnv::getJava()->CallStaticIntMethodA(claz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-HostRef* JPIntType::invoke(jobject obj, jclass clazz, jmethodID mth, jvalue* val)
+HostRef* JPIntType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
 {
     jvalue v;
-    v.i = JPEnv::getJava()->CallNonvirtualIntMethodA(obj, clazz, mth, val);
+    v.i = JPEnv::getJava()->CallNonvirtualIntMethodA(obj, clazz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-void JPIntType::setStaticValue(jclass c, jfieldID fid, HostRef* obj) 
+void JPIntType::setStaticValue(JPClass* clazz, jfieldID fid, HostRef* obj) 
 {
     jint val = convertToJava(obj).i;
-    JPEnv::getJava()->SetStaticIntField(c, fid, val);
+    JPEnv::getJava()->SetStaticIntField(clazz->getNativeClass(), fid, val);
 }
 
 void JPIntType::setInstanceValue(jobject c, jfieldID fid, HostRef* obj) 
@@ -604,10 +604,10 @@ jarray JPLongType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewLongArray(sz);
 }
 
-HostRef* JPLongType::getStaticValue(jclass c, jfieldID fid) 
+HostRef* JPLongType::getStaticValue(JPClass* clazz, jfieldID fid) 
 {
     jvalue v;
-    v.j = JPEnv::getJava()->GetStaticLongField(c, fid);
+    v.j = JPEnv::getJava()->GetStaticLongField(clazz->getNativeClass(), fid);
     
     return asHostObject(v);
 }
@@ -620,24 +620,24 @@ HostRef* JPLongType::getInstanceValue(jobject c, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPLongType::invokeStatic(jclass claz, jmethodID mth, jvalue* val)
+HostRef* JPLongType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
 {
     jvalue v;
-    v.j = JPEnv::getJava()->CallStaticLongMethodA(claz, mth, val);
+    v.j = JPEnv::getJava()->CallStaticLongMethodA(claz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-HostRef* JPLongType::invoke(jobject obj, jclass clazz, jmethodID mth, jvalue* val)
+HostRef* JPLongType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
 {
     jvalue v;
-    v.j = JPEnv::getJava()->CallNonvirtualLongMethodA(obj, clazz, mth, val);
+    v.j = JPEnv::getJava()->CallNonvirtualLongMethodA(obj, clazz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-void JPLongType::setStaticValue(jclass c, jfieldID fid, HostRef* obj) 
+void JPLongType::setStaticValue(JPClass* clazz, jfieldID fid, HostRef* obj) 
 {
     jlong val = convertToJava(obj).j;
-    JPEnv::getJava()->SetStaticLongField(c, fid, val);
+    JPEnv::getJava()->SetStaticLongField(clazz->getNativeClass(), fid, val);
 }
 
 void JPLongType::setInstanceValue(jobject c, jfieldID fid, HostRef* obj) 
@@ -755,10 +755,10 @@ jarray JPFloatType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewFloatArray(sz);
 }
 
-HostRef* JPFloatType::getStaticValue(jclass c, jfieldID fid) 
+HostRef* JPFloatType::getStaticValue(JPClass* clazz, jfieldID fid) 
 {
     jvalue v;
-    v.f = JPEnv::getJava()->GetStaticFloatField(c, fid);
+    v.f = JPEnv::getJava()->GetStaticFloatField(clazz->getNativeClass(), fid);
     
     return asHostObject(v);
 }
@@ -771,24 +771,24 @@ HostRef* JPFloatType::getInstanceValue(jobject c, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPFloatType::invokeStatic(jclass claz, jmethodID mth, jvalue* val)
+HostRef* JPFloatType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
 {
     jvalue v;
-    v.f = JPEnv::getJava()->CallStaticFloatMethodA(claz, mth, val);
+    v.f = JPEnv::getJava()->CallStaticFloatMethodA(claz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-HostRef* JPFloatType::invoke(jobject obj, jclass clazz, jmethodID mth, jvalue* val)
+HostRef* JPFloatType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
 {
     jvalue v;
-    v.f = JPEnv::getJava()->CallNonvirtualFloatMethodA(obj, clazz, mth, val);
+    v.f = JPEnv::getJava()->CallNonvirtualFloatMethodA(obj, clazz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-void JPFloatType::setStaticValue(jclass c, jfieldID fid, HostRef* obj) 
+void JPFloatType::setStaticValue(JPClass* clazz, jfieldID fid, HostRef* obj) 
 {
     jfloat val = convertToJava(obj).f;
-    JPEnv::getJava()->SetStaticFloatField(c, fid, val);
+    JPEnv::getJava()->SetStaticFloatField(clazz->getNativeClass(), fid, val);
 }
 
 void JPFloatType::setInstanceValue(jobject c, jfieldID fid, HostRef* obj) 
@@ -903,10 +903,10 @@ jarray JPDoubleType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewDoubleArray(sz);
 }
 
-HostRef* JPDoubleType::getStaticValue(jclass c, jfieldID fid) 
+HostRef* JPDoubleType::getStaticValue(JPClass* clazz, jfieldID fid) 
 {
     jvalue v;
-    v.d = JPEnv::getJava()->GetStaticDoubleField(c, fid);
+    v.d = JPEnv::getJava()->GetStaticDoubleField(clazz->getNativeClass(), fid);
     
     return asHostObject(v);
 }
@@ -919,24 +919,24 @@ HostRef* JPDoubleType::getInstanceValue(jobject c, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPDoubleType::invokeStatic(jclass claz, jmethodID mth, jvalue* val)
+HostRef* JPDoubleType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
 {
     jvalue v;
-    v.d = JPEnv::getJava()->CallStaticDoubleMethodA(claz, mth, val);
+    v.d = JPEnv::getJava()->CallStaticDoubleMethodA(claz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-HostRef* JPDoubleType::invoke(jobject obj, jclass clazz, jmethodID mth, jvalue* val)
+HostRef* JPDoubleType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
 {
     jvalue v;
-    v.d = JPEnv::getJava()->CallNonvirtualDoubleMethodA(obj, clazz, mth, val);
+    v.d = JPEnv::getJava()->CallNonvirtualDoubleMethodA(obj, clazz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-void JPDoubleType::setStaticValue(jclass c, jfieldID fid, HostRef* obj) 
+void JPDoubleType::setStaticValue(JPClass* clazz, jfieldID fid, HostRef* obj) 
 {
     jdouble val = convertToJava(obj).d;
-    JPEnv::getJava()->SetStaticDoubleField(c, fid, val);
+    JPEnv::getJava()->SetStaticDoubleField(clazz->getNativeClass(), fid, val);
 }
 
 void JPDoubleType::setInstanceValue(jobject c, jfieldID fid, HostRef* obj) 
@@ -1052,10 +1052,10 @@ jarray JPCharType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewCharArray(sz);
 }
 
-HostRef* JPCharType::getStaticValue(jclass c, jfieldID fid) 
+HostRef* JPCharType::getStaticValue(JPClass* clazz, jfieldID fid) 
 {
     jvalue v;
-    v.c = JPEnv::getJava()->GetStaticCharField(c, fid);
+    v.c = JPEnv::getJava()->GetStaticCharField(clazz->getNativeClass(), fid);
     
     return asHostObject(v);
 }
@@ -1068,24 +1068,24 @@ HostRef* JPCharType::getInstanceValue(jobject c, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPCharType::invokeStatic(jclass claz, jmethodID mth, jvalue* val)
+HostRef* JPCharType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
 {
     jvalue v;
-    v.c = JPEnv::getJava()->CallStaticCharMethodA(claz, mth, val);
+    v.c = JPEnv::getJava()->CallStaticCharMethodA(claz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-HostRef* JPCharType::invoke(jobject obj, jclass clazz, jmethodID mth, jvalue* val)
+HostRef* JPCharType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
 {
     jvalue v;
-    v.c = JPEnv::getJava()->CallNonvirtualCharMethodA(obj, clazz, mth, val);
+    v.c = JPEnv::getJava()->CallNonvirtualCharMethodA(obj, clazz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-void JPCharType::setStaticValue(jclass c, jfieldID fid, HostRef* obj) 
+void JPCharType::setStaticValue(JPClass* clazz, jfieldID fid, HostRef* obj) 
 {
     jchar val = convertToJava(obj).c;
-    JPEnv::getJava()->SetStaticCharField(c, fid, val);
+    JPEnv::getJava()->SetStaticCharField(clazz->getNativeClass(), fid, val);
 }
 
 void JPCharType::setInstanceValue(jobject c, jfieldID fid, HostRef* obj) 
@@ -1225,10 +1225,10 @@ jarray JPBooleanType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewBooleanArray(sz);
 }
 
-HostRef* JPBooleanType::getStaticValue(jclass c, jfieldID fid) 
+HostRef* JPBooleanType::getStaticValue(JPClass* clazz, jfieldID fid) 
 {
     jvalue v;
-    v.z = JPEnv::getJava()->GetStaticBooleanField(c, fid);
+    v.z = JPEnv::getJava()->GetStaticBooleanField(clazz->getNativeClass(), fid);
     
     return asHostObject(v);
 }
@@ -1241,24 +1241,24 @@ HostRef* JPBooleanType::getInstanceValue(jobject c, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPBooleanType::invokeStatic(jclass claz, jmethodID mth, jvalue* val)
+HostRef* JPBooleanType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
 {
     jvalue v;
-    v.z = JPEnv::getJava()->CallStaticBooleanMethodA(claz, mth, val);
+    v.z = JPEnv::getJava()->CallStaticBooleanMethodA(claz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-HostRef* JPBooleanType::invoke(jobject obj, jclass clazz, jmethodID mth, jvalue* val)
+HostRef* JPBooleanType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
 {
     jvalue v;
-    v.z = JPEnv::getJava()->CallNonvirtualBooleanMethodA(obj, clazz, mth, val);
+    v.z = JPEnv::getJava()->CallNonvirtualBooleanMethodA(obj, clazz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-void JPBooleanType::setStaticValue(jclass c, jfieldID fid, HostRef* obj) 
+void JPBooleanType::setStaticValue(JPClass* clazz, jfieldID fid, HostRef* obj) 
 {
     jboolean val = convertToJava(obj).z;
-    JPEnv::getJava()->SetStaticBooleanField(c, fid, val);
+    JPEnv::getJava()->SetStaticBooleanField(clazz->getNativeClass(), fid, val);
 }
 
 void JPBooleanType::setInstanceValue(jobject c, jfieldID fid, HostRef* obj) 

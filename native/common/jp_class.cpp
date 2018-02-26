@@ -39,13 +39,12 @@ HostRef* convertObjectToHostRef(jobject obj)
 	return type->asHostObject(v);
 }
 
-
-HostRef* JPClass::getStaticValue(jclass c, jfieldID fid) 
+HostRef* JPClass::getStaticValue(JPClass* clazz, jfieldID fid) 
 {
 	TRACE_IN("JPClass::getStaticValue");
 	JPLocalFrame frame;
 
-	jobject r = JPEnv::getJava()->GetStaticObjectField(c, fid);
+	jobject r = JPEnv::getJava()->GetStaticObjectField(clazz->getNativeClass(), fid);
 	return convertObjectToHostRef(r);
 
 	TRACE_OUT;
@@ -61,37 +60,37 @@ HostRef* JPClass::getInstanceValue(jobject c, jfieldID fid)
 	TRACE_OUT;
 }
 
-HostRef* JPClass::invokeStatic(jclass claz, jmethodID mth, jvalue* val)
+HostRef* JPClass::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
 {
 	TRACE_IN("JPClass::invokeStatic");
 	JPLocalFrame frame;
 	
-	jobject res = JPEnv::getJava()->CallStaticObjectMethodA(claz, mth, val);
+	jobject res = JPEnv::getJava()->CallStaticObjectMethodA(claz->getNativeClass(), mth, val);
 	return convertObjectToHostRef(res);
 
 	TRACE_OUT;
 }
 
-HostRef* JPClass::invoke(jobject claz, jclass clazz, jmethodID mth, jvalue* val)
+HostRef* JPClass::invoke(jobject claz, JPClass* clazz, jmethodID mth, jvalue* val)
 {
 	TRACE_IN("JPClass::invoke");
 	JPLocalFrame frame;
 
 	// Call method
-	jobject res = JPEnv::getJava()->CallNonvirtualObjectMethodA(claz, clazz, mth, val);
+	jobject res = JPEnv::getJava()->CallNonvirtualObjectMethodA(claz, clazz->getNativeClass(), mth, val);
 	return convertObjectToHostRef(res);
 	
 	TRACE_OUT;
 }
 
-void JPClass::setStaticValue(jclass c, jfieldID fid, HostRef* obj) 
+void JPClass::setStaticValue(JPClass* c, jfieldID fid, HostRef* obj) 
 {
 	TRACE_IN("JPClass::setStaticValue");
 	JPLocalFrame frame;
 
 	jobject val = convertToJava(obj).l;
 
-	JPEnv::getJava()->SetStaticObjectField(c, fid, val);
+	JPEnv::getJava()->SetStaticObjectField(c->getNativeClass(), fid, val);
 	TRACE_OUT;
 }
 

@@ -35,7 +35,7 @@ PyObject* JPypeJavaNio::convertToDirectBuffer(PyObject* self, PyObject* args)
 	if (JPyObject::isMemoryView(src))
 	{
 		// converts to byte buffer ...
-		JPType* type = JPTypeManager::getPrimitiveType(JPTypeName::_byte);
+		JPClass* type = JPTypeManager::_byte;
 		HostRef srcRef(src);
 
 		TRACE1("Converting");

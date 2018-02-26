@@ -116,7 +116,7 @@ public :
 	virtual HostRef* getCallableFrom(HostRef*, string&) = 0;
 
 	virtual bool isWrapper(HostRef*) = 0;
-	virtual JPTypeName getWrapperTypeName(HostRef*) = 0;
+	virtual JPClass* getWrapperClass(HostRef*) = 0;
 	virtual jvalue getWrapperValue(HostRef*) = 0;
 	virtual HostRef* newStringWrapper(jstring) = 0;
 

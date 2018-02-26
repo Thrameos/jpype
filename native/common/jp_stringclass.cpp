@@ -16,17 +16,17 @@
 *****************************************************************************/   
 #include <jpype.h>
 
-JPStringType::JPStringType():
+JPStringClass::JPStringClass():
 	JPObjectClass(JPJni::s_StringClass)
 {
 }
 
-JPStringType::~JPStringType()
+JPStringClass::~JPStringClass()
 {}
 
-HostRef* JPStringType::asHostObject(jvalue val) 
+HostRef* JPStringClass::asHostObject(jvalue val) 
 {
-	TRACE_IN("JPStringType::asHostObject");
+	TRACE_IN("JPStringClass::asHostObject");
 	
 	if (val.l == NULL)
 	{
@@ -59,7 +59,7 @@ HostRef* JPStringType::asHostObject(jvalue val)
 	TRACE_OUT;
 }
 
-EMatchType JPStringType::canConvertToJava(HostRef* obj)
+EMatchType JPStringClass::canConvertToJava(HostRef* obj)
 {
 	JPLocalFrame frame;
 
@@ -75,9 +75,8 @@ EMatchType JPStringType::canConvertToJava(HostRef* obj)
 	
 	if (JPEnv::getHost()->isWrapper(obj))
 	{
-		JPTypeName name = JPEnv::getHost()->getWrapperTypeName(obj);
-
-		if (name.getType() == JPTypeName::_string)
+		JPClass* name = JPEnv::getHost()->getWrapperClass(obj);
+		if (name == JPTypeManager::_java_lang_String)
 		{
 			return _exact;
 		}
@@ -87,7 +86,7 @@ EMatchType JPStringType::canConvertToJava(HostRef* obj)
 	{
 		JPObject* o = JPEnv::getHost()->asObject(obj);
 		JPObjectClass* oc = o->getClass();
-		if (oc->getName().getSimpleName() == "java.lang.String")
+		if (oc == JPTypeManager::_java_lang_String )
 		{
 			return _exact;
 		}
@@ -95,9 +94,9 @@ EMatchType JPStringType::canConvertToJava(HostRef* obj)
 	return _none;
 }
 
-jvalue JPStringType::convertToJava(HostRef* obj)
+jvalue JPStringClass::convertToJava(HostRef* obj)
 {
-	TRACE_IN("JPStringType::convertToJava");
+	TRACE_IN("JPStringClass::convertToJava");
 	jvalue v;
 	
 	if (JPEnv::getHost()->isNone(obj))

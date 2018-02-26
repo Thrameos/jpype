@@ -19,7 +19,6 @@
 
 JPTypeName::NativeNamesMap JPTypeName::nativeNames;
 JPTypeName::DefinedTypesMap JPTypeName::definedTypes;
-JPTypeName::NativeTypesMap JPTypeName::nativeTypes;
 
 static string convertToNativeClassName(const string& str)
 {
@@ -66,23 +65,13 @@ void JPTypeName::init()
 	definedTypes["java.lang.String"] = _string;
 	definedTypes["java.lang.Class"] = _class;
 
-	for (DefinedTypesMap::iterator it = definedTypes.begin(); it != definedTypes.end(); ++it)
-	{
-		nativeTypes[it->second] = it->first;
-	}
-
 }
 
-jclass JPTypeName::findClass() const
+JPClass* JPTypeName::findClass() const
 {
-	return JPJni::findClass(getNativeName());
+	return JPTypeManager::findClass(JPJni::findClass(getNativeName()));
 }
 	
-JPTypeName JPTypeName::fromType(JPTypeName::ETypes t)
-{
-	return fromSimple(nativeTypes[t].c_str());
-}
-
 JPTypeName JPTypeName::fromSimple(const char* name)
 {
 	string simple = name;

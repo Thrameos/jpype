@@ -204,11 +204,11 @@ public :
 	virtual HostRef* getCallableFrom(HostRef*, string&);
 
 	virtual bool isWrapper(PyObject*) ;
-	virtual JPTypeName getWrapperTypeName(PyObject*);
+	virtual JPClass* getWrapperClass(PyObject*);
 	virtual jvalue getWrapperValue(PyObject*);
 
 	virtual bool isWrapper(HostRef*);
-	virtual JPTypeName getWrapperTypeName(HostRef*);
+	virtual JPClass* getWrapperClass(HostRef*);
 	virtual jvalue getWrapperValue(HostRef*);
 	virtual HostRef* newStringWrapper(jstring);
 

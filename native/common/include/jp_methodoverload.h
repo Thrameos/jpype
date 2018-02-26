@@ -33,7 +33,7 @@ public :
 
 	HostRef*                invokeStatic(vector<HostRef*>& arg);
 
-	JPObject*               invokeConstructor(jclass, vector<HostRef*>& arg);
+	JPObject*               invokeConstructor(JPObjectClass* cls, vector<HostRef*>& arg);
 
 public :	
 	string getSignature();

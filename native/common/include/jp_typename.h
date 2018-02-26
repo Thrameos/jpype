@@ -85,7 +85,8 @@ public :
 	static JPTypeName fromSimple(const char* name);
 	static JPTypeName fromType(ETypes t);
 
-	jclass findClass() const;
+	// Get the class or NULL if the class does not exist
+	JPClass* findClass() const;
 	
 	const string& getSimpleName() const
 	{
@@ -116,11 +117,9 @@ private :
 
 	typedef map<string, string> NativeNamesMap;
 	typedef map<string, ETypes> DefinedTypesMap;
-	typedef map<ETypes, string> NativeTypesMap;
 
 	static NativeNamesMap nativeNames;
 	static DefinedTypesMap definedTypes;
-	static NativeTypesMap nativeTypes;
 };
 
 #endif // _JPTYPENAME_H_

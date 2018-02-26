@@ -17,12 +17,15 @@
 #ifndef _JPPSTRINGTYPE_H_
 #define _JPPSTRINGTYPE_H_
 
-class JPStringType : public JPObjectClass
+/** 
+ * Sepecialization for java string.
+ */
+class JPStringClass : public JPObjectClass
 {
 public :
-	JPStringType();
+	JPStringClass();
 	
-	virtual ~JPStringType();
+	virtual ~JPStringClass();
 
 public : 
 

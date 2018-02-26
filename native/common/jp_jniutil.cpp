@@ -17,7 +17,6 @@
 #include <jpype.h>
 
 namespace { // impl detail
-	jclass objectClass;
 	jmethodID getClassID;
 	jmethodID toStringID;
 	jmethodID hashCodeID;
@@ -92,6 +91,7 @@ namespace { // impl detail
 }
 
 namespace JPJni {
+	jclass s_ObjectClass;
 	jclass s_ClassClass;
 	jclass s_StringClass;
 	jclass s_NoSuchMethodErrorClass;
@@ -111,11 +111,11 @@ namespace JPJni {
 void init()
 {
 	JPLocalFrame frame(32);
-	objectClass = (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("java/lang/Object"));
+	s_ObjectClass = (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("java/lang/Object"));
 	s_StringClass = (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("java/lang/String"));
-	getClassID = JPEnv::getJava()->GetMethodID(objectClass, "getClass", "()Ljava/lang/Class;");
-	toStringID = JPEnv::getJava()->GetMethodID(objectClass, "toString", "()Ljava/lang/String;");
-	hashCodeID = JPEnv::getJava()->GetMethodID(objectClass, "hashCode", "()I");
+	getClassID = JPEnv::getJava()->GetMethodID(s_ObjectClass, "getClass", "()Ljava/lang/Class;");
+	toStringID = JPEnv::getJava()->GetMethodID(s_ObjectClass, "toString", "()Ljava/lang/String;");
+	hashCodeID = JPEnv::getJava()->GetMethodID(s_ObjectClass, "hashCode", "()I");
 
 	s_ClassClass = (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("java/lang/Class"));
 	getNameID = JPEnv::getJava()->GetMethodID(s_ClassClass, "getName", "()Ljava/lang/String;");

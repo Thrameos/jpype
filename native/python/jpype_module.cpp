@@ -171,7 +171,7 @@ PyObject* JPypeModule::synchronized(PyObject* obj, PyObject* args)
 			JPArrayClass* jpo = (JPArrayClass*)JPyCObject::asVoidPtr(o);
 			obj = jpo->getNativeClass();
 		}
-		else if (hostEnv->isWrapper(o) && hostEnv->getWrapperTypeName(o).isObjectType())
+		else if (hostEnv->isWrapper(o) && hostEnv->getWrapperClass(o)->isObjectType())
 		{
 			obj = hostEnv->getWrapperValue(o).l;
 		}

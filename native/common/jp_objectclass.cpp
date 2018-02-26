@@ -129,7 +129,7 @@ void JPObjectClass::loadMethods()
 		JPMethod* method = getMethod(name);
 		if (method == NULL)
 		{
-			method = new JPMethod(m_Class, name, false);
+			method = new JPMethod(this, name, false);
 			m_Methods[name] = method;
 		}
 
@@ -142,7 +142,7 @@ void JPObjectClass::loadConstructors()
 {
 	JPLocalFrame frame(32);
 	TRACE_IN("JPObjectClass::loadMethods");
-	m_Constructors = new JPMethod(m_Class, "[init", true);
+	m_Constructors = new JPMethod(this, "[init", true);
 
 	if (JPJni::isAbstract(m_Class))
 	{
@@ -352,9 +352,8 @@ EMatchType JPObjectClass::canConvertToJava(HostRef* obj)
 
 	if (JPEnv::getHost()->isWrapper(obj))
 	{
-		JPTypeName o = JPEnv::getHost()->getWrapperTypeName(obj);
-
-		if (o.getSimpleName() == m_Name.getSimpleName())
+		JPClass* o = JPEnv::getHost()->getWrapperClass(obj);
+		if (o == this)
 		{
 			TRACE1("exact wrapper");
 			return _exact;

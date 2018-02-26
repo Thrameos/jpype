@@ -19,7 +19,7 @@
 JNIEXPORT jobject JNICALL Java_jpype_JPypeInvocationHandler_hostInvoke(
 	JNIEnv *env, jclass clazz, jstring name, 
 	jlong hostObj, jobjectArray args, 
-	jobjectArray types, jclass returnType)
+	jobjectArray types, jclass nativeReturnType)
 {
 	TRACE_IN("Java_jpype_JPypeInvocationHandler_hostInvoke");
 
@@ -58,17 +58,16 @@ JNIEXPORT jobject JNICALL Java_jpype_JPypeInvocationHandler_hostInvoke(
 			HostRef* o = JPTypeManager::findClass(c)->asHostObjectFromObject(v);
 			cleaner.add(o);
 			hostArgs.push_back(o);
-
 		}
 
 		HostRef* returnValue = JPEnv::getHost()->callObject(callable, hostArgs);
 		cleaner.add(returnValue);
 
-		JPTypeName returnT = JPJni::getName(returnType);
-
+		JPClass* returnType = JPTypeManager::findClass(nativeReturnType);
 		if (returnValue == NULL || returnValue->isNull() || JPEnv::getHost()->isNone(returnValue))
 		{
-			if (returnT.getType() != JPTypeName::_void && returnT.getType() < JPTypeName::_object)
+			// None is acceptable for void or Objects
+			if (returnType!=JPTypeManager::_void && !returnType->isObjectType())
 			{
 				JPEnv::getJava()->ThrowNew(JPJni::s_RuntimeExceptionClass, "Return value is None when it cannot be");
 				JPEnv::getHost()->prepareCallbackFinish(callbackState);
@@ -76,23 +75,20 @@ JNIEXPORT jobject JNICALL Java_jpype_JPypeInvocationHandler_hostInvoke(
 			}
 		}
 
-		if (returnT.getType() == JPTypeName::_void)
+		if (returnType==JPTypeManager::_void)
 		{
 			JPEnv::getHost()->prepareCallbackFinish(callbackState);
 			return NULL;
 		}
 
-		JPClass* rt = JPTypeManager::findClass(returnType);
-		// What if rt is NULL?
-		
-		if (rt->canConvertToJava(returnValue) == _none)
+		if (returnType->canConvertToJava(returnValue) == _none)
 		{
 			JPEnv::getJava()->ThrowNew(JPJni::s_RuntimeExceptionClass, "Return value is not compatible with required type.");
 			JPEnv::getHost()->prepareCallbackFinish(callbackState);
 			return NULL;
 		}
 	
-		jobject returnObj = rt->convertToJavaObject(returnValue);
+		jobject returnObj = returnType->convertToJavaObject(returnValue);
 		returnObj = JPEnv::getJava()->NewLocalRef(returnObj); // Add an extra local reference so returnObj survives cleaner
     
 		JPEnv::getHost()->prepareCallbackFinish(callbackState);

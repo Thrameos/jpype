@@ -535,24 +535,24 @@ bool PythonHostEnvironment::isWrapper(PyObject* obj)
 	return JPyObject::isInstance(obj, m_WrapperClass);
 }
 
-JPTypeName PythonHostEnvironment::getWrapperTypeName(PyObject* obj)
+JPClass* PythonHostEnvironment::getWrapperClass(PyObject* obj)
 {
 	PyObject* pyTName = JPyObject::getAttrString(obj, "typeName");
 
 	string tname = JPyString::asString(pyTName);
 	Py_DECREF(pyTName);
 
-	return JPTypeName::fromSimple(tname.c_str());
+	return JPTypeManager::findClass(JPJni::findClass(tname));
 }
 
 jvalue PythonHostEnvironment::getWrapperValue(PyObject* obj)
 {
-	JPTypeName name = getWrapperTypeName(obj);
+	JPClass* name = getWrapperClass(obj);
 	PyObject* value = JPyObject::getAttrString(obj, "_value");
 	jvalue* v = (jvalue*)JPyCObject::asVoidPtr(value);
 	Py_DECREF(value);
 
-	if (name.isObjectType())
+	if (name->isObjectType())
 	{
 		jvalue res;
 		res.l = JPEnv::getJava()->NewLocalRef(v->l); // FIXME This is bad, nothing cleans it up
@@ -561,9 +561,9 @@ jvalue PythonHostEnvironment::getWrapperValue(PyObject* obj)
 	return *v;
 }
 
-JPTypeName PythonHostEnvironment::getWrapperTypeName(HostRef* obj)
+JPClass* PythonHostEnvironment::getWrapperClass(HostRef* obj)
 {
-	return getWrapperTypeName(UNWRAP(obj));
+	return getWrapperClass(UNWRAP(obj));
 }
 
 jvalue PythonHostEnvironment::getWrapperValue(HostRef* obj)
