@@ -27,14 +27,16 @@
  * These are linked to primitives.
  * They specialize the conversion rules to set up our table for conversion.
  */
-class JPBoxedClass : public JPClassObjectClass
+class JPBoxedClass : public JPObjectClass
 {
 public:
 	JPBoxedClass(jclass c);
 	virtual~ JPBoxedClass();
 
-public:
-	virtual jvalue     convertToJava(HostRef* obj);
+  jvalue convertToJava(HostRef* obj)
+
+private:
+  jobject buildObjectWrapper(HostRef* obj)
 };
 
 class JPBoxedBooleanClass : public JPBoxedClass

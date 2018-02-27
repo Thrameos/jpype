@@ -26,11 +26,11 @@
  * the JPTypeManager.
  *
  */
-class JPObjectSpecializationClass : public JPObjectClass
+class JPObjectBaseClass : public JPObjectClass
 {
 public :
-	JPObjectSpecializationClass();
-	virtual~ JPObjectSpecializationClass();
+	JPObjectBaseClass();
+	virtual~ JPObjectBaseClass();
 
 public : // JPClass implementation
 	virtual EMatchType canConvertToJava(HostRef* obj);

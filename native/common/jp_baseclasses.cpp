@@ -23,13 +23,13 @@ JPObjectBaseClass::JPObjectBaseClass() :
 {
 }
 
-JPObjectBaseClass::JPObjectBaseClass() :
+JPObjectBaseClass::~JPObjectBaseClass()
 {
 }
 
 EMatchType JPObjectBaseClass::canConvertToJava(HostRef* obj)
 {
-  EMatchType base=JPObjectClass:canConvertToJava(obj);
+  EMatchType base=JPObjectClass::canConvertToJava(obj);
 	if (base!=_none)
 		return base;
 
@@ -94,7 +94,6 @@ jvalue JPObjectBaseClass::convertToJava(HostRef* obj)
 	jvalue res;
 
 	res.l = NULL;
-	const string& simpleName = m_Name.getSimpleName();
 
 	// assume it is convertible;
 	if (JPEnv::getHost()->isNone(obj))
@@ -146,7 +145,7 @@ jvalue JPObjectBaseClass::convertToJava(HostRef* obj)
 		return res;
 	}
 
-	else if (JPEnv::getHost()->isArray(obj) && simpleName == "java.lang.Object")
+	else if (JPEnv::getHost()->isArray(obj))
 	{
 		JPArray* a = JPEnv::getHost()->asArray(obj);
 		res = a->getValue();
@@ -182,19 +181,20 @@ jvalue JPObjectBaseClass::convertToJava(HostRef* obj)
 //=======================================================
 
 JPClassBaseClass::JPClassBaseClass() :
-	JPClassClass(JPJni::s_ClassClass)
+	JPObjectClass(JPJni::s_ClassClass)
 {
 }
 
-JPClassBaseClass::JPClassBaseClass() :
+JPClassBaseClass::~JPClassBaseClass()
 {
 }
 
 EMatchType JPClassBaseClass::canConvertToJava(HostRef* obj)
 {
+	TRACE_IN("JPClassBaseClass::convertToJava");
 	EMatchType base = JPObjectClass::canConvertToJava(obj);
-	if (base!=none)
-		return basel
+	if (base != _none)
+		return base;
 
 	JPLocalFrame frame;
 	if (JPEnv::getHost()->isClass(obj))
@@ -212,7 +212,6 @@ jvalue JPClassBaseClass::convertToJava(HostRef* obj)
 	jvalue res;
 
 	res.l = NULL;
-	const string& simpleName = m_Name.getSimpleName();
 
 	// assume it is convertible;
 	if (JPEnv::getHost()->isNone(obj))

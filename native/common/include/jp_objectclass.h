@@ -94,8 +94,6 @@ private :
 	void loadMethods();	
 	void loadConstructors();	
 
-	jobject buildObjectWrapper(HostRef* obj);
-
 private :
 	jclass                  m_Class;
 	JPTypeName              m_Name;

@@ -37,7 +37,6 @@ JPMethodOverload::JPMethodOverload(JPObjectClass* claz, jobject mth)
 	if (! m_IsConstructor)
 	{
 		m_ReturnType = (jclass)JPEnv::getJava()->NewGlobalRef(JPJni::getReturnType(m_Method));
-		m_ReturnTypeName = JPJni::getName(m_ReturnType);
 	}
 
 	// arguments
@@ -354,7 +353,8 @@ string JPMethodOverload::matchReport(vector<HostRef*>& args)
 {
 	stringstream res;
 
-	res << m_ReturnTypeName.getNativeName() << " (";
+	JPTypeName returnTypeName = JPJni::getName(m_ReturnType);
+	res << returnTypeName.getNativeName() << " (";
 
 	bool isFirst = true;
 	for (vector<jclass>::iterator it = m_Arguments.begin(); it != m_Arguments.end(); it++)

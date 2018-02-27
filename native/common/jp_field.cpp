@@ -28,7 +28,6 @@ JPField::JPField(JPObjectClass* clazz, jobject fld)
 	m_IsFinal = JPJni::isMemberFinal(fld);
 	m_FieldID = JPEnv::getJava()->FromReflectedField(fld);
 	m_Type = (jclass)JPEnv::getJava()->NewGlobalRef(JPJni::getType(m_Field));	
-	m_TypeName = JPJni::getName(m_Type);
 }
 
 JPField::~JPField() NO_EXCEPT_FALSE

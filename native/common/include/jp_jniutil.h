@@ -47,12 +47,6 @@ namespace JPJni
 
 	jstring javaStringFromJCharString(JCharString& str);
 
-	/**
-	 * Get a typename from an object.  
-	 * Trying to remove this method.
-	 */
-	JPTypeName getClassName(jobject obj);
-
 	/** 
 	 * Get the class for an object.
 	 * Returns a local reference to the class.

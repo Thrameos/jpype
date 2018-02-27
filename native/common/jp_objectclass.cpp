@@ -410,7 +410,7 @@ string JPObjectClass::describe()
 		{
 			out << "final ";
 		}
-		out << f->getType().getSimpleName() << " " << f->getName() << ";" << endl;
+		out << f->getClass()->getName().getSimpleName() << " " << f->getName() << ";" << endl;
 	}
 	out << endl;
 	out << "  // Accessible Instance Fields" << endl;
@@ -422,7 +422,7 @@ string JPObjectClass::describe()
 		{
 			out << "final ";
 		}
-		out << f->getType().getSimpleName() << " " << f->getName() << ";" << endl;
+		out << f->getClass()->getName().getSimpleName() << " " << f->getName() << ";" << endl;
 	}
 	out << endl;
 

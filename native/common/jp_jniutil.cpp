@@ -245,18 +245,6 @@ jstring javaStringFromJCharString(JCharString& wstr)
 	return result;
 }
 
-JPTypeName getClassName(jobject o)
-{
-	if (o == NULL)
-	{
-		return JPTypeName::fromSimple("java.lang.Object");
-	}
-
-	JPLocalFrame frame;
-	jclass c = getClass(o);
-	return getName(c);
-}
-
 jclass getClass(jobject o)
 {
 	return (jclass)JPEnv::getJava()->CallObjectMethod(o, getClassID);
@@ -386,7 +374,6 @@ bool isFinal(jclass clazz)
 JPTypeName getName(jclass clazz)
 {
 	string simpleName = convertToSimpleName(clazz);
-
 	return JPTypeName::fromSimple(simpleName.c_str());
 }
 

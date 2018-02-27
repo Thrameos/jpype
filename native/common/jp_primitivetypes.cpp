@@ -24,7 +24,7 @@ JPPrimitiveType::JPPrimitiveType(const string& boxedName) :
     JPClass(JPJni::findPrimitiveClass(boxedName))
 {
 	// Get the boxed java class
-	m_BoxedClass=JPTypeManager::findClass(JPJni::findClass(boxedName));
+	m_BoxedClass=(JPObjectClass*)JPTypeManager::findClass(JPJni::findClass(boxedName));
 }
 
 JPPrimitiveType::~JPPrimitiveType()

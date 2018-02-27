@@ -53,9 +53,10 @@ public :
 		return m_IsVarArgs;
 	}
 
-	const JPTypeName& getReturnType() const
+	JPClass* getReturnType()
 	{
-		return m_ReturnTypeName;
+    ensureTypeCache(); 
+	  return  m_ReturnTypeCache;
 	}
 
 	unsigned char getArgumentCount() const
@@ -76,7 +77,6 @@ private :
 	jobject                  m_Method;
 	jmethodID                m_MethodID;
 	jclass                   m_ReturnType;
-	JPTypeName               m_ReturnTypeName;
 	vector<jclass>           m_Arguments;
 	bool                     m_IsStatic;
 	bool                     m_IsFinal;

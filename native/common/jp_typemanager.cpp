@@ -16,12 +16,15 @@
 *****************************************************************************/
 #include <jpype.h>
 
+#include <map>
+#include <list>
 namespace {
 //AT's on porting:
 // 1) TODO: test on HP-UX platform. Cause: it is suspected to be an undefined order of initialization of static objects
 //
 //  2) TODO: in any case, use of static objects may impose problems in multi-threaded environment.
-	typedef map<int, list<JPClass*> > JavaClassMap;
+	typedef std::list<JPClass*> JavaClassList;
+	typedef std::map<int, JavaClassList> JavaClassMap;
 	JavaClassMap javaClassMap;
 }
 
@@ -107,9 +110,9 @@ JPClass* findClass(jclass cls)
 	JavaClassMap::iterator cur = javaClassMap.find(hash);
 	if (cur != javaClassMap.end())
 	{
-		for (list<JPClass*>::iterator item=cur->second.begin(); item!=end(); ++item)
+		for (JavaClassList::iterator item=cur->second.begin(); item!=cur->second.end(); ++item)
 		{
-			if (JPEnv::IsSameObject((jobject)(item->getNativeClass()),(jobject)cls))
+			if (JPEnv::getJava()->IsSameObject((jobject)((*item)->getNativeClass()),(jobject)cls))
 				return *item;
 		}
 	}
@@ -146,12 +149,12 @@ void flushCache()
 {
 	for(JavaClassMap::iterator i = javaClassMap.begin(); i != javaClassMap.end(); ++i)
 	{
-		for (list<JPClass*>::iterator j = i->second.begin(); j!= i->second.end(); ++j)
+		for (JavaClassList::iterator j = i->second.begin(); j!= i->second.end(); ++j)
 			delete *j;
 	}
 
 	javaClassMap.clear();
-	loadeClasses = 0;
+	loadedClasses = 0;
 }
 
 int getLoadedClasses()

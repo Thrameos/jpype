@@ -245,7 +245,7 @@ string JPMethod::describe(string prefix)
 				str << "final ";
 			}
 
-			str << cur->second->getReturnType().getSimpleName() << " ";
+			str << cur->second->getReturnType()->getName().getSimpleName() << " ";
 		}
 		str << name << cur->second->getArgumentString() << ";" << endl;
 	}
@@ -256,7 +256,7 @@ bool JPMethod::isBeanMutator()
 {
 	for (map<string, JPMethodOverload*>::iterator cur = m_Overloads.begin(); cur != m_Overloads.end(); cur++)
 	{
-		if ( (! cur->second->isStatic()) && cur->second->getReturnType().getSimpleName() == "void" && cur->second->getArgumentCount() == 2)
+		if ( (! cur->second->isStatic()) && cur->second->getReturnType()==JPTypeManager::_void && cur->second->getArgumentCount() == 2)
 		{
 			return true;
 		}
@@ -268,7 +268,7 @@ bool JPMethod::isBeanAccessor()
 {
 	for (map<string, JPMethodOverload*>::iterator cur = m_Overloads.begin(); cur != m_Overloads.end(); cur++)
 	{
-		if ( (! cur->second->isStatic()) && cur->second->getReturnType().getSimpleName() != "void" && cur->second->getArgumentCount() == 1)
+		if ( (! cur->second->isStatic()) && cur->second->getReturnType()!=JPTypeManager::_void && cur->second->getArgumentCount() == 1)
 		{
 			return true;
 		}

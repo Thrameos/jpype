@@ -43,9 +43,10 @@ public :
 	bool isStatic() const;
 	
 	const string& getName() const;
-	const JPTypeName& getType() const
+
+	JPObjectClass* getClass() const
 	{
-		return m_TypeName;
+		return m_Class;
 	}
 	
 	HostRef* getStaticAttribute();
@@ -67,7 +68,6 @@ private :
 	jobject    m_Field;
 	jfieldID   m_FieldID;
 	jclass     m_Type;
-	JPTypeName m_TypeName;
 };
 
 #endif // _JPFIELD_H_
