@@ -25,7 +25,7 @@ protected :
 	virtual ~JPPrimitiveType();
 	
 private :
-	jclass     m_boxed_class;
+	JPClass* m_BoxedClass;
 
 public :
 	virtual bool       isObjectType() const

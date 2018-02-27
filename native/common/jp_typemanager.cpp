@@ -21,53 +21,75 @@ namespace {
 // 1) TODO: test on HP-UX platform. Cause: it is suspected to be an undefined order of initialization of static objects
 //
 //  2) TODO: in any case, use of static objects may impose problems in multi-threaded environment.
-	typedef map<int, JPClass* > JavaClassMap;
+	typedef map<int, list<JPClass*> > JavaClassMap;
 	JavaClassMap javaClassMap;
 }
 
 namespace JPTypeManager {
-JPClass *_void  = 0;
-JPClass *_boolean  = 0;
-JPClass *_byte  = 0;
-JPClass *_char  = 0;
-JPClass *_short  = 0;
-JPClass *_long  = 0;
-JPClass *_int  = 0;
-JPClass *_float  = 0;
-JPClass *_double  = 0;
+
+int loadedClasses = 0;
+JPPrimitiveType *_void  = 0;
+JPPrimitiveType *_boolean  = 0;
+JPPrimitiveType *_byte  = 0;
+JPPrimitiveType *_char  = 0;
+JPPrimitiveType *_short  = 0;
+JPPrimitiveType *_long  = 0;
+JPPrimitiveType *_int  = 0;
+JPPrimitiveType *_float  = 0;
+JPPrimitiveType *_double  = 0;
 JPClass *_java_lang_Object  = 0;
 JPClass *_java_lang_Class  = 0;
 JPClass *_java_lang_String  = 0;
+JPClass *_java_lang_Boolean = 0;
+JPClass *_java_lang_Byte = 0;
+JPClass *_java_lang_Character = 0;
+JPClass *_java_lang_Short = 0;
+JPClass *_java_lang_Integer = 0;
+JPClass *_java_lang_Long = 0;
+JPClass *_java_lang_Float = 0;
+JPClass *_java_lang_Double = 0;
 
-void registerPrimitiveClass(JPClass* type)
+void registerClass(JPClass* type)
 {
+	loadedClasses++;
+	type->postLoad();
 	jclass cls = type->getNativeClass();
 	int hash = JPJni::hashCode(cls);
-	javaClassMap[hash] = type;
+	javaClassMap[hash].push_back(type);
 }
 
 void init()
 {
+	// This will load all of the specializations that we need to operate
+	// All other classes can be loaded later as JPObjectClass or JPArrayClass.
+	
+	// Preload basic types (specializations)
+	registerClass(_java_lang_Object = new JPObjectBaseClass());
+	registerClass(_java_lang_Class = new JPClassBaseClass());
+
+	// Preload the boxed types 
+	registerClass(_java_lang_Boolean = new JPBoxedBooleanClass());
+	registerClass(_java_lang_Byte = new JPBoxedByteClass());
+	registerClass(_java_lang_Character = new JPBoxedCharacterClass());
+	registerClass(_java_lang_Short = new JPBoxedShortClass());
+	registerClass(_java_lang_Integer = new JPBoxedIntegerClass());
+	registerClass(_java_lang_Long = new JPBoxedLongClass());
+	registerClass(_java_lang_Float = new JPBoxedFloatClass());
+	registerClass(_java_lang_Double = new JPBoxedDoubleClass());
+
 	// Preload the primitive types
-	registerPrimitiveClass(_void=new JPVoidType());
-	registerPrimitiveClass(_boolean=new JPBooleanType());
-	registerPrimitiveClass(_byte=new JPByteType());
-	registerPrimitiveClass(_char=new JPCharType());
-	registerPrimitiveClass(_short=new JPShortType());
-	registerPrimitiveClass(_int=new JPIntType());
-	registerPrimitiveClass(_long=new JPLongType());
-	registerPrimitiveClass(_float=new JPFloatType());
-	registerPrimitiveClass(_double=new JPDoubleType());
+	registerClass(_void=new JPVoidType());
+	registerClass(_boolean=new JPBooleanType());
+	registerClass(_byte=new JPByteType());
+	registerClass(_char=new JPCharType());
+	registerClass(_short=new JPShortType());
+	registerClass(_int=new JPIntType());
+	registerClass(_long=new JPLongType());
+	registerClass(_float=new JPFloatType());
+	registerClass(_double=new JPDoubleType());
 
 	// Preload the string type
-	JPStringClass* strType= new JPStringClass();
-	strType->postLoad();
-	javaClassMap[JPJni::hashCode(strType->getNativeClass())]=strType;
-	_java_lang_String = strType;
-
-	// Preload types for matching
-	_java_lang_Object = findClass(JPJni::s_ObjectClass);
-	_java_lang_Class = findClass(JPJni::s_ClassClass);
+	registerClass(_java_lang_String = new JPStringClass());
 }
 
 JPClass* findClass(jclass cls)
@@ -83,10 +105,13 @@ JPClass* findClass(jclass cls)
 
 	// First check in the map ...
 	JavaClassMap::iterator cur = javaClassMap.find(hash);
-
 	if (cur != javaClassMap.end())
 	{
-		return cur->second;
+		for (list<JPClass*>::iterator item=cur->second.begin(); item!=end(); ++item)
+		{
+			if (JPEnv::IsSameObject((jobject)(item->getNativeClass()),(jobject)cls))
+				return *item;
+		}
 	}
 
 	TRACE_IN("JPTypeManager::findClass");
@@ -106,10 +131,7 @@ JPClass* findClass(jclass cls)
 		res = new JPObjectClass(cls);
 	}
 
-	// Finish loading it
-	res->postLoad();
-	// Register it here before we do anything else
-	javaClassMap[hash] = res;
+	registerClass(res);
 
 	return res;
 	TRACE_OUT;
@@ -124,16 +146,18 @@ void flushCache()
 {
 	for(JavaClassMap::iterator i = javaClassMap.begin(); i != javaClassMap.end(); ++i)
 	{
-		delete i->second;
+		for (list<JPClass*>::iterator j = i->second.begin(); j!= i->second.end(); ++j)
+			delete *j;
 	}
 
 	javaClassMap.clear();
+	loadeClasses = 0;
 }
 
 int getLoadedClasses()
 {
 	// dignostic tools ... unlikely to load more classes than int can hold ...
-	return (int)(javaClassMap.size());
+	return loadedClasses;
 }
 
 } // end of namespace JPTypeManager

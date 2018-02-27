@@ -233,7 +233,6 @@ long JPObjectClass::getClassModifiers()
 	return JPJni::getClassModifiers(m_Class);
 }
 
-const char* java_lang = "java.lang.";
 EMatchType JPObjectClass::canConvertToJava(HostRef* obj)
 {
 	JPLocalFrame frame;
@@ -242,9 +241,6 @@ EMatchType JPObjectClass::canConvertToJava(HostRef* obj)
 	{
 		return _implicit;
 	}
-
-	const string& simpleName = m_Name.getSimpleName();
-	TRACE2("Simple name", simpleName);
 
 	if (JPEnv::getHost()->isObject(obj))
 	{
@@ -261,92 +257,6 @@ EMatchType JPObjectClass::canConvertToJava(HostRef* obj)
 		if (JPEnv::getJava()->IsAssignableFrom(oc->m_Class, m_Class))
 		{
 			return _implicit;
-		}
-	}
-
-	if (simpleName.compare(0, 10, java_lang)==0)
-	{
-		if (simpleName == "java.lang.Byte" || simpleName == "java.lang.Short" ||
-		    simpleName == "java.lang.Integer")
-		{
-			if (JPEnv::getHost()->isInt(obj))
-			{
-				TRACE1("explicit int");
-				return _explicit;
-			}
-		}
-	
-		if (simpleName == "java.lang.Long" && JPEnv::getHost()->isLong(obj))
-		{
-			TRACE1("explicit long");
-			return _explicit;
-		}
-	
-		if (simpleName == "java.lang.Float" || simpleName == "java.lang.Double")
-		{
-			if (JPEnv::getHost()->isFloat(obj))
-			{
-				TRACE1("explicit float");
-				return _explicit;
-			}
-		}
-
-		// Handle a Python class which wraps java class 
-		if (simpleName == "java.lang.Class")
-		{
-			if (JPEnv::getHost()->isClass(obj))
-			{
-				return _exact;
-			}
-		}
-	
-		if (simpleName == "java.lang.Object")
-		{
-			// arrays are objects
-			if (JPEnv::getHost()->isArray(obj))
-			{
-				TRACE1("From array");
-				return _implicit;
-			}
-	
-			// Strings are objects too
-			if (JPEnv::getHost()->isString(obj))
-			{
-				TRACE1("From string");
-				return _implicit;
-			}
-	
-			// Class are objects too
-			if (JPEnv::getHost()->isClass(obj) || JPEnv::getHost()->isArrayClass(obj))
-			{
-				TRACE1("implicit array class");
-				return _implicit;
-			}
-	
-			// Let'a allow primitives (int, long, float and boolean) to convert implicitly too ...
-			if (JPEnv::getHost()->isInt(obj))
-			{
-				TRACE1("implicit int");
-				return _implicit;
-			}
-	
-			if (JPEnv::getHost()->isLong(obj))
-			{
-				TRACE1("implicit long");
-				return _implicit;
-			}
-	
-			if (JPEnv::getHost()->isFloat(obj))
-			{
-				TRACE1("implicit float");
-				return _implicit;
-			}
-	
-			if (JPEnv::getHost()->isBoolean(obj))
-			{
-				TRACE1("implicit boolean");
-				return _implicit;
-			}
 		}
 	}
 
@@ -400,7 +310,6 @@ jvalue JPObjectClass::convertToJava(HostRef* obj)
 	jvalue res;
 
 	res.l = NULL;
-	const string& simpleName = m_Name.getSimpleName();
 
 	// assume it is convertible;
 	if (JPEnv::getHost()->isNone(obj))
@@ -414,88 +323,6 @@ jvalue JPObjectClass::convertToJava(HostRef* obj)
 		JPObject* ref = JPEnv::getHost()->asObject(obj);
 		res.l = frame.keep(ref->getObject());
 		return res;
-	}
-
-	if (simpleName.compare(0, 10, java_lang)==0)
-	{
-		if ( 
-				   (simpleName == "java.lang.Byte" && JPEnv::getHost()->isInt(obj) )
-				|| (simpleName == "java.lang.Short" && JPEnv::getHost()->isInt(obj))
-				|| (simpleName == "java.lang.Integer" && JPEnv::getHost()->isInt(obj))
-				|| (simpleName == "java.lang.Long" && 
-						(JPEnv::getHost()->isInt(obj) || JPEnv::getHost()->isLong(obj) ))
-				|| (simpleName == "java.lang.Float" && (JPEnv::getHost()->isFloat(obj) 
-						|| JPEnv::getHost()->isInt(obj) 
-						|| JPEnv::getHost()->isLong(obj) ))
-				|| (simpleName == "java.lang.Double" && (JPEnv::getHost()->isFloat(obj) 
-						|| JPEnv::getHost()->isInt(obj) 
-						|| JPEnv::getHost()->isLong(obj) ))
-			 )
-		{
-			res.l = frame.keep(buildObjectWrapper(obj));
-			return res;
-		}
-	
-		if (JPEnv::getHost()->isString(obj))
-		{
-			JPClass* type = JPTypeManager::_java_lang_String;
-			res = type->convertToJava(obj);
-			res.l = frame.keep(res.l);
-			return res;
-		}
-
-		if (simpleName == "java.lang.Class")
-		{
-			JPObjectClass* w = JPEnv::getHost()->asClass(obj);
-			jclass lr = w->getNativeClass();
-			res.l = lr;
-		}
-
-		if (simpleName == "java.lang.Object")
-		{
-			if (JPEnv::getHost()->isInt(obj))
-			{
-				JPClass* t = JPTypeManager::_int;
-				res.l = frame.keep(t->convertToJavaObject(obj));
-				return res;
-			}
-
-			else if (JPEnv::getHost()->isLong(obj))
-			{
-				JPClass* t = JPTypeManager::_long;
-				res.l = frame.keep(t->convertToJavaObject(obj));
-				return res;
-			}
-
-			else if (JPEnv::getHost()->isFloat(obj))
-			{
-				JPClass* t = JPTypeManager::_double;
-				res.l = frame.keep(t->convertToJavaObject(obj));
-				return res;
-			}
-
-			else if (JPEnv::getHost()->isBoolean(obj))
-			{
-				JPClass* t = JPTypeManager::_boolean;
-				res.l = frame.keep(t->convertToJavaObject(obj));
-				return res;
-			}
-
-			else if (JPEnv::getHost()->isArray(obj) && simpleName == "java.lang.Object")
-			{
-				JPArray* a = JPEnv::getHost()->asArray(obj);
-				res = a->getValue();
-				res.l = frame.keep(res.l);
-				return res;
-			}
-
-			else if (JPEnv::getHost()->isClass(obj))
-			{
-				JPClass* type = JPTypeManager::findClass(JPJni::s_ClassClass);
-				res.l = frame.keep(type->convertToJavaObject(obj));
-				return res;
-			}
-		}
 	}
 
 	if (JPEnv::getHost()->isProxy(obj))

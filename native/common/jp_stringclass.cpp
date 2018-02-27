@@ -86,7 +86,7 @@ EMatchType JPStringClass::canConvertToJava(HostRef* obj)
 	{
 		JPObject* o = JPEnv::getHost()->asObject(obj);
 		JPObjectClass* oc = o->getClass();
-		if (oc == JPTypeManager::_java_lang_String )
+		if (oc == this)
 		{
 			return _exact;
 		}
@@ -115,7 +115,7 @@ jvalue JPStringClass::convertToJava(HostRef* obj)
 		JPObject* o = JPEnv::getHost()->asObject(obj);
 
 		JPObjectClass* oc = o->getClass();
-		if (oc->getName().getSimpleName() == "java.lang.String")
+		if (oc == this)
 		{
 			v.l = o->getObject(); 
 			return v;

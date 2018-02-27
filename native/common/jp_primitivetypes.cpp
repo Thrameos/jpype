@@ -24,12 +24,11 @@ JPPrimitiveType::JPPrimitiveType(const string& boxedName) :
     JPClass(JPJni::findPrimitiveClass(boxedName))
 {
 	// Get the boxed java class
-	m_boxed_class=(jclass)JPEnv::getJava()->NewGlobalRef(JPJni::findClass(boxedName));
+	m_BoxedClass=JPTypeManager::findClass(JPJni::findClass(boxedName));
 }
 
 JPPrimitiveType::~JPPrimitiveType()
 {
-	JPEnv::getJava()->DeleteGlobalRef(m_boxed_class);
 }
 	
 
@@ -46,7 +45,7 @@ JPDoubleType::JPDoubleType() : JPPrimitiveType("java/lang/Double") {}
 
 JPObjectClass* JPPrimitiveType::getBoxedClass()
 {
-	return (JPObjectClass*) JPTypeManager::findClass(m_boxed_class);
+	return m_BoxedClass;
 }
 
 bool checkWrapper(HostRef* obj, JPClass* cls)
@@ -64,11 +63,15 @@ jobject JPPrimitiveType::convertToJavaObject(HostRef* obj)
 	JPLocalFrame frame;
 	JPObjectClass* c = getBoxedClass();
 
+	// Create a vector with one element needed for newInstance
 	vector<HostRef*> args(1);
 	args[0] = obj;
 
+	// Call the new instance
 	JPObject* o = c->newInstance(args);
 	jobject res = o->getObject(); 
+
+	// Keep only the jobject
 	delete o;
 	return frame.keep(res);
 }

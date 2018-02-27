@@ -22,18 +22,28 @@
  */
 namespace JPTypeManager
 {
-  extern JPClass *_void;
-  extern JPClass *_boolean;
-  extern JPClass *_byte;
-  extern JPClass *_char;
-  extern JPClass *_short;
-  extern JPClass *_long;
-  extern JPClass *_int;
-  extern JPClass *_float ;
-  extern JPClass *_double;
+  extern JPPrimitiveType *_void;
+  extern JPPrimitiveType *_boolean;
+  extern JPPrimitiveType *_byte;
+  extern JPPrimitiveType *_char;
+  extern JPPrimitiveType *_short;
+  extern JPPrimitiveType *_long;
+  extern JPPrimitiveType *_int;
+  extern JPPrimitiveType *_float ;
+  extern JPPrimitiveType *_double;
+
   extern JPClass *_java_lang_Object;
   extern JPClass *_java_lang_Class;
   extern JPClass *_java_lang_String;
+
+  extern JPClass *_java_lang_Boolean;
+  extern JPClass *_java_lang_Byte;
+  extern JPClass *_java_lang_Char;
+  extern JPClass *_java_lang_Short;
+  extern JPClass *_java_lang_Integer;
+  extern JPClass *_java_lang_Long;
+  extern JPClass *_java_lang_Float;
+  extern JPClass *_java_lang_Double;
 
 	/**
 	 * Initialize the type manager caches

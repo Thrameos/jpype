@@ -147,9 +147,11 @@ class JPMethod;
 // Other header files
 #include "jp_type.h"
 #include "jp_class.h"
+#include "jp_baseclasses.h"
 #include "jp_primitivetypes.h"
 #include "jp_objectclass.h"
 #include "jp_stringclass.h"
+#include "jp_boxedclasses.h"
 
 #include "jp_field.h"
 #include "jp_methodoverload.h"
