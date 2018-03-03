@@ -289,20 +289,6 @@ EMatchType JPObjectClass::canConvertToJava(HostRef* obj)
 	TRACE_OUT;
 }
 
-jobject JPObjectClass::buildObjectWrapper(HostRef* obj)
-{
-	JPLocalFrame frame;
-
-	vector<HostRef*> args(1);
-	args.push_back(obj);
-
-	JPObject* pobj = newInstance(args);
-	jobject out = pobj->getObject();
-	delete pobj;
-
-	return frame.keep(out);
-}
-
 jvalue JPObjectClass::convertToJava(HostRef* obj)
 {
 	TRACE_IN("JPObjectClass::convertToJava");

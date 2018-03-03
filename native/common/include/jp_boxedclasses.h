@@ -33,10 +33,10 @@ public:
 	JPBoxedClass(jclass c);
 	virtual~ JPBoxedClass();
 
-  jvalue convertToJava(HostRef* obj)
+  jvalue convertToJava(HostRef* obj);
 
 private:
-  jobject buildObjectWrapper(HostRef* obj)
+  jobject buildObjectWrapper(HostRef* obj);
 };
 
 class JPBoxedBooleanClass : public JPBoxedClass

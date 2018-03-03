@@ -14,8 +14,8 @@
    limitations under the License.
    
 *****************************************************************************/   
-#ifndef _JPCLASS_H_
-#define _JPCLASS_H_
+#ifndef _JPOBJECTCLASS_H_
+#define _JPOBJECTCLASS_H_
 
 /**
  * Class to wrap Java Class and provide low-level behavior
@@ -33,11 +33,13 @@ public :
 		return true; 
 	}
 
-public : // JPClass implementation
+public: 
+	// Conversion methods
 	virtual HostRef*   asHostObject(jvalue val);
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);
 
+	// Array Methods
 	PyObject* getArrayRangeToSequence(jarray, int start, int length);
   void setArrayRange(jarray, int start, int len, PyObject*);
 	
@@ -86,7 +88,6 @@ public:
 	
 	string describe();
 
-
 private :
 	void loadSuperClass();	
 	void loadSuperInterfaces();	
@@ -109,4 +110,4 @@ private :
 };
 
 
-#endif // _JPCLASS_H_
+#endif // _JPOBJECTCLASS_H_
