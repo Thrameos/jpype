@@ -20,30 +20,30 @@
 class JPProxy
 {
 public:
-	JPProxy(HostRef* inst, vector<jclass>& intf);
+	/** Create a proxy.
+	 * intf is a list of all the java interfaces that this proxy implements.
+	 */
+	JPProxy(HostRef* inst, vector<JPObjectClass*>& intf);
 
 	virtual ~JPProxy();
 
+	/** Create all of the hooks needed for proxy. 
+	 * This is called when the jvm is connected.
+	 */
 	static void init();
 
-	const vector<jclass>& getInterfaces() const
+	const vector<JPObjectClass*>& getInterfaces() const
 	{
 		return m_InterfaceClasses;
 	}
 
-//	jobject getHandler()
-//	{
-//		return JPEnv::getJava()->NewGlobalRef(m_Handler);
-//	}
-
 	jobject getProxy();
 
 private :
-
-	vector<jclass> m_InterfaceClasses;
-	jobjectArray   m_Interfaces;
-	jobject	       m_Handler;
-	HostRef*       m_Instance;
+	HostRef*               m_Instance;
+	vector<JPObjectClass*> m_InterfaceClasses;
+	jobjectArray           m_Interfaces;
+	jobject	               m_Handler;
 };
 
 #endif // JPPROXY_H

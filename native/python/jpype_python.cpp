@@ -82,18 +82,18 @@ PyObject* JPypeJavaProxy::createProxy(PyObject*, PyObject* arg)
 
 		JPyArg::parseTuple(arg, "OO", &self, &intf);
 
-		std::vector<jclass> interfaces;
+		std::vector<JPObjectClass*> interfaces;
 		Py_ssize_t len = JPyObject::length(intf);
 
 		for (Py_ssize_t i = 0; i < len; i++)
 		{
 			PyObject* subObj = JPySequence::getItem(intf, i);
+			// Not sure what the next line is for... if we don't use the host reference what is this for?
 			cleaner.add(new HostRef(subObj, false));
 
 			PyObject* claz = JPyObject::getAttrString(subObj, "__javaclass__");
 			PyJPClass* c = (PyJPClass*)claz;
-			jclass jc = c->m_Class->getNativeClass();
-			interfaces.push_back(jc);
+			interfaces.push_back(c->m_Class);
 		}
 		
 		HostRef ref = HostRef(self);

@@ -129,15 +129,9 @@ void JPClass::setArrayRange(jarray a, int start, int length, vector<HostRef*>& v
 {
 	JPLocalFrame frame(8+length);
 	jobjectArray array = (jobjectArray)a;	
-	
-	jvalue v;
 	for (int i = 0; i < length; i++)
 	{
-		HostRef* pv = vals[i];
-		
-		v = convertToJava(pv);
-
-		JPEnv::getJava()->SetObjectArrayElement(array, i+start, v.l);
+		JPEnv::getJava()->SetObjectArrayElement(array, i+start, convertToJava(vals[i]).l);
 	}
 }
 
@@ -164,12 +158,13 @@ HostRef* JPClass::getArrayItem(jarray a, int ndx)
 
 jobject JPClass::convertToJavaObject(HostRef* obj)
 {
-	jvalue v = convertToJava(obj);
-	return v.l;
+	return convertToJava(obj).l;
 }
 
-HostRef* JPClass::asHostObjectFromObject(jvalue val)
+HostRef* JPClass::asHostObjectFromObject(jobject obj)
 {
+	jvalue val;
+	val.l = obj;
 	return asHostObject(val);
 }
 

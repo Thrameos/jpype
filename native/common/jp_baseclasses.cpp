@@ -87,93 +87,75 @@ EMatchType JPObjectBaseClass::canConvertToJava(HostRef* obj)
 	TRACE_OUT;
 }
 
+// java.lang.Object can be converted to from all object classes, 
+// all primitive types (via boxing), strings, arrays, and python bridge classes
 jvalue JPObjectBaseClass::convertToJava(HostRef* obj)
 {
 	TRACE_IN("JPObjectBaseClass::convertToJava");
 	JPLocalFrame frame;
 	jvalue res;
-
 	res.l = NULL;
 
 	// assume it is convertible;
 	if (JPEnv::getHost()->isNone(obj))
 	{
-		res.l = NULL;
 		return res;
 	}
 
-	if (JPEnv::getHost()->isObject(obj))
+	else if (JPEnv::getHost()->isObject(obj))
 	{
 		JPObject* ref = JPEnv::getHost()->asObject(obj);
-		res.l = frame.keep(ref->getObject());
-		return res;
+		res.l = ref->getObject();
 	}
 
-	if (JPEnv::getHost()->isString(obj))
+	else if (JPEnv::getHost()->isString(obj))
 	{
-		JPClass* type = JPTypeManager::_java_lang_String;
-		res = type->convertToJava(obj);
-		res.l = frame.keep(res.l);
-		return res;
+		res = JPTypeManager::_java_lang_String->convertToJava(obj);
 	}
 
-	if (JPEnv::getHost()->isInt(obj))
+	else if (JPEnv::getHost()->isInt(obj))
 	{
-		JPClass* t = JPTypeManager::_int;
-		res.l = frame.keep(t->convertToJavaObject(obj));
-		return res;
+		res.l = JPTypeManager::_int->convertToJavaObject(obj);
 	}
 
 	else if (JPEnv::getHost()->isLong(obj))
 	{
-		JPClass* t = JPTypeManager::_long;
-		res.l = frame.keep(t->convertToJavaObject(obj));
-		return res;
+		res.l = JPTypeManager::_long->convertToJavaObject(obj);
 	}
 
 	else if (JPEnv::getHost()->isFloat(obj))
 	{
-		JPClass* t = JPTypeManager::_double;
-		res.l = frame.keep(t->convertToJavaObject(obj));
-		return res;
+		res.l = JPTypeManager::_double->convertToJavaObject(obj);
 	}
 
 	else if (JPEnv::getHost()->isBoolean(obj))
 	{
-		JPClass* t = JPTypeManager::_boolean;
-		res.l = frame.keep(t->convertToJavaObject(obj));
-		return res;
+		res.l = JPTypeManager::_boolean->convertToJavaObject(obj);
 	}
 
 	else if (JPEnv::getHost()->isArray(obj))
 	{
 		JPArray* a = JPEnv::getHost()->asArray(obj);
 		res = a->getValue();
-		res.l = frame.keep(res.l);
-		return res;
 	}
 
 	else if (JPEnv::getHost()->isClass(obj))
 	{
-		JPClass* type = JPTypeManager::findClass(JPJni::s_ClassClass);
-		res.l = frame.keep(type->convertToJavaObject(obj));
-		return res;
+		res.l = JPTypeManager::_java_lang_Class->convertToJavaObject(obj);
 	}
 
-	if (JPEnv::getHost()->isProxy(obj))
+	else if (JPEnv::getHost()->isProxy(obj))
 	{
 		JPProxy* proxy = JPEnv::getHost()->asProxy(obj);
-		res.l = frame.keep(proxy->getProxy());
-		return res;
+		res.l = proxy->getProxy();
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
+	else if (JPEnv::getHost()->isWrapper(obj))
 	{
 		res = JPEnv::getHost()->getWrapperValue(obj); // FIXME isn't this one global already
-		res.l = frame.keep(res.l);
-		return res;
 	}
 
+	res.l = frame.keep(res.l);
 	return res;
 	TRACE_OUT;
 }
@@ -216,38 +198,35 @@ jvalue JPClassBaseClass::convertToJava(HostRef* obj)
 	// assume it is convertible;
 	if (JPEnv::getHost()->isNone(obj))
 	{
-		res.l = NULL;
 		return res;
 	}
 
-	if (JPEnv::getHost()->isObject(obj))
+	else if (JPEnv::getHost()->isObject(obj))
 	{
 		JPObject* ref = JPEnv::getHost()->asObject(obj);
-		res.l = frame.keep(ref->getObject());
-		return res;
+		res.l = ref->getObject();
 	}
 
-	if (JPEnv::getHost()->isClass(obj))
+	else if (JPEnv::getHost()->isClass(obj))
 	{
 		JPObjectClass* w = JPEnv::getHost()->asClass(obj);
 		jclass lr = w->getNativeClass();
 		res.l = lr;
-	}
-
-	if (JPEnv::getHost()->isProxy(obj))
-	{
-		JPProxy* proxy = JPEnv::getHost()->asProxy(obj);
-		res.l = frame.keep(proxy->getProxy());
+		// This is a global reference.  No need to create a local reference
 		return res;
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
+	else if (JPEnv::getHost()->isProxy(obj))
+	{
+		res.l = JPEnv::getHost()->asProxy(obj)->getProxy();
+	}
+
+	else if (JPEnv::getHost()->isWrapper(obj))
 	{
 		res = JPEnv::getHost()->getWrapperValue(obj); // FIXME isn't this one global already
-		res.l = frame.keep(res.l);
-		return res;
 	}
 
+	res.l = frame.keep(res.l);
 	return res;
 	TRACE_OUT;
 }

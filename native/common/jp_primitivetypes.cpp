@@ -81,9 +81,9 @@ HostRef* JPByteType::asHostObject(jvalue val)
 	return JPEnv::getHost()->newInt(val.b);
 }
 
-HostRef* JPByteType::asHostObjectFromObject(jvalue val)
+HostRef* JPByteType::asHostObjectFromObject(jobject val)
 {
-	long v = JPJni::intValue(val.l);
+	long v = JPJni::intValue(val);
 	return JPEnv::getHost()->newInt(v);
 } 
 
@@ -173,9 +173,9 @@ HostRef* JPShortType::asHostObject(jvalue val)
 	return JPEnv::getHost()->newInt(val.s);
 }
 
-HostRef* JPShortType::asHostObjectFromObject(jvalue val)
+HostRef* JPShortType::asHostObjectFromObject(jobject val)
 {
-	long v = JPJni::intValue(val.l);
+	long v = JPJni::intValue(val);
 	return JPEnv::getHost()->newInt(v);
 } 
 
@@ -250,9 +250,9 @@ HostRef* JPIntType::asHostObject(jvalue val)
 	return JPEnv::getHost()->newInt(val.i);
 }
 
-HostRef* JPIntType::asHostObjectFromObject(jvalue val)
+HostRef* JPIntType::asHostObjectFromObject(jobject val)
 {
-	long v = JPJni::intValue(val.l);
+	long v = JPJni::intValue(val);
 	return JPEnv::getHost()->newInt(v);
 } 
 
@@ -332,9 +332,9 @@ HostRef* JPLongType::asHostObject(jvalue val)
 	TRACE_OUT;
 }
 
-HostRef* JPLongType::asHostObjectFromObject(jvalue val)
+HostRef* JPLongType::asHostObjectFromObject(jobject val)
 {
-	jlong v = JPJni::longValue(val.l);
+	jlong v = JPJni::longValue(val);
 	return JPEnv::getHost()->newLong(v);
 } 
 
@@ -403,9 +403,9 @@ HostRef* JPFloatType::asHostObject(jvalue val)
 	return JPEnv::getHost()->newFloat(val.f);
 }
 
-HostRef* JPFloatType::asHostObjectFromObject(jvalue val)
+HostRef* JPFloatType::asHostObjectFromObject(jobject val)
 {
-	double v = JPJni::doubleValue(val.l);
+	double v = JPJni::doubleValue(val);
 	return JPEnv::getHost()->newFloat(v);
 } 
 
@@ -487,9 +487,9 @@ HostRef* JPDoubleType::asHostObject(jvalue val)
 	return res;
 }
 
-HostRef* JPDoubleType::asHostObjectFromObject(jvalue val)
+HostRef* JPDoubleType::asHostObjectFromObject(jobject val)
 {
-	double v = JPJni::doubleValue(val.l);
+	double v = JPJni::doubleValue(val);
 	return JPEnv::getHost()->newFloat(v);
 } 
 
@@ -562,10 +562,10 @@ HostRef* JPCharType::asHostObject(jvalue val)
 	return JPEnv::getHost()->newStringFromUnicode(str, 1);
 }
 
-HostRef* JPCharType::asHostObjectFromObject(jvalue val)
+HostRef* JPCharType::asHostObjectFromObject(jobject val)
 {
 	jchar str[2];
-	str[0] = JPJni::charValue(val.l);
+	str[0] = JPJni::charValue(val);
 	str[1] = 0;
 	
 	return JPEnv::getHost()->newStringFromUnicode(str, 1);
@@ -625,10 +625,9 @@ HostRef* JPBooleanType::asHostObject(jvalue val)
 	return JPEnv::getHost()->getFalse();
 }
 
-HostRef* JPBooleanType::asHostObjectFromObject(jvalue val)
+HostRef* JPBooleanType::asHostObjectFromObject(jobject val)
 {
-	bool z = JPJni::booleanValue(val.l);
-	if (z)
+	if (JPJni::booleanValue(val))
 	{
 		return JPEnv::getHost()->getTrue();
 	}

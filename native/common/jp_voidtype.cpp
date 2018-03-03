@@ -31,7 +31,7 @@ HostRef* JPVoidType::asHostObject(jvalue val)
 	return JPEnv::getHost()->getNone();
 }
 	
-HostRef* JPVoidType::asHostObjectFromObject(jvalue val) 
+HostRef* JPVoidType::asHostObjectFromObject(jobject val) 
 {
 	return JPEnv::getHost()->getNone();
 }

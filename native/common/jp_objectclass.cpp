@@ -274,10 +274,10 @@ EMatchType JPObjectClass::canConvertToJava(HostRef* obj)
 	{
 		JPProxy* proxy = JPEnv::getHost()->asProxy(obj);
 		// Check if any of the interfaces matches ...
-		vector<jclass> itf = proxy->getInterfaces();
+		const vector<JPObjectClass*>& itf = proxy->getInterfaces();
 		for (unsigned int i = 0; i < itf.size(); i++)
 		{
-			if (JPEnv::getJava()->IsAssignableFrom(itf[i], m_Class))
+			if (JPEnv::getJava()->IsAssignableFrom(itf[i]->getNativeClass(), m_Class))
 			{
 				TRACE1("implicit proxy");
 				return _implicit;
@@ -471,14 +471,4 @@ vector<JPMethod*>  JPObjectClass::getMethods() const
 	return res;
 }
 
-
-PyObject* JPObjectClass::getArrayRangeToSequence(jarray, int start, int length)
-{
-	RAISE(JPypeException, "not valid for objects");
-}
-	
-void JPObjectClass::setArrayRange(jarray, int start, int len, PyObject*) 
-{
-	RAISE(JPypeException, "not valid for objects");
-}
 

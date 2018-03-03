@@ -36,7 +36,6 @@ public :
 	virtual jobject	   convertToJavaObject(HostRef* obj);
 
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length) = 0;
-
 	virtual void setArrayRange(jarray, int, int, PyObject*) = 0;
 
 	/** 
@@ -60,7 +59,7 @@ public : // JPType implementation
 	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid);
 	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
 	virtual HostRef*  asHostObject(jvalue val);
-	virtual HostRef*   asHostObjectFromObject(jvalue val);
+	virtual HostRef*   asHostObjectFromObject(jobject val);
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);	
 	virtual HostRef*  invokeStatic(JPClass*, jmethodID, jvalue*);
@@ -102,7 +101,7 @@ public : // JPType implementation
 	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid);
 	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
 	virtual HostRef*  asHostObject(jvalue val);
-	virtual HostRef*   asHostObjectFromObject(jvalue val);
+	virtual HostRef*   asHostObjectFromObject(jobject val);
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);
 	
@@ -149,7 +148,7 @@ public : // JPType implementation
 	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid);
 	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
 	virtual HostRef*  asHostObject(jvalue val);
-	virtual HostRef*   asHostObjectFromObject(jvalue val);
+	virtual HostRef*   asHostObjectFromObject(jobject val);
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);
 	
@@ -192,7 +191,7 @@ public : // JPType implementation
 	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid);
 	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
 	virtual HostRef*  asHostObject(jvalue val);
-	virtual HostRef*   asHostObjectFromObject(jvalue val);
+	virtual HostRef*   asHostObjectFromObject(jobject val);
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);
 	
@@ -234,7 +233,7 @@ public : // JPType implementation
 	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid);
 	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
 	virtual HostRef*  asHostObject(jvalue val);
-	virtual HostRef*   asHostObjectFromObject(jvalue val);
+	virtual HostRef*   asHostObjectFromObject(jobject val);
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);
 	
@@ -274,7 +273,7 @@ public : // JPType implementation
 	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid);
 	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
 	virtual HostRef*  asHostObject(jvalue val);
-	virtual HostRef*   asHostObjectFromObject(jvalue val);
+	virtual HostRef*   asHostObjectFromObject(jobject val);
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);
 	
@@ -313,7 +312,7 @@ public : // JPType implementation
 	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid);
 	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
 	virtual HostRef*  asHostObject(jvalue val);
-	virtual HostRef*   asHostObjectFromObject(jvalue val);
+	virtual HostRef*   asHostObjectFromObject(jobject val);
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);
 	
@@ -353,7 +352,7 @@ public : // JPType implementation
 	virtual HostRef*   getInstanceValue(jobject c, jfieldID fid);
 	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
 	virtual HostRef*   asHostObject(jvalue val);
-	virtual HostRef*   asHostObjectFromObject(jvalue val);
+	virtual HostRef*   asHostObjectFromObject(jobject val);
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);
 	
@@ -396,7 +395,7 @@ public : // JPType implementation
 	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid);
 	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
 	virtual HostRef*  asHostObject(jvalue val);
-	virtual HostRef*   asHostObjectFromObject(jvalue val);
+	virtual HostRef*   asHostObjectFromObject(jobject val);
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);
 	

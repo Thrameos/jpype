@@ -109,7 +109,7 @@ PyObject* JPypeJavaArray::getArraySlice(PyObject* self, PyObject* arg)
 		else if (hi > length) hi = length;
 		if (lo > hi) lo = hi;
 
-		JPClass* component=a->getClass()->getComponentType();
+		JPClass* component = a->getClass()->getComponentType();
 		if (!component->isObjectType())
 		{
 			// for primitive types, we have fast sequence generation available

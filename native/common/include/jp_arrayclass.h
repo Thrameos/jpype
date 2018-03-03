@@ -42,9 +42,6 @@ public : // JPClass implementation
 		return m_ComponentType;
 	}
 
-	PyObject* getArrayRangeToSequence(jarray, int start, int length);
-  void setArrayRange(jarray, int start, int len, PyObject*);
-
 	JPArray* newInstance(int length);
 
 	virtual void postLoad()

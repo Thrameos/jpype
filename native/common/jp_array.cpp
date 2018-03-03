@@ -48,14 +48,13 @@ vector<HostRef*> JPArray::getRange(int start, int stop)
 	TRACE_OUT;
 }	
 
+// This is only used if the component is a primitive type
 PyObject* JPArray::getSequenceFromRange(int start, int stop)
 {
-//	TRACE_IN("JPArray::getSequenceFromRange");
-	JPClass* compType = m_Class->getComponentType();
-//	TRACE2("Component type", compType->getName().getSimpleName());
-
+	JPPrimitiveType* compType = dynamic_cast<JPPrimitiveType*>(m_Class->getComponentType());
+	if (compType == NULL)
+		RAISE(JPypeException, "not valid for objects");
 	return compType->getArrayRangeToSequence(m_Object, start, stop);
-//  TRACE_OUT
 }
 
 void JPArray::setRange(int start, int stop, vector<HostRef*>& val)

@@ -212,31 +212,19 @@ PyObject* JPyObject::call(PyObject* c, PyObject* a, PyObject* w)
 bool JPyObject::isInstance(PyObject* obj, PyObject* t)
 {
 	PY_CHECK( int res = PyObject_IsInstance(obj, t) );
-	if (res)
-	{
-		return true;
-	}
-	return false;
+	return res != 0;
 }
 
 bool JPyObject::isSubclass(PyObject* obj, PyObject* t)
 {
 	int res = PyObject_IsSubclass(obj, t);
-	if (res)
-	{
-		return true;
-	}
-	return false;
+	return res != 0;
 }
 
 bool JPyObject::isMemoryView(PyObject* obj)
 {
 	PY_CHECK( int res = PyMemoryView_Check(obj) );
-	if (res)
-	{
-		return true;
-	}
-	return false;
+	return res != 0;
 }
 
 void JPyObject::AsPtrAndSize(PyObject *obj, char **buffer, Py_ssize_t *length)

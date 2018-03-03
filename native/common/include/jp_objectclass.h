@@ -39,10 +39,6 @@ public:
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);
 
-	// Array Methods
-	PyObject* getArrayRangeToSequence(jarray, int start, int length);
-  void setArrayRange(jarray, int start, int len, PyObject*);
-	
 public:
 	// Class specific implementation
 	/** 
