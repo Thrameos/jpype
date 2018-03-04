@@ -234,9 +234,7 @@ void JPByteType::setArrayRange(jarray a, int start, int length, vector<HostRef*>
         
         for (int i = 0; i < length; i++)
         {
-            HostRef* pv = vals[i];
-            
-            val[start+i] = convertToJava(pv).b;            
+            val[start+i] = convertToJava(vals[i]).b;            
         }
         JPEnv::getJava()->ReleaseByteArrayElements(array, val, 0);        
     }
@@ -383,9 +381,7 @@ void JPShortType::setArrayRange(jarray a, int start, int length, vector<HostRef*
         
         for (int i = 0; i < length; i++)
         {
-            HostRef* pv = vals[i];
-            
-            val[start+i] = convertToJava(pv).s;
+            val[start+i] = convertToJava(vals[i]).s;
         }
         JPEnv::getJava()->ReleaseShortArrayElements(array, val, 0);
     }
@@ -532,9 +528,7 @@ void JPIntType::setArrayRange(jarray a, int start, int length, vector<HostRef*>&
         
         for (int i = 0; i < length; i++)
         {
-            HostRef* pv = vals[i];
-            
-            val[start+i] = convertToJava(pv).i;            
+            val[start+i] = convertToJava(vals[i]).i;            
         }
         JPEnv::getJava()->ReleaseIntArrayElements(array, val, 0);        
     }
@@ -681,9 +675,7 @@ void JPLongType::setArrayRange(jarray a, int start, int length, vector<HostRef*>
         
         for (int i = 0; i < length; i++)
         {
-            HostRef* pv = vals[i];
-            
-            val[start+i] = convertToJava(pv).j;            
+            val[start+i] = convertToJava(vals[i]).j;            
         }
         JPEnv::getJava()->ReleaseLongArrayElements(array, val, 0);        
     }
@@ -832,9 +824,7 @@ void JPFloatType::setArrayRange(jarray a, int start, int length, vector<HostRef*
         
         for (int i = 0; i < length; i++)
         {
-            HostRef* pv = vals[i];
-            
-            val[start+i] = convertToJava(pv).f;            
+            val[start+i] = convertToJava(vals[i]).f;            
         }
         JPEnv::getJava()->ReleaseFloatArrayElements(array, val, 0);        
     }
@@ -980,9 +970,7 @@ void JPDoubleType::setArrayRange(jarray a, int start, int length, vector<HostRef
 
         for (int i = 0; i < length; i++)
         {
-            HostRef* pv = vals[i];
-
-            val[start+i] = convertToJava(pv).f;
+            val[start+i] = convertToJava(vals[i]).f;
         }
         JPEnv::getJava()->ReleaseDoubleArrayElements(array, val, 0);
     }
@@ -1129,9 +1117,7 @@ void JPCharType::setArrayRange(jarray a, int start, int length, vector<HostRef*>
         
         for (int i = 0; i < length; i++)
         {
-            HostRef* pv = vals[i];
-            
-            val[start+i] = convertToJava(pv).c;            
+            val[start+i] = convertToJava(vals[i]).c;            
         }
         JPEnv::getJava()->ReleaseCharArrayElements(array, val, 0);        
     }
@@ -1302,9 +1288,7 @@ void JPBooleanType::setArrayRange(jarray a, int start, int length, vector<HostRe
         
         for (int i = 0; i < length; i++)
         {
-            HostRef* pv = vals[i];
-            
-            val[start+i] = convertToJava(pv).z;
+            val[start+i] = convertToJava(vals[i]).z;
         }
         JPEnv::getJava()->ReleaseBooleanArrayElements(array, val, 0);
     }

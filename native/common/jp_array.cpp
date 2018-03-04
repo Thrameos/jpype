@@ -83,9 +83,9 @@ void JPArray::setRange(int start, int stop, vector<HostRef*>& val)
 	compType->setArrayRange(m_Object, start, stop-start, val);
 }
 
-void JPArray::setRange(int start, int stop, PyObject* sequence)
+void JPArray::setRangePrimitive(int start, int stop, PyObject* sequence)
 {
-	JPClass* compType = m_Class->getComponentType();
+	JPPrimitiveType* compType = dynamic_cast<JPPrimitiveType*>(m_Class->getComponentType());
 	unsigned int len = stop-start;
 	// check bounds of sequence which is to be assigned
 	HostRef h(sequence);

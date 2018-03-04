@@ -35,8 +35,11 @@ public :
 
 	virtual jobject	   convertToJavaObject(HostRef* obj);
 
-	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length) = 0;
-	virtual void setArrayRange(jarray, int, int, PyObject*) = 0;
+	virtual PyObject* getArrayRangeToSequence(jarray array, int start, int length) = 0;
+
+	/** Special implementation for primitive types.
+	 */
+	virtual void       setArrayRange(jarray array, int start, int length, PyObject* sequence) = 0;
 
 	/** 
 	 * Conversion type to change a primitive to a boxed type.

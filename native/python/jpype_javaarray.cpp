@@ -162,7 +162,7 @@ PyObject* JPypeJavaArray::setArraySlice(PyObject* self, PyObject* arg)
 		if (!component->isObjectType())
 		{
 			// for primitive types, we have fast setters available
-			a->setRange(lo, hi, sequence);
+			a->setRangePrimitive(lo, hi, sequence);
 		}
 		else
 		{

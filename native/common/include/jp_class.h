@@ -88,7 +88,6 @@ public :
 	virtual void       setArrayItem(jarray, int ndx, HostRef* val);
 
 	virtual void       setArrayRange(jarray, int start, int length, vector<HostRef*>& vals);
-	virtual void       setArrayRange(jarray, int start, int len, PyObject*);
 
 	virtual HostRef*   convertToDirectBuffer(HostRef* src);
 

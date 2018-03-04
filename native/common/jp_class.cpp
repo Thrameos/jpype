@@ -125,6 +125,7 @@ vector<HostRef*> JPClass::getArrayRange(jarray a, int start, int length)
 	return res;  
 }
 
+
 void JPClass::setArrayRange(jarray a, int start, int length, vector<HostRef*>& vals)
 {
 	JPLocalFrame frame(8+length);
