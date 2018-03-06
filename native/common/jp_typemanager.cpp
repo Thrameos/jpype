@@ -54,15 +54,18 @@ JPClass *_java_lang_Double = 0;
 
 void registerClass(JPClass* type)
 {
+	TRACE_IN("JPTypeManager::registerClass");
 	loadedClasses++;
+	int hash = JPJni::hashCode(type->getNativeClass());
+	TRACE2(hash, type->getName().getSimpleName());
 	type->postLoad();
-	jclass cls = type->getNativeClass();
-	int hash = JPJni::hashCode(cls);
 	javaClassMap[hash].push_back(type);
+	TRACE_OUT;
 }
 
 void init()
 {
+	TRACE_IN("JPTypeManager::init");
 	// This will load all of the specializations that we need to operate
 	// All other classes can be loaded later as JPObjectClass or JPArrayClass.
 	
@@ -93,15 +96,16 @@ void init()
 
 	// Preload the string type
 	registerClass(_java_lang_String = new JPStringClass());
+	TRACE_OUT;
 }
 
 JPClass* findClass(jclass cls)
 {
-	if (JPEnv::getJava()==0)
-		return 0;
+	if (JPEnv::getJava() == 0)
+		return NULL;
 
 	// If  the class lookup failed then we will receive NULL
-	if (cls==NULL)
+	if (cls == NULL)
 		return NULL;
 
 	int hash = JPJni::hashCode(cls);
@@ -119,7 +123,6 @@ JPClass* findClass(jclass cls)
 
 	TRACE_IN("JPTypeManager::findClass");
 	TRACE1(JPJni::getName(cls).getSimpleName());
-	TRACE1(hash);
 
 	// No we havent got it .. lets load it!!!
 	JPLocalFrame frame;

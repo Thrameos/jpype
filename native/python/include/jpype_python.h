@@ -58,6 +58,7 @@ namespace JPypeModule
 namespace JPypeJavaClass
 {
 	PyObject* findClass(PyObject* obj, PyObject* args);
+	PyObject* findPrimitiveClass(PyObject* obj, PyObject* args);
 };
 
 namespace JPypeJavaProxy

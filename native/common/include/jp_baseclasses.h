@@ -35,6 +35,10 @@ public :
 public : // JPClass implementation
 	virtual EMatchType canConvertToJava(HostRef* obj);
 	virtual jvalue     convertToJava(HostRef* obj);
+
+protected:
+	// java.lang.Object has no super class
+	void loadSuperClass();
 };
 
 /**

@@ -101,11 +101,10 @@ public :
 
 	virtual bool                   isClass(HostRef*) = 0;
 	virtual HostRef* newClass(JPObjectClass*) = 0;
-	virtual JPObjectClass* asClass(HostRef*) = 0;
+	virtual JPClass* asClass(HostRef*) = 0;
 
 	virtual bool                        isArrayClass(HostRef*) = 0;
 	virtual HostRef* newArrayClass(JPArrayClass*) = 0;
-	virtual JPArrayClass* asArrayClass(HostRef*) = 0;
 
 	virtual bool                   isArray(HostRef*) = 0;
 	virtual HostRef* newArray(JPArray*) = 0;

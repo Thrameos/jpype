@@ -28,6 +28,11 @@ JPArrayClass::~JPArrayClass()
 {
 }
 
+bool JPArrayClass::isObjectType() const
+{
+	return true;
+}
+
 EMatchType JPArrayClass::canConvertToJava(HostRef* o)
 {
 	TRACE_IN("JPArrayClass::canConvertToJava");

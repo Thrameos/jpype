@@ -52,4 +52,61 @@ PyObject* JPypeJavaClass::findClass(PyObject* obj, PyObject* args)
 	TRACE_OUT;
 }
 
+PyObject* JPypeJavaClass::findPrimitiveClass(PyObject* obj, PyObject* args)
+{
+	TRACE_IN("JPypeModule::findClass");
+	JPLocalFrame frame;
+	if (! JPEnv::isInitialized())
+	{
+		PyErr_SetString(PyExc_RuntimeError, "Java Subsystem not started");
+		return NULL;
+	}
+
+	try {
+		char* cname;
+		JPyArg::parseTuple(args, "s", &cname);
+		TRACE1(cname);
+
+		if (cname==NULL)
+		{
+			Py_RETURN_NONE;
+		}
+
+		std::string name = cname;
+		JPClass* claz = NULL;
+
+		if ( name=="boolean")
+			claz = JPTypeManager::_boolean;
+		else if ( name=="byte")
+			claz = JPTypeManager::_byte;
+		else if ( name=="char")
+			claz = JPTypeManager::_char;
+		else if ( name=="short")
+			claz = JPTypeManager::_short;
+		else if ( name=="int")
+			claz = JPTypeManager::_int;
+		else if ( name=="long")
+			claz = JPTypeManager::_long;
+		else if ( name=="float")
+			claz = JPTypeManager::_float;
+		else if ( name=="double")
+			claz = JPTypeManager::_double;
+
+		if (claz == NULL)
+		{
+			Py_RETURN_NONE;
+		}
+
+		PyObject* res = (PyObject*)PyJPClass::alloc(claz);
+
+		return res;
+	}
+	PY_STANDARD_CATCH;  
+
+	PyErr_Clear();
+	Py_RETURN_NONE;
+
+	TRACE_OUT;
+}
+
 

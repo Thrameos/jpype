@@ -92,8 +92,10 @@ PyObject* JPypeJavaProxy::createProxy(PyObject*, PyObject* arg)
 			cleaner.add(new HostRef(subObj, false));
 
 			PyObject* claz = JPyObject::getAttrString(subObj, "__javaclass__");
-			PyJPClass* c = (PyJPClass*)claz;
-			interfaces.push_back(c->m_Class);
+			JPObjectClass* c = dynamic_cast<JPObjectClass*>(((PyJPClass*)claz)->m_Class);
+			if ( c == NULL)
+				continue;
+			interfaces.push_back(c);
 		}
 		
 		HostRef ref = HostRef(self);
@@ -116,6 +118,7 @@ static PyMethodDef jpype_methods[] =
   {"attach", &JPypeModule::attach, METH_VARARGS, ""},
   {"shutdown", (PyCFunction)&JPypeModule::shutdown, METH_NOARGS, ""},
   {"findClass", &JPypeJavaClass::findClass, METH_VARARGS, ""},
+  {"findPrimitiveClass", &JPypeJavaClass::findPrimitiveClass, METH_VARARGS, ""},
   {"setResource", &JPypeModule::setResource, METH_VARARGS, ""},
 
   {"synchronized", &JPypeModule::synchronized, METH_VARARGS, ""},

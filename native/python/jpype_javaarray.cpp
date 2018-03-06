@@ -17,16 +17,6 @@
 
 #include <jpype_python.h>
 
-namespace { // impl detail
-	inline bool is_primitive(char t) {
-		switch(t) {
-			case 'B': case 'S': case 'I': case 'J': case 'F': case 'D': case 'Z': case 'C':
-				return true;
-			default:
-				return false;
-		}
-	}
-}
 
 PyObject* JPypeJavaArray::findArrayClass(PyObject* obj, PyObject* args)
 {

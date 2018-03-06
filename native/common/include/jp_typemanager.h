@@ -61,6 +61,7 @@ namespace JPTypeManager
 	 * Will be JType, JClass or JArrayClass based on the type
 	 * 
 	 * May return NULL if the java class does not exist.
+	 * Will return NULL if the jclass is NULL.
 	 */
 	JPClass* findClass(jclass cls);
 

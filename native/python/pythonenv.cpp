@@ -250,10 +250,8 @@ void JPyErr::setObject(PyObject* exClass, PyObject* str)
 
 PyObject* JPyInt::fromLong(long l)
 {
-	TRACE_IN("JPyInt::fromLong");
 	PY_CHECK( PyObject* res = PyInt_FromLong(l) );
 	return res; 
-	TRACE_OUT;
 }
 
 bool JPyInt::check(PyObject* obj)
@@ -268,10 +266,8 @@ long JPyInt::asLong(PyObject* obj)
 
 PyObject* JPyLong::fromLongLong(PY_LONG_LONG l)
 {
-	TRACE_IN("JPyLong::fromLongLong");
 	PY_CHECK( PyObject* res = PyLong_FromLongLong(l) );
 	return res; 
-	TRACE_OUT;
 }
 
 bool JPyLong::check(PyObject* obj)

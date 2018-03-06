@@ -26,7 +26,7 @@ struct PyJPClass
 	
 	// Python-visible methods
 	static void         initType(PyObject* module);
-	static PyJPClass*   alloc(JPObjectClass* cls);
+	static PyJPClass*   alloc(JPClass* cls);
 	static bool   check(PyObject* o);
 
 	static void        __dealloc__(PyObject* o);
@@ -52,7 +52,7 @@ struct PyJPClass
 	static PyObject* getMethods(PyObject* self);
 	static PyObject* getModifiers(PyObject* self);
 
-	JPObjectClass* m_Class;
+	JPClass* m_Class;
 };
 
 #endif // _PYCLASS_H_

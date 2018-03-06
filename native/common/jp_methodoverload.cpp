@@ -413,7 +413,7 @@ bool JPMethodOverload::isMoreSpecificThan(JPMethodOverload& other) const
 	for (size_t i = 0; i < numParametersThis; ++i) {
 		const JPClass* thisArgType = m_ArgumentsTypeCache[startThis + i];
 		const JPClass* otherArgType = other.m_ArgumentsTypeCache[startOther + i];
-		if (!thisArgType->isSubTypeOf(*otherArgType)) {
+		if (!thisArgType->isSubclass(otherArgType)) {
 			return false;
 		}
 	}

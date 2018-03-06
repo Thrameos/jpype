@@ -41,7 +41,7 @@ public :
 	virtual HostRef*   asHostObject(jvalue val) = 0;
 
 	// FIXME This is used only by JPProxy. 
-	// it is not obvious way it is required at all.
+	// it is not obvious why it is required at all.
 	virtual HostRef*   asHostObjectFromObject(jobject val);
 
 	/** Convert a host ref to a java value.
@@ -57,6 +57,15 @@ public :
 	/** Determine if a host ref can be converted to an object of this type.
 	 */
 	virtual EMatchType canConvertToJava(HostRef* obj) = 0;
+
+// Probe methods
+	bool			         isAbstract() const;
+	bool	             isArray() const;
+	bool			         isFinal() const;
+	virtual bool       isInterface() const;
+	virtual bool       isObjectType() const = 0;
+	long               getClassModifiers();
+	bool               isSubclass(const JPClass* o) const;
 
 // Get/Set a static field
   /** Get a static value.  
@@ -86,14 +95,9 @@ public :
 	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);
 	virtual HostRef*   getArrayItem(jarray, int ndx);
 	virtual void       setArrayItem(jarray, int ndx, HostRef* val);
-
 	virtual void       setArrayRange(jarray, int start, int length, vector<HostRef*>& vals);
 
 	virtual HostRef*   convertToDirectBuffer(HostRef* src);
-
-	// Probe methods
-	virtual bool       isObjectType() const = 0;
-	virtual bool       isSubTypeOf(const JPClass& other) const;
 
 	// Loading support
 	virtual void postLoad()

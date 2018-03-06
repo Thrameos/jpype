@@ -288,13 +288,12 @@ HostRef* PythonHostEnvironment::newClass(JPObjectClass* m)
 	return new HostRef(pyClass, false);
 }
 
-JPObjectClass* PythonHostEnvironment::asClass(HostRef* ref)
+JPClass* PythonHostEnvironment::asClass(HostRef* ref)
 {
 	PyObject* self = UNWRAP(ref);
 	PyObject* claz = JPyObject::getAttrString(self, "__javaclass__");
 	PyJPClass* res = (PyJPClass*)claz;
 	Py_DECREF(claz);
-
 	return res->m_Class;
 }
 
@@ -322,16 +321,6 @@ HostRef* PythonHostEnvironment::newArrayClass(JPArrayClass* m)
 	PyObject* pyClass = JPyObject::call(m_GetArrayClassMethod, args, NULL);
 
 	return new HostRef(pyClass, false);
-}
-
-JPArrayClass* PythonHostEnvironment::asArrayClass(HostRef* ref)
-{
-	PyObject* self = UNWRAP(ref);
-	PyObject* claz = JPyObject::getAttrString(self, "__javaclass__");
-	JPArrayClass* res = (JPArrayClass*)JPyCObject::asVoidPtr(claz);
-	Py_DECREF(claz);
-
-	return res;
 }
 
 bool PythonHostEnvironment::isArray(HostRef* ref)

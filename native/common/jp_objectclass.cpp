@@ -49,6 +49,7 @@ JPObjectClass::~JPObjectClass()
 void JPObjectClass::postLoad()
 {
 	TRACE_IN("JPObjectClass::postLoad");
+
 	// Is this an interface?
 	m_IsInterface = JPJni::isInterface(m_Class);
 
@@ -64,16 +65,11 @@ void JPObjectClass::loadSuperClass()
 {
 	TRACE_IN("JPObjectClass::loadSuperClass");
 	JPLocalFrame frame;
-
 	// base class .. if any
-	if (!m_IsInterface && m_Name.getSimpleName() != "java.lang.Object")
+	if (!m_IsInterface)
 	{
 		jclass baseClass = JPEnv::getJava()->GetSuperclass(m_Class);
-
-		if (baseClass != NULL)
-		{
-			m_SuperClass = (JPObjectClass*)JPTypeManager::findClass(baseClass);
-		}
+		m_SuperClass = (JPObjectClass*)JPTypeManager::findClass(baseClass);
 	}
 	TRACE_OUT;
 }
@@ -84,7 +80,6 @@ void JPObjectClass::loadSuperInterfaces()
 	TRACE_IN("JPObjectClass::loadSuperInterfaces");
 	// Super interfaces
 	vector<jclass> intf = JPJni::getInterfaces(frame, m_Class);
-
 	for (vector<jclass>::iterator it = intf.begin(); it != intf.end(); it++)
 	{
 		JPObjectClass* interface = (JPObjectClass*)JPTypeManager::findClass(*it);
@@ -197,16 +192,27 @@ JPMethod* JPObjectClass::getMethod(const string& name)
 
 HostRef* JPObjectClass::getStaticAttribute(const string& name)
 {
-	// static fields
-	map<string, JPField*>::iterator fld = m_StaticFields.find(name);
-	if (fld != m_StaticFields.end())
+	JPField* fld = getStaticField(name);
+	if (fld != NULL)
 	{
-		return fld->second->getStaticAttribute();
+		return fld->getStaticAttribute();
 	}
 
 	JPEnv::getHost()->setAttributeError(name.c_str());
 	JPEnv::getHost()->raise("getAttribute");
 	return NULL; // never reached
+}
+
+void JPObjectClass::setStaticAttribute(const string& name, HostRef* val)
+{
+	JPField* fld = getStaticField(name);
+	if (fld != NULL)
+	{
+		fld->setStaticAttribute(val);
+		return;
+	}
+	JPEnv::getHost()->setAttributeError(name.c_str());
+	JPEnv::getHost()->raise("__setattr__");
 }
 
 HostRef* JPObjectClass::asHostObject(jvalue obj)
@@ -226,11 +232,6 @@ HostRef* JPObjectClass::asHostObject(jvalue obj)
 
 	return JPEnv::getHost()->newObject(new JPObject((JPObjectClass*)JPTypeManager::findClass(cls), obj.l));
 	TRACE_OUT;
-}
-
-long JPObjectClass::getClassModifiers()
-{
-	return JPJni::getClassModifiers(m_Class);
 }
 
 EMatchType JPObjectClass::canConvertToJava(HostRef* obj)
@@ -334,18 +335,6 @@ JPObject* JPObjectClass::newInstance(vector<HostRef*>& args)
 	return m_Constructors->invokeConstructor(args);
 }
 
-void JPObjectClass::setStaticAttribute(const string& name, HostRef* val)
-{
-	map<string, JPField*>::iterator it = m_StaticFields.find(name);
-	if (it == m_StaticFields.end())
-	{
-		JPEnv::getHost()->setAttributeError(name.c_str());
-		JPEnv::getHost()->raise("__setattr__");
-	}
-
-	it->second->setStaticAttribute(val);
-}
-
 string JPObjectClass::describe()
 {
 	JPLocalFrame frame;
@@ -428,22 +417,12 @@ string JPObjectClass::describe()
 	return out.str();
 }
 
-bool JPObjectClass::isArray()
+bool JPObjectClass::isObjectType() const
 {
-	return JPJni::isArray(m_Class);
+	return true;
 }
 
-bool JPObjectClass::isAbstract()
-{
-	return JPJni::isAbstract(m_Class);
-}
-
-bool JPObjectClass::isFinal()
-{
-	return JPJni::isFinal(m_Class);
-}
-
-JPObjectClass* JPObjectClass::getSuperClass()
+JPObjectClass* JPObjectClass::getSuperClass() const
 {
 	return m_SuperClass;
 }
@@ -451,13 +430,6 @@ JPObjectClass* JPObjectClass::getSuperClass()
 const vector<JPObjectClass*>& JPObjectClass::getInterfaces() const
 {
 	return m_SuperInterfaces;
-}
-
-bool JPObjectClass::isSubclass(JPObjectClass* o)
-{
-	JPLocalFrame frame;
-	jclass jo = o->getNativeClass();
-	return JPEnv::getJava()->IsAssignableFrom(m_Class, jo);
 }
 
 vector<JPMethod*>  JPObjectClass::getMethods() const

@@ -160,6 +160,12 @@ jvalue JPObjectBaseClass::convertToJava(HostRef* obj)
 	TRACE_OUT;
 }
 
+void JPObjectBaseClass::loadSuperClass()
+{
+	// This does not apply to java.lang.Object
+}
+
+
 //=======================================================
 
 JPClassBaseClass::JPClassBaseClass() :
@@ -209,7 +215,7 @@ jvalue JPClassBaseClass::convertToJava(HostRef* obj)
 
 	else if (JPEnv::getHost()->isClass(obj))
 	{
-		JPObjectClass* w = JPEnv::getHost()->asClass(obj);
+		JPClass* w = JPEnv::getHost()->asClass(obj);
 		jclass lr = w->getNativeClass();
 		res.l = lr;
 		// This is a global reference.  No need to create a local reference

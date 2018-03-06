@@ -26,13 +26,6 @@ public :
 	JPObjectClass(jclass c);
 	virtual~ JPObjectClass();
 
-public :
-	
-	virtual bool      isObjectType() const
-	{ 
-		return true; 
-	}
-
 public: 
 	// Conversion methods
 	virtual HostRef*   asHostObject(jvalue val);
@@ -41,18 +34,47 @@ public:
 
 public:
 	// Class specific implementation
+	virtual bool isObjectType() const;
+
+	virtual bool isInterface()
+	{
+		return m_IsInterface;
+	}
+
+	JPObjectClass* getSuperClass() const;
+	const vector<JPObjectClass*>& getInterfaces() const;
+
+public:
 	/** 
 	 * Called to fully load base classes and members 
 	 */
 	virtual void postLoad();
-	
+
+  /** Get the value of a static field.
+	 * throws AttributeError if not found.
+	 */	
 	HostRef*                getStaticAttribute(const string& attr_name);
+
+  /** Set the value of a static field.
+	 * throws AttributeError if not found.
+	 */	
 	void                    setStaticAttribute(const string& attr_name, HostRef* val);
 	
 	JPObject*               newInstance(vector<HostRef*>& args);
 
+	/** Get a member field.
+	 * Returns the field or NULL if not found.
+	 */
 	JPField*                getInstanceField(const string& name);
+
+	/** Get a static field.
+	 * Returns the field or NULL if not found.
+	 */
 	JPField*                getStaticField(const string& name);
+
+  /** Get a method.
+	 * Returns the method or NULL if not found.
+	 */
 	JPMethod*		getMethod(const string& name);
 
 	vector<JPMethod*>	getMethods() const;
@@ -67,32 +89,16 @@ public:
 		return m_InstanceFields;
 	}
 
-	bool isArray();
-	bool isFinal();
-	bool isAbstract();
-	bool isInterface()
-	{
-		return m_IsInterface;
-	}
-
-	long getClassModifiers();
-
-	JPObjectClass* getSuperClass();
-	const vector<JPObjectClass*>& getInterfaces() const;
-
-	bool isSubclass(JPObjectClass*);
-	
 	string describe();
 
-private :
-	void loadSuperClass();	
-	void loadSuperInterfaces();	
-	void loadFields();	
-	void loadMethods();	
-	void loadConstructors();	
+protected:
+	virtual void loadSuperClass();	
+	virtual void loadSuperInterfaces();	
+	virtual void loadFields();	
+	virtual void loadMethods();	
+	virtual void loadConstructors();	
 
-private :
-	jclass                  m_Class;
+private:
 	JPTypeName              m_Name;
 
 	// Caches for class fields, methods, ctors, and parents

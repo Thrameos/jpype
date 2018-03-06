@@ -26,6 +26,32 @@ JPClass::~JPClass()
 	JPEnv::getJava()->DeleteGlobalRef(m_Class);
 }
 
+
+bool JPClass::isInterface() const
+{
+	return false;
+}
+
+bool JPClass::isArray() const
+{
+	return JPJni::isArray(m_Class);
+}
+
+bool JPClass::isAbstract() const
+{
+	return JPJni::isAbstract(m_Class);
+}
+
+bool JPClass::isFinal() const
+{
+	return JPJni::isFinal(m_Class);
+}
+
+long JPClass::getClassModifiers()
+{
+	return JPJni::getClassModifiers(m_Class);
+}
+
 HostRef* convertObjectToHostRef(jobject obj)
 {
 	if (obj == NULL)
@@ -174,13 +200,12 @@ HostRef* JPClass::convertToDirectBuffer(HostRef* src)
 	RAISE(JPypeException, "Unable to convert to Direct Buffer");
 }
 
-bool JPClass::isSubTypeOf(const JPClass& other) const
+bool JPClass::isSubclass(const JPClass* o) const
 {
+	if (o == NULL)
+		return false;
 	JPLocalFrame frame;
-	jclass ourClass = getNativeClass();
-	jclass otherClass = other.getNativeClass();
-	// IsAssignableFrom is a jni method and the order of parameters is counterintuitive
-	bool otherIsSuperType = JPEnv::getJava()->IsAssignableFrom(ourClass, otherClass);
-	return otherIsSuperType;
+	jclass jo = o->getNativeClass();
+	return JPEnv::getJava()->IsAssignableFrom(m_Class, jo);
 }
 

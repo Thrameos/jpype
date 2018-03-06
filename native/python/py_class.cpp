@@ -95,7 +95,7 @@ void PyJPClass::initType(PyObject* module)
 	PyModule_AddObject(module, "_JavaClass", (PyObject*)&classClassType); 
 }
 
-PyJPClass* PyJPClass::alloc(JPObjectClass* cls)
+PyJPClass* PyJPClass::alloc(JPClass* cls)
 {
 	PyJPClass* res = PyObject_New(PyJPClass, &classClassType);
 
@@ -137,17 +137,20 @@ PyObject* PyJPClass::getBaseClass(PyObject* o, PyObject* arg)
 	JPLocalFrame frame;
 	try {
 		PyJPClass* self = (PyJPClass*)o;
+		JPObjectClass* cls = dynamic_cast<JPObjectClass*>(self->m_Class);
+		if ( cls == NULL)
+		{
+			Py_RETURN_NONE;
+		}
 
-		JPObjectClass* base = self->m_Class->getSuperClass();
+		JPObjectClass* base = cls->getSuperClass();
 		if (base == NULL)
 		{
 			Py_RETURN_NONE;
 		}
 
 		PyObject* res  = (PyObject*)PyJPClass::alloc(base);
-
 		return res;
-
 	}
 	PY_STANDARD_CATCH
 
@@ -159,8 +162,13 @@ PyObject* PyJPClass::getBaseInterfaces(PyObject* o, PyObject* arg)
 	JPLocalFrame frame;
 	try {
 		PyJPClass* self = (PyJPClass*)o;
+		JPObjectClass* cls = dynamic_cast<JPObjectClass*>(self->m_Class);
+		if ( cls == NULL)
+		{
+			Py_RETURN_NONE;
+		}
 
-		const vector<JPObjectClass*>& baseItf = self->m_Class->getInterfaces();
+		const vector<JPObjectClass*>& baseItf = cls->getInterfaces();
 
 		PyObject* result = JPySequence::newTuple((int)baseItf.size());
 		for (unsigned int i = 0; i < baseItf.size(); i++)
@@ -169,7 +177,6 @@ PyObject* PyJPClass::getBaseInterfaces(PyObject* o, PyObject* arg)
 			PyObject* obj = (PyObject*)PyJPClass::alloc(base);
 			JPySequence::setItem(result, i, obj);
 		}
-
 		return result;
 
 	}
@@ -183,9 +190,14 @@ PyObject* PyJPClass::getClassFields(PyObject* o, PyObject* arg)
 	JPLocalFrame frame;
 	try {
 		PyJPClass* self = (PyJPClass*)o;
+		JPObjectClass* cls = dynamic_cast<JPObjectClass*>(self->m_Class);
+		if ( cls == NULL)
+		{
+			Py_RETURN_NONE;
+		}
 
-		map<string, JPField*> staticFields = self->m_Class->getStaticFields();
-		map<string, JPField*> instFields = self->m_Class->getInstanceFields();
+		map<string, JPField*> staticFields = cls->getStaticFields();
+		map<string, JPField*> instFields = cls->getInstanceFields();
 
 		PyObject* res = JPySequence::newTuple((int)(staticFields.size()+instFields.size()));
 
@@ -222,8 +234,13 @@ PyObject* PyJPClass::getClassMethods(PyObject* o, PyObject* arg)
 	JPLocalFrame frame;
 	try {
 		PyJPClass* self = (PyJPClass*)o;
+		JPObjectClass* cls = dynamic_cast<JPObjectClass*>(self->m_Class);
+		if ( cls == NULL)
+		{
+			Py_RETURN_NONE;
+		}
 
-		vector<JPMethod*> methods = self->m_Class->getMethods();
+		vector<JPMethod*> methods = cls->getMethods();
 
 		PyObject* res = JPySequence::newTuple((int)methods.size());
 
@@ -252,6 +269,12 @@ PyObject* PyJPClass::newClassInstance(PyObject* o, PyObject* arg)
 	JPLocalFrame frame;
 	try {
 		PyJPClass* self = (PyJPClass*)o;
+		JPObjectClass* cls = dynamic_cast<JPObjectClass*>(self->m_Class);
+		if ( cls == NULL)
+		{
+			Py_RETURN_NONE;
+		}
+
 		JPCleaner cleaner;
 
 		//cout << "Creating a new " << self->m_Class->getName().getSimpleName() << endl;
@@ -268,7 +291,7 @@ PyObject* PyJPClass::newClassInstance(PyObject* o, PyObject* arg)
 			Py_DECREF(obj);
 		}
 
-		JPObject* resObject = self->m_Class->newInstance(args);
+		JPObject* resObject = cls->newInstance(args);
 		PyObject* res = JPyCObject::fromVoidAndDesc((void*)resObject, "JPObject", &PythonHostEnvironment::deleteJPObjectDestructor);
 
 		//JPyHelper::dumpSequenceRefs(arg, "End");

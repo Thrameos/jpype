@@ -189,11 +189,10 @@ public :
 
 	virtual bool isClass(HostRef*);
 	virtual HostRef* newClass(JPObjectClass*);
-	virtual JPObjectClass* asClass(HostRef*);
+	virtual JPClass* asClass(HostRef*);
 
 	virtual bool isArrayClass(HostRef*);
 	virtual HostRef* newArrayClass(JPArrayClass*);
-	virtual JPArrayClass* asArrayClass(HostRef*);
 
 	virtual bool isArray(HostRef*);
 	virtual HostRef* newArray(JPArray*);

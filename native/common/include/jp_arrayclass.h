@@ -27,11 +27,7 @@ public :
 	virtual~ JPArrayClass();
 
 public : // JPClass implementation
-
-	virtual bool      isObjectType() const
-	{ 
-		return true; 
-	}
+	virtual bool      isObjectType() const;
 
 	virtual HostRef*    asHostObject(jvalue val);
 	virtual EMatchType  canConvertToJava(HostRef* obj);

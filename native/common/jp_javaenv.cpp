@@ -62,7 +62,7 @@ void JPJavaEnv::load(const string& path)
 	GetCreatedJVMs_Method = (jint (JNICALL *)(JavaVM ** , jsize, jsize*))GetAdapter()->getSymbol("JNI_GetCreatedJavaVMs");
 	// No idea why I can't find this symbol .... no matter, it does not work anyway.
 	//JNI_DestroyJavaVM = (jint (__stdcall *)(struct JavaVM_ *))GetAdapter()->getSymbol("DestroyJavaVM");
-TRACE_OUT;
+	TRACE_OUT;
 }
 
 void JPJavaEnv::shutdown()

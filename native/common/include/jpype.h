@@ -20,7 +20,7 @@
 // Define this to generate the trace calls
 
 // Define this to make the trace calls do their output. 
-#define TRACING
+//#define TRACING
 
 // Define this to make the trace calls for referencing.
 //#define MTRACING
