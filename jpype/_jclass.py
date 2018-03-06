@@ -170,6 +170,14 @@ class _JavaObject(object):
     """
     pass
 
+class _JavaInterface(object):
+    """ Base class for all Java Interfaces. 
+
+        Use isinstance(obj, jpype.JavaInterface) to test for a interface.
+    """
+    pass
+
+
 #  JPype has several class types (assuming Foo is a java class)
 #     Foo$$Static - python meta class for Foo holding
 #       properties for static fields and static methods
@@ -211,13 +219,17 @@ class _JavaClass(type):
                 "__setattr__": _javaSetAttr,
                 }
 
-        if name == 'java.lang.Object':
-            bases.append(_JavaObject)
-        elif jc.isPrimitive():
+        if jc.isPrimitive():
             bases.append(object)
-        elif not jc.isInterface():
+        elif jc.isInterface():
+            bases.append(_JavaInterface)
+        else:
             bjc = jc.getBaseClass()
-            bases.append(_getClassFor(bjc))
+            if bjc is None:
+                # we are java.lang.Object
+                bases.append(_JavaObject)
+            else:
+                bases.append(_getClassFor(bjc))
 
         if _JAVATHROWABLE is not None and jc.isSubclass("java.lang.Throwable"):
             from . import _jexception
@@ -262,7 +274,7 @@ class _JavaClass(type):
             members[mname] = jm
 
         static_fields['mro'] = _mro_override_topsort
-        static_fields['class_']= property(lambda self: _JAVACLASS.forName(name,True, JClass('java.lang.ClassLoader').getSystemClassLoader()), None)
+        static_fields['class_']= property(lambda self: _JAVACLASS.forName(name, True, JClass('java.lang.ClassLoader').getSystemClassLoader()), None)
 
         for i in _CUSTOMIZERS:
             if i.canCustomize(name, jc):
@@ -274,10 +286,10 @@ class _JavaClass(type):
         # Prepare the meta-metaclass
         meta_bases = []
         for i in bases:
-            if i is object or i is _JavaObject:
-                meta_bases.append(cls)
-            else:
+            try:
                 meta_bases.append(i.__metaclass__)
+            except AttributeError:
+                meta_bases.append(cls)
 
         metaclass = type.__new__(_MetaClassForMroOverride, name + "$$Static", tuple(meta_bases),
                                  static_fields)

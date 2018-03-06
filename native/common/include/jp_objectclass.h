@@ -35,11 +35,7 @@ public:
 public:
 	// Class specific implementation
 	virtual bool isObjectType() const;
-
-	virtual bool isInterface()
-	{
-		return m_IsInterface;
-	}
+	virtual bool isInterface() const;
 
 	JPObjectClass* getSuperClass() const;
 	const vector<JPObjectClass*>& getInterfaces() const;

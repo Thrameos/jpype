@@ -46,6 +46,11 @@ JPObjectClass::~JPObjectClass()
 	}
 }
 
+bool JPObjectClass::isInterface() const
+{
+	return m_IsInterface;
+}
+	
 void JPObjectClass::postLoad()
 {
 	TRACE_IN("JPObjectClass::postLoad");
