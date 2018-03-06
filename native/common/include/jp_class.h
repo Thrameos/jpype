@@ -27,7 +27,7 @@ public :
 	virtual ~JPClass();
 
 	// Accessors
-	virtual const JPTypeName& getName() const
+	virtual const string& getSimpleName() const
 	{
 		return m_Name;
 	}
@@ -105,7 +105,7 @@ public :
 
 protected :
 	jclass m_Class;
-	JPTypeName m_Name;
+	string m_Name;
 };
 
 #endif // _JPPOBJECTTYPE_H_

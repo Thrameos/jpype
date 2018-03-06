@@ -245,10 +245,9 @@ HostRef* PythonHostEnvironment::newObject(JPObject* obj)
 {
 	JPCleaner cleaner;
 	TRACE_IN("PythonHostEnvironment::newObject");
-	TRACE2("classname", obj->getClass()->getName().getSimpleName());
+	TRACE2("classname", obj->getClass()->getSimpleName());
 
 	JPObjectClass* jc = obj->getClass();
-	JPTypeName name = jc->getName();
 
 	PyObject* pyClass = getJavaShadowClass(jc);
 
@@ -314,7 +313,7 @@ HostRef* PythonHostEnvironment::newArrayClass(JPArrayClass* m)
 {
 	PyObject* args = JPySequence::newTuple(1);
 
-	PyObject* cname = JPyString::fromString(m->getName().getSimpleName().c_str());
+	PyObject* cname = JPyString::fromString(m->getSimpleName().c_str());
 	JPySequence::setItem(args, 0, cname);
 	Py_DECREF(cname);
 
@@ -338,10 +337,10 @@ bool PythonHostEnvironment::isArray(HostRef* ref)
 HostRef* PythonHostEnvironment::newArray(JPArray* m)
 {
 	JPArrayClass* jc = m->getClass();
-	JPTypeName name = jc->getName();
+	string name = jc->getSimpleName();
 
 	PyObject* args = JPySequence::newTuple(1);
-	PyObject* cname = JPyString::fromString(name.getSimpleName().c_str());
+	PyObject* cname = JPyString::fromString(name.c_str());
 	JPySequence::setItem(args, 0, cname);
 	Py_DECREF(cname);
 

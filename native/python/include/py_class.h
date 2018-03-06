@@ -53,6 +53,8 @@ struct PyJPClass
 	static PyObject* getModifiers(PyObject* self);
 
 	JPClass* m_Class;
+
+	static PyObject* Type;  
 };
 
 #endif // _PYCLASS_H_

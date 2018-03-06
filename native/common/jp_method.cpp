@@ -40,7 +40,7 @@ const string& JPMethod::getName() const
 
 string JPMethod::getClassName() const
 {
-	return m_Class->getName().getSimpleName();
+	return m_Class->getSimpleName();
 }
 
 bool JPMethod::hasStatic()
@@ -245,7 +245,7 @@ string JPMethod::describe(string prefix)
 				str << "final ";
 			}
 
-			str << cur->second->getReturnType()->getName().getSimpleName() << " ";
+			str << cur->second->getReturnType()->getSimpleName() << " ";
 		}
 		str << name << cur->second->getArgumentString() << ";" << endl;
 	}

@@ -357,7 +357,7 @@ string JPObjectClass::describe()
 	out << "class " << m_Name.getSimpleName();
 	if (m_SuperClass != NULL)
 	{
-		out << " extends " << m_SuperClass->getName().getSimpleName();
+		out << " extends " << m_SuperClass->getSimpleName();
 	}
 
 	if (m_SuperInterfaces.size() > 0)
@@ -375,7 +375,7 @@ string JPObjectClass::describe()
 				first = false;
 			}
 			JPObjectClass* pc = *itf;
-			out << " " << pc->getName().getSimpleName();
+			out << " " << pc->getSimpleName();
 		}
 	}
 	out << endl << "{" << endl;
@@ -390,7 +390,7 @@ string JPObjectClass::describe()
 		{
 			out << "final ";
 		}
-		out << f->getClass()->getName().getSimpleName() << " " << f->getName() << ";" << endl;
+		out << f->getClass()->getSimpleName() << " " << f->getName() << ";" << endl;
 	}
 	out << endl;
 	out << "  // Accessible Instance Fields" << endl;
@@ -402,7 +402,7 @@ string JPObjectClass::describe()
 		{
 			out << "final ";
 		}
-		out << f->getClass()->getName().getSimpleName() << " " << f->getName() << ";" << endl;
+		out << f->getClass()->getSimpleName() << " " << f->getName() << ";" << endl;
 	}
 	out << endl;
 

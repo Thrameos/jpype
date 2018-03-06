@@ -82,28 +82,28 @@ def _getDefaultTypeName(obj):
         pass
 
     if obj is True or obj is False:
-        return 'java.lang.Boolean'
+        return _jclass.JClass('java.lang.Boolean')
 
     if isinstance(obj, str) or isinstance(obj, unicode):
-        return "java.lang.String"
+        return _jclass.JClass("java.lang.String")
 
     if isinstance(obj, int):
-        return "java.lang.Integer"
+        return _jclass.JClass("java.lang.Integer")
 
     if isinstance(obj, long):
-        return "java.lang.Long"
+        return _jclass.JClass("java.lang.Long")
 
     if isinstance(obj, float):
-        return "java.lang.Double"
+        return _jclass.JClass("java.lang.Double")
 
-    if isinstance(obj, _jclass._JavaClass):
-        return obj.__javaclassname__
-
-    if isinstance(obj, JPackage("java").lang.Class):
-        return obj.__class__.__javaclass__.getName()
-
-    if isinstance(obj, _JWrapper):
-        return obj.typeName
+#    if isinstance(obj, _jclass._JavaClass):
+#        return obj.__javaclassname__
+#
+#    if isinstance(obj, JPackage("java").lang.Class):
+#        return obj.__class__.__javaclass__.getName()
+#
+#    if isinstance(obj, _JWrapper):
+#        return obj.typeName
 
     raise TypeError(
         "Unable to determine the default type of {0}".format(obj.__class__))

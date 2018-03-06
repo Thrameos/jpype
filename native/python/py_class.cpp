@@ -85,8 +85,9 @@ static PyTypeObject classClassType =
 	0,                         /* tp_init */
 	0,                         /* tp_alloc */
 	PyType_GenericNew          /* tp_new */
-
 };
+
+PyObject* PyJPClass::Type = (PyObject*)&classClassType; 
 
 // Static methods
 void PyJPClass::initType(PyObject* module)
@@ -121,9 +122,9 @@ PyObject* PyJPClass::getName(PyObject* o, PyObject* arg)
 	try {
 		PyJPClass* self = (PyJPClass*)o;
 
-		JPTypeName name = self->m_Class->getName();
+		string name = self->m_Class->getSimpleName();
 
-		PyObject* res = JPyString::fromString(name.getSimpleName().c_str());
+		PyObject* res = JPyString::fromString(name.c_str());
 
 		return res;
 	}
@@ -276,10 +277,6 @@ PyObject* PyJPClass::newClassInstance(PyObject* o, PyObject* arg)
 		}
 
 		JPCleaner cleaner;
-
-		//cout << "Creating a new " << self->m_Class->getName().getSimpleName() << endl;
-		//JPyHelper::dumpSequenceRefs(arg, "Start");
-
 		vector<HostRef*> args;
 		Py_ssize_t len = JPyObject::length(arg);
 		for (Py_ssize_t i = 0; i < len; i++)
@@ -294,7 +291,6 @@ PyObject* PyJPClass::newClassInstance(PyObject* o, PyObject* arg)
 		JPObject* resObject = cls->newInstance(args);
 		PyObject* res = JPyCObject::fromVoidAndDesc((void*)resObject, "JPObject", &PythonHostEnvironment::deleteJPObjectDestructor);
 
-		//JPyHelper::dumpSequenceRefs(arg, "End");
 		return res;
 	}
 	PY_STANDARD_CATCH
@@ -327,9 +323,8 @@ PyObject* PyJPClass::isSubclass(PyObject* o, PyObject* arg)
 		char* other;
 
 		JPyArg::parseTuple(arg, "s", &other);
-		JPTypeName name = JPTypeName::fromSimple(other);
-		JPObjectClass* otherClass = (JPObjectClass*) name.findClass();
-
+		string name = JPTypeManager::getQualifiedName(other);
+		JPClass* otherClass = JPTypeManager::findClassByName(name);
 		if (self->m_Class->isSubclass(otherClass))
 		{
 			return JPyBoolean::getTrue();
@@ -365,13 +360,14 @@ bool PyJPClass::check(PyObject* o)
 	return o->ob_type == &classClassType;
 }
 
-PyObject* convert(vector<jobject> objs, const char * className)
+PyObject* convert(vector<jobject> objs, JPClass* classType)
 {
+	if (classType == NULL)
+	{
+		RAISE(JPypeException, "conversion object class not found.");
+	}
 	JPCleaner cleaner;
 	PyObject* res = JPySequence::newTuple((int)objs.size());
-	JPTypeName typeName = JPTypeName::fromSimple(className);
-	JPObjectClass* classType = dynamic_cast<JPObjectClass*>(typeName.findClass());
-	// FIXME what happens if classType is NULL
 	for (size_t i = 0; i < objs.size(); i++)
 	{
 		jvalue v;
@@ -391,7 +387,7 @@ PyObject* PyJPClass::getDeclaredMethods(PyObject* o)
 		JPCleaner cleaner;
 		PyJPClass* self = (PyJPClass*)o;
 		vector<jobject> mth = JPJni::getDeclaredMethods(frame, self->m_Class->getNativeClass());
-		return convert(mth, "java.lang.reflect.Method");
+		return convert(mth, JPTypeManager::findClassByName("java/lang/reflect/Method"));
 	}
 	PY_STANDARD_CATCH;
 	return NULL;	
@@ -404,7 +400,7 @@ PyObject* PyJPClass::getConstructors(PyObject* o)
 		JPCleaner cleaner;
 		PyJPClass* self = (PyJPClass*)o;
 		vector<jobject> mth = JPJni::getConstructors(frame, self->m_Class->getNativeClass());
-		return convert(mth, "java.lang.reflect.Method");
+		return convert(mth, JPTypeManager::findClassByName("java/lang/reflect/Method"));
 	}
 	PY_STANDARD_CATCH;
 	return NULL;	
@@ -415,7 +411,7 @@ PyObject* PyJPClass::getDeclaredConstructors(PyObject* o)
 	try {
 		PyJPClass* self = (PyJPClass*)o;
 		vector<jobject> mth = JPJni::getDeclaredConstructors(frame, self->m_Class->getNativeClass());
-		return convert(mth, "java.lang.reflect.Method");
+		return convert(mth, JPTypeManager::findClass("java/lang/reflect/Method"));
 	}
 	PY_STANDARD_CATCH;
 	return NULL;	
@@ -428,7 +424,7 @@ PyObject* PyJPClass::getDeclaredFields(PyObject* o)
 		JPCleaner cleaner;
 		PyJPClass* self = (PyJPClass*)o;
 		vector<jobject> mth = JPJni::getDeclaredFields(frame, self->m_Class->getNativeClass());
-		return convert(mth, "java.lang.reflect.Field");
+		return convert(mth, JPTypeManager::findClass("java/lang/reflect/Field"));
 	}
 	PY_STANDARD_CATCH;
 	return NULL;	
@@ -441,7 +437,7 @@ PyObject* PyJPClass::getFields(PyObject* o)
 		JPCleaner cleaner;
 		PyJPClass* self = (PyJPClass*)o;
 		vector<jobject> mth = JPJni::getFields(frame, self->m_Class->getNativeClass());
-		return convert(mth, "java.lang.reflect.Field");
+		return convert(mth, JPTypeManager::findClass("java/lang/reflect/Field"));
 	}
 	PY_STANDARD_CATCH;
 	return NULL;	
@@ -467,7 +463,7 @@ PyObject* PyJPClass::getMethods(PyObject* o)
 		JPCleaner cleaner;
 		PyJPClass* self = (PyJPClass*)o;
 		vector<jobject> mth = JPJni::getMethods(frame, self->m_Class->getNativeClass());
-		return convert(mth, "java.lang.reflect.Method");
+		return convert(mth, JPTypeManager::findClassByName("java/lang/reflect/Method"));
 	}
 	PY_STANDARD_CATCH;
 	return NULL;
@@ -478,9 +474,7 @@ PyObject* PyJPClass::isPrimitive(PyObject* o, PyObject* args)
 	JPLocalFrame frame;
 	try {
 		PyJPClass* self = (PyJPClass*)o;
-
-		JPTypeName name = self->m_Class->getName();
-		if (name.isObjectType())
+		if (self->m_Class->isObjectType())
 		{
 			return JPyBoolean::getFalse();
 		}

@@ -46,8 +46,6 @@ bool JPEnv::isInitialized()
 void JPEnv::init(HostEnvironment* hostEnv)
 {
 	s_Host = hostEnv;
-	
-	JPTypeName::init();  
 }
 	
 void JPEnv::loadJVM(const string& vmPath, char ignoreUnrecognized, const StringVector& args)

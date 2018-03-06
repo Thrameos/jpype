@@ -34,13 +34,16 @@ PyObject* convertToJValue(PyObject* self, PyObject* arg)
 	JPLocalFrame frame;
 
 	try {
-		char* tname;
+		PyObject* tname;
 		PyObject* value;
 
-		JPyArg::parseTuple(arg, "sO", &tname, &value);
+		JPyArg::parseTuple(arg, "OO", &tname, &value);
+		if ( !JPyObject::isInstance(tname, PyJPClass::Type))
+		{
+			RAISE(JPypeException, "argument 1 must be a _jpype.JavaClass");
+		}
 
-		JPTypeName name = JPTypeName::fromSimple(tname);
-		JPClass* type = name.findClass();
+		JPClass* type = ((PyJPClass*)claz)->m_Class;
 		if (type==NULL)
 		{
 			Py_RETURN_NONE;
@@ -92,6 +95,10 @@ PyObject* JPypeJavaProxy::createProxy(PyObject*, PyObject* arg)
 			cleaner.add(new HostRef(subObj, false));
 
 			PyObject* claz = JPyObject::getAttrString(subObj, "__javaclass__");
+			if ( ! JPyObject::isInstance(claz, PyJPClass::Type))
+			{
+				RAISE(JPypeException, "interfaces must be of type _jpype.JavaClass");
+			}
 			JPObjectClass* c = dynamic_cast<JPObjectClass*>(((PyJPClass*)claz)->m_Class);
 			if ( c == NULL)
 				continue;
@@ -216,8 +223,7 @@ void JPypeJavaException::errorOccurred()
 	JPEnv::getJava()->ExceptionClear();
 
 	jclass ec = JPJni::getClass(th);
-	JPTypeName tn = JPJni::getName(ec);
-	JPObjectClass* jpclass = dynamic_cast<JPObjectClass*>(tn.findClass());
+	JPObjectClass* jpclass = dynamic_cast<JPObjectClass*>(JPTypeManager::findClass(ec));
 	// FIXME nothing checks if the class is valid before using it
 
 	PyObject* jexclass = hostEnv->getJavaShadowClass(jpclass);

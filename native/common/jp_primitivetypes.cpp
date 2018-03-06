@@ -671,3 +671,78 @@ HostRef* JPBooleanType::convertToDirectBuffer(HostRef* src)
 {
 		RAISE(JPypeException, "Unable to convert to Direct Buffer");
 }
+
+// --------------------------------------
+// Type conversion tables
+
+// FIXME I am almost sure these are not used as it appears to be wrong in several locations.
+// Remove this when we are sure.
+
+bool JPVoidType::isSubclass(const JPClass* other) const
+{
+	return other == JPTypeManager::_void;
+}
+
+bool JPByteType::isSubclass(const JPClass* other) const
+{
+	JPTypeManager::ETypes other = other.getName().getType();
+	return other == JPTypeManager::_byte
+			|| other == JPTypeManager::_short
+			|| other == JPTypeManager::_int
+			|| other == JPTypeManager::_long
+			|| other == JPTypeManager::_float
+			|| other == JPTypeManager::_double;
+}
+
+bool JPShortType::isSubclass(const JPClass* other) const
+{
+	JPTypeManager::ETypes other = other.getName().getType();
+	return other == JPTypeManager::_short
+			|| other == JPTypeManager::_int
+			|| other == JPTypeManager::_long
+			|| other == JPTypeManager::_float
+			|| other == JPTypeManager::_double;
+}
+
+
+bool JPIntType::isSubclass(const JPClass* other) const
+{
+	JPTypeManager::ETypes other = other.getName().getType();
+	return other == JPTypeManager::_int
+			|| other == JPTypeManager::_long
+			|| other == JPTypeManager::_float
+			|| other == JPTypeManager::_double;
+}
+
+bool JPLongType::isSubclass(const JPClass* other) const
+{
+	return other == JPTypeManager::_long
+			|| other == JPTypeManager::_float
+			|| other == JPTypeManager::_double;
+}
+
+bool JPFloatType::isSubclass(const JPClass* other) const
+{
+	return other == JPTypeManager::_float
+			|| other == JPTypeManager::_double;
+}
+
+bool JPDoubleType::isSubclass(const JPClass* other) const
+{
+	return other == JPTypeManager::_double;
+}
+
+bool JPCharType::isSubclass(const JPClass* other) const
+{
+	return other == JPTypeManager::_char
+			|| other == JPTypeManager::_int
+			|| other == JPTypeManager::_long
+			|| other == JPTypeManager::_float
+			|| other == JPTypeManager::_double;
+}
+
+bool JPBooleanType::isSubclass(const JPClass* other) const
+{
+	return other == JPTypeManager::_boolean;
+}
+

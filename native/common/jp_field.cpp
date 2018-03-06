@@ -69,7 +69,7 @@ void JPField::setStaticAttribute(HostRef* val)
 	if (type->canConvertToJava(val) <= _explicit)
 	{
 		stringstream err;
-		err << "unable to convert to " << type->getName().getSimpleName();
+		err << "unable to convert to " << type->getSimpleName();
 		RAISE(JPypeException, err.str().c_str());
 	}
 		
@@ -80,7 +80,7 @@ void JPField::setStaticAttribute(HostRef* val)
 HostRef* JPField::getAttribute(jobject inst) 
 {
 	TRACE_IN("JPField::getAttribute");
-	TRACE2("field type", JPJni::getName(m_Type).getSimpleName()); 
+	TRACE2("field type", JPJni::getSimpleName(m_Type)); 
 	JPClass* type = JPTypeManager::findClass(m_Type);
 	return type->getInstanceValue(inst, m_FieldID);	
 	TRACE_OUT;
@@ -100,7 +100,7 @@ void JPField::setAttribute(jobject inst, HostRef* val)
 	if (type->canConvertToJava(val) <= _explicit)
 	{
 		stringstream err;
-		err << "unable to convert to " << type->getName().getSimpleName();
+		err << "unable to convert to " << type->getSimpleName();
 		RAISE(JPypeException, err.str().c_str());
 	}
 		

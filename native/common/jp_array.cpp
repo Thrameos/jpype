@@ -19,7 +19,7 @@
 JPArray::JPArray(JPArrayClass* cls, jarray inst)
 {
 	TRACE_IN("JPArray::JPArray");
-	TRACE1(cls->getName().getSimpleName());
+	TRACE1(cls->getSimpleName());
 	m_Class = cls;
 	m_Object = (jarray)JPEnv::getJava()->NewGlobalRef(inst);
 	TRACE2("len=",getLength());
@@ -40,7 +40,7 @@ vector<HostRef*> JPArray::getRange(int start, int stop)
 {
 	TRACE_IN("JPArray::getRange");
 	JPClass* compType = m_Class->getComponentType();
-	TRACE2("Compoennt type", compType->getName().getSimpleName());
+	TRACE2("Component type", compType->getSimpleName());
 	
 	vector<HostRef*> res = compType->getArrayRange(m_Object, start, stop-start);
 	

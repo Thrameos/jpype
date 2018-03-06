@@ -78,7 +78,7 @@ namespace JPJni
 	/**
 	* java.lang.Class.getName()
 	*/
-	JPTypeName      getName(jclass);
+  string getSimpleName(jclass);
 
 	/**
 	* java.lang.Class.getInterfaces()

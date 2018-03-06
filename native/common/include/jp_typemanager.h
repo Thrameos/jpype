@@ -55,7 +55,17 @@ namespace JPTypeManager
 	 */
 	void shutdown();
 
+
 	/**
+	 * Get a bridge class by java native name.
+	 *
+	 * The pointer returned is NOT owned by the caller
+	 */
+	JPClass* findClassByName(const std::string& cls);
+
+	/**
+	 * Get a bridge class from a java native class.
+	 *
 	 * The pointer returned is NOT owned by the caller
 	 *
 	 * Will be JType, JClass or JArrayClass based on the type
@@ -68,6 +78,14 @@ namespace JPTypeManager
 	void flushCache();
 
 	int getLoadedClasses();
+
+	/** 
+	 * Convert a simple name to a qualified name.
+	 *
+	 * This produces a something suitable for 
+	 * JPJni::findClass() or JPTypeManager::findClassByName()
+	 */
+	string getQualifiedName(const string& name);
 }
 
 #endif // _JPCLASS_H_

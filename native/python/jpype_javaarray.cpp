@@ -30,8 +30,8 @@ PyObject* JPypeJavaArray::findArrayClass(PyObject* obj, PyObject* args)
 		char* cname;
 		JPyArg::parseTuple(args, "s", &cname);
 
-		JPTypeName name = JPTypeName::fromSimple(cname);
-		JPArrayClass* claz = (JPArrayClass*)name.findClass();
+		string name = JPTypeManager::getQualifiedName(cname);
+		JPArrayClass* claz = dynamic_cast<JPArrayClass*>(JPTypeManager::findClassByName(name));
 		if (claz == NULL)
 		{
 			Py_RETURN_NONE;

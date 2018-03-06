@@ -18,7 +18,7 @@
 
 JPClass::JPClass(jclass c) :
 	m_Class((jclass)JPEnv::getJava()->NewGlobalRef(c)),
-	m_Name(JPJni::getName(c))
+	m_Name(JPJni::getSimpleName(c))
 {}
 
 JPClass::~JPClass()

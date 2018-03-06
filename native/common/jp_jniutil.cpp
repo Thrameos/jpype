@@ -256,7 +256,7 @@ jstring toString(jobject o)
 	return str;
 }
 
-static string convertToSimpleName(jclass c)
+string getSimpleName(jclass c)
 {
 	JPLocalFrame frame;
 	jstring jname = (jstring)JPEnv::getJava()->CallObjectMethod(c, getNameID);
@@ -369,12 +369,6 @@ bool isFinal(jclass clazz)
 	jboolean res = JPEnv::getJava()->CallStaticBooleanMethodA(modifierClass, isFinalID, &modif);
 
 	return (res ? true : false);
-}
-
-JPTypeName getName(jclass clazz)
-{
-	string simpleName = convertToSimpleName(clazz);
-	return JPTypeName::fromSimple(simpleName.c_str());
 }
 
 // Returns multiple local references,  must have a suitable local frame

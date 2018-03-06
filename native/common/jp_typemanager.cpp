@@ -57,7 +57,7 @@ void registerClass(JPClass* type)
 	TRACE_IN("JPTypeManager::registerClass");
 	loadedClasses++;
 	int hash = JPJni::hashCode(type->getNativeClass());
-	TRACE2(hash, type->getName().getSimpleName());
+	TRACE2(hash, type->getSimpleName());
 	type->postLoad();
 	javaClassMap[hash].push_back(type);
 	TRACE_OUT;
@@ -99,6 +99,13 @@ void init()
 	TRACE_OUT;
 }
 
+JPClass* findClassByName(const std::string& cls)
+{
+	if (JPEnv::getJava() == 0)
+		return NULL;
+	return findClass(JPJni::findClass(cls));
+}
+
 JPClass* findClass(jclass cls)
 {
 	if (JPEnv::getJava() == 0)
@@ -122,7 +129,7 @@ JPClass* findClass(jclass cls)
 	}
 
 	TRACE_IN("JPTypeManager::findClass");
-	TRACE1(JPJni::getName(cls).getSimpleName());
+	TRACE1(JPJni::getSimpleName(cls));
 
 	// No we havent got it .. lets load it!!!
 	JPLocalFrame frame;
@@ -165,5 +172,105 @@ int getLoadedClasses()
 	// dignostic tools ... unlikely to load more classes than int can hold ...
 	return loadedClasses;
 }
+
+static string convertToQualifiedName(const string& str)
+{
+	// simple names are of the form :
+	//   a.c.d.E
+	
+	// qualifed names are of the form :
+	//   a/c/d/E
+	
+	string result = str;
+	for (unsigned int j = 0; j < result.length(); j++)
+	{
+		if (result[j] == '.') 
+		{
+			result[j] = '/';
+		}
+	}
+	return result;
+}
+
+string getQualifiedName(const string& name)
+{
+	string simple = name;
+	string componentName = simple;
+		
+	// is it an array?
+	size_t arrayDimCount = 0;
+	if (simple.length() > 0 && simple[simple.length()-1] == ']')
+	{
+		size_t i = simple.length()-1;
+		while (simple[i] == ']' || simple[i] == '[')
+		{
+			i--;
+		}
+		componentName = simple.substr(0, i+1);
+		arrayDimCount = (simple.length() - componentName.length())/2;
+	}
+
+	string nativeComponent = componentName;
+	if (componentName == "void")
+	{
+		nativeComponent="V";
+	}
+	else if (componentName == "byte")
+	{
+		nativeComponent="B";
+	}
+	else if (componentName == "short")
+	{
+		nativeComponent="S";
+	}
+	else if (componentName == "int")
+	{
+		nativeComponent="I";
+	}
+	else if (componentName == "long")
+	{
+		nativeComponent="J";
+	}
+	else if (componentName == "float")
+	{
+		nativeComponent="F";
+	}
+	else if (componentName == "double")
+	{
+		nativeComponent="D";
+	}
+	else if (componentName == "char")
+	{
+		nativeComponent="C";
+	}
+	else if (componentName == "boolean")
+	{
+		nativeComponent="Z";
+	}
+	else
+	{
+		if (arrayDimCount > 0)
+		{
+			nativeComponent = string("L") + convertToQualifiedName(componentName) + ";";
+		}
+		else
+		{
+			nativeComponent = convertToQualifiedName(componentName);
+		}
+	}
+	
+	if (arrayDimCount > 0)
+	{
+		stringstream str;
+		for (unsigned int i = 0; i < arrayDimCount; i++)
+		{
+			str << "[";
+		}
+		str << nativeComponent;
+		return str.str();
+	}
+	return nativeComponent;
+}
+
 
 } // end of namespace JPTypeManager

@@ -95,8 +95,6 @@ protected:
 	virtual void loadConstructors();	
 
 private:
-	JPTypeName              m_Name;
-
 	// Caches for class fields, methods, ctors, and parents
 	bool                    m_IsInterface;
 	JPObjectClass*		      m_SuperClass;

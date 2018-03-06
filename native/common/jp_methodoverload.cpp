@@ -71,7 +71,7 @@ string JPMethodOverload::getSignature()
 	
 	for (vector<jclass>::iterator it = m_Arguments.begin(); it != m_Arguments.end(); it++)
 	{
-		res << JPJni::getName(*it).getNativeName();
+		res << JPJni::getSimpleName(*it);
 	}
 	
 	res << ")" ;
@@ -96,7 +96,7 @@ string JPMethodOverload::getArgumentString()
 		{
 			first = false;
 		}
-		res << JPJni::getName(*it).getSimpleName();
+		res << JPJni::getSimpleName(*it);
 	}
 	
 	res << ")";
@@ -225,7 +225,7 @@ EMatchType JPMethodOverload::matches(bool ignoreFirst, vector<HostRef*>& arg)
 		JPClass* type = m_ArgumentsTypeCache[i];
 		
 		EMatchType match = type->canConvertToJava(obj);
-		TRACE2(type->getName().getSimpleName(), match);
+		TRACE2(type->getSimpleName(), match);
 		if (match < _implicit)
 		{
 			return _none;
@@ -353,8 +353,8 @@ string JPMethodOverload::matchReport(vector<HostRef*>& args)
 {
 	stringstream res;
 
-	JPTypeName returnTypeName = JPJni::getName(m_ReturnType);
-	res << returnTypeName.getNativeName() << " (";
+	string returnType = JPJni::getSimpleName(m_ReturnType);
+	res << returnType << " (";
 
 	bool isFirst = true;
 	for (vector<jclass>::iterator it = m_Arguments.begin(); it != m_Arguments.end(); it++)
@@ -365,7 +365,7 @@ string JPMethodOverload::matchReport(vector<HostRef*>& args)
 			continue;
 		}
 		isFirst = false;
-		res << JPJni::getName(*it).getNativeName();
+		res << JPJni::getSimpleName(*it);
 	}
 	
 	res << ") ==> ";
