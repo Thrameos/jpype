@@ -1,3 +1,4 @@
+
 /*****************************************************************************
    Copyright 2004 Steve Ménard
 
@@ -14,25 +15,12 @@
    limitations under the License.
    
 *****************************************************************************/   
-#ifndef _JPPSTRINGTYPE_H_
-#define _JPPSTRINGTYPE_H_
+#ifndef _PYJPROXY_H_
+#define _PYJPROXY_H_
 
-/** 
- * Sepecialization for java string.
- */
-class JPStringClass : public JPObjectClass
+namespace PyJProxy
 {
-public :
-	JPStringClass();
-	
-	virtual ~JPStringClass();
+	PyObject* PyJProxy::createProxy(PyObject*, PyObject* arg);
+}
 
-public : 
-
-	// JPType implementation	
-	virtual PyObject*  asHostObject(jvalue val);
-	virtual EMatchType canConvertToJava(PyObject* obj);
-	virtual jvalue     convertToJava(PyObject* obj);
-};
-
-#endif // _JPPOBJECTTYPE_H_
+#endif // _PYJPROXY_H_

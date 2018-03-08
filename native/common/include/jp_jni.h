@@ -186,10 +186,10 @@ namespace JPJni
 	string getMessage(jthrowable th);
 	bool isThrowable(jclass c);
 
-	long intValue(jobject);
+	jint intValue(jobject);
 	jlong longValue(jobject);
-	double doubleValue(jobject);
-	bool booleanValue(jobject);
+	jdouble doubleValue(jobject);
+	jboolean booleanValue(jobject);
 	jchar charValue(jobject);
 
 	/** Get the class for using a java native name.

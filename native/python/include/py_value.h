@@ -14,25 +14,12 @@
    limitations under the License.
    
 *****************************************************************************/   
-#ifndef _JPPSTRINGTYPE_H_
-#define _JPPSTRINGTYPE_H_
+#ifndef _PYJVALUE_H_
+#define _PYJVALUE_H_
 
-/** 
- * Sepecialization for java string.
- */
-class JPStringClass : public JPObjectClass
+namespace PyJValue
 {
-public :
-	JPStringClass();
-	
-	virtual ~JPStringClass();
+	PyObject* convertToJValue(PyObject* self, PyObject* arg);
+}
 
-public : 
-
-	// JPType implementation	
-	virtual PyObject*  asHostObject(jvalue val);
-	virtual EMatchType canConvertToJava(PyObject* obj);
-	virtual jvalue     convertToJava(PyObject* obj);
-};
-
-#endif // _JPPOBJECTTYPE_H_
+#endif // _PYJVALUE_H_

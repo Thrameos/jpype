@@ -36,13 +36,13 @@ int JPArray::getLength()
 	return JPEnv::getJava()->GetArrayLength(m_Object);
 }
 
-vector<HostRef*> JPArray::getRange(int start, int stop)
+vector<PyObject*> JPArray::getRange(int start, int stop)
 {
 	TRACE_IN("JPArray::getRange");
 	JPClass* compType = m_Class->getComponentType();
 	TRACE2("Component type", compType->getSimpleName());
 	
-	vector<HostRef*> res = compType->getArrayRange(m_Object, start, stop-start);
+	vector<PyObject*> res = compType->getArrayRange(m_Object, start, stop-start);
 	
 	return res;
 	TRACE_OUT;
@@ -57,7 +57,7 @@ PyObject* JPArray::getSequenceFromRange(int start, int stop)
 	return compType->getArrayRangeToSequence(m_Object, start, stop);
 }
 
-void JPArray::setRange(int start, int stop, vector<HostRef*>& val)
+void JPArray::setRange(int start, int stop, vector<PyObject*>& val)
 {
 	JPClass* compType = m_Class->getComponentType();
 	
@@ -73,7 +73,7 @@ void JPArray::setRange(int start, int stop, vector<HostRef*>& val)
 
 	for (size_t i = 0; i < plength; i++)
 	{
-		HostRef* v = val[i];
+		PyObject* v = val[i];
 		if ( compType->canConvertToJava(v)<= _explicit)
 		{
 			RAISE(JPypeException, "Unable to convert.");
@@ -88,8 +88,8 @@ void JPArray::setRangePrimitive(int start, int stop, PyObject* sequence)
 	JPPrimitiveType* compType = dynamic_cast<JPPrimitiveType*>(m_Class->getComponentType());
 	unsigned int len = stop-start;
 	// check bounds of sequence which is to be assigned
-	HostRef h(sequence);
-	unsigned int plength = JPEnv::getHost()->getSequenceLength(&h);
+	JPySequence h(sequence);
+	unsigned int plength = h.size();
 
 	if (len != plength)
 	{
@@ -101,7 +101,7 @@ void JPArray::setRangePrimitive(int start, int stop, PyObject* sequence)
 	compType->setArrayRange(m_Object, start, len, sequence);
 }
 
-void JPArray::setItem(int ndx, HostRef* val)
+void JPArray::setItem(int ndx, PyObject* val)
 {
 	JPClass* compType = m_Class->getComponentType();
 	if (compType->canConvertToJava(val) <= _explicit)
@@ -112,7 +112,7 @@ void JPArray::setItem(int ndx, HostRef* val)
 	compType->setArrayItem(m_Object, ndx, val);
 }
 
-HostRef* JPArray::getItem(int ndx)
+PyObject* JPArray::getItem(int ndx)
 {
 	JPClass* compType = m_Class->getComponentType();
 

@@ -157,7 +157,7 @@ jarray JPByteType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewByteArray(sz);
 }
 
-HostRef* JPByteType::getStaticValue(JPClass* clazz, jfieldID fid) 
+PyObject* JPByteType::getStaticValue(JPClass* clazz, jfieldID fid) 
 {
     jvalue v;
     v.b = JPEnv::getJava()->GetStaticByteField(clazz->getNativeClass(), fid);
@@ -165,7 +165,7 @@ HostRef* JPByteType::getStaticValue(JPClass* clazz, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPByteType::getInstanceValue(jobject c, jfieldID fid) 
+PyObject* JPByteType::getInstanceValue(jobject c, jfieldID fid) 
 {
     jvalue v;
     v.b = JPEnv::getJava()->GetByteField(c, fid);
@@ -173,33 +173,33 @@ HostRef* JPByteType::getInstanceValue(jobject c, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPByteType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
+PyObject* JPByteType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
 {
     jvalue v;
     v.b = JPEnv::getJava()->CallStaticByteMethodA(claz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-HostRef* JPByteType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
+PyObject* JPByteType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
 {
     jvalue v;
     v.b = JPEnv::getJava()->CallNonvirtualByteMethodA(obj, clazz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-void JPByteType::setStaticValue(JPClass* clazz, jfieldID fid, HostRef* obj) 
+void JPByteType::setStaticValue(JPClass* clazz, jfieldID fid, PyObject* obj) 
 {
     jbyte val = convertToJava(obj).b;
     JPEnv::getJava()->SetStaticByteField(clazz->getNativeClass(), fid, val);
 }
 
-void JPByteType::setInstanceValue(jobject c, jfieldID fid, HostRef* obj) 
+void JPByteType::setInstanceValue(jobject c, jfieldID fid, PyObject* obj) 
 {
     jbyte val = convertToJava(obj).b;
     JPEnv::getJava()->SetByteField(c, fid, val);
 }
 
-vector<HostRef*> JPByteType::getArrayRange(jarray a, int start, int length)
+vector<PyObject*> JPByteType::getArrayRange(jarray a, int start, int length)
 {
     jbyteArray array = (jbyteArray)a;
     jbyte* val = NULL;
@@ -207,13 +207,13 @@ vector<HostRef*> JPByteType::getArrayRange(jarray a, int start, int length)
     
     try {
         val = JPEnv::getJava()->GetByteArrayElements(array, &isCopy);
-        vector<HostRef*> res;
+        vector<PyObject*> res;
         
         jvalue v;
         for (int i = 0; i < length; i++)
         {
             v.b = val[i+start];
-            HostRef* pv = asHostObject(v);
+            PyObject* pv = asHostObject(v);
             res.push_back(pv);
         }
         JPEnv::getJava()->ReleaseByteArrayElements(array, val, JNI_ABORT);
@@ -223,7 +223,7 @@ vector<HostRef*> JPByteType::getArrayRange(jarray a, int start, int length)
     RETHROW_CATCH( if (val != NULL) { JPEnv::getJava()->ReleaseByteArrayElements(array, val, JNI_ABORT); } );
 }
 
-void JPByteType::setArrayRange(jarray a, int start, int length, vector<HostRef*>& vals)
+void JPByteType::setArrayRange(jarray a, int start, int length, vector<PyObject*>& vals)
 {
     jbyteArray array = (jbyteArray)a;
     jbyte* val = NULL;
@@ -265,7 +265,7 @@ void JPByteType::setArrayRange(jarray a, int start, int length, PyObject* sequen
     RETHROW_CATCH( if (val != NULL) { JPEnv::getJava()->ReleaseByteArrayElements(array, val, JNI_ABORT); } );
 }
 
-HostRef* JPByteType::getArrayItem(jarray a, int ndx)
+PyObject* JPByteType::getArrayItem(jarray a, int ndx)
 {
     jbyteArray array = (jbyteArray)a;
     jbyte val;
@@ -280,7 +280,7 @@ HostRef* JPByteType::getArrayItem(jarray a, int ndx)
     RETHROW_CATCH();
 }
 
-void JPByteType::setArrayItem(jarray a, int ndx, HostRef* obj)
+void JPByteType::setArrayItem(jarray a, int ndx, PyObject* obj)
 {
     jbyteArray array = (jbyteArray)a;
     
@@ -304,7 +304,7 @@ jarray JPShortType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewShortArray(sz);
 }
 
-HostRef* JPShortType::getStaticValue(JPClass* clazz, jfieldID fid) 
+PyObject* JPShortType::getStaticValue(JPClass* clazz, jfieldID fid) 
 {
     jvalue v;
     v.s = JPEnv::getJava()->GetStaticShortField(clazz->getNativeClass(), fid);
@@ -312,7 +312,7 @@ HostRef* JPShortType::getStaticValue(JPClass* clazz, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPShortType::getInstanceValue(jobject c, jfieldID fid) 
+PyObject* JPShortType::getInstanceValue(jobject c, jfieldID fid) 
 {
     jvalue v;
     v.s = JPEnv::getJava()->GetShortField(c, fid);
@@ -320,33 +320,33 @@ HostRef* JPShortType::getInstanceValue(jobject c, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPShortType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
+PyObject* JPShortType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
 {
     jvalue v;
     v.s = JPEnv::getJava()->CallStaticShortMethodA(claz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-HostRef* JPShortType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
+PyObject* JPShortType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
 {
     jvalue v;
     v.s = JPEnv::getJava()->CallNonvirtualShortMethodA(obj, clazz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-void JPShortType::setStaticValue(JPClass* clazz, jfieldID fid, HostRef* obj) 
+void JPShortType::setStaticValue(JPClass* clazz, jfieldID fid, PyObject* obj) 
 {
     jshort val = convertToJava(obj).s;
     JPEnv::getJava()->SetStaticShortField(clazz->getNativeClass(), fid, val);
 }
 
-void JPShortType::setInstanceValue(jobject c, jfieldID fid, HostRef* obj) 
+void JPShortType::setInstanceValue(jobject c, jfieldID fid, PyObject* obj) 
 {
     jshort val = convertToJava(obj).s;
     JPEnv::getJava()->SetShortField(c, fid, val);
 }
 
-vector<HostRef*> JPShortType::getArrayRange(jarray a, int start, int length)
+vector<PyObject*> JPShortType::getArrayRange(jarray a, int start, int length)
 {
     jshortArray array = (jshortArray)a;    
     jshort* val = NULL;
@@ -354,13 +354,13 @@ vector<HostRef*> JPShortType::getArrayRange(jarray a, int start, int length)
     
     try {
         val = JPEnv::getJava()->GetShortArrayElements(array, &isCopy);
-        vector<HostRef*> res;
+        vector<PyObject*> res;
         
         jvalue v;
         for (int i = 0; i < length; i++)
         {
             v.s = val[i+start];
-            HostRef* pv = asHostObject(v);
+            PyObject* pv = asHostObject(v);
             res.push_back(pv);
         }
         JPEnv::getJava()->ReleaseShortArrayElements(array, val, JNI_ABORT);
@@ -370,7 +370,7 @@ vector<HostRef*> JPShortType::getArrayRange(jarray a, int start, int length)
     RETHROW_CATCH( if (val != NULL) { JPEnv::getJava()->ReleaseShortArrayElements(array, val, JNI_ABORT); } );
 }
 
-void JPShortType::setArrayRange(jarray a, int start, int length, vector<HostRef*>& vals)
+void JPShortType::setArrayRange(jarray a, int start, int length, vector<PyObject*>& vals)
 {
     jshortArray array = (jshortArray)a;
     jshort* val = NULL;
@@ -413,7 +413,7 @@ void JPShortType::setArrayRange(jarray a, int start, int length, PyObject* seque
 
 }
 
-HostRef* JPShortType::getArrayItem(jarray a, int ndx)
+PyObject* JPShortType::getArrayItem(jarray a, int ndx)
 {
     jshortArray array = (jshortArray)a;
     jshort val;
@@ -428,7 +428,7 @@ HostRef* JPShortType::getArrayItem(jarray a, int ndx)
     RETHROW_CATCH();
 }
 
-void JPShortType::setArrayItem(jarray a, int ndx , HostRef* obj)
+void JPShortType::setArrayItem(jarray a, int ndx , PyObject* obj)
 {
     jshortArray array = (jshortArray)a;
     
@@ -451,7 +451,7 @@ jarray JPIntType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewIntArray(sz);
 }
 
-HostRef* JPIntType::getStaticValue(JPClass* clazz, jfieldID fid) 
+PyObject* JPIntType::getStaticValue(JPClass* clazz, jfieldID fid) 
 {
     jvalue v;
     v.i = JPEnv::getJava()->GetStaticIntField(clazz->getNativeClass(), fid);
@@ -459,7 +459,7 @@ HostRef* JPIntType::getStaticValue(JPClass* clazz, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPIntType::getInstanceValue(jobject obj, jfieldID fid) 
+PyObject* JPIntType::getInstanceValue(jobject obj, jfieldID fid) 
 {
     jvalue v;
     v.i = JPEnv::getJava()->GetIntField(obj, fid);
@@ -467,33 +467,33 @@ HostRef* JPIntType::getInstanceValue(jobject obj, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPIntType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
+PyObject* JPIntType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
 {
     jvalue v;
     v.i = JPEnv::getJava()->CallStaticIntMethodA(claz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-HostRef* JPIntType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
+PyObject* JPIntType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
 {
     jvalue v;
     v.i = JPEnv::getJava()->CallNonvirtualIntMethodA(obj, clazz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-void JPIntType::setStaticValue(JPClass* clazz, jfieldID fid, HostRef* obj) 
+void JPIntType::setStaticValue(JPClass* clazz, jfieldID fid, PyObject* obj) 
 {
     jint val = convertToJava(obj).i;
     JPEnv::getJava()->SetStaticIntField(clazz->getNativeClass(), fid, val);
 }
 
-void JPIntType::setInstanceValue(jobject c, jfieldID fid, HostRef* obj) 
+void JPIntType::setInstanceValue(jobject c, jfieldID fid, PyObject* obj) 
 {
     jint val = convertToJava(obj).i;
     JPEnv::getJava()->SetIntField(c, fid, val);
 }
 
-vector<HostRef*> JPIntType::getArrayRange(jarray a, int start, int length)
+vector<PyObject*> JPIntType::getArrayRange(jarray a, int start, int length)
 {
     jintArray array = (jintArray)a;
     jint* val = NULL;
@@ -501,13 +501,13 @@ vector<HostRef*> JPIntType::getArrayRange(jarray a, int start, int length)
     
     try {
         val = JPEnv::getJava()->GetIntArrayElements(array, &isCopy);
-        vector<HostRef*> res;
+        vector<PyObject*> res;
         
         jvalue v;
         for (int i = 0; i < length; i++)
         {
             v.i = val[i+start];
-            HostRef* pv = asHostObject(v);
+            PyObject* pv = asHostObject(v);
             res.push_back(pv);
         }
         JPEnv::getJava()->ReleaseIntArrayElements(array, val, JNI_ABORT);
@@ -517,7 +517,7 @@ vector<HostRef*> JPIntType::getArrayRange(jarray a, int start, int length)
     RETHROW_CATCH( if (val != NULL) { JPEnv::getJava()->ReleaseIntArrayElements(array, val, JNI_ABORT); } );
 }
 
-void JPIntType::setArrayRange(jarray a, int start, int length, vector<HostRef*>& vals)
+void JPIntType::setArrayRange(jarray a, int start, int length, vector<PyObject*>& vals)
 {
     jintArray array = (jintArray)a;    
     jint* val = NULL;
@@ -559,7 +559,7 @@ void JPIntType::setArrayRange(jarray a, int start, int length, PyObject* sequenc
     RETHROW_CATCH( if (val != NULL) { JPEnv::getJava()->ReleaseIntArrayElements(array, val, JNI_ABORT); } );
 }
 
-HostRef* JPIntType::getArrayItem(jarray a, int ndx)
+PyObject* JPIntType::getArrayItem(jarray a, int ndx)
 {
     jintArray array = (jintArray)a;    
     jint val;
@@ -574,7 +574,7 @@ HostRef* JPIntType::getArrayItem(jarray a, int ndx)
     RETHROW_CATCH();
 }
 
-void JPIntType::setArrayItem(jarray a, int ndx , HostRef* obj)
+void JPIntType::setArrayItem(jarray a, int ndx , PyObject* obj)
 {
     jintArray array = (jintArray)a;
     jint val;
@@ -598,7 +598,7 @@ jarray JPLongType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewLongArray(sz);
 }
 
-HostRef* JPLongType::getStaticValue(JPClass* clazz, jfieldID fid) 
+PyObject* JPLongType::getStaticValue(JPClass* clazz, jfieldID fid) 
 {
     jvalue v;
     v.j = JPEnv::getJava()->GetStaticLongField(clazz->getNativeClass(), fid);
@@ -606,7 +606,7 @@ HostRef* JPLongType::getStaticValue(JPClass* clazz, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPLongType::getInstanceValue(jobject c, jfieldID fid) 
+PyObject* JPLongType::getInstanceValue(jobject c, jfieldID fid) 
 {
     jvalue v;
     v.j = JPEnv::getJava()->GetLongField(c, fid);
@@ -614,33 +614,33 @@ HostRef* JPLongType::getInstanceValue(jobject c, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPLongType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
+PyObject* JPLongType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
 {
     jvalue v;
     v.j = JPEnv::getJava()->CallStaticLongMethodA(claz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-HostRef* JPLongType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
+PyObject* JPLongType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
 {
     jvalue v;
     v.j = JPEnv::getJava()->CallNonvirtualLongMethodA(obj, clazz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-void JPLongType::setStaticValue(JPClass* clazz, jfieldID fid, HostRef* obj) 
+void JPLongType::setStaticValue(JPClass* clazz, jfieldID fid, PyObject* obj) 
 {
     jlong val = convertToJava(obj).j;
     JPEnv::getJava()->SetStaticLongField(clazz->getNativeClass(), fid, val);
 }
 
-void JPLongType::setInstanceValue(jobject c, jfieldID fid, HostRef* obj) 
+void JPLongType::setInstanceValue(jobject c, jfieldID fid, PyObject* obj) 
 {
     jlong val = convertToJava(obj).j;
     JPEnv::getJava()->SetLongField(c, fid, val);
 }
 
-vector<HostRef*> JPLongType::getArrayRange(jarray a, int start, int length)
+vector<PyObject*> JPLongType::getArrayRange(jarray a, int start, int length)
 {
     jlongArray array = (jlongArray)a;    
     jlong* val = NULL;
@@ -648,13 +648,13 @@ vector<HostRef*> JPLongType::getArrayRange(jarray a, int start, int length)
     
     try {
         val = JPEnv::getJava()->GetLongArrayElements(array, &isCopy);
-        vector<HostRef*> res;
+        vector<PyObject*> res;
         
         jvalue v;
         for (int i = 0; i < length; i++)
         {
             v.j = val[i+start];
-            HostRef* pv = asHostObject(v);
+            PyObject* pv = asHostObject(v);
             res.push_back(pv);
         }
         JPEnv::getJava()->ReleaseLongArrayElements(array, val, JNI_ABORT);
@@ -664,7 +664,7 @@ vector<HostRef*> JPLongType::getArrayRange(jarray a, int start, int length)
     RETHROW_CATCH( if (val != NULL) { JPEnv::getJava()->ReleaseLongArrayElements(array, val, JNI_ABORT); } );
 }
 
-void JPLongType::setArrayRange(jarray a, int start, int length, vector<HostRef*>& vals)
+void JPLongType::setArrayRange(jarray a, int start, int length, vector<PyObject*>& vals)
 {
     jlongArray array = (jlongArray)a;    
     jlong* val = NULL;
@@ -708,7 +708,7 @@ void JPLongType::setArrayRange(jarray a, int start, int length, PyObject* sequen
 
 
 
-HostRef* JPLongType::getArrayItem(jarray a, int ndx)
+PyObject* JPLongType::getArrayItem(jarray a, int ndx)
 {
     jlongArray array = (jlongArray)a;
     jlong val;
@@ -722,7 +722,7 @@ HostRef* JPLongType::getArrayItem(jarray a, int ndx)
     RETHROW_CATCH();
 }
 
-void JPLongType::setArrayItem(jarray a, int ndx , HostRef* obj)
+void JPLongType::setArrayItem(jarray a, int ndx , PyObject* obj)
 {
     jlongArray array = (jlongArray)a;
     jlong val;
@@ -747,7 +747,7 @@ jarray JPFloatType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewFloatArray(sz);
 }
 
-HostRef* JPFloatType::getStaticValue(JPClass* clazz, jfieldID fid) 
+PyObject* JPFloatType::getStaticValue(JPClass* clazz, jfieldID fid) 
 {
     jvalue v;
     v.f = JPEnv::getJava()->GetStaticFloatField(clazz->getNativeClass(), fid);
@@ -755,7 +755,7 @@ HostRef* JPFloatType::getStaticValue(JPClass* clazz, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPFloatType::getInstanceValue(jobject c, jfieldID fid) 
+PyObject* JPFloatType::getInstanceValue(jobject c, jfieldID fid) 
 {
     jvalue v;
     v.f = JPEnv::getJava()->GetFloatField(c, fid);
@@ -763,33 +763,33 @@ HostRef* JPFloatType::getInstanceValue(jobject c, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPFloatType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
+PyObject* JPFloatType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
 {
     jvalue v;
     v.f = JPEnv::getJava()->CallStaticFloatMethodA(claz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-HostRef* JPFloatType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
+PyObject* JPFloatType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
 {
     jvalue v;
     v.f = JPEnv::getJava()->CallNonvirtualFloatMethodA(obj, clazz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-void JPFloatType::setStaticValue(JPClass* clazz, jfieldID fid, HostRef* obj) 
+void JPFloatType::setStaticValue(JPClass* clazz, jfieldID fid, PyObject* obj) 
 {
     jfloat val = convertToJava(obj).f;
     JPEnv::getJava()->SetStaticFloatField(clazz->getNativeClass(), fid, val);
 }
 
-void JPFloatType::setInstanceValue(jobject c, jfieldID fid, HostRef* obj) 
+void JPFloatType::setInstanceValue(jobject c, jfieldID fid, PyObject* obj) 
 {
     jfloat val = convertToJava(obj).f;
     JPEnv::getJava()->SetFloatField(c, fid, val);
 }
 
-vector<HostRef*> JPFloatType::getArrayRange(jarray a, int start, int length)
+vector<PyObject*> JPFloatType::getArrayRange(jarray a, int start, int length)
 {
     jfloatArray array = (jfloatArray)a;    
     jfloat* val = NULL;
@@ -797,13 +797,13 @@ vector<HostRef*> JPFloatType::getArrayRange(jarray a, int start, int length)
     
     try {
         val = JPEnv::getJava()->GetFloatArrayElements(array, &isCopy);
-        vector<HostRef*> res;
+        vector<PyObject*> res;
         
         jvalue v;
         for (int i = 0; i < length; i++)
         {
             v.f = val[i+start];
-            HostRef* pv = asHostObject(v);
+            PyObject* pv = asHostObject(v);
             res.push_back(pv);
         }
         JPEnv::getJava()->ReleaseFloatArrayElements(array, val, JNI_ABORT);
@@ -813,7 +813,7 @@ vector<HostRef*> JPFloatType::getArrayRange(jarray a, int start, int length)
     RETHROW_CATCH( if (val != NULL) { JPEnv::getJava()->ReleaseFloatArrayElements(array, val, JNI_ABORT); } );
 }
 
-void JPFloatType::setArrayRange(jarray a, int start, int length, vector<HostRef*>& vals)
+void JPFloatType::setArrayRange(jarray a, int start, int length, vector<PyObject*>& vals)
 {
     jfloatArray array = (jfloatArray)a;    
     jfloat* val = NULL;
@@ -854,7 +854,7 @@ void JPFloatType::setArrayRange(jarray a, int start, int length, PyObject* seque
     RETHROW_CATCH( if (val != NULL) { JPEnv::getJava()->ReleaseFloatArrayElements(array, val, JNI_ABORT); } );
 }
 
-HostRef* JPFloatType::getArrayItem(jarray a, int ndx)
+PyObject* JPFloatType::getArrayItem(jarray a, int ndx)
 {
     jfloatArray array = (jfloatArray)a;
     jfloat val;
@@ -870,7 +870,7 @@ HostRef* JPFloatType::getArrayItem(jarray a, int ndx)
     RETHROW_CATCH();
 }
 
-void JPFloatType::setArrayItem(jarray a, int ndx , HostRef* obj)
+void JPFloatType::setArrayItem(jarray a, int ndx , PyObject* obj)
 {
     jfloatArray array = (jfloatArray)a;
     jfloat val;
@@ -893,7 +893,7 @@ jarray JPDoubleType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewDoubleArray(sz);
 }
 
-HostRef* JPDoubleType::getStaticValue(JPClass* clazz, jfieldID fid) 
+PyObject* JPDoubleType::getStaticValue(JPClass* clazz, jfieldID fid) 
 {
     jvalue v;
     v.d = JPEnv::getJava()->GetStaticDoubleField(clazz->getNativeClass(), fid);
@@ -901,7 +901,7 @@ HostRef* JPDoubleType::getStaticValue(JPClass* clazz, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPDoubleType::getInstanceValue(jobject c, jfieldID fid) 
+PyObject* JPDoubleType::getInstanceValue(jobject c, jfieldID fid) 
 {
     jvalue v;
     v.d = JPEnv::getJava()->GetDoubleField(c, fid);
@@ -909,33 +909,33 @@ HostRef* JPDoubleType::getInstanceValue(jobject c, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPDoubleType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
+PyObject* JPDoubleType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
 {
     jvalue v;
     v.d = JPEnv::getJava()->CallStaticDoubleMethodA(claz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-HostRef* JPDoubleType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
+PyObject* JPDoubleType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
 {
     jvalue v;
     v.d = JPEnv::getJava()->CallNonvirtualDoubleMethodA(obj, clazz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-void JPDoubleType::setStaticValue(JPClass* clazz, jfieldID fid, HostRef* obj) 
+void JPDoubleType::setStaticValue(JPClass* clazz, jfieldID fid, PyObject* obj) 
 {
     jdouble val = convertToJava(obj).d;
     JPEnv::getJava()->SetStaticDoubleField(clazz->getNativeClass(), fid, val);
 }
 
-void JPDoubleType::setInstanceValue(jobject c, jfieldID fid, HostRef* obj) 
+void JPDoubleType::setInstanceValue(jobject c, jfieldID fid, PyObject* obj) 
 {
     jdouble val = convertToJava(obj).d;
     JPEnv::getJava()->SetDoubleField(c, fid, val);
 }
 
-vector<HostRef*> JPDoubleType::getArrayRange(jarray a, int start, int length)
+vector<PyObject*> JPDoubleType::getArrayRange(jarray a, int start, int length)
 {
     jdoubleArray array = (jdoubleArray)a;    
     jdouble* val = NULL;
@@ -943,13 +943,13 @@ vector<HostRef*> JPDoubleType::getArrayRange(jarray a, int start, int length)
     
     try {
         val = JPEnv::getJava()->GetDoubleArrayElements(array, &isCopy);
-        vector<HostRef*> res;
+        vector<PyObject*> res;
         
         jvalue v;
         for (int i = 0; i < length; i++)
         {
             v.d = val[i+start];
-            HostRef* pv = asHostObject(v);
+            PyObject* pv = asHostObject(v);
             res.push_back(pv);
         }
         JPEnv::getJava()->ReleaseDoubleArrayElements(array, val, JNI_ABORT);
@@ -959,7 +959,7 @@ vector<HostRef*> JPDoubleType::getArrayRange(jarray a, int start, int length)
     RETHROW_CATCH( if (val != NULL) { JPEnv::getJava()->ReleaseDoubleArrayElements(array, val, JNI_ABORT); } );
 }
 
-void JPDoubleType::setArrayRange(jarray a, int start, int length, vector<HostRef*>& vals)
+void JPDoubleType::setArrayRange(jarray a, int start, int length, vector<PyObject*>& vals)
 {
     jdoubleArray array = (jdoubleArray)a;
     jdouble* val = NULL;
@@ -1001,7 +1001,7 @@ void JPDoubleType::setArrayRange(jarray a, int start, int length, PyObject* sequ
     } RETHROW_CATCH();
 }
 
-HostRef* JPDoubleType::getArrayItem(jarray a, int ndx)
+PyObject* JPDoubleType::getArrayItem(jarray a, int ndx)
 {
     jdoubleArray array = (jdoubleArray)a;
     jdouble val;
@@ -1016,7 +1016,7 @@ HostRef* JPDoubleType::getArrayItem(jarray a, int ndx)
     RETHROW_CATCH();
 }
 
-void JPDoubleType::setArrayItem(jarray a, int ndx , HostRef* obj)
+void JPDoubleType::setArrayItem(jarray a, int ndx , PyObject* obj)
 {
     jdoubleArray array = (jdoubleArray)a;
     jdouble val;
@@ -1040,7 +1040,7 @@ jarray JPCharType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewCharArray(sz);
 }
 
-HostRef* JPCharType::getStaticValue(JPClass* clazz, jfieldID fid) 
+PyObject* JPCharType::getStaticValue(JPClass* clazz, jfieldID fid) 
 {
     jvalue v;
     v.c = JPEnv::getJava()->GetStaticCharField(clazz->getNativeClass(), fid);
@@ -1048,7 +1048,7 @@ HostRef* JPCharType::getStaticValue(JPClass* clazz, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPCharType::getInstanceValue(jobject c, jfieldID fid) 
+PyObject* JPCharType::getInstanceValue(jobject c, jfieldID fid) 
 {
     jvalue v;
     v.c = JPEnv::getJava()->GetCharField(c, fid);
@@ -1056,33 +1056,33 @@ HostRef* JPCharType::getInstanceValue(jobject c, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPCharType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
+PyObject* JPCharType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
 {
     jvalue v;
     v.c = JPEnv::getJava()->CallStaticCharMethodA(claz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-HostRef* JPCharType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
+PyObject* JPCharType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
 {
     jvalue v;
     v.c = JPEnv::getJava()->CallNonvirtualCharMethodA(obj, clazz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-void JPCharType::setStaticValue(JPClass* clazz, jfieldID fid, HostRef* obj) 
+void JPCharType::setStaticValue(JPClass* clazz, jfieldID fid, PyObject* obj) 
 {
     jchar val = convertToJava(obj).c;
     JPEnv::getJava()->SetStaticCharField(clazz->getNativeClass(), fid, val);
 }
 
-void JPCharType::setInstanceValue(jobject c, jfieldID fid, HostRef* obj) 
+void JPCharType::setInstanceValue(jobject c, jfieldID fid, PyObject* obj) 
 {
     jchar val = convertToJava(obj).c;
     JPEnv::getJava()->SetCharField(c, fid, val);
 }
 
-vector<HostRef*> JPCharType::getArrayRange(jarray a, int start, int length)
+vector<PyObject*> JPCharType::getArrayRange(jarray a, int start, int length)
 {
     jcharArray array = (jcharArray)a;    
     jchar* val = NULL;
@@ -1090,13 +1090,13 @@ vector<HostRef*> JPCharType::getArrayRange(jarray a, int start, int length)
     
     try {
         val = JPEnv::getJava()->GetCharArrayElements(array, &isCopy);
-        vector<HostRef*> res;
+        vector<PyObject*> res;
         
         jvalue v;
         for (int i = 0; i < length; i++)
         {
             v.c = val[i+start];
-            HostRef* pv = asHostObject(v);
+            PyObject* pv = asHostObject(v);
             res.push_back(pv);
         }
         JPEnv::getJava()->ReleaseCharArrayElements(array, val, JNI_ABORT);
@@ -1106,7 +1106,7 @@ vector<HostRef*> JPCharType::getArrayRange(jarray a, int start, int length)
     RETHROW_CATCH( if (val != NULL) { JPEnv::getJava()->ReleaseCharArrayElements(array, val, JNI_ABORT); } );
 }
 
-void JPCharType::setArrayRange(jarray a, int start, int length, vector<HostRef*>& vals)
+void JPCharType::setArrayRange(jarray a, int start, int length, vector<PyObject*>& vals)
 {
     jcharArray array = (jcharArray)a;    
     jchar* val = NULL;
@@ -1149,7 +1149,7 @@ void JPCharType::setArrayRange(jarray a, int start, int length, PyObject* sequen
     RETHROW_CATCH( if (val != NULL) { JPEnv::getJava()->ReleaseCharArrayElements(array, val, JNI_ABORT); } );
 }
 
-HostRef* JPCharType::getArrayItem(jarray a, int ndx)
+PyObject* JPCharType::getArrayItem(jarray a, int ndx)
 {
     jcharArray array = (jcharArray)a;
     jchar val;
@@ -1164,7 +1164,7 @@ HostRef* JPCharType::getArrayItem(jarray a, int ndx)
     RETHROW_CATCH();
 }
 
-void JPCharType::setArrayItem(jarray a, int ndx , HostRef* obj)
+void JPCharType::setArrayItem(jarray a, int ndx , PyObject* obj)
 {
     jcharArray array = (jcharArray)a;
     jchar val;
@@ -1211,7 +1211,7 @@ jarray JPBooleanType::newArrayInstance(int sz)
     return JPEnv::getJava()->NewBooleanArray(sz);
 }
 
-HostRef* JPBooleanType::getStaticValue(JPClass* clazz, jfieldID fid) 
+PyObject* JPBooleanType::getStaticValue(JPClass* clazz, jfieldID fid) 
 {
     jvalue v;
     v.z = JPEnv::getJava()->GetStaticBooleanField(clazz->getNativeClass(), fid);
@@ -1219,7 +1219,7 @@ HostRef* JPBooleanType::getStaticValue(JPClass* clazz, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPBooleanType::getInstanceValue(jobject c, jfieldID fid) 
+PyObject* JPBooleanType::getInstanceValue(jobject c, jfieldID fid) 
 {
     jvalue v;
     v.z = JPEnv::getJava()->GetBooleanField(c, fid);
@@ -1227,33 +1227,33 @@ HostRef* JPBooleanType::getInstanceValue(jobject c, jfieldID fid)
     return asHostObject(v);
 }
 
-HostRef* JPBooleanType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
+PyObject* JPBooleanType::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
 {
     jvalue v;
     v.z = JPEnv::getJava()->CallStaticBooleanMethodA(claz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-HostRef* JPBooleanType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
+PyObject* JPBooleanType::invoke(jobject obj, JPClass* clazz, jmethodID mth, jvalue* val)
 {
     jvalue v;
     v.z = JPEnv::getJava()->CallNonvirtualBooleanMethodA(obj, clazz->getNativeClass(), mth, val);
     return asHostObject(v);
 }
 
-void JPBooleanType::setStaticValue(JPClass* clazz, jfieldID fid, HostRef* obj) 
+void JPBooleanType::setStaticValue(JPClass* clazz, jfieldID fid, PyObject* obj) 
 {
     jboolean val = convertToJava(obj).z;
     JPEnv::getJava()->SetStaticBooleanField(clazz->getNativeClass(), fid, val);
 }
 
-void JPBooleanType::setInstanceValue(jobject c, jfieldID fid, HostRef* obj) 
+void JPBooleanType::setInstanceValue(jobject c, jfieldID fid, PyObject* obj) 
 {
     jboolean val = convertToJava(obj).z;
     JPEnv::getJava()->SetBooleanField(c, fid, val);
 }
 
-vector<HostRef*> JPBooleanType::getArrayRange(jarray a, int start, int length)
+vector<PyObject*> JPBooleanType::getArrayRange(jarray a, int start, int length)
 {
     jbooleanArray array = (jbooleanArray)a;    
     jboolean* val = NULL;
@@ -1261,13 +1261,13 @@ vector<HostRef*> JPBooleanType::getArrayRange(jarray a, int start, int length)
     
     try {
         val = JPEnv::getJava()->GetBooleanArrayElements(array, &isCopy);
-        vector<HostRef*> res;
+        vector<PyObject*> res;
         
         jvalue v;
         for (int i = 0; i < length; i++)
         {
             v.z = val[i+start];
-            HostRef* pv = asHostObject(v);
+            PyObject* pv = asHostObject(v);
             res.push_back(pv);
         }
         JPEnv::getJava()->ReleaseBooleanArrayElements(array, val, JNI_ABORT);
@@ -1277,7 +1277,7 @@ vector<HostRef*> JPBooleanType::getArrayRange(jarray a, int start, int length)
     RETHROW_CATCH( if (val != NULL) { JPEnv::getJava()->ReleaseBooleanArrayElements(array, val, JNI_ABORT); } );
 }
 
-void JPBooleanType::setArrayRange(jarray a, int start, int length, vector<HostRef*>& vals)
+void JPBooleanType::setArrayRange(jarray a, int start, int length, vector<PyObject*>& vals)
 {
     jbooleanArray array = (jbooleanArray)a;
     jboolean* val = NULL;
@@ -1321,7 +1321,7 @@ void JPBooleanType::setArrayRange(jarray a, int start, int length, PyObject* seq
 
 }
 
-HostRef* JPBooleanType::getArrayItem(jarray a, int ndx)
+PyObject* JPBooleanType::getArrayItem(jarray a, int ndx)
 {
     jbooleanArray array = (jbooleanArray)a;
     jboolean val;
@@ -1335,7 +1335,7 @@ HostRef* JPBooleanType::getArrayItem(jarray a, int ndx)
     RETHROW_CATCH();
 }
 
-void JPBooleanType::setArrayItem(jarray a, int ndx , HostRef* obj)
+void JPBooleanType::setArrayItem(jarray a, int ndx , PyObject* obj)
 {
     jbooleanArray array = (jbooleanArray)a;
     

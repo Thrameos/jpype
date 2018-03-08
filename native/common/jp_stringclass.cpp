@@ -24,13 +24,13 @@ JPStringClass::JPStringClass():
 JPStringClass::~JPStringClass()
 {}
 
-HostRef* JPStringClass::asHostObject(jvalue val) 
+PyObject* JPStringClass::asHostObject(jvalue val) 
 {
 	TRACE_IN("JPStringClass::asHostObject");
 	
 	if (val.l == NULL)
 	{
-		return JPEnv::getHost()->getNone();
+		return JPPyni::getNone();
 	}
 	
 	jstring v = (jstring)val.l;
@@ -42,9 +42,8 @@ HostRef* JPStringClass::asHostObject(jvalue val)
 
 		jboolean isCopy;
 		const jchar* str = JPEnv::getJava()->GetStringChars(v, &isCopy);
-
-		HostRef* res = JPEnv::getHost()->newStringFromUnicode(str, len);
-		
+		// FIXME
+		PyObject* res = JPyString::fromUnicode(str, len);
 		JPEnv::getJava()->ReleaseStringChars(v, str);
 
 		return res;
@@ -52,39 +51,40 @@ HostRef* JPStringClass::asHostObject(jvalue val)
 	else
 	{
 		TRACE1(" Performing wrapping");
-		HostRef* res = JPEnv::getHost()->newStringWrapper(v);
+		PyObject* res = JPPyni::newStringWrapper(v);
 		TRACE1(" Wrapping successfull");
 		return res;
 	}
 	TRACE_OUT;
 }
 
-EMatchType JPStringClass::canConvertToJava(HostRef* obj)
+EMatchType JPStringClass::canConvertToJava(PyObject* pyobj)
 {
+	JPyAdaptor obj(pyobj);
 	JPLocalFrame frame;
 
-	if (obj == NULL || JPEnv::getHost()->isNone(obj))
+	if (obj.isNull() || obj.isNone())
 	{
 		return _implicit;
 	}
 
-	if (JPEnv::getHost()->isString(obj))
+	if (obj.isString())
 	{
 		return _exact;
 	}
 	
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (obj.isWrapper())
 	{
-		JPClass* name = JPEnv::getHost()->getWrapperClass(obj);
+		JPClass* name = obj.getWrapperClass();
 		if (name == JPTypeManager::_java_lang_String)
 		{
 			return _exact;
 		}
 	}
 
-	if (JPEnv::getHost()->isObject(obj))
+	if (obj.isJavaObject())
 	{
-		JPObject* o = JPEnv::getHost()->asObject(obj);
+		JPObject* o = obj.asJavaObject();
 		JPObjectClass* oc = o->getClass();
 		if (oc == this)
 		{
@@ -94,25 +94,27 @@ EMatchType JPStringClass::canConvertToJava(HostRef* obj)
 	return _none;
 }
 
-jvalue JPStringClass::convertToJava(HostRef* obj)
+jvalue JPStringClass::convertToJava(PyObject* pyobj)
 {
+	JPyAdaptor obj(pyobj);
+
 	TRACE_IN("JPStringClass::convertToJava");
 	jvalue v;
 	
-	if (JPEnv::getHost()->isNone(obj))
+	if (obj.isNull() || obj.isNone())
 	{
 		v.l = NULL;
 		return v;
 	}
 	
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (obj.isWrapper())
 	{
-		return JPEnv::getHost()->getWrapperValue(obj);
+		return obj.getWrapperValue();
 	}
 
-	if (JPEnv::getHost()->isObject(obj))
+	if (obj.isJavaObject())
 	{
-		JPObject* o = JPEnv::getHost()->asObject(obj);
+		JPObject* o = obj.asJavaObject();
 
 		JPObjectClass* oc = o->getClass();
 		if (oc == this)
@@ -122,7 +124,7 @@ jvalue JPStringClass::convertToJava(HostRef* obj)
 		}
 	}
 
-	JCharString wstr = JPEnv::getHost()->stringAsJCharString(obj);
+	JCharString wstr = JPyString(obj).asJCharString();
 
 	jchar* jstr = new jchar[wstr.length()+1];
 	jstr[wstr.length()] = 0;

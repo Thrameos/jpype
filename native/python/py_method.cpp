@@ -90,24 +90,21 @@ PyObject* PyJPMethod::__call__(PyObject* o, PyObject* args, PyObject* kwargs)
 	try {
 		PyJPMethod* self = (PyJPMethod*)o;
 		TRACE1(self->m_Method->getName());
-		JPCleaner cleaner;
+		JPyCleaner cleaner;
 
 		//JPyHelper::dumpSequenceRefs(args, "start");
 
-		vector<HostRef*> vargs;
+		vector<JPyCleaner*> vargs;
 		Py_ssize_t len = JPyObject::length(args);
 		for (Py_ssize_t i = 0; i < len; i++)
 		{
-			PyObject* obj = JPySequence::getItem(args, i); // return a new ref
-			HostRef* ref = new HostRef((void*)obj);
-			cleaner.add(ref);
+			PyObject* obj = cleaner.add(JPySequence::getItem(args, i)); // return a new ref
 			vargs.push_back(ref);
-			Py_DECREF(obj); // delete the new ref returned by getItem
 		}
 
 		//JPyHelper::dumpSequenceRefs(args, "middle");
 
-		HostRef* res = self->m_Method->invoke(vargs);
+		PyObject* res = self->m_Method->invoke(vargs);
 	
 		//JPyHelper::dumpSequenceRefs(args, "end");
 
@@ -145,12 +142,7 @@ PyObject* PyJPMethod::isBeanAccessor(PyObject* o, PyObject* arg)
 		PyJPMethod* self = (PyJPMethod*)o;
 
 		bool res = self->m_Method->isBeanAccessor();
-		if (res)
-		{
-			return JPyBoolean::getTrue();
-		}
-		return JPyBoolean::getFalse();
-			
+		return PyBool_FromLong(res);
 	}
 	PY_STANDARD_CATCH
 
@@ -164,12 +156,7 @@ PyObject* PyJPMethod::isBeanMutator(PyObject* o, PyObject* arg)
 		PyJPMethod* self = (PyJPMethod*)o;
 
 		bool res = self->m_Method->isBeanMutator();
-		if (res)
-		{
-			return JPyBoolean::getTrue();
-		}
-		return JPyBoolean::getFalse();
-			
+		return PyBool_FromLong(res);
 	}
 	PY_STANDARD_CATCH
 
@@ -198,17 +185,15 @@ PyObject* PyJPMethod::matchReport(PyObject* o, PyObject* args)
 	JPLocalFrame frame;
 	try {
 		PyJPMethod* self = (PyJPMethod*)o;
-		JPCleaner cleaner;
+		JPyCleaner cleaner;
 
-		vector<HostRef*> vargs;
+		vector<PyObject*> vargs;
 		Py_ssize_t len = JPyObject::length(args);
+		JPySequence sequence(args);
 		for (Py_ssize_t i = 0; i < len; i++)
 		{
-			PyObject* obj = JPySequence::getItem(args, i);
-			HostRef* ref = new HostRef((void*)obj);
-			cleaner.add(ref);
-			vargs.push_back(ref);
-			Py_DECREF(obj);
+			PyObject* obj = cleaner.add(sequence.getItem(i));
+			vargs.push_back(obj);
 		}
 
 		string report = self->m_Method->matchReport(vargs);
@@ -284,7 +269,7 @@ int PyJPBoundMethod::__init__(PyObject* o, PyObject* args, PyObject* kwargs)
 
 		PyObject* javaMethod;
 		PyObject* inst;
-		JPyArg::parseTuple(args, "OO", &javaMethod, &inst);
+		PyArg_ParseTuple(args, "OO", &javaMethod, &inst);
 
 		Py_INCREF(inst);
 		Py_INCREF(javaMethod);
@@ -305,24 +290,19 @@ PyObject* PyJPBoundMethod::__call__(PyObject* o, PyObject* args, PyObject* kwarg
 		PyObject* result=NULL;
 		{
 			PyJPBoundMethod* self = (PyJPBoundMethod*)o;
-			JPCleaner cleaner;
+			JPyCleaner cleaner;
 			TRACE1(self->m_Method->m_Method->getName());
 	
-			vector<HostRef*> vargs;
+			vector<PyObject*> vargs;
 			Py_ssize_t len = JPyObject::length(args);
-			HostRef* ref = new HostRef((void*)self->m_Instance);
-			cleaner.add(ref);
 			vargs.push_back(ref);
 			for (Py_ssize_t i = 0; i < len; i++)
 			{
-				PyObject* obj = JPySequence::getItem(args, i); // returns a new ref
-				ref = new HostRef((void*)obj);
-				cleaner.add(ref);
-				vargs.push_back(ref);
-				Py_DECREF(obj); // remove ref returned by getItem
+				PyObject* obj = cleaner.add(JPySequence::getItem(args, i)); // returns a new ref
+				vargs.push_back(obj);
 			}
 	
-			HostRef* res = self->m_Method->m_Method->invoke(vargs);
+			PyObject* res = self->m_Method->m_Method->invoke(vargs);
 			TRACE2("Call finished, result = ", res);	
 			
 			result = detachRef(res);
@@ -366,17 +346,17 @@ PyObject* PyJPBoundMethod::matchReport(PyObject* o, PyObject* args)
 {
 	JPLocalFrame frame;
 	try {
+		JPyCleaner cleaner;
 		PyJPBoundMethod* self = (PyJPBoundMethod*)o;
 
 		cout << "Match report for " << self->m_Method->m_Method->getName() << endl;
 
-		vector<HostRef*> vargs;
+		vector<PyObject*> vargs;
 		Py_ssize_t len = JPyObject::length(args);
 		for (Py_ssize_t i = 0; i < len; i++)
 		{
-			PyObject* obj = JPySequence::getItem(args, i);
-			vargs.push_back(new HostRef((void*)obj));
-			Py_DECREF(obj);
+			PyObject* obj = cleaner.add(JPySequence::getItem(args, i));
+			vargs.push_back(obj);
 		}
 
 		string report = self->m_Method->m_Method->matchReport(vargs);

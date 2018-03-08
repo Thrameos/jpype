@@ -46,7 +46,7 @@ const string& JPField::getName() const
 	return m_Name;
 }	
 
-HostRef* JPField::getStaticAttribute() 
+PyObject* JPField::getStaticAttribute() 
 {
 	TRACE_IN("JPField::getStaticAttribute");
 	JPClass* type = JPTypeManager::findClass(m_Type);
@@ -54,7 +54,7 @@ HostRef* JPField::getStaticAttribute()
 	TRACE_OUT;	
 }
 
-void JPField::setStaticAttribute(HostRef* val) 
+void JPField::setStaticAttribute(PyObject* val) 
 {
 	TRACE_IN("JPField::setStaticAttribute");
 
@@ -77,7 +77,7 @@ void JPField::setStaticAttribute(HostRef* val)
 	TRACE_OUT;
 }
 
-HostRef* JPField::getAttribute(jobject inst) 
+PyObject* JPField::getAttribute(jobject inst) 
 {
 	TRACE_IN("JPField::getAttribute");
 	TRACE2("field type", JPJni::getSimpleName(m_Type)); 
@@ -86,7 +86,7 @@ HostRef* JPField::getAttribute(jobject inst)
 	TRACE_OUT;
 }
 
-void JPField::setAttribute(jobject inst, HostRef* val) 
+void JPField::setAttribute(jobject inst, PyObject* val) 
 {
 	TRACE_IN("JPField::setAttribute");
 	if (m_IsFinal)

@@ -35,8 +35,8 @@ public :
 
 	JCharString toString();
 
-	HostRef* getAttribute(const string& name);
-	void     setAttribute(const string& name, HostRef* value);
+	PyObject* getAttribute(const string& name);
+	void     setAttribute(const string& name, PyObject* value);
 
 private :
 	JPObjectClass* m_Class;

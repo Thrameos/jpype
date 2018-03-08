@@ -38,15 +38,15 @@ public :
 	}
 
 	int       getLength();	
-	vector<HostRef*>  getRange(int start, int stop);
+	vector<PyObject*>  getRange(int start, int stop);
 	// return Python Sequence from underlying jarray
 	PyObject* getSequenceFromRange(int start, int stop);
-	void      setRange(int start, int stop, vector<HostRef*>& val);
+	void      setRange(int start, int stop, vector<PyObject*>& val);
 	void      setRangePrimitive(int start, int stop, PyObject* sequence);
-	void      setItem(int ndx, HostRef*);
-	HostRef*  getItem(int ndx);
+	void      setItem(int ndx, PyObject*);
+	PyObject*  getItem(int ndx);
 
-	void      setContent(vector<HostRef*>& data)
+	void      setContent(vector<PyObject*>& data)
 	{
 		setRange(0, getLength(), data);  
 	}

@@ -32,7 +32,113 @@ typedef int Py_ssize_t;
 #define PY_SSIZE_T_MIN INT_MIN
 #endif
 
-#include "pythonenv.h"
+// =================================================================
+#define PY_CHECK(op) op; { \
+	PyObject* __ex = PyErr_Occurred(); \
+	if (__ex) { 	\
+		throw PythonException(); \
+	}\
+};
+
+#if (    (PY_VERSION_HEX <  0x02070000) \
+     || ((PY_VERSION_HEX >= 0x03000000) \
+      && (PY_VERSION_HEX <  0x03010000)) )
+
+    #include "capsulethunk.h"
+    #define USE_CAPSULE 1
+    typedef void* CAPSULE_DESTRUCTOR_ARG_TYPE;
+    typedef void (*PyCapsule_Destructor)(void*);
+    #define CAPSULE_EXTRACT(obj) (obj)
+#else
+    typedef PyObject* CAPSULE_DESTRUCTOR_ARG_TYPE;
+    #define CAPSULE_EXTRACT(obj) (PyCapsule_GetPointer(obj, PyCapsule_GetName(obj)))
+#endif
+/**
+ * Exception wrapper for python-generated exceptions
+ */
+class PythonException : public HostException
+{
+public :
+	PythonException();	
+	PythonException(const PythonException& ex);
+
+	virtual ~PythonException();
+
+	virtual string getMessage();
+	
+	bool isJavaException();
+	PyObject* getJavaException();
+	
+public :
+	PyObject* m_ExceptionClass;
+	PyObject* m_ExceptionValue;
+};
+
+#undef PY_CHECK
+
+#define PY_STANDARD_CATCH \
+catch(JavaException& ex) \
+{ \
+	try { \
+		JPypeJavaException::errorOccurred(); \
+	} \
+	catch(...) \
+	{ \
+		JPPyni::setRuntimeException("An unknown error occured while handling a Java Exception"); \
+	}\
+}\
+catch(JPypeException& ex)\
+{\
+	try { \
+		JPPyni::setRuntimeException(ex.getMsg()); \
+	} \
+	catch(...) \
+	{ \
+		JPPyni::setRuntimeException("An unknown error occured while handling a JPype Exception"); \
+	}\
+}\
+catch(PythonException& ex) \
+{ \
+} \
+catch(...) \
+{\
+	JPPyni::setRuntimeException("Unknown Exception"); \
+} \
+
+#define PY_LOGGING_CATCH \
+catch(JavaException& ex) \
+{ \
+	try { \
+	cout << "Java error occured : " << ex.message << endl; \
+		JPypeJavaException::errorOccurred(); \
+	} \
+	catch(...) \
+	{ \
+		JPPyni::setRuntimeException("An unknown error occured while handling a Java Exception"); \
+	}\
+}\
+catch(JPypeException& ex)\
+{\
+	try { \
+		cout << "JPype error occured" << endl; \
+		JPPyni::setRuntimeException(ex.getMsg()); \
+	} \
+	catch(...) \
+	{ \
+		JPPyni::setRuntimeException("An unknown error occured while handling a JPype Exception"); \
+	}\
+}\
+catch(PythonException& ex) \
+{ \
+	cout << "Pyhton error occured" << endl; \
+} \
+catch(...) \
+{\
+	cout << "Unknown error occured" << endl; \
+	JPPyni::setRuntimeException("Unknown Exception"); \
+} \
+
+// =================================================================
 
 namespace JPypeModule
 {
@@ -54,17 +160,6 @@ namespace JPypeModule
 	PyObject* setConvertStringObjects(PyObject* obj, PyObject* args);
 	PyObject* setResource(PyObject* obj, PyObject* args);
 }
-
-namespace JPypeJavaClass
-{
-	PyObject* findClass(PyObject* obj, PyObject* args);
-	PyObject* findPrimitiveClass(PyObject* obj, PyObject* args);
-};
-
-namespace JPypeJavaProxy
-{
-	PyObject* createProxy(PyObject*, PyObject* arg);
-};
 
 namespace JPypeJavaArray
 {
@@ -90,16 +185,16 @@ namespace JPypeJavaException
 
 #include "py_monitor.h"
 #include "py_method.h"
+#include "py_array.h"
+#include "py_arrayclass.h"
 #include "py_class.h"
 #include "py_field.h"
-
-#include "py_hostenv.h"
+#include "py_proxy.h"
+#include "py_value.h"
 
 #include "jpype_memory_view.h"
 
-extern PythonHostEnvironment* hostEnv;
-
 // Utility method
-PyObject* detachRef(HostRef* ref);
+//PyObject* detachRef(HostRef* ref);
 
 #endif // _JPYPE_PYTHON_H_

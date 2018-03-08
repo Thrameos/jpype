@@ -23,7 +23,7 @@ public:
 	/** Create a proxy.
 	 * intf is a list of all the java interfaces that this proxy implements.
 	 */
-	JPProxy(HostRef* inst, vector<JPObjectClass*>& intf);
+	JPProxy(PyObject* inst, vector<JPObjectClass*>& intf);
 
 	virtual ~JPProxy();
 
@@ -31,19 +31,13 @@ public:
 	 * This is called when the jvm is connected.
 	 */
 	static void init();
-
-	const vector<JPObjectClass*>& getInterfaces() const
-	{
-		return m_InterfaceClasses;
-	}
-
 	jobject getProxy();
 
+	bool implements(JPObjectClass* interface);
+
 private :
-	HostRef*               m_Instance;
-	vector<JPObjectClass*> m_InterfaceClasses;
-	jobjectArray           m_Interfaces;
-	jobject	               m_Handler;
+	PyObject*               m_Instance;
+	vector<JPObjectClass*> m_Interfaces;
 };
 
 #endif // JPPROXY_H

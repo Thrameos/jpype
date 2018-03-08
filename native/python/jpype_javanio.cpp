@@ -29,21 +29,19 @@ PyObject* JPypeJavaNio::convertToDirectBuffer(PyObject* self, PyObject* args)
 	// Use special method defined on the TypeConverter interface ...
 	PyObject* src;
 
-	JPyArg::parseTuple(args, "O", &src);
+	PyArg_ParseTuple(args, "O", &src);
 
 	PyObject* res = NULL;
-	if (JPyObject::isMemoryView(src))
+	if (JPyAdaptor(src).isMemoryView())
 	{
 		// converts to byte buffer ...
 		JPClass* type = JPTypeManager::_byte;
-		HostRef srcRef(src);
 
 		TRACE1("Converting");
-		HostRef* ref = type->convertToDirectBuffer(&srcRef);
-		JPEnv::registerRef(ref, &srcRef);
+		PyObject* ref = type->convertToDirectBuffer(src);
+		JPEnv::registerRef(ref, src);
 
 		TRACE1("detaching result");
-		res = detachRef(ref);
 	}
 
 	if (res != NULL)

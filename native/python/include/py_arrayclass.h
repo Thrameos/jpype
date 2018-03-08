@@ -14,25 +14,29 @@
    limitations under the License.
    
 *****************************************************************************/   
-#ifndef _JPPSTRINGTYPE_H_
-#define _JPPSTRINGTYPE_H_
+#ifndef _PYJARRAYCLASS_H_
+#define _PYJARRAYCLASS_H_
 
-/** 
- * Sepecialization for java string.
- */
-class JPStringClass : public JPObjectClass
+struct PyJPArrayClass
 {
-public :
-	JPStringClass();
-	
-	virtual ~JPStringClass();
+	//AT's comments on porting:
+	//  1) Some Unix compilers do not tolerate the semicolumn after PyObject_HEAD	
+	//PyObject_HEAD;
+	PyObject_HEAD
 
-public : 
+	// Module global methods
+	static PyObject* findArrayClass(PyObject* obj, PyObject* args);
 
-	// JPType implementation	
-	virtual PyObject*  asHostObject(jvalue val);
-	virtual EMatchType canConvertToJava(PyObject* obj);
-	virtual jvalue     convertToJava(PyObject* obj);
+	// Python-visible methods
+	static void        initType(PyObject* module);
+	static PyJPArrayClass*  alloc(JPClass* cls);
+	static bool        check(PyObject* o);
+	static void        __dealloc__(PyObject* o);
+
+	static PyObject* newArray(PyObject* self, PyObject* arg);
+	JPArrayClass* m_Class;
+
+	static PyObject* Type;  
 };
 
-#endif // _JPPOBJECTTYPE_H_
+#endif // _PYJARRAYCLASS_H_

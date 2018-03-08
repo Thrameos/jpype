@@ -23,6 +23,10 @@ struct PyJPClass
 	//  1) Some Unix compilers do not tolerate the semicolumn after PyObject_HEAD	
 	//PyObject_HEAD;
 	PyObject_HEAD
+
+	// Module global methods
+	static PyObject* findClass(PyObject* obj, PyObject* args);
+	static PyObject* findPrimitiveClass(PyObject* obj, PyObject* args);
 	
 	// Python-visible methods
 	static void         initType(PyObject* module);
@@ -53,8 +57,6 @@ struct PyJPClass
 	static PyObject* getModifiers(PyObject* self);
 
 	JPClass* m_Class;
-
-	static PyObject* Type;  
 };
 
 #endif // _PYCLASS_H_

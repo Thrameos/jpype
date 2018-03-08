@@ -195,7 +195,7 @@ JPMethod* JPObjectClass::getMethod(const string& name)
 	return it->second;
 }
 
-HostRef* JPObjectClass::getStaticAttribute(const string& name)
+PyObject* JPObjectClass::getStaticAttribute(const string& name)
 {
 	JPField* fld = getStaticField(name);
 	if (fld != NULL)
@@ -203,12 +203,12 @@ HostRef* JPObjectClass::getStaticAttribute(const string& name)
 		return fld->getStaticAttribute();
 	}
 
-	JPEnv::getHost()->setAttributeError(name.c_str());
-	JPEnv::getHost()->raise("getAttribute");
+	JPPyni::setAttributeError(name.c_str());
+	JPPyni::raise("getAttribute");
 	return NULL; // never reached
 }
 
-void JPObjectClass::setStaticAttribute(const string& name, HostRef* val)
+void JPObjectClass::setStaticAttribute(const string& name, PyObject* val)
 {
 	JPField* fld = getStaticField(name);
 	if (fld != NULL)
@@ -216,16 +216,16 @@ void JPObjectClass::setStaticAttribute(const string& name, HostRef* val)
 		fld->setStaticAttribute(val);
 		return;
 	}
-	JPEnv::getHost()->setAttributeError(name.c_str());
-	JPEnv::getHost()->raise("__setattr__");
+	JPPyni::setAttributeError(name.c_str());
+	JPPyni::raise("__setattr__");
 }
 
-HostRef* JPObjectClass::asHostObject(jvalue obj)
+PyObject* JPObjectClass::asHostObject(jvalue obj)
 {
 	TRACE_IN("JPObjectClass::asHostObject");
 	if (obj.l == NULL)
 	{
-		return JPEnv::getHost()->getNone();
+		return JPPyni::getNone();
 	}
 
 	jclass cls = JPJni::getClass(obj.l);
@@ -235,22 +235,24 @@ HostRef* JPObjectClass::asHostObject(jvalue obj)
 		return arrayType->asHostObject(obj);
 	}
 
-	return JPEnv::getHost()->newObject(new JPObject((JPObjectClass*)JPTypeManager::findClass(cls), obj.l));
+	return JPPyni::newObject(new JPObject((JPObjectClass*)JPTypeManager::findClass(cls), obj.l));
 	TRACE_OUT;
 }
 
-EMatchType JPObjectClass::canConvertToJava(HostRef* obj)
+EMatchType JPObjectClass::canConvertToJava(PyObject* pyobj)
 {
+	JPyAdaptor obj(pyobj);
+
 	JPLocalFrame frame;
 	TRACE_IN("JPObjectClass::canConvertToJava");
-	if (JPEnv::getHost()->isNone(obj))
+	if (obj.isNone())
 	{
 		return _implicit;
 	}
 
-	if (JPEnv::getHost()->isObject(obj))
+	if (obj.isJavaObject())
 	{
-		JPObject* o = JPEnv::getHost()->asObject(obj);
+		JPObject* o = obj.asJavaObject();
 		JPObjectClass* oc = o->getClass(); 
 		TRACE2("Match name", oc->m_Name.getSimpleName());
 
@@ -266,9 +268,9 @@ EMatchType JPObjectClass::canConvertToJava(HostRef* obj)
 		}
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (obj.isWrapper())
 	{
-		JPClass* o = JPEnv::getHost()->getWrapperClass(obj);
+		JPClass* o = obj.getWrapperClass();
 		if (o == this)
 		{
 			TRACE1("exact wrapper");
@@ -276,27 +278,24 @@ EMatchType JPObjectClass::canConvertToJava(HostRef* obj)
 		}
 	}
 
-	if (JPEnv::getHost()->isProxy(obj))
+	if (obj.isProxy())
 	{
-		JPProxy* proxy = JPEnv::getHost()->asProxy(obj);
-		// Check if any of the interfaces matches ...
-		const vector<JPObjectClass*>& itf = proxy->getInterfaces();
-		for (unsigned int i = 0; i < itf.size(); i++)
+		JPProxy* proxy = obj.asProxy();
+		if (proxy->implements(this))
 		{
-			if (JPEnv::getJava()->IsAssignableFrom(itf[i]->getNativeClass(), m_Class))
-			{
 				TRACE1("implicit proxy");
 				return _implicit;
-			}
-		}
+    }
 	}
 
 	return _none;
 	TRACE_OUT;
 }
 
-jvalue JPObjectClass::convertToJava(HostRef* obj)
+jvalue JPObjectClass::convertToJava(PyObject* pyobj)
 {
+	JPyAdaptor obj(pyobj);
+
 	TRACE_IN("JPObjectClass::convertToJava");
 	JPLocalFrame frame;
 	jvalue res;
@@ -304,29 +303,29 @@ jvalue JPObjectClass::convertToJava(HostRef* obj)
 	res.l = NULL;
 
 	// assume it is convertible;
-	if (JPEnv::getHost()->isNone(obj))
+	if (obj.isNone())
 	{
 		res.l = NULL;
 		return res;
 	}
 
-	if (JPEnv::getHost()->isObject(obj))
+	if (obj.isJavaObject())
 	{
-		JPObject* ref = JPEnv::getHost()->asObject(obj);
+		JPObject* ref = obj.asJavaObject();
 		res.l = frame.keep(ref->getObject());
 		return res;
 	}
 
-	if (JPEnv::getHost()->isProxy(obj))
+	if (obj.isProxy())
 	{
-		JPProxy* proxy = JPEnv::getHost()->asProxy(obj);
+		JPProxy* proxy = obj.asProxy();
 		res.l = frame.keep(proxy->getProxy());
 		return res;
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (obj.isWrapper())
 	{
-		res = JPEnv::getHost()->getWrapperValue(obj); // FIXME isn't this one global already
+		res = obj.getWrapperValue(); // FIXME isn't this one global already
 		res.l = frame.keep(res.l);
 		return res;
 	}
@@ -335,7 +334,7 @@ jvalue JPObjectClass::convertToJava(HostRef* obj)
 	TRACE_OUT;
 }
 
-JPObject* JPObjectClass::newInstance(vector<HostRef*>& args)
+JPObject* JPObjectClass::newInstance(vector<PyObject*>& args)
 {
 	return m_Constructors->invokeConstructor(args);
 }
@@ -354,7 +353,7 @@ string JPObjectClass::describe()
 		out << "final ";
 	}
 
-	out << "class " << m_Name.getSimpleName();
+	out << "class " << m_Name;
 	if (m_SuperClass != NULL)
 	{
 		out << " extends " << m_SuperClass->getSimpleName();

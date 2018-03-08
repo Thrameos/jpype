@@ -23,109 +23,12 @@
 	#include <numpy/arrayobject.h>
 #endif
 
-PythonHostEnvironment* hostEnv;
-PyObject* convertToJValue(PyObject* self, PyObject* arg)
-{
-	if (! JPEnv::isInitialized())
-	{
-		PyErr_SetString(PyExc_RuntimeError, "Java Subsystem not started");
-		return NULL;
-	}
-	JPLocalFrame frame;
-
-	try {
-		PyObject* tname;
-		PyObject* value;
-
-		JPyArg::parseTuple(arg, "OO", &tname, &value);
-		if ( !JPyObject::isInstance(tname, PyJPClass::Type))
-		{
-			RAISE(JPypeException, "argument 1 must be a _jpype.JavaClass");
-		}
-
-		JPClass* type = ((PyJPClass*)claz)->m_Class;
-		if (type==NULL)
-		{
-			Py_RETURN_NONE;
-		}
-
-		HostRef ref(value);
-		jvalue v = type->convertToJava(&ref);
-
-		jvalue* pv = new jvalue();
-
-		// Transfer ownership to python
-		PyObject* res;
-		if (type->isObjectType())
-		{
-			pv->l = JPEnv::getJava()->NewGlobalRef(v.l);
-			res = JPyCObject::fromVoidAndDesc((void*)pv, "object jvalue", PythonHostEnvironment::deleteObjectJValueDestructor);
-		}
-		else
-		{
-			*pv = v;
-			res = JPyCObject::fromVoidAndDesc((void*)pv, "jvalue", PythonHostEnvironment::deleteJValueDestructor);
-		}
-
-		return res;
-	}
-	PY_STANDARD_CATCH
-
-	return NULL;
-}
-
-PyObject* JPypeJavaProxy::createProxy(PyObject*, PyObject* arg)
-{
-	try {
-		JPLocalFrame frame;
-		JPCleaner cleaner;
-
-		PyObject* self;
-		PyObject* intf;
-
-		JPyArg::parseTuple(arg, "OO", &self, &intf);
-
-		std::vector<JPObjectClass*> interfaces;
-		Py_ssize_t len = JPyObject::length(intf);
-
-		for (Py_ssize_t i = 0; i < len; i++)
-		{
-			PyObject* subObj = JPySequence::getItem(intf, i);
-			// Not sure what the next line is for... if we don't use the host reference what is this for?
-			cleaner.add(new HostRef(subObj, false));
-
-			PyObject* claz = JPyObject::getAttrString(subObj, "__javaclass__");
-			if ( ! JPyObject::isInstance(claz, PyJPClass::Type))
-			{
-				RAISE(JPypeException, "interfaces must be of type _jpype.JavaClass");
-			}
-			JPObjectClass* c = dynamic_cast<JPObjectClass*>(((PyJPClass*)claz)->m_Class);
-			if ( c == NULL)
-				continue;
-			interfaces.push_back(c);
-		}
-		
-		HostRef ref = HostRef(self);
-
-		JPProxy* proxy = new JPProxy(&ref, interfaces);
-
-		PyObject* res = JPyCObject::fromVoidAndDesc(proxy, "jproxy", PythonHostEnvironment::deleteJPProxyDestructor);
-
-		return res;
-	}
-	PY_STANDARD_CATCH
-
-	return NULL;
-}
-
 static PyMethodDef jpype_methods[] = 
 {  
   {"isStarted", (PyCFunction)&JPypeModule::isStarted, METH_NOARGS, ""},
   {"startup", &JPypeModule::startup, METH_VARARGS, ""},
   {"attach", &JPypeModule::attach, METH_VARARGS, ""},
   {"shutdown", (PyCFunction)&JPypeModule::shutdown, METH_NOARGS, ""},
-  {"findClass", &JPypeJavaClass::findClass, METH_VARARGS, ""},
-  {"findPrimitiveClass", &JPypeJavaClass::findPrimitiveClass, METH_VARARGS, ""},
   {"setResource", &JPypeModule::setResource, METH_VARARGS, ""},
 
   {"synchronized", &JPypeModule::synchronized, METH_VARARGS, ""},
@@ -137,11 +40,12 @@ static PyMethodDef jpype_methods[] =
   {"startReferenceQueue", &JPypeModule::startReferenceQueue, METH_VARARGS, ""},
   {"stopReferenceQueue", (PyCFunction)&JPypeModule::stopReferenceQueue, METH_NOARGS, ""},
 
-  {"createProxy", &JPypeJavaProxy::createProxy, METH_VARARGS, ""},
+  {"findClass", &PyJPClass::findClass, METH_VARARGS, ""},
+  {"findArrayClass", &PyJPArrayClass::findArrayClass, METH_VARARGS, ""},
+  {"findPrimitiveClass", &PyJPClass::findPrimitiveClass, METH_VARARGS, ""},
+  {"createProxy", &PyJProxy::createProxy, METH_VARARGS, ""},
+  {"convertToJValue", &PyJValue::convertToJValue, METH_VARARGS, ""},
 
-  {"convertToJValue", &convertToJValue, METH_VARARGS, ""},
-
-  {"findArrayClass", &JPypeJavaArray::findArrayClass, METH_VARARGS, ""},
   {"getArrayLength", &JPypeJavaArray::getArrayLength, METH_VARARGS, ""},
   {"getArrayItem", &JPypeJavaArray::getArrayItem, METH_VARARGS, ""},
   {"setArrayItem", &JPypeJavaArray::setArrayItem, METH_VARARGS, ""},
@@ -181,14 +85,12 @@ PyMODINIT_FUNC init_jpype()
 	PyObject* module = Py_InitModule("_jpype", jpype_methods);
 #endif
 	Py_INCREF(module);
-	hostEnv = new PythonHostEnvironment();
-	  
-	JPEnv::init(hostEnv);
 
 	PyJPMonitor::initType(module);	
 	PyJPMethod::initType(module);	
 	PyJPBoundMethod::initType(module);	
 	PyJPClass::initType(module);	
+	PyJPArrayClass::initType(module);	
 	PyJPField::initType(module);	
 
 #if (PY_VERSION_HEX < 0x02070000)
@@ -203,22 +105,11 @@ PyMODINIT_FUNC init_jpype()
 #endif
 }
 
-PyObject* detachRef(HostRef* ref)
-{
-	PyObject* data = (PyObject*)ref->data();
-	Py_XINCREF(data);
-
-	ref->release();
-
-	return data;
-
-}
-
 void JPypeJavaException::errorOccurred()
 {
 	TRACE_IN("PyJavaException::errorOccurred");
 	JPLocalFrame frame(8);
-	JPCleaner cleaner;
+	JPyCleaner cleaner;
 	jthrowable th = JPEnv::getJava()->ExceptionOccurred();
 	JPEnv::getJava()->ExceptionClear();
 
@@ -226,25 +117,17 @@ void JPypeJavaException::errorOccurred()
 	JPObjectClass* jpclass = dynamic_cast<JPObjectClass*>(JPTypeManager::findClass(ec));
 	// FIXME nothing checks if the class is valid before using it
 
-	PyObject* jexclass = hostEnv->getJavaShadowClass(jpclass);
-	HostRef* pyth = hostEnv->newObject(new JPObject(jpclass, th));
-	cleaner.add(pyth);
+	JPyObject jexclass = cleaner.add(JPyEnv::newClass(jpclass));
+	PyObject* pyth = cleaner.add(JPyEnv::newObject(new JPObject(jpclass, th)));
 
-	PyObject* args = JPySequence::newTuple(2);
-	PyObject* arg2 = JPySequence::newTuple(1);
-	JPySequence::setItem(arg2, 0, args);
-	Py_DECREF(args);
-	JPySequence::setItem(args, 0, hostEnv->m_SpecialConstructorKey);
-	JPySequence::setItem(args, 1, (PyObject*)pyth->data());
+	JPyTuple args = cleaner.add(JPyTuple::newTuple(2));
+	JPyTuple arg2 = cleaner.add(JPyTuple::newTuple(1));
+	arg2.setItem( 0, args);
+	args.setItem( 0, hostEnv->m_SpecialConstructorKey);
+	args.setItem( 1, (PyObject*)pyth->data());
 
-	PyObject* pyexclass = JPyObject::getAttrString(jexclass, "PYEXC");
-	Py_DECREF(jexclass);
-	
-
+	PyObject* pyexclass = cleaner.add(jexclass.getAttrString("PYEXC"));
 	JPyErr::setObject(pyexclass, arg2);
-
-	Py_DECREF(arg2);
-	Py_DECREF(pyexclass);
 
 	TRACE_OUT;
 }

@@ -115,12 +115,7 @@ PyObject* PyJPField::getStaticAttribute(PyObject* o, PyObject* arg)
   JPLocalFrame frame;
 	try {
 		PyJPField* self = (PyJPField*)o;
-
-		HostRef* res = self->m_Field->getStaticAttribute();
-		PyObject* result = detachRef(res);
-		return result;
-
-
+		return self->m_Field->getStaticAttribute();
 	}
 	PY_STANDARD_CATCH
 
@@ -132,13 +127,9 @@ PyObject* PyJPField::setStaticAttribute(PyObject* o, PyObject* arg)
   JPLocalFrame frame;
 	try {
 		PyJPField* self = (PyJPField*)o;
-
 		PyObject* value;
-		JPyArg::parseTuple(arg, "O", &value);
-
-		HostRef v(value);
-
-		self->m_Field->setStaticAttribute(&v);
+		PyArg_ParseTuple(arg, "O", &value);
+		self->m_Field->setStaticAttribute(value);
 		Py_RETURN_NONE;
 	}
 	PY_STANDARD_CATCH
@@ -154,15 +145,11 @@ PyObject* PyJPField::setInstanceAttribute(PyObject* o, PyObject* arg)
 
 		PyObject* jo;
 		PyObject* value;
-		JPyArg::parseTuple(arg, "O!O", &PyCapsule_Type, &jo, &value);
+		PyArg_ParseTuple(arg, "O!O", &PyCapsule_Type, &jo, &value);
 
 		JPObject* obj = (JPObject*)JPyCObject::asVoidPtr(jo);
-
-		HostRef ref(value);
-		
 		jobject jobj = obj->getObject();
-
-		self->m_Field->setAttribute(jobj, &ref);
+		self->m_Field->setAttribute(jobj, value);
 		Py_RETURN_NONE;
 	}
 	PY_STANDARD_CATCH
@@ -179,14 +166,12 @@ PyObject* PyJPField::getInstanceAttribute(PyObject* o, PyObject* arg)
 		PyJPField* self = (PyJPField*)o;
 
 		PyObject* jo;
-		JPyArg::parseTuple(arg, "O!", &PyCapsule_Type, &jo);
+		PyArg_ParseTuple(arg, "O!", &PyCapsule_Type, &jo);
 
 		JPObject* obj = (JPObject*)JPyCObject::asVoidPtr(jo);
 
 		jobject jobj = obj->getObject();
-
-		HostRef* res = self->m_Field->getAttribute(jobj);
-		return detachRef(res);
+		return self->m_Field->getAttribute(jobj);
 	}
 	PY_STANDARD_CATCH
 
@@ -200,12 +185,7 @@ PyObject* PyJPField::isStatic(PyObject* o, PyObject* arg)
   JPLocalFrame frame;
 	try {
 		PyJPField* self = (PyJPField*)o;
-
-		if (self->m_Field->isStatic())
-		{
-			return JPyBoolean::getTrue();
-		}
-		return JPyBoolean::getFalse();
+		return PyBool_FromLong(self->m_Field->isStatic());
 	}
 	PY_STANDARD_CATCH
 
@@ -217,12 +197,7 @@ PyObject* PyJPField::isFinal(PyObject* o, PyObject* arg)
   JPLocalFrame frame;
 	try {
 		PyJPField* self = (PyJPField*)o;
-
-		if (self->m_Field->isFinal())
-		{
-			return JPyBoolean::getTrue();
-		}
-		return JPyBoolean::getFalse();
+		return PyBool_FromLong(self->m_Field->isFinal());
 	}
 	PY_STANDARD_CATCH
 

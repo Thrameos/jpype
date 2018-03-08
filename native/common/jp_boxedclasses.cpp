@@ -25,11 +25,11 @@ JPBoxedClass::~JPBoxedClass()
 {
 }
 
-jobject JPBoxedClass::buildObjectWrapper(HostRef* obj)
+jobject JPBoxedClass::buildObjectWrapper(PyObject* obj)
 {
 	JPLocalFrame frame;
 
-	vector<HostRef*> args(1);
+	vector<PyObject*> args(1);
 	args.push_back(obj);
 
 	JPObject* pobj = newInstance(args);
@@ -39,8 +39,10 @@ jobject JPBoxedClass::buildObjectWrapper(HostRef* obj)
 	return frame.keep(out);
 }
 
-jvalue JPBoxedClass::convertToJava(HostRef* obj)
+jvalue JPBoxedClass::convertToJava(PyObject* pyobj)
 {
+	JPyAdaptor obj(pyobj);
+
 	TRACE_IN("JPObjectClass::convertToJava");
 	JPLocalFrame frame;
 	jvalue res;
@@ -48,29 +50,29 @@ jvalue JPBoxedClass::convertToJava(HostRef* obj)
 	res.l = NULL;
 
 	// assume it is convertible;
-	if (JPEnv::getHost()->isNone(obj))
+	if (obj.isNone())
 	{
 		res.l = NULL;
 		return res;
 	}
 
-	if (JPEnv::getHost()->isObject(obj))
+	if (obj.isJavaObject())
 	{
-		JPObject* ref = JPEnv::getHost()->asObject(obj);
+		JPObject* ref = obj.asJavaObject();
 		res.l = frame.keep(ref->getObject());
 		return res;
 	}
 
-	if (JPEnv::getHost()->isProxy(obj))
+	if (obj.isProxy())
 	{
-		JPProxy* proxy = JPEnv::getHost()->asProxy(obj);
+		JPProxy* proxy = obj.asProxy();
 		res.l = frame.keep(proxy->getProxy());
 		return res;
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (obj.isWrapper())
 	{
-		res = JPEnv::getHost()->getWrapperValue(obj); // FIXME isn't this one global already
+		res = obj.getWrapperValue(); // FIXME isn't this one global already
 		res.l = frame.keep(res.l);
 		return res;
 	}
@@ -97,9 +99,9 @@ JPBoxedBooleanClass::~JPBoxedBooleanClass()
 {
 }
 
-EMatchType JPBoxedBooleanClass::canConvertToJava(HostRef* obj)
+EMatchType JPBoxedBooleanClass::canConvertToJava(PyObject* pyobj)
 {
-	EMatchType base = JPObjectClass::canConvertToJava(obj);
+	EMatchType base = JPObjectClass::canConvertToJava(pyobj);
 	return base;
 }
 
@@ -115,9 +117,9 @@ JPBoxedCharacterClass::~JPBoxedCharacterClass()
 {
 }
 
-EMatchType JPBoxedCharacterClass::canConvertToJava(HostRef* obj)
+EMatchType JPBoxedCharacterClass::canConvertToJava(PyObject* pyobj)
 {
-	EMatchType base = JPObjectClass::canConvertToJava(obj);
+	EMatchType base = JPObjectClass::canConvertToJava(pyobj);
 	return base;
 }
 
@@ -132,10 +134,12 @@ JPBoxedByteClass::~JPBoxedByteClass()
 {
 }
 
-EMatchType JPBoxedByteClass::canConvertToJava(HostRef* obj)
+EMatchType JPBoxedByteClass::canConvertToJava(PyObject* pyobj)
 {
-	EMatchType base = JPObjectClass::canConvertToJava(obj);
-	if (base == _none && JPEnv::getHost()->isInt(obj))
+	JPyAdaptor obj(pyobj);
+
+	EMatchType base = JPObjectClass::canConvertToJava(pyobj);
+	if (base == _none && obj.isInt())
 		return _explicit;
 	return base;
 }
@@ -151,10 +155,12 @@ JPBoxedShortClass::~JPBoxedShortClass()
 {
 }
 
-EMatchType JPBoxedShortClass::canConvertToJava(HostRef* obj)
+EMatchType JPBoxedShortClass::canConvertToJava(PyObject* pyobj)
 {
-	EMatchType base = JPObjectClass::canConvertToJava(obj);
-	if (base == _none && JPEnv::getHost()->isInt(obj))
+	JPyAdaptor obj(pyobj);
+
+	EMatchType base = JPObjectClass::canConvertToJava(pyobj);
+	if (base == _none && obj.isInt())
 		return _explicit;
 	return base;
 }
@@ -171,10 +177,12 @@ JPBoxedIntegerClass::~JPBoxedIntegerClass()
 {
 }
 
-EMatchType JPBoxedIntegerClass::canConvertToJava(HostRef* obj)
+EMatchType JPBoxedIntegerClass::canConvertToJava(PyObject* pyobj)
 {
-	EMatchType base = JPObjectClass::canConvertToJava(obj);
-	if (base == _none && JPEnv::getHost()->isInt(obj))
+	JPyAdaptor obj(pyobj);
+
+	EMatchType base = JPObjectClass::canConvertToJava(pyobj);
+	if (base == _none && obj.isInt())
 		return _explicit;
 	return base;
 }
@@ -190,10 +198,12 @@ JPBoxedLongClass::~JPBoxedLongClass()
 {
 }
 
-EMatchType JPBoxedLongClass::canConvertToJava(HostRef* obj)
+EMatchType JPBoxedLongClass::canConvertToJava(PyObject* pyobj)
 {
-	EMatchType base = JPObjectClass::canConvertToJava(obj);
-	if (base == _none && JPEnv::getHost()->isLong(obj))
+	JPyAdaptor obj(pyobj);
+
+	EMatchType base = JPObjectClass::canConvertToJava(pyobj);
+	if (base == _none && obj.isLong())
 		return _explicit;
 	return base;
 }
@@ -209,10 +219,12 @@ JPBoxedFloatClass::~JPBoxedFloatClass()
 {
 }
 
-EMatchType JPBoxedFloatClass::canConvertToJava(HostRef* obj)
+EMatchType JPBoxedFloatClass::canConvertToJava(PyObject* pyobj)
 {
-	EMatchType base = JPObjectClass::canConvertToJava(obj);
-	if (base == _none && JPEnv::getHost()->isFloat(obj))
+	JPyAdaptor obj(pyobj);
+
+	EMatchType base = JPObjectClass::canConvertToJava(pyobj);
+	if (base == _none && obj.isFloat())
 		return _explicit;
 	return base;
 }
@@ -228,10 +240,12 @@ JPBoxedDoubleClass::~JPBoxedDoubleClass()
 {
 }
 
-EMatchType JPBoxedDoubleClass::canConvertToJava(HostRef* obj)
+EMatchType JPBoxedDoubleClass::canConvertToJava(PyObject* pyobj)
 {
-	EMatchType base = JPObjectClass::canConvertToJava(obj);
-	if (base == _none && JPEnv::getHost()->isFloat(obj))
+	JPyAdaptor obj(pyobj);
+
+	EMatchType base = JPObjectClass::canConvertToJava(pyobj);
+	if (base == _none && obj.isFloat())
 		return _explicit;
 	return base;
 }

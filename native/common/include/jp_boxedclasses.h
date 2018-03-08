@@ -33,10 +33,10 @@ public:
 	JPBoxedClass(jclass c);
 	virtual~ JPBoxedClass();
 
-  jvalue convertToJava(HostRef* obj);
+  jvalue convertToJava(PyObject* obj);
 
 private:
-  jobject buildObjectWrapper(HostRef* obj);
+  jobject buildObjectWrapper(PyObject* obj);
 };
 
 class JPBoxedBooleanClass : public JPBoxedClass
@@ -46,7 +46,7 @@ public:
 	virtual~ JPBoxedBooleanClass();
 
 public:
-	virtual EMatchType canConvertToJava(HostRef* obj);
+	virtual EMatchType canConvertToJava(PyObject* obj);
 };
 
 class JPBoxedCharacterClass : public JPBoxedClass
@@ -56,7 +56,7 @@ public:
 	virtual~ JPBoxedCharacterClass();
 
 public:
-	virtual EMatchType canConvertToJava(HostRef* obj);
+	virtual EMatchType canConvertToJava(PyObject* obj);
 };
 
 class JPBoxedByteClass : public JPBoxedClass
@@ -66,7 +66,7 @@ public:
 	virtual~ JPBoxedByteClass();
 
 public:
-	virtual EMatchType canConvertToJava(HostRef* obj);
+	virtual EMatchType canConvertToJava(PyObject* obj);
 };
 
 class JPBoxedShortClass : public JPBoxedClass
@@ -76,7 +76,7 @@ public:
 	virtual~ JPBoxedShortClass();
 
 public:
-	virtual EMatchType canConvertToJava(HostRef* obj);
+	virtual EMatchType canConvertToJava(PyObject* obj);
 };
 
 class JPBoxedIntegerClass : public JPBoxedClass
@@ -86,7 +86,7 @@ public:
 	virtual~ JPBoxedIntegerClass();
 
 public:
-	virtual EMatchType canConvertToJava(HostRef* obj);
+	virtual EMatchType canConvertToJava(PyObject* obj);
 };
 
 class JPBoxedLongClass : public JPBoxedClass
@@ -96,7 +96,7 @@ public:
 	virtual~ JPBoxedLongClass();
 
 public:
-	virtual EMatchType canConvertToJava(HostRef* obj);
+	virtual EMatchType canConvertToJava(PyObject* obj);
 };
 
 class JPBoxedFloatClass : public JPBoxedClass
@@ -106,7 +106,7 @@ public:
 	virtual~ JPBoxedFloatClass();
 
 public:
-	virtual EMatchType canConvertToJava(HostRef* obj);
+	virtual EMatchType canConvertToJava(PyObject* obj);
 };
 
 class JPBoxedDoubleClass : public JPBoxedClass
@@ -116,7 +116,7 @@ public:
 	virtual~ JPBoxedDoubleClass();
 
 public:
-	virtual EMatchType canConvertToJava(HostRef* obj);
+	virtual EMatchType canConvertToJava(PyObject* obj);
 };
 
 #endif // _JPBOXEDCLASS_H_

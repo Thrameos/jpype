@@ -25,10 +25,4 @@ enum EMatchType
 	_exact
 };
 
-// predeclaration of PyObject
-#ifndef PyObject_HEAD
-struct _object;
-typedef _object PyObject;
-#endif
-
 #endif // _JPTYPE_H_

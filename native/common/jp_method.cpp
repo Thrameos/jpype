@@ -86,7 +86,7 @@ void JPMethod::addOverloads(JPMethod* o)
 	TRACE_OUT;
 }
 
-JPMethodOverload* JPMethod::findOverload(vector<HostRef*>& arg, bool needStatic)
+JPMethodOverload* JPMethod::findOverload(vector<PyObject*>& arg, bool needStatic)
 {
 	TRACE_IN("JPMethod::findOverload");
 	TRACE2("Checking overload", m_Name);
@@ -178,10 +178,10 @@ void JPMethod::ensureOverloadOrderCache()
 }
 
 
-HostRef* JPMethod::invoke(vector<HostRef*>& args)
+PyObject* JPMethod::invoke(vector<PyObject*>& args)
 {
 	JPMethodOverload* currentMatch = findOverload(args, false);
-	HostRef* res;
+	PyObject* res;
 
 	if (currentMatch->isStatic())
 	{	
@@ -195,7 +195,7 @@ HostRef* JPMethod::invoke(vector<HostRef*>& args)
 	return res;
 }
 
-HostRef* JPMethod::invokeInstance(vector<HostRef*>& args)
+PyObject* JPMethod::invokeInstance(vector<PyObject*>& args)
 {
 	JPMethodOverload* currentMatch = findOverload(args, false);
 	
@@ -211,13 +211,13 @@ HostRef* JPMethod::invokeInstance(vector<HostRef*>& args)
 	}
 }
 
-HostRef* JPMethod::invokeStatic(vector<HostRef*>& args)
+PyObject* JPMethod::invokeStatic(vector<PyObject*>& args)
 {
 	JPMethodOverload* currentMatch = findOverload(args, true);
 	return currentMatch->invokeStatic(args);
 }
 
-JPObject* JPMethod::invokeConstructor(vector<HostRef*>& arg)
+JPObject* JPMethod::invokeConstructor(vector<PyObject*>& arg)
 {
 	JPMethodOverload* currentMatch = findOverload(arg, false);
 	return currentMatch->invokeConstructor(m_Class, arg);	
@@ -276,7 +276,7 @@ bool JPMethod::isBeanAccessor()
 	return false;
 }
 
-string JPMethod::matchReport(vector<HostRef*>& args)
+string JPMethod::matchReport(vector<PyObject*>& args)
 {
 	stringstream res;
 	res << "Match report for method " << m_Name << ", has " << m_Overloads.size() << " overloads." << endl;

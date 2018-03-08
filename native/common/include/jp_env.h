@@ -45,24 +45,6 @@ public:
 	~JPLocalFrame();
 };
 
-/**
- * Simple tample class for managing host references.
- */
-class JPCleaner
-{
-public :
-	JPCleaner();	
-	virtual ~JPCleaner();
-	
-	void add(HostRef* r);
-	void addAll(vector<HostRef*>& r);
-	void remove(HostRef* r);
-	void removeAll(vector<HostRef*>& r);
-	
-private :
-	vector<HostRef*> m_HostObjects;
-};
-
 template<typename T>
 class JPMallocCleaner
 {
@@ -94,11 +76,6 @@ private :
 namespace JPEnv
 {	
 	/**
-	* Initialize the JPype subs-system. Does NOT load the JVM
-	*/
-	void init(HostEnvironment* hostEnv);
-	
-	/**
 	* Load the JVM
 	* TODO : add the non-string parameters, for possible callbacks
 	*/
@@ -111,14 +88,13 @@ namespace JPEnv
 	bool isThreadAttached();
 
 	JPJavaEnv*       getJava();
-	HostEnvironment* getHost();
 
 	/**
 	* Check if the JPype environment has been initialized
 	*/
 	bool isInitialized();
 	
-	void registerRef(HostRef*, HostRef* targetRef);
+	void registerRef(PyObject*, PyObject* targetRef);
 }
 
 #endif // _JPENV_H_

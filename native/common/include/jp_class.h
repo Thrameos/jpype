@@ -38,25 +38,25 @@ public :
 	}
 
 // Conversion methods
-	virtual HostRef*   asHostObject(jvalue val) = 0;
+	virtual PyObject*   asHostObject(jvalue val) = 0;
 
 	// FIXME This is used only by JPProxy. 
 	// it is not obvious why it is required at all.
-	virtual HostRef*   asHostObjectFromObject(jobject val);
+	virtual PyObject*   asHostObjectFromObject(jobject val);
 
 	/** Convert a host ref to a java value.
 	 * This preserves primitives.
 	 */
-	virtual jvalue     convertToJava(HostRef* obj) = 0;
+	virtual jvalue     convertToJava(PyObject* obj) = 0;
 
 	/** Convert a host ref to a java object.
 	 * This will box primitives.
 	 */
-	virtual jobject    convertToJavaObject(HostRef* obj);
+	virtual jobject    convertToJavaObject(PyObject* obj);
 
 	/** Determine if a host ref can be converted to an object of this type.
 	 */
-	virtual EMatchType canConvertToJava(HostRef* obj) = 0;
+	virtual EMatchType canConvertToJava(PyObject* obj) = 0;
 
 // Probe methods
 	bool			         isAbstract() const;
@@ -65,39 +65,45 @@ public :
 	virtual bool       isInterface() const;
 	virtual bool       isObjectType() const = 0;
 	long               getClassModifiers();
-	bool               isSubclass(const JPClass* o) const;
+
+	/** Returns true if this class can be assigned to a target class.
+	 * This will be true if this class implements or extends the target class.
+	 * (For some reason Java uses the name isAssignableFrom which confuses the hell
+	 * out of everyone.)
+	 */
+	bool               isAssignableTo(const JPClass* o) const;
 
 // Get/Set a static field
   /** Get a static value.  
 	 * This allocates a new host reference. The host reference must
 	 * be deleted.
 	 */
-	virtual HostRef*   getStaticValue(JPClass* c, jfieldID fid);
+	virtual PyObject*   getStaticValue(JPClass* c, jfieldID fid);
 
 	/** Set a static field to a value.
 	 * This is required because JNI has different methods for each different 
 	 * type.
 	 */
-	virtual void       setStaticValue(JPClass* c, jfieldID fid, HostRef* val);
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, PyObject* val);
 
 	// Get/Set a member field
-	virtual HostRef*   getInstanceValue(jobject c, jfieldID fid);
-	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
+	virtual PyObject*   getInstanceValue(jobject c, jfieldID fid);
+	virtual void       setInstanceValue(jobject c, jfieldID fid, PyObject* val);
 
   // Invoke a method that produces this class (static)
-	virtual HostRef*   invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual PyObject*   invokeStatic(JPClass*, jmethodID, jvalue*);
 
   // Invoke a method that produces this class (member)
-	virtual HostRef*   invoke(jobject, JPClass* clazz, jmethodID, jvalue*);
+	virtual PyObject*   invoke(jobject, JPClass* clazz, jmethodID, jvalue*);
 
 	// Array methods
 	virtual jarray     newArrayInstance(int size);
-	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);
-	virtual HostRef*   getArrayItem(jarray, int ndx);
-	virtual void       setArrayItem(jarray, int ndx, HostRef* val);
-	virtual void       setArrayRange(jarray, int start, int length, vector<HostRef*>& vals);
+	virtual vector<PyObject*> getArrayRange(jarray, int start, int length);
+	virtual PyObject*   getArrayItem(jarray, int ndx);
+	virtual void       setArrayItem(jarray, int ndx, PyObject* val);
+	virtual void       setArrayRange(jarray, int start, int length, vector<PyObject*>& vals);
 
-	virtual HostRef*   convertToDirectBuffer(HostRef* src);
+	virtual PyObject*   convertToDirectBuffer(PyObject* src);
 
 	// Loading support
 	virtual void postLoad()

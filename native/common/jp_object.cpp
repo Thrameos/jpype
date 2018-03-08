@@ -50,7 +50,7 @@ JCharString JPObject::toString()
 	
 }
 
-HostRef* JPObject::getAttribute(const string& name)
+PyObject* JPObject::getAttribute(const string& name)
 {
 	TRACE_IN("JPObject::getAttribute");
 	TRACE1(name);
@@ -70,15 +70,15 @@ HostRef* JPObject::getAttribute(const string& name)
 		return fld->getStaticAttribute();
 	}
 		
-	JPEnv::getHost()->setAttributeError(name.c_str());
-	JPEnv::getHost()->raise("getAttribute");
+	JPPyni::setAttributeError(name.c_str());
+	JPPyni::raise("getAttribute");
 
 	return NULL; // never reached ...
 	
 	TRACE_OUT;
 }
 
-void JPObject::setAttribute(const string& name, HostRef* val)
+void JPObject::setAttribute(const string& name, PyObject* val)
 {
 	// instance fields ...
 	JPField* fld = m_Class->getInstanceField(name);	
@@ -96,7 +96,6 @@ void JPObject::setAttribute(const string& name, HostRef* val)
 		return;
 	}
 	
-	
-	JPEnv::getHost()->setAttributeError(name.c_str());
-	JPEnv::getHost()->raise("setAttribute");
+	JPPyni::setAttributeError(name.c_str());
+	JPPyni::raise("setAttribute");
 }

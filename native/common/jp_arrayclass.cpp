@@ -33,20 +33,22 @@ bool JPArrayClass::isObjectType() const
 	return true;
 }
 
-EMatchType JPArrayClass::canConvertToJava(HostRef* o)
+EMatchType JPArrayClass::canConvertToJava(PyObject* pyobj)
 {
+	JPyAdaptor obj(pyobj);
+
 	TRACE_IN("JPArrayClass::canConvertToJava");
 	JPLocalFrame frame;
 	
-	if (JPEnv::getHost()->isNone(o))
+	if (obj.isNone())
 	{
 		return _implicit;
 	}
 	
-	if (JPEnv::getHost()->isArray(o))
+	if (obj.isArray())
 	{
 		TRACE1("array");
-		JPArray* a = JPEnv::getHost()->asArray(o);
+		JPArray* a = obj.asArray();
 		
 		JPArrayClass* ca = a->getClass();
 		
@@ -60,32 +62,33 @@ EMatchType JPArrayClass::canConvertToJava(HostRef* o)
 			return _implicit;
 		}
 	}
-	else if (JPEnv::getHost()->isUnicodeString(o) && m_ComponentType==JPTypeManager::_char)
+	else if (obj.isUnicodeString() && m_ComponentType==JPTypeManager::_char)
 	{
 		TRACE1("char[]");
 		// Strings are also char[]
 		return _implicit;
 	}
-	else if (JPEnv::getHost()->isByteString(o) && m_ComponentType==JPTypeManager::_byte)
+	else if (obj.isByteString() && m_ComponentType==JPTypeManager::_byte)
 	{
 		TRACE1("char[]");
 		// Strings are also char[]
 		return _implicit;
 	}
-	else if (JPEnv::getHost()->isSequence(o) && !JPEnv::getHost()->isObject(o))
+	else if (obj.isSequence() && !obj.isJavaObject())
 	{
+		JPyCleaner cleaner;
 		TRACE1("Sequence");
 		EMatchType match = _implicit;
-		int length = JPEnv::getHost()->getSequenceLength(o);
+		JPySequence sequence(obj);
+		int length = sequence.size();
 		for (int i = 0; i < length && match > _none; i++)
 		{
-			HostRef* obj = JPEnv::getHost()->getSequenceItem(o, i);
-			EMatchType newMatch = m_ComponentType->canConvertToJava(obj);
+			PyObject* pyobj = cleaner.add(sequence.getItem(i));
+			EMatchType newMatch = m_ComponentType->canConvertToJava(pyobj);
 			if (newMatch < match)
 			{
 				match = newMatch;
 			}
-			delete obj;
 		}
 		return match;
 	}
@@ -94,36 +97,38 @@ EMatchType JPArrayClass::canConvertToJava(HostRef* o)
 	TRACE_OUT;
 }
 
-HostRef* JPArrayClass::asHostObject(jvalue val)
+PyObject* JPArrayClass::asHostObject(jvalue val)
 {
 	TRACE_IN("JPArrayClass::asHostObject")
 	if (val.l == NULL)
 	{
-		return JPEnv::getHost()->getNone();
+		return JPPyni::getNone();
 	}
-	return JPEnv::getHost()->newArray(new JPArray(this, (jarray)val.l));
+	return JPPyni::newArray(new JPArray(this, (jarray)val.l));
 	TRACE_OUT;
 }
 
-jvalue JPArrayClass::convertToJava(HostRef* obj)
-{	
+jvalue JPArrayClass::convertToJava(PyObject* pyobj)
+{
+	JPyAdaptor obj(pyobj);
+
 	TRACE_IN("JPArrayClass::convertToJava");
 	JPLocalFrame frame;
 	jvalue res;
 	res.l = NULL;
 	
-	if (JPEnv::getHost()->isArray(obj))
+	if (obj.isArray())
 	{
 		TRACE1("direct");
-		JPArray* a = JPEnv::getHost()->asArray(obj);
+		JPArray* a = obj.asArray();
 		res = a->getValue();		
 	}
-	else if (JPEnv::getHost()->isByteString(obj) && m_ComponentType==JPTypeManager::_byte && sizeof(char) == sizeof(jbyte))
+	else if (obj.isByteString() && m_ComponentType==JPTypeManager::_byte && sizeof(char) == sizeof(jbyte))
 	{
 		TRACE1("char[]");
 		char* rawData;
 		long size;
-		JPEnv::getHost()->getRawByteString(obj, &rawData, size);
+		JPyString(obj).getRawByteString(&rawData, size);
 		
 		jbyteArray array = JPEnv::getJava()->NewByteArray(size);
 
@@ -134,12 +139,12 @@ jvalue JPArrayClass::convertToJava(HostRef* obj)
 		
 		res.l = array;
 	}
-	else if (JPEnv::getHost()->isUnicodeString(obj) && m_ComponentType==JPTypeManager::_char && JPEnv::getHost()->getUnicodeSize() == sizeof(jchar))
+	else if (obj.isUnicodeString() && m_ComponentType==JPTypeManager::_char && JPyString::getUnicodeSize() == sizeof(jchar))
 	{
 		TRACE1("uchar[]");
 		jchar* rawData;
 		long size;
-		JPEnv::getHost()->getRawUnicodeString(obj, &rawData, size);
+		JPyString(obj).getRawUnicodeString(&rawData, size);
 		
 		jcharArray array = JPEnv::getJava()->NewCharArray(size);
 
@@ -150,18 +155,19 @@ jvalue JPArrayClass::convertToJava(HostRef* obj)
 		
 		res.l = array;
 	}
-	else if (JPEnv::getHost()->isSequence(obj))
+	else if (obj.isSequence())
 	{
+		JPyCleaner cleaner;
 		TRACE1("sequence");
-		int length = JPEnv::getHost()->getSequenceLength(obj);
+		JPySequence sequence(obj);
+		int length = sequence.size();
 		
 		jarray array = m_ComponentType->newArrayInstance(length);
 		
 		for (int i = 0; i < length ; i++)
 		{
-			HostRef* obj2 = JPEnv::getHost()->getSequenceItem(obj, i);
+			PyObject* obj2 = cleaner.add(sequence.getItem(i));
 			m_ComponentType->setArrayItem(array, i, obj2);
-			delete obj2;
 		}
 		res.l = array;
 	}
@@ -171,7 +177,7 @@ jvalue JPArrayClass::convertToJava(HostRef* obj)
 	TRACE_OUT;
 }
 
-jvalue JPArrayClass::convertToJavaVector(vector<HostRef*>& refs, size_t start, size_t end)
+jvalue JPArrayClass::convertToJavaVector(vector<PyObject*>& refs, size_t start, size_t end)
 {
 	JPLocalFrame frame;
 	TRACE_IN("JPArrayClass::convertToJavaVector");

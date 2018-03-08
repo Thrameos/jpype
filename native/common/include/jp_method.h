@@ -50,18 +50,18 @@ public :
 	bool isBeanMutator();
 	bool isBeanAccessor();
 
-	HostRef*  invoke(vector<HostRef*>&); 
-	HostRef*  invokeStatic(vector<HostRef*>&); 
-	HostRef*  invokeInstance(vector<HostRef*>&); 
-	JPObject* invokeConstructor(vector<HostRef*>& args); 
+	PyObject*  invoke(vector<PyObject*>&); 
+	PyObject*  invokeStatic(vector<PyObject*>&); 
+	PyObject*  invokeInstance(vector<PyObject*>&); 
+	JPObject* invokeConstructor(vector<PyObject*>& args); 
 
 	string describe(string prefix);
 
-	string matchReport(vector<HostRef*>&);
+	string matchReport(vector<PyObject*>&);
 	void ensureOverloadOrderCache();
 
 private :
-	JPMethodOverload* findOverload(vector<HostRef*>& arg, bool needStatic);
+	JPMethodOverload* findOverload(vector<PyObject*>& arg, bool needStatic);
 
 	JPObjectClass*                 m_Class;
 	string                         m_Name;

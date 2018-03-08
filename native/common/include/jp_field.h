@@ -49,11 +49,11 @@ public :
 		return m_Class;
 	}
 	
-	HostRef* getStaticAttribute();
-	void     setStaticAttribute(HostRef* val);
+	PyObject* getStaticAttribute();
+	void     setStaticAttribute(PyObject* val);
 	
-	HostRef* getAttribute(jobject inst);
-	void     setAttribute(jobject inst, HostRef* val);
+	PyObject* getAttribute(jobject inst);
+	void     setAttribute(jobject inst, PyObject* val);
 
 	bool isFinal() const
 	{

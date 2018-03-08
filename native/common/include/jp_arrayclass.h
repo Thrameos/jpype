@@ -29,10 +29,10 @@ public :
 public : // JPClass implementation
 	virtual bool      isObjectType() const;
 
-	virtual HostRef*    asHostObject(jvalue val);
-	virtual EMatchType  canConvertToJava(HostRef* obj);
-	virtual jvalue      convertToJava(HostRef* obj);
-	virtual jvalue      convertToJavaVector(vector<HostRef*>& refs, size_t start, size_t end);
+	virtual PyObject*    asHostObject(jvalue val);
+	virtual EMatchType  canConvertToJava(PyObject* obj);
+	virtual jvalue      convertToJava(PyObject* obj);
+	virtual jvalue      convertToJavaVector(vector<PyObject*>& refs, size_t start, size_t end);
 	virtual JPClass*     getComponentType()
 	{
 		return m_ComponentType;

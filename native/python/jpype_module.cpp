@@ -30,7 +30,7 @@ PyObject* JPypeModule::startup(PyObject* obj, PyObject* args)
 		PyObject* vmPath;
 		char ignoreUnrecognized = true;
 
-		JPyArg::parseTuple(args, "OO!b|", &vmPath, &PyTuple_Type, &vmOpt, &ignoreUnrecognized);
+		PyArg_ParseTuple(args, "OO!b|", &vmPath, &PyTuple_Type, &vmOpt, &ignoreUnrecognized);
 
 		if (! (JPyString::check(vmPath)))
 		{
@@ -85,7 +85,7 @@ PyObject* JPypeModule::attach(PyObject* obj, PyObject* args)
 	try {
 		PyObject* vmPath;
 
-		JPyArg::parseTuple(args, "O", &vmPath);
+		PyArg_ParseTuple(args, "O", &vmPath);
 
 		if (! (JPyString::check(vmPath)))
 		{
@@ -147,10 +147,12 @@ PyObject* JPypeModule::synchronized(PyObject* obj, PyObject* args)
 	try {
 		PyObject* o;
 		
-		JPyArg::parseTuple(args, "O!", &PyCapsule_Type, &o);
-		string desc = (char*)JPyCObject::getDesc(o);
+		PyArg_ParseTuple(args, "O!", &PyCapsule_Type, &o);
+		string desc = (char*)JPyCapsule(o).getDesc();
+		JPyAdaptor adaptor(o);
 
 		jobject obj;
+		JPyAdaptor adaptor(o);
 		if (desc == "JPObject")
 		{
 			JPObject* jpo = (JPObject*)JPyCObject::asVoidPtr(o);
@@ -171,9 +173,9 @@ PyObject* JPypeModule::synchronized(PyObject* obj, PyObject* args)
 			JPArrayClass* jpo = (JPArrayClass*)JPyCObject::asVoidPtr(o);
 			obj = jpo->getNativeClass();
 		}
-		else if (hostEnv->isWrapper(o) && hostEnv->getWrapperClass(o)->isObjectType())
+		else if (adaptor.isWrapper() && adaptor.getWrapperClass(o)->isObjectType())
 		{
-			obj = hostEnv->getWrapperValue(o).l;
+			obj = adaptor.getWrapperValue().l;
 		}
 		// TODO proxy		
 		else 
@@ -182,7 +184,6 @@ PyObject* JPypeModule::synchronized(PyObject* obj, PyObject* args)
 		}
 
 		PyJPMonitor* c = PyJPMonitor::alloc(new JPMonitor(obj));
-
 		return (PyObject*)c;
 	}
 	PY_STANDARD_CATCH;
@@ -196,11 +197,7 @@ PyObject* JPypeModule::synchronized(PyObject* obj, PyObject* args)
 
 PyObject* JPypeModule::isStarted(PyObject* obj)
 {
-	if (JPEnv::isInitialized())
-	{
-		return JPyBoolean::getTrue();
-	}
-	return JPyBoolean::getFalse();
+	return PyBool_FromLong(JPEnv::isInitialized());
 }
 
 PyObject* JPypeModule::attachThread(PyObject* obj)
@@ -246,11 +243,7 @@ PyObject* JPypeModule::isThreadAttached(PyObject* obj)
 	}
 
 	try {
-		if (JPEnv::isThreadAttached())
-	{
-		return JPyBoolean::getTrue();
-	}
-	return JPyBoolean::getFalse();
+		return JPyBool_FromLong(JPEnv::isThreadAttached());
 	}
 	PY_STANDARD_CATCH;
 
@@ -263,7 +256,7 @@ PyObject* JPypeModule::raiseJava(PyObject* , PyObject* args)
 	try 
 	{
 		//PyObject* arg;
-		//JPyArg::parseTuple(args, "O", &arg);
+		//PyArg_ParseTuple(args, "O", &arg);
 		//JPObject* obj;
 		//JPCleaner cleaner;
 		//
@@ -325,7 +318,7 @@ PyObject* JPypeModule::startReferenceQueue(PyObject* obj, PyObject* args)
 
 	try {
 		int i;
-		JPyArg::parseTuple(args, "i", &i);
+		PyArg_ParseTuple(args, "i", &i);
 
 		JPJni::startJPypeReferenceQueue(i == 1);
 		Py_RETURN_NONE;
@@ -363,7 +356,7 @@ PyObject* JPypeModule::setConvertStringObjects(PyObject* obj, PyObject* args)
 
 	try {
 		PyObject* flag;
-		JPyArg::parseTuple(args, "O", &flag);
+		PyArg_ParseTuple(args, "O", &flag);
 
 		if (JPyBoolean::isTrue(flag))
 		{
@@ -392,7 +385,7 @@ PyObject* JPypeModule::setResource(PyObject* self, PyObject* arg)
 	try {
 		char* tname;
 		PyObject* value;
-		JPyArg::parseTuple(arg, "sO", &tname, &value);
+		PyArg_ParseTuple(arg, "sO", &tname, &value);
 		string name = tname;
 
 		if (name == "WrapperClass")

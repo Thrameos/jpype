@@ -52,10 +52,10 @@ long JPClass::getClassModifiers()
 	return JPJni::getClassModifiers(m_Class);
 }
 
-HostRef* convertObjectToHostRef(jobject obj)
+PyObject* convertObjectToHost(jobject obj)
 {
 	if (obj == NULL)
-		return JPEnv::getHost()->getNone();
+		return JPPyni::getNone();
 
 	jvalue v;
 	v.l = obj;
@@ -65,51 +65,51 @@ HostRef* convertObjectToHostRef(jobject obj)
 	return type->asHostObject(v);
 }
 
-HostRef* JPClass::getStaticValue(JPClass* clazz, jfieldID fid) 
+PyObject* JPClass::getStaticValue(JPClass* clazz, jfieldID fid) 
 {
 	TRACE_IN("JPClass::getStaticValue");
 	JPLocalFrame frame;
 
 	jobject r = JPEnv::getJava()->GetStaticObjectField(clazz->getNativeClass(), fid);
-	return convertObjectToHostRef(r);
+	return convertObjectToHost(r);
 
 	TRACE_OUT;
 }
 
-HostRef* JPClass::getInstanceValue(jobject c, jfieldID fid) 
+PyObject* JPClass::getInstanceValue(jobject c, jfieldID fid) 
 {
 	TRACE_IN("JPClass::getInstanceValue");
 	JPLocalFrame frame;
 	jobject r = JPEnv::getJava()->GetObjectField(c, fid);
-	return convertObjectToHostRef(r);
+	return convertObjectToHost(r);
 
 	TRACE_OUT;
 }
 
-HostRef* JPClass::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
+PyObject* JPClass::invokeStatic(JPClass* claz, jmethodID mth, jvalue* val)
 {
 	TRACE_IN("JPClass::invokeStatic");
 	JPLocalFrame frame;
 	
 	jobject res = JPEnv::getJava()->CallStaticObjectMethodA(claz->getNativeClass(), mth, val);
-	return convertObjectToHostRef(res);
+	return convertObjectToHost(res);
 
 	TRACE_OUT;
 }
 
-HostRef* JPClass::invoke(jobject claz, JPClass* clazz, jmethodID mth, jvalue* val)
+PyObject* JPClass::invoke(jobject claz, JPClass* clazz, jmethodID mth, jvalue* val)
 {
 	TRACE_IN("JPClass::invoke");
 	JPLocalFrame frame;
 
 	// Call method
 	jobject res = JPEnv::getJava()->CallNonvirtualObjectMethodA(claz, clazz->getNativeClass(), mth, val);
-	return convertObjectToHostRef(res);
+	return convertObjectToHost(res);
 	
 	TRACE_OUT;
 }
 
-void JPClass::setStaticValue(JPClass* c, jfieldID fid, HostRef* obj) 
+void JPClass::setStaticValue(JPClass* c, jfieldID fid, PyObject* obj) 
 {
 	TRACE_IN("JPClass::setStaticValue");
 	JPLocalFrame frame;
@@ -120,7 +120,7 @@ void JPClass::setStaticValue(JPClass* c, jfieldID fid, HostRef* obj)
 	TRACE_OUT;
 }
 
-void JPClass::setInstanceValue(jobject c, jfieldID fid, HostRef* obj) 
+void JPClass::setInstanceValue(jobject c, jfieldID fid, PyObject* obj) 
 {
 	TRACE_IN("JPClass::setInstanceValue");
 	JPLocalFrame frame;
@@ -136,23 +136,23 @@ jarray JPClass::newArrayInstance(int sz)
 	return JPEnv::getJava()->NewObjectArray(sz, getNativeClass(), NULL);
 }
 
-vector<HostRef*> JPClass::getArrayRange(jarray a, int start, int length)
+vector<PyObject*> JPClass::getArrayRange(jarray a, int start, int length)
 {
 	jobjectArray array = (jobjectArray)a;	
 	JPLocalFrame frame;
 	
-	vector<HostRef*> res;
+	vector<PyObject*> res;
 	
 	for (int i = 0; i < length; i++)
 	{
-		res.push_back(convertObjectToHostRef( JPEnv::getJava()->GetObjectArrayElement(array, i+start) ));
+		res.push_back(convertObjectToHost( JPEnv::getJava()->GetObjectArrayElement(array, i+start) ));
 	}
 	
 	return res;  
 }
 
 
-void JPClass::setArrayRange(jarray a, int start, int length, vector<HostRef*>& vals)
+void JPClass::setArrayRange(jarray a, int start, int length, vector<PyObject*>& vals)
 {
 	JPLocalFrame frame(8+length);
 	jobjectArray array = (jobjectArray)a;	
@@ -162,7 +162,7 @@ void JPClass::setArrayRange(jarray a, int start, int length, vector<HostRef*>& v
 	}
 }
 
-void JPClass::setArrayItem(jarray a, int ndx, HostRef* val)
+void JPClass::setArrayItem(jarray a, int ndx, PyObject* val)
 {
 	JPLocalFrame frame;
 	jobjectArray array = (jobjectArray)a;	
@@ -172,35 +172,35 @@ void JPClass::setArrayItem(jarray a, int ndx, HostRef* val)
 	JPEnv::getJava()->SetObjectArrayElement(array, ndx, v.l);		
 }
 
-HostRef* JPClass::getArrayItem(jarray a, int ndx)
+PyObject* JPClass::getArrayItem(jarray a, int ndx)
 {
 	JPLocalFrame frame;
 	TRACE_IN("JPClass::getArrayItem");
 	jobjectArray array = (jobjectArray)a;	
 	
 	jobject obj = JPEnv::getJava()->GetObjectArrayElement(array, ndx);
-	return convertObjectToHostRef(obj);
+	return convertObjectToHost(obj);
 	TRACE_OUT;
 }
 
-jobject JPClass::convertToJavaObject(HostRef* obj)
+jobject JPClass::convertToJavaObject(PyObject* obj)
 {
 	return convertToJava(obj).l;
 }
 
-HostRef* JPClass::asHostObjectFromObject(jobject obj)
+PyObject* JPClass::asHostObjectFromObject(jobject obj)
 {
 	jvalue val;
 	val.l = obj;
 	return asHostObject(val);
 }
 
-HostRef* JPClass::convertToDirectBuffer(HostRef* src)
+PyObject* JPClass::convertToDirectBuffer(PyObject* src)
 {
 	RAISE(JPypeException, "Unable to convert to Direct Buffer");
 }
 
-bool JPClass::isSubclass(const JPClass* o) const
+bool JPClass::isAssignableTo(const JPClass* o) const
 {
 	if (o == NULL)
 		return false;

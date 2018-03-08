@@ -28,9 +28,9 @@ public :
 
 public: 
 	// Conversion methods
-	virtual HostRef*   asHostObject(jvalue val);
-	virtual EMatchType canConvertToJava(HostRef* obj);
-	virtual jvalue     convertToJava(HostRef* obj);
+	virtual PyObject*   asHostObject(jvalue val);
+	virtual EMatchType canConvertToJava(PyObject* obj);
+	virtual jvalue     convertToJava(PyObject* obj);
 
 public:
 	// Class specific implementation
@@ -49,14 +49,14 @@ public:
   /** Get the value of a static field.
 	 * throws AttributeError if not found.
 	 */	
-	HostRef*                getStaticAttribute(const string& attr_name);
+	PyObject*                getStaticAttribute(const string& attr_name);
 
   /** Set the value of a static field.
 	 * throws AttributeError if not found.
 	 */	
-	void                    setStaticAttribute(const string& attr_name, HostRef* val);
+	void                    setStaticAttribute(const string& attr_name, PyObject* val);
 	
-	JPObject*               newInstance(vector<HostRef*>& args);
+	JPObject*               newInstance(vector<PyObject*>& args);
 
 	/** Get a member field.
 	 * Returns the field or NULL if not found.

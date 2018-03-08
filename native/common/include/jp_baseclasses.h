@@ -33,8 +33,8 @@ public :
 	virtual~ JPObjectBaseClass();
 
 public : // JPClass implementation
-	virtual EMatchType canConvertToJava(HostRef* obj);
-	virtual jvalue     convertToJava(HostRef* obj);
+	virtual EMatchType canConvertToJava(PyObject* obj);
+	virtual jvalue     convertToJava(PyObject* obj);
 
 protected:
 	// java.lang.Object has no super class
@@ -56,8 +56,8 @@ public :
 	virtual~ JPClassBaseClass();
 
 public : // JPClass implementation
-	virtual EMatchType canConvertToJava(HostRef* obj);
-	virtual jvalue     convertToJava(HostRef* obj);
+	virtual EMatchType canConvertToJava(PyObject* obj);
+	virtual jvalue     convertToJava(PyObject* obj);
 };
 
 #endif // _JPBASECLASS_H_

@@ -133,19 +133,20 @@ class JPArrayClass;
 class JPObject;
 class JPObjectClass;
 class JPField;
+class JPProxy;
 class JPMethod;
+class HostException;
 
 // Base utility headers
+#include "jp_type.h"
 #include "jp_utility.h"
-#include "jp_typename.h"
+#include "jp_pyni.h"
 #include "jp_javaenv.h"
-#include "jp_hostenv.h"
 #include "jp_env.h"
-#include "jp_jniutil.h"
+#include "jp_jni.h"
 
 
 // Other header files
-#include "jp_type.h"
 #include "jp_class.h"
 #include "jp_primitivetypes.h"
 #include "jp_objectclass.h"

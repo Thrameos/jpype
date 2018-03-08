@@ -137,7 +137,7 @@ bool JPMethodOverload::isSameOverload(JPMethodOverload& o)
 	TRACE_OUT;
 }
 
-EMatchType matchVars(vector<HostRef*>& arg, size_t start, JPClass* vartype)
+EMatchType matchVars(vector<PyObject*>& arg, size_t start, JPClass* vartype)
 {
 	TRACE_IN("JPMethodOverload::matchVars");
 	JPArrayClass* arraytype = (JPArrayClass*) vartype;
@@ -147,8 +147,8 @@ EMatchType matchVars(vector<HostRef*>& arg, size_t start, JPClass* vartype)
 	EMatchType lastMatch = _exact;
 	for (size_t i = start; i < len; i++)
 	{
-		HostRef* obj = arg[i];
-		EMatchType match = type->canConvertToJava(obj);
+		PyObject* pyobj = arg[i];
+		EMatchType match = type->canConvertToJava(pyobj);
 
 		if (match < _implicit)
 		{
@@ -164,7 +164,7 @@ EMatchType matchVars(vector<HostRef*>& arg, size_t start, JPClass* vartype)
 	TRACE_OUT;
 }
 
-EMatchType JPMethodOverload::matches(bool ignoreFirst, vector<HostRef*>& arg)
+EMatchType JPMethodOverload::matches(bool ignoreFirst, vector<PyObject*>& arg)
 {
 	TRACE_IN("JPMethodOverload::matches");
 	ensureTypeCache();
@@ -192,9 +192,9 @@ EMatchType JPMethodOverload::matches(bool ignoreFirst, vector<HostRef*>& arg)
 		  // Hard, could be direct array or an array.
 			
 			// Try direct
-			HostRef* obj = arg[len-1];
+			PyObject* pyobj = arg[len-1];
 			len = tlen-1;
-		  lastMatch = type->canConvertToJava(obj);
+		  lastMatch = type->canConvertToJava(pyobj);
 		  if (lastMatch < _implicit)
 			{
 				// Try indirect
@@ -221,10 +221,9 @@ EMatchType JPMethodOverload::matches(bool ignoreFirst, vector<HostRef*>& arg)
 			continue;
 		}
 
-		HostRef* obj = arg[i];
+		PyObject* pyobj = arg[i];
 		JPClass* type = m_ArgumentsTypeCache[i];
-		
-		EMatchType match = type->canConvertToJava(obj);
+		EMatchType match = type->canConvertToJava(pyobj);
 		TRACE2(type->getSimpleName(), match);
 		if (match < _implicit)
 		{
@@ -240,7 +239,7 @@ EMatchType JPMethodOverload::matches(bool ignoreFirst, vector<HostRef*>& arg)
 	TRACE_OUT;
 }
 
-void JPMethodOverload::packArgs(JPMallocCleaner<jvalue>& v, vector<HostRef*>& arg, size_t skip)
+void JPMethodOverload::packArgs(JPMallocCleaner<jvalue>& v, vector<PyObject*>& arg, size_t skip)
 {	
 	TRACE_IN("JPMethodOverload::packArgs");
 	size_t len = arg.size();
@@ -252,9 +251,9 @@ void JPMethodOverload::packArgs(JPMallocCleaner<jvalue>& v, vector<HostRef*>& ar
 	{ 
 		if (len == tlen)
 		{
-			HostRef* obj = arg[len-1];
+			PyObject* pyobj = arg[len-1];
 			JPClass* type = m_ArgumentsTypeCache[tlen-1];
-		  if (type->canConvertToJava(obj) < _implicit)
+		  if (type->canConvertToJava(pyobj) < _implicit)
 			{
 				len = tlen-1;
 				packArray = true;
@@ -271,7 +270,7 @@ void JPMethodOverload::packArgs(JPMallocCleaner<jvalue>& v, vector<HostRef*>& ar
 	for (size_t i = skip; i < len; i++)
 	{
 		TRACE2("Convert ",i);
-		HostRef* obj = arg[i];
+		PyObject* obj = arg[i];
 		JPClass* type = m_ArgumentsTypeCache[i];
 
 		v[i-skip] = type->convertToJava(obj);		
@@ -287,7 +286,7 @@ void JPMethodOverload::packArgs(JPMallocCleaner<jvalue>& v, vector<HostRef*>& ar
 	TRACE_OUT;
 }
 
-HostRef* JPMethodOverload::invokeStatic(vector<HostRef*>& arg)
+PyObject* JPMethodOverload::invokeStatic(vector<PyObject*>& arg)
 {
 	TRACE_IN("JPMethodOverload::invokeStatic");
 	ensureTypeCache();
@@ -300,18 +299,18 @@ HostRef* JPMethodOverload::invokeStatic(vector<HostRef*>& arg)
 	TRACE_OUT;
 }
 
-HostRef* JPMethodOverload::invokeInstance(vector<HostRef*>& arg)
+PyObject* JPMethodOverload::invokeInstance(vector<PyObject*>& arg)
 {
 	TRACE_IN("JPMethodOverload::invokeInstance");
 	ensureTypeCache();
-	HostRef* res;
+	PyObject* res;
 	{
 	  size_t alen = m_Arguments.size();
 		JPLocalFrame frame(8+alen);
 	
 		// Arg 0 is "this"
-		HostRef* self = arg[0];
-		JPObject* selfObj = JPEnv::getHost()->asObject(self);
+		PyObject* self = arg[0];
+		JPObject* selfObj = JPyAdaptor(self).asJavaObject();
 	
 	
 		JPMallocCleaner<jvalue> v(alen-1);
@@ -329,7 +328,7 @@ HostRef* JPMethodOverload::invokeInstance(vector<HostRef*>& arg)
 	TRACE_OUT;
 }
 
-JPObject* JPMethodOverload::invokeConstructor(JPObjectClass* claz, vector<HostRef*>& arg)
+JPObject* JPMethodOverload::invokeConstructor(JPObjectClass* claz, vector<PyObject*>& arg)
 {
 	TRACE_IN("JPMethodOverload::invokeConstructor");
 	ensureTypeCache();
@@ -349,7 +348,7 @@ JPObject* JPMethodOverload::invokeConstructor(JPObjectClass* claz, vector<HostRe
 	TRACE_OUT;
 }
 
-string JPMethodOverload::matchReport(vector<HostRef*>& args)
+string JPMethodOverload::matchReport(vector<PyObject*>& args)
 {
 	stringstream res;
 
@@ -413,7 +412,7 @@ bool JPMethodOverload::isMoreSpecificThan(JPMethodOverload& other) const
 	for (size_t i = 0; i < numParametersThis; ++i) {
 		const JPClass* thisArgType = m_ArgumentsTypeCache[startThis + i];
 		const JPClass* otherArgType = other.m_ArgumentsTypeCache[startOther + i];
-		if (!thisArgType->isSubclass(otherArgType)) {
+		if (!thisArgType->isAssignableTo(otherArgType)) {
 			return false;
 		}
 	}

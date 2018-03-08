@@ -27,13 +27,13 @@ public :
 	
 	virtual ~JPMethodOverload();
 	
-	EMatchType              matches(bool ignoreFirst, vector<HostRef*>& args) ;
+	EMatchType              matches(bool ignoreFirst, vector<PyObject*>& args) ;
 
-	HostRef*                invokeInstance(vector<HostRef*>& arg);
+	PyObject*                invokeInstance(vector<PyObject*>& arg);
 
-	HostRef*                invokeStatic(vector<HostRef*>& arg);
+	PyObject*                invokeStatic(vector<PyObject*>& arg);
 
-	JPObject*               invokeConstructor(JPObjectClass* cls, vector<HostRef*>& arg);
+	JPObject*               invokeConstructor(JPObjectClass* cls, vector<PyObject*>& arg);
 
 public :	
 	string getSignature();
@@ -66,9 +66,9 @@ public :
 
 	string getArgumentString();
 
-  void packArgs(JPMallocCleaner<jvalue>& v, vector<HostRef*>& arg, size_t skip);
+  void packArgs(JPMallocCleaner<jvalue>& v, vector<PyObject*>& arg, size_t skip);
 	bool isSameOverload(JPMethodOverload& o);
-	string matchReport(vector<HostRef*>& args);
+	string matchReport(vector<PyObject*>& args);
 	bool isMoreSpecificThan(JPMethodOverload& other) const;
 private:
 	void ensureTypeCache() const;
