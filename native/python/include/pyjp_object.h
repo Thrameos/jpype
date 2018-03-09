@@ -14,29 +14,13 @@
    limitations under the License.
    
 *****************************************************************************/   
-#ifndef _PYJARRAYCLASS_H_
-#define _PYJARRAYCLASS_H_
+#ifndef _PYJP_OBJECT_H_
+#define _PYJP_OBJECT_H_
 
-struct PyJPArrayClass
+namespace PyJPObject
 {
-	//AT's comments on porting:
-	//  1) Some Unix compilers do not tolerate the semicolumn after PyObject_HEAD	
-	//PyObject_HEAD;
-	PyObject_HEAD
+	PyObject* alloc(JPObject* v);
+	bool        check(PyObject* o);
+}
 
-	// Module global methods
-	static PyObject* findArrayClass(PyObject* obj, PyObject* args);
-
-	// Python-visible methods
-	static void        initType(PyObject* module);
-	static PyJPArrayClass*  alloc(JPClass* cls);
-	static bool        check(PyObject* o);
-	static void        __dealloc__(PyObject* o);
-
-	static PyObject* newArray(PyObject* self, PyObject* arg);
-	JPArrayClass* m_Class;
-
-	static PyObject* Type;  
-};
-
-#endif // _PYJARRAYCLASS_H_
+#endif // _PYJP_OBJECT_H_

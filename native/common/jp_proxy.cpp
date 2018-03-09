@@ -96,13 +96,13 @@ JNIEXPORT jobject JNICALL Java_jpype_JPypeInvocationHandler_hostInvoke(
 		returnObj = JPEnv::getJava()->NewLocalRef(returnObj); // Add an extra local reference so returnObj survives cleaner
 		return returnObj;
 	}
-	catch(HostException& ex)
+	catch(PythonException& ex)
 	{ 
 		JPyErr::clearError();
-		if (JPPyni::isJavaException(&ex))
+		if (ex.isJavaException())
 		{
 			JPyCleaner cleaner;
-			PyObject* javaExcRef = cleaner.add(JPPyni::getJavaException(&ex));
+			PyObject* javaExcRef = cleaner.add(ex.getJavaException());
 			JPObject* javaExc = JPyAdaptor(javaExcRef).asJavaObject();
 			jobject obj = javaExc->getObject();
 			JPEnv::getJava()->Throw((jthrowable)obj);

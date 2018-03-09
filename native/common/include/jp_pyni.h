@@ -24,7 +24,35 @@ typedef _object PyObject;
 typedef void (*PyCapsule_Destructor)(PyObject *);
 #endif
 
-struct PyJClass;
+//  Note: Python uses a sized size type.  Thus we will map it to jlong.
+//  Note: for conversions we will use jint and jlong types so that we map directly to java.
+
+/**
+ * Exception wrapper for python-generated exceptions
+ * Produced by JPyErr::raise()
+ */
+class PythonException 
+{
+public :
+	PythonException();	
+	PythonException(const PythonException& ex);
+
+	virtual ~PythonException();
+
+	virtual string getMessage();
+	
+	bool isJavaException();
+
+//	bool isJavaException(HostException* ex);
+//	PyObject* getJavaException(HostException* ex);
+
+	/** Gets the python object for an exception */
+	PyObject* getJavaException();
+	
+public :
+	PyObject* m_ExceptionClass;
+	PyObject* m_ExceptionValue;
+};
 
 
 // This is just sugar to make sure that we are able to handle changes in 
@@ -43,20 +71,19 @@ class JPyObject
 		jlong length();
 
 		bool hasAttr(PyObject* k);
-		JPyObject getAttr(PyObject* k);
-		JPyObject getAttrString(const char* k);
+		PyObject* getAttr(PyObject* k);
+		PyObject* getAttrString(const char* k);
 		void setAttrString(const char* k, PyObject *v);
-		JPyObject call(PyObject* a, PyObject* w);
+		PyObject* call(PyObject* a, PyObject* w);
 
 		bool isNull() const 
 		{
 			return pyobj == NULL;
 		}
 
+		bool isNone() const;
 		bool isInstance(PyObject* t) const;
 		bool isSubclass(PyObject* t) const;
-		bool isMemoryView() const;
-		void asPtrAndSize(char** buffer, jlong &length);
 
 		operator PyObject*() const
 		{
@@ -69,6 +96,17 @@ class JPyObject
 
 namespace JPPyni
 {
+	/**
+	 * Must be inside of try catch block.
+	 * throws PythonException on fail.
+	 */
+	void assertInitialized();
+
+	/** Handle for exceptions.
+	 * This will rethrow the exception and pass the exception to python.
+	 */
+	void handleCatch();
+
 	JPyObject newMethod(JPMethod* m);
 
 	JPyObject newClass(JPObjectClass* m);
@@ -87,10 +125,8 @@ namespace JPPyni
 	JPyObject getCallableFrom(PyObject* ref, string& name);
 
 	void printError();
-	bool isJavaException(HostException* ex);
-	JPyObject getJavaException(HostException* ex);
-	JPyObject newStringWrapper(jstring jstr);
-	JPyObject newObject(JPObject* obj);
+	PyObject* newStringWrapper(jstring jstr);
+	PyObject* newObject(JPObject* obj);
 
 	void* prepareCallbackBegin();
 	void prepareCallbackFinish(void* state);
@@ -99,50 +135,20 @@ namespace JPPyni
 	JPyObject getTrue();
 	JPyObject getFalse();
 
-public:
-	PyObject* m_PythonJavaObject;
-	PyObject* m_PythonJavaClass;
-	PyObject* m_ProxyClass;
-	PyObject* m_GetClassMethod;
-	PyObject* m_JavaArrayClass;
-	PyObject* m_StringWrapperClass;
-	PyObject* m_GetArrayClassMethod;
-	PyObject* m_WrapperClass;
-
-	void setRuntimeException(const char* msg);
-//	{
-//		JyErr::setString(PyExc_RuntimeError, msg);
-//	}
-
-	void setAttributeError(const char* msg);
-//	{
-//		JPyErr::setString(PyExc_AttributeError, msg);
-//	}
-
-	void setTypeError(const char* msg);
-//	{
-//		JPyErr::setString(PyExc_TypeError, msg);
-//	}
-
-	void raise(const char* msg);
-//	{
-//		throw PythonException();
-//	}
-
+	extern PyObject* m_GetArrayClassMethod;
+	extern PyObject* m_GetClassMethod;
+	extern PyObject* m_JavaArrayClass;
+  extern PyObject* m_GetJavaArrayClassMethod;
+	extern PyObject* m_JavaExceptionClass;
+	extern PyObject* m_ProxyClass;
+	extern PyObject* m_PythonJavaObject;
+	extern PyObject* m_PythonJavaClass;
+	extern PyObject* m_SpecialConstructorKey;
+	extern PyObject* m_StringWrapperClass;
+	extern PyObject* m_WrapperClass;
 
 	void* gotoExternal();
-//	{  
-//		PyThreadState *_save; 
-//		_save = PyEval_SaveThread();
-//		return (void*)_save;
-//	}
-
 	void returnExternal(void* state);
-//	{
-//		PyThreadState *_save = (PyThreadState *)state;
-//		PyEval_RestoreThread(_save);
-//	}
-
 };
 
 class JPyBool : public JPyObject
@@ -151,8 +157,11 @@ class JPyBool : public JPyObject
 		JPyBool(PyObject* obj) : JPyObject(obj) {}
 		JPyBool(const JPyObject &self) : JPyObject(self) {}
 
-		static bool check(JPyObject* obj);		
+		static bool check(PyObject* obj);		
 		static JPyBool fromLong(jlong value);
+
+		bool isTrue();		
+		bool isFalse();		
 };
 
 class JPyCapsule : public JPyObject
@@ -162,16 +171,10 @@ class JPyCapsule : public JPyObject
 		JPyCapsule(const JPyObject &self) : JPyObject(self) {}
 
 		static bool check(PyObject* obj);
-		static JPyCapsule fromVoid(void* data, PyCapsule_Destructor destr);
-		static JPyCapsule fromVoidAndDesc(void* data, const char* name, PyCapsule_Destructor destr);
+		static PyObject* fromVoid(void* data, PyCapsule_Destructor destr);
+		static PyObject* fromVoidAndDesc(void* data, const char* name, PyCapsule_Destructor destr);
 		void* asVoidPtr();
-		const char* getDesc();
-
-		static JPyCapsule fromMethod(JPMethod* method);
-		static JPyCapsule fromObject(JPObject* object);
-		static JPyCapsule fromClass(JPClass* cls);
-		static JPyCapsule fromArrayClass(JPArrayClass* cls);
-		static JPyCapsule fromArray(JPArray* cls);
+		const char* getName();
 };
 
 class JPyType : public JPyObject
@@ -185,21 +188,6 @@ class JPyType : public JPyObject
 };
 
 // Exception safe handler for PyObject*
-PyObject* jpy_cleaner_unwrap(PyJClass* cls)
-{
-	return (PyObject*)cls;
-}
-
-PyObject* jpy_cleaner_unwrap(PyObject* obj)
-{
-	return obj;
-}
-
-PyObject* jpy_cleaner_unwrap(const JPyObject& obj)
-{
-	return (PyObject*)obj;
-}
-
 class JPyCleaner
 {
 	public: 
@@ -207,19 +195,18 @@ class JPyCleaner
 		~JPyCleaner();
 		template <typename T> T& add(T& object)
 		{
-			refs.push_back(jpy_cleaner_unwrap(object));
+			refs.push_back((PyObject*)object);
 			return object;
 		}
 		template <typename T> const T& add(const T& object)
 		{
-			refs.push_back(jpy_cleaner_unwrap(object));
+			refs.push_back((PyObject*)object);
 			return object;
 		}
 
-
 		template <typename T> PyObject* keep(T object)
 		{
-			PyObject* obj = jpy_cleaner_unwrap(object);
+			PyObject* obj = (PyObject*)object;
 			JPyObject(obj).incref();
 			return obj;
 		}
@@ -253,7 +240,6 @@ class JPyLong : public JPyObject
 		jlong asLong();
 };
 
-
 class JPyFloat : public JPyObject
 {
 	public:
@@ -275,7 +261,6 @@ class JPyString : public JPyObject
 		static bool check(PyObject* obj);
 		static bool checkStrict(PyObject* obj);
 		static bool checkUnicode(PyObject* obj);
-		//Py_UNICODE* asUnicode();
 		
 		jlong size();
 
@@ -286,22 +271,18 @@ class JPyString : public JPyObject
 		static JPyObject fromUnicode(const jchar* str, int len);
 		static JPyObject fromString(const char* str);
 
-		void getRawByteString(char** outBuffer, long& outSize);
-		void getByteBufferPtr(char** outBuffer, long& outSize);
+		void getRawByteString(char** outBuffer, jlong& outSize);
+		void getRawUnicodeString(jchar** outBuffer, jlong& outSize);
+		static jlong getUnicodeSize();
+};
 
-		void getRawUnicodeString(jchar** outBuffer, long& outSize);
-//		{
-//			PyObject* objRef = UNWRAP(obj);
-//			outSize = (long)JPyObject::length(objRef);
-//			*outBuffer = (jchar*)JPyString::AsUnicode(objRef);
-//		}
-
-
-		static size_t getUnicodeSize();
-//		{
-//			return sizeof(Py_UNICODE);
-//		}
-
+class JPyMemoryView : public JPyObject
+{
+	public:
+		JPyMemoryView(PyObject* obj) : JPyObject(obj) {}
+		JPyMemoryView(const JPyObject &self) : JPyObject(self) {}
+		static bool check(PyObject* obj);
+		void getByteBufferPtr(char** outBuffer, jlong& outSize);
 };
 
 class JPyTuple : public JPyObject
@@ -316,7 +297,7 @@ class JPyTuple : public JPyObject
 		// Note this does not steal a reference
 		void setItem(jlong ndx, PyObject* val);
 		PyObject* getItem(jlong ndx);
-		jlong size();
+		jlong	size();
 };
 
 class JPyList : public JPyObject
@@ -357,7 +338,26 @@ class JPyErr : public JPyObject
 
 		void setString(const char* str);
 		void setObject(PyObject* str);
+
 		static void clearError();
+
+		/** Create a runtime error in python */
+		static void setRuntimeError(const char* msg);
+
+		/** Create a attribute error in python */
+		static void setAttributeError(const char* msg);
+
+		/** Create a type error in python */
+		static void setTypeError(const char* msg);
+
+		/** Terminate the function.  
+		 * Must set the error prior to calling raise.
+		 * Call within appropriate try block only. 
+		 * msg is not used.
+		 *
+		 * Produces a PythonException
+		 */
+		static void raise(const char* msg);
 };
 
 class JPyDict : public JPyObject
@@ -373,9 +373,12 @@ class JPyDict : public JPyObject
 		PyObject* getKeys();
 		PyObject* copy(PyObject* m);
     static JPyDict newInstance();
-		void setItemString(PyObject* o, const jchar* n);
+		void setItemString(PyObject* o, const char* n);
 };
 
+/** This serves as a dispatch wrapper for decoding the type
+ * of an object.
+ */
 class JPyAdaptor : public JPyObject
 {
 	public:
@@ -394,7 +397,7 @@ class JPyAdaptor : public JPyObject
 
 		bool isByteBuffer()
 		{
-			return isMemoryView();
+			return JPyMemoryView::check(pyobj);
 		}
 
 		bool isUnicodeString()
@@ -402,21 +405,16 @@ class JPyAdaptor : public JPyObject
 			return JPyString::checkUnicode(pyobj);
 		}
 
-		bool isNone();
-//		{
-//			return pyobj == Py_None;
-//		}
-
 	// Boolean
-		bool isBoolean();
-//		{
-//			return pyobj==Py_True || pyobj==Py_False;
-//		}
+		bool isBoolean()
+		{ 
+			return JPyBool::check(pyobj);
+		}
 
-		jboolean asBoolean();
-//		{
-//			return (pyobj==Py_True)?true:false;
-//		}
+		jboolean asBoolean()
+		{
+			return JPyBool(pyobj).isTrue();
+		}
 
 	// Int
 		bool isInt()

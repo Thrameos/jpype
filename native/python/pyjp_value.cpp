@@ -31,7 +31,17 @@ static void deleteJValueDestructor(CAPSULE_DESTRUCTOR_ARG_TYPE data)
 	delete pv;
 }
 
-PyObject* PyJValue::convertToJValue(PyObject* self, PyObject* arg)
+PyObject* PyJPValue::allocPrimitive(jvalue* v)
+{
+	return JPyCapsule::fromVoidAndDesc((void*)v, "object jvalue", deleteObjectJValueDestructor);
+}
+
+PyObject* PyJPValue::allocObject(jvalue* v)
+{
+  return JPyCapsule::fromVoidAndDesc((void*)v, "jvalue", deleteJValueDestructor);
+}
+
+PyObject* PyJPValue::convertToJValue(PyObject* self, PyObject* arg)
 {
 	if (! JPEnv::isInitialized())
 	{
@@ -40,11 +50,11 @@ PyObject* PyJValue::convertToJValue(PyObject* self, PyObject* arg)
 	}
 	JPLocalFrame frame;
 	try {
-		PyObject* tname;
+		PyObject* claz;
 		PyObject* value;
 
-		PyArg_ParseTuple(arg, "OO", &tname, &value);
-		if ( !PyJPClass::check(tname))
+		PyArg_ParseTuple(arg, "OO", &claz, &value);
+		if ( !PyJPClass::check(claz))
 		{
 			RAISE(JPypeException, "argument 1 must be a _jpype.JavaClass");
 		}
@@ -59,19 +69,16 @@ PyObject* PyJValue::convertToJValue(PyObject* self, PyObject* arg)
 		jvalue* pv = new jvalue();
 
 		// Transfer ownership to python
-		PyObject* res;
 		if (type->isObjectType())
 		{
 			pv->l = JPEnv::getJava()->NewGlobalRef(v.l);
-			res = JPyCapsule::fromVoidAndDesc((void*)pv, "object jvalue", deleteObjectJValueDestructor);
+			return PyJPValue::allocObject(pv);
 		}
 		else
 		{
 			*pv = v;
-			res = JPyCapsule::fromVoidAndDesc((void*)pv, "jvalue", deleteJValueDestructor);
+			return PyJPValue::allocPrimitive(pv);
 		}
-
-		return res;
 	}
 	PY_STANDARD_CATCH
 

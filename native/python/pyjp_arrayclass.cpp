@@ -64,8 +64,6 @@ static PyTypeObject arrayclassClassType =
   PyType_GenericNew          /* tp_new */
 };
 
-PyObject* PyJPArrayClass::Type = (PyObject*)&arrayclassClassType; 
-
 // Static methods
 void PyJPArrayClass::initType(PyObject* module)
 {
@@ -73,9 +71,9 @@ void PyJPArrayClass::initType(PyObject* module)
   PyModule_AddObject(module, "_JavaArrayClass", (PyObject*)&arrayclassClassType); 
 }
 
-PyJPArrayClass* PyJPClass::alloc(JPArrayClass* cls)
+PyJPArrayClass* PyJPArrayClass::alloc(JPArrayClass* cls)
 {
-  PyJPClass* res = PyObject_New(PyJPClass, &arrayclassClassType);
+  PyJPArrayClass* res = PyObject_New(PyJPArrayClass, &arrayclassClassType);
   res->m_Class = cls;
   return res;
 }
@@ -85,24 +83,30 @@ void PyJPArrayClass::__dealloc__(PyObject* o)
   TRACE_IN("PyJPArrayClass::__dealloc__");
   PyJPArrayClass* self = (PyJPArrayClass*)o;
   Py_TYPE(self)->tp_free(o);
+
+	// JPArrayClass is owned by the typemanager so no need to deallocate here
   TRACE_OUT;
 }
 
 bool PyJPArrayClass::check(PyObject* o)
 {
-	return PyObject_IsInstance(pyobj, arrayclassClassType);
+	return PyObject_IsInstance(o, (PyObject*)&arrayclassClassType);
 }
 
-PyObject* PyJArrayClass::newArray(PyObject* o, PyObject* arg)
+PyObject* PyJPArrayClass::newArray(PyObject* o, PyObject* arg)
 {
   try  
   {
-    PyJPArrayClass* self = (PyJPClass*)o;
+    PyJPArrayClass* self = (PyJPArrayClass*)o;
+
+		// Parse arguments
     int sz;
     PyArg_ParseTuple(arg, "i", &sz);
+
+		// Create a new instance
     JPArrayClass* a = self->m_Class;
     JPArray* v = a->newInstance(sz);
-    return JPyCapsule::fromArray(v);
+    return (PyObject*)PyJPArray::alloc(v);
   }
   PY_STANDARD_CATCH
   return NULL;
@@ -111,18 +115,16 @@ PyObject* PyJArrayClass::newArray(PyObject* o, PyObject* arg)
 // =================================================================
 // Global functions
 
-PyObject* PyJArrayClass::findArrayClass(PyObject* obj, PyObject* args)
+PyObject* PyJPArrayClass::findArrayClass(PyObject* obj, PyObject* args)
 {
-  if (! JPEnv::isInitialized())
-  {
-    PyErr_SetString(PyExc_RuntimeError, "Java Subsystem not started");
-    return NULL;
-  }
-
   try {
+		JPPyni::assertInitialized();
+
+		// Parse arguments
     char* cname;
     PyArg_ParseTuple(args, "s", &cname);
 
+		// Look for the class by name
     string name = JPTypeManager::getQualifiedName(cname);
     JPArrayClass* claz = dynamic_cast<JPArrayClass*>(JPTypeManager::findClassByName(name));
     if (claz == NULL)
@@ -130,7 +132,8 @@ PyObject* PyJArrayClass::findArrayClass(PyObject* obj, PyObject* args)
       Py_RETURN_NONE;
     }
 
-    return PyJArrayClass::alloc(claz);
+		// Convert to a python object
+    return (PyObject*)PyJPArrayClass::alloc(claz);
   }
   PY_STANDARD_CATCH;
 

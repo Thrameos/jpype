@@ -14,12 +14,29 @@
    limitations under the License.
    
 *****************************************************************************/   
-#ifndef _PYJVALUE_H_
-#define _PYJVALUE_H_
+#ifndef _PYJARRAYCLASS_H_
+#define _PYJARRAYCLASS_H_
 
-namespace PyJValue
+struct PyJPArrayClass
 {
-	PyObject* convertToJValue(PyObject* self, PyObject* arg);
-}
+	//AT's comments on porting:
+	//  1) Some Unix compilers do not tolerate the semicolumn after PyObject_HEAD	
+	//PyObject_HEAD;
+	PyObject_HEAD
 
-#endif // _PYJVALUE_H_
+	// Module global methods
+	static PyObject* findArrayClass(PyObject* obj, PyObject* args);
+
+	// Python-visible methods
+	static void        initType(PyObject* module);
+	static PyJPArrayClass*  alloc(JPArrayClass* cls);
+	static bool        check(PyObject* o);
+	static void        __dealloc__(PyObject* o);
+
+	static PyObject* newArray(PyObject* self, PyObject* arg);
+	JPArrayClass* m_Class;
+
+	static PyObject* Type;  
+};
+
+#endif // _PYJARRAYCLASS_H_

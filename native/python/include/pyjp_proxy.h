@@ -15,12 +15,13 @@
    limitations under the License.
    
 *****************************************************************************/   
-#ifndef _PYJPROXY_H_
-#define _PYJPROXY_H_
+#ifndef _PYJPPROXY_H_
+#define _PYJPPROXY_H_
 
-namespace PyJProxy
+namespace PyJPProxy
 {
-	PyObject* PyJProxy::createProxy(PyObject*, PyObject* arg);
+	PyObject* alloc(JPProxy *proxy);
+	PyObject* createProxy(PyObject*, PyObject* arg);
 }
 
 #endif // _PYJPROXY_H_

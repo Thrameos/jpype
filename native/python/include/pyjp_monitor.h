@@ -28,6 +28,8 @@ struct PyJPMonitor
 	
 	static void         __dealloc__(PyObject* o);
 	static PyObject*    __str__(PyObject* o);
+
+  static PyObject* synchronized(PyObject* obj, PyObject* args);
 		
 	JPMonitor* state;
 };

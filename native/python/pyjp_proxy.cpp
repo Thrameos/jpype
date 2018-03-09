@@ -23,25 +23,31 @@ static void deleteJPProxyDestructor(CAPSULE_DESTRUCTOR_ARG_TYPE data)
 	delete pv;
 }
 
-PyObject* PyJProxy::createProxy(PyObject*, PyObject* arg)
+PyObject* PyJPProxy::alloc(JPProxy *proxy)
+{
+		return JPyCapsule::fromVoidAndDesc(proxy, "jproxy", deleteJPProxyDestructor);
+}
+
+PyObject* PyJPProxy::createProxy(PyObject*, PyObject* arg)
 {
 	try {
+		JPPyni::assertInitialized();
 		JPLocalFrame frame;
 		JPyCleaner cleaner;
 
 		PyObject* self;
-		PyObject* intf;
+		PyObject* pyintf;
 
-		PyArg_ParseTuple(arg, "OO", &self, &intf);
+		PyArg_ParseTuple(arg, "OO", &self, &pyintf);
 
 		std::vector<JPObjectClass*> interfaces;
-		Py_ssize_t len = JPyObject::length(intf);
-
-		for (Py_ssize_t i = 0; i < len; i++)
+		JPySequence intf(pyintf);
+		jlong len = intf.size();
+		for (jlong i = 0; i < len; i++)
 		{
-			PyObject* subObj = cleaner.add(JPySequence::getItem(intf, i));
-			PyObject* claz = JPyObject::getAttrString(subObj, "__javaclass__");
-			if ( !PyJClass:check(claz))
+			PyObject* subObj = cleaner.add(intf.getItem(i));
+			PyObject* claz = JPyObject(subObj).getAttrString("__javaclass__");
+			if ( !PyJPClass::check(claz))
 			{
 				RAISE(JPypeException, "interfaces must be of type _jpype.JavaClass");
 			}
@@ -55,7 +61,7 @@ PyObject* PyJProxy::createProxy(PyObject*, PyObject* arg)
 		
 		JPProxy* proxy = new JPProxy(self, interfaces);
 
-		PyObject* res = JPyCObject::fromVoidAndDesc(proxy, "jproxy", deleteJPProxyDestructor);
+		PyObject* res = PyJPProxy::alloc(proxy);
 		return res;
 	}
 	PY_STANDARD_CATCH

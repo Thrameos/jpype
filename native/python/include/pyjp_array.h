@@ -26,7 +26,7 @@ struct PyJPArray
 
 	// Python-visible methods
 	static void        initType(PyObject* module);
-	static PyJPArray*  alloc(JPClass* cls);
+	static PyJPArray*  alloc(JPArray* cls);
 	static bool        check(PyObject* o);
 	static void        __dealloc__(PyObject* o);
 	

@@ -18,11 +18,11 @@
 #include <jpype_python.h>  
 
 static PyMethodDef classMethods[] = {
-  {"getArrayLength", &PyJArray::getArrayLength, METH_NOARGS, ""},
-  {"getArrayItem", &PyJArray::getArrayItem, METH_VARARGS, ""},
-  {"setArrayItem", &PyJArray::setArrayItem, METH_VARARGS, ""},
-  {"getArraySlice", &PyJArray::getArraySlice, METH_VARARGS, ""},
-  {"setArraySlice", &PyJArray::setArraySlice, METH_VARARGS, ""},
+  {"getArrayLength", &PyJPArray::getArrayLength, METH_NOARGS, ""},
+  {"getArrayItem", &PyJPArray::getArrayItem, METH_VARARGS, ""},
+  {"setArrayItem", &PyJPArray::setArrayItem, METH_VARARGS, ""},
+  {"getArraySlice", &PyJPArray::getArraySlice, METH_VARARGS, ""},
+  {"setArraySlice", &PyJPArray::setArraySlice, METH_VARARGS, ""},
 
   {NULL},
 };
@@ -71,23 +71,23 @@ static PyTypeObject arrayClassType =
 
 
 // Static methods
-void PyJPArrayClass::initType(PyObject* module)
+void PyJPArray::initType(PyObject* module)
 {
-  PyType_Ready(&arrayclassClassType);
+  PyType_Ready(&arrayClassType);
   PyModule_AddObject(module, "_JavaArray", (PyObject*)&arrayClassType); 
 }
 
-PyJPArray* PyJPClass::alloc(JPArray* obj)
+PyJPArray* PyJPArray::alloc(JPArray* obj)
 {
-  PyJPClass* res = PyObject_New(PyJPClass, &arrayClassType);
+  PyJPArray* res = PyObject_New(PyJPArray, &arrayClassType);
   res->m_Object = obj;
   return res;
 }
 
-void PyJPArrayClass::__dealloc__(PyObject* o)
+void PyJPArray::__dealloc__(PyObject* o)
 {
   TRACE_IN("PyJPArray::__dealloc__");
-  PyJPArrayClass* self = (PyJPArrayClass*)o;
+  PyJPArray* self = (PyJPArray*)o;
   Py_TYPE(self)->tp_free(o);
   delete self->m_Object;	
   TRACE_OUT;
@@ -95,27 +95,28 @@ void PyJPArrayClass::__dealloc__(PyObject* o)
 
 bool PyJPArray::check(PyObject* o)
 {
-	return PyObject_IsInstance(pyobj, arrayClassType);
+	return PyObject_IsInstance(o, (PyObject*)&arrayClassType);
 }
 
-
-PyObject* JPypeJavaArray::getArrayLength(PyObject* o, PyObject* arg)
+PyObject* PyJPArray::getArrayLength(PyObject* o, PyObject* arg)
 {
 	try {
-		PyJArray* self = (PyJArray*)o;
+		PyJPArray* self = (PyJPArray*)o;
 		return JPyInt::fromLong(self->m_Object->getLength());
 	}
 	PY_STANDARD_CATCH
 	return NULL;
 }
 
-PyObject* JPypeJavaArray::getArrayItem(PyObject* o, PyObject* arg)
+PyObject* PyJPArray::getArrayItem(PyObject* o, PyObject* arg)
 {
 	try {
-		PyJArray* self = (PyJArray*)o;
+		PyJPArray* self = (PyJPArray*)o;
 		JPArray* a = self->m_Object;
 		int ndx;
 		PyArg_ParseTuple(arg, "i", &ndx);
+		int length = a->getLength();
+		if (ndx < 0) ndx = length + ndx;
 		return a->getItem(ndx);
 	}
 	PY_STANDARD_CATCH
@@ -123,11 +124,29 @@ PyObject* JPypeJavaArray::getArrayItem(PyObject* o, PyObject* arg)
 	return NULL;
 }
 
-PyObject* JPypeJavaArray::getArraySlice(PyObject* self, PyObject* arg)
+PyObject* PyJPArray::setArrayItem(PyObject* o, PyObject* arg)
+{
+	try {
+		PyJPArray* self = (PyJPArray*)o;
+		JPArray* a = self->m_Object;
+		int ndx;
+		PyObject* value;
+		PyArg_ParseTuple(arg, "iO", &ndx, &value);
+		int length = a->getLength();
+		if (ndx < 0) ndx = length + ndx;
+		self->m_Object->setItem(ndx, arg);
+		Py_RETURN_NONE;
+	}
+	PY_STANDARD_CATCH
+
+	return NULL;
+}
+
+PyObject* PyJPArray::getArraySlice(PyObject* o, PyObject* arg)
 {
 	try
 	{
-		PyJArray* self = (PyJArray*)o;
+		PyJPArray* self = (PyJPArray*)o;
 		JPArray* a = self->m_Object;
 
 		int lo = -1;
@@ -173,21 +192,20 @@ PyObject* JPypeJavaArray::getArraySlice(PyObject* self, PyObject* arg)
 	return NULL;
 }
 
-PyObject* JPypeJavaArray::setArraySlice(PyObject* o, PyObject* arg)
+PyObject* PyJPArray::setArraySlice(PyObject* o, PyObject* arg)
 {
-	TRACE_IN("PyJArray::setArraySlice")
+	TRACE_IN("PyJPArray::setArraySlice")
 	try {
-		PyJArray* self = (PyJArray*)o;
+		PyJPArray* self = (PyJPArray*)o;
 		JPArray* a = self->m_Object;
 
 		int lo = -1;
 		int hi = -1;
-		PyObject* sequence;
-		PyArg_ParseTuple(arg, "iiO", &lo, &hi, &sequence);
+		PyObject* pysequence;
+		PyArg_ParseTuple(arg, "iiO", &lo, &hi, &pysequence);
 
 		int length = a->getLength();
-		if(length == 0)
-			Py_RETURN_NONE;
+		int length2 = JPySequence(pysequence).size();
 
 		if (lo < 0) lo = length + lo;
 		if (lo < 0) lo = 0;
@@ -197,23 +215,38 @@ PyObject* JPypeJavaArray::setArraySlice(PyObject* o, PyObject* arg)
 		else if (hi > length) hi = length;
 		if (lo > hi) lo = hi;
 
+		if (hi-lo != length2)
+		{
+			// Replicate behavior of np.array under similar situation
+			PyErr_Format(PyExc_ValueError, "cannot copy sequence with size %d to array axis with dimension %d", length2, hi-lo);
+			return NULL;
+		}
+
+		// FIXME handle single values as well as sequences on set
+		if (!JPySequence::check(pysequence))
+		{
+			PyErr_SetString(PyExc_ValueError, "slices must be assigned with a sequencec");
+			return NULL;
+		}
+
 		JPClass* component = a->getClass()->getComponentType();
 		if (!component->isObjectType())
 		{
 			// for primitive types, we have fast setters available
-			a->setRangePrimitive(lo, hi, sequence);
+			a->setRangePrimitive(lo, hi, pysequence);
 		}
 		else
 		{
-			// slow wrapped access for non primitive types
+			JPyCleaner cleaner;
+			JPySequence sequence(pysequence);
+
+			// Convert the sequence to a java vector of PyObject*
 			vector<PyObject*> values;
 			values.reserve(hi - lo);
-			JPyCleaner cleaner;
 			for (Py_ssize_t i = 0; i < hi - lo; i++)
 			{
-				PyObject* v = JPySequence(sequence).getItem(i);
+				PyObject* v = cleaner.add(sequence.getItem(i));
 				values.push_back(v);
-				cleaner.add(v);
 			}
 
 			a->setRange(lo, hi, values);
@@ -227,17 +260,3 @@ PyObject* JPypeJavaArray::setArraySlice(PyObject* o, PyObject* arg)
 	TRACE_OUT
 }
 
-PyObject* JPypeJavaArray::setArrayItem(PyObject* o, PyObject* arg)
-{
-	try {
-		PyJArray* self = (PyJArray*)o;
-		int ndx;
-		PyObject* value;
-		PyArg_ParseTuple(arg, "iO", &ndx, &value);
-		self->m_Object->setItem(ndx, arg);
-		Py_RETURN_NONE;
-	}
-	PY_STANDARD_CATCH
-
-	return NULL;
-}
