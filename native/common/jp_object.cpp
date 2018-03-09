@@ -70,8 +70,8 @@ PyObject* JPObject::getAttribute(const string& name)
 		return fld->getStaticAttribute();
 	}
 		
-	JPPyni::setAttributeError(name.c_str());
-	JPPyni::raise("getAttribute");
+	JPyErr::setAttributeError(name.c_str());
+	JPyErr::raise("getAttribute");
 
 	return NULL; // never reached ...
 	
@@ -96,6 +96,6 @@ void JPObject::setAttribute(const string& name, PyObject* val)
 		return;
 	}
 	
-	JPPyni::setAttributeError(name.c_str());
-	JPPyni::raise("setAttribute");
+	JPyErr::setAttributeError(name.c_str());
+	JPyErr::raise("setAttribute");
 }

@@ -125,8 +125,8 @@ jvalue JPByteType::convertToJava(PyObject* pyobj)
 		jint l = JPyInt(obj).asInt();
 		if (l < JPJni::s_minByte || l > JPJni::s_maxByte)
 		{
-			JPPyni::setTypeError("Cannot convert value to Java byte");
-			JPPyni::raise("JPByteType::convertToJava");
+			JPyErr::setTypeError("Cannot convert value to Java byte");
+			JPyErr::raise("JPByteType::convertToJava");
 		}
 		res.b = (jbyte)l;
 	}
@@ -135,8 +135,8 @@ jvalue JPByteType::convertToJava(PyObject* pyobj)
 		jlong l = JPyLong(obj).asLong();
 		if (l < JPJni::s_minByte || l > JPJni::s_maxByte)
 		{
-			JPPyni::setTypeError("Cannot convert value to Java byte");
-			JPPyni::raise("JPByteType::convertToJava");
+			JPyErr::setTypeError("Cannot convert value to Java byte");
+			JPyErr::raise("JPByteType::convertToJava");
 		}
 		res.b = (jbyte)l;
 	}
@@ -156,8 +156,8 @@ PyObject* JPByteType::convertToDirectBuffer(PyObject* pysrc)
 	{
 
 		char* rawData;
-		long size;
-		JPyString(pysrc).getByteBufferPtr(&rawData, size);
+		jlong size;
+		JPyMemoryView(pysrc).getByteBufferPtr(&rawData, size);
 
 		jobject obj = JPEnv::getJava()->NewDirectByteBuffer(rawData, size);
 
@@ -222,8 +222,8 @@ jvalue JPShortType::convertToJava(PyObject* pyobj)
 		jint l = JPyInt(obj).asInt();;
 		if (l < JPJni::s_minShort || l > JPJni::s_maxShort)
 		{
-			JPPyni::setTypeError("Cannot convert value to Java short");
-			JPPyni::raise("JPShortType::convertToJava");
+			JPyErr::setTypeError("Cannot convert value to Java short");
+			JPyErr::raise("JPShortType::convertToJava");
 		}
 
 		res.s = (jshort)l;
@@ -233,8 +233,8 @@ jvalue JPShortType::convertToJava(PyObject* pyobj)
 		jlong l = JPyLong(obj).asLong();;
 		if (l < JPJni::s_minShort || l > JPJni::s_maxShort)
 		{
-			JPPyni::setTypeError("Cannot convert value to Java short");
-			JPPyni::raise("JPShortType::convertToJava");
+			JPyErr::setTypeError("Cannot convert value to Java short");
+			JPyErr::raise("JPShortType::convertToJava");
 		}
 		res.s = (jshort)l;
 	}
@@ -306,8 +306,8 @@ jvalue JPIntType::convertToJava(PyObject* pyobj)
 		jint l = JPyInt(obj).asInt();;
 		if (l < JPJni::s_minInt || l > JPJni::s_maxInt)
 		{
-			JPPyni::setTypeError("Cannot convert value to Java int");
-			JPPyni::raise("JPIntType::convertToJava");
+			JPyErr::setTypeError("Cannot convert value to Java int");
+			JPyErr::raise("JPIntType::convertToJava");
 		}
 
 		res.i = (jint)l;
@@ -317,8 +317,8 @@ jvalue JPIntType::convertToJava(PyObject* pyobj)
 		jlong l = JPyLong(obj).asLong();;
 		if (l < JPJni::s_minInt || l > JPJni::s_maxInt)
 		{
-			JPPyni::setTypeError("Cannot convert value to Java int");
-			JPPyni::raise("JPIntType::convertToJava");
+			JPyErr::setTypeError("Cannot convert value to Java int");
+			JPyErr::raise("JPIntType::convertToJava");
 		}
 		res.i = (jint)l;
 	}
@@ -401,8 +401,8 @@ jvalue JPLongType::convertToJava(PyObject* pyobj)
 	}
 	else
 	{
-		JPPyni::setTypeError("Cannot convert value to Java long");
-		JPPyni::raise("JPLongType::convertToJava");
+		JPyErr::setTypeError("Cannot convert value to Java long");
+		JPyErr::raise("JPLongType::convertToJava");
 		res.j = 0; // never reached
 	}
 	return res;
@@ -481,13 +481,13 @@ jvalue JPFloatType::convertToJava(PyObject* pyobj)
 		jdouble l = JPyFloat(obj).asDouble();
 		if (l > 0 && (l < JPJni::s_minFloat || l > JPJni::s_maxFloat))
 		{
-			JPPyni::setTypeError("Cannot convert value to Java float");
-			JPPyni::raise("JPFloatType::convertToJava");
+			JPyErr::setTypeError("Cannot convert value to Java float");
+			JPyErr::raise("JPFloatType::convertToJava");
 		}
 		else if (l < 0 && (l > -JPJni::s_minFloat || l < -JPJni::s_maxFloat))
 		{
-			JPPyni::setTypeError("Cannot convert value to Java float");
-			JPPyni::raise("JPFloatType::convertToJava");
+			JPyErr::setTypeError("Cannot convert value to Java float");
+			JPyErr::raise("JPFloatType::convertToJava");
 		}
 		res.f = (jfloat)l;
 	}
@@ -602,7 +602,7 @@ EMatchType JPCharType::canConvertToJava(PyObject* pyobj)
 		return _none;
 	}
 
-	if (obj.isString() && JPyString(obj).size() == 1)
+	if (obj.isString() && JPyString(obj).isChar())
 	{
 		return _implicit;
 	}
@@ -627,8 +627,7 @@ jvalue JPCharType::convertToJava(PyObject* pyobj)
 	}
 	else
 	{
-		JCharString str = JPyString(obj).asJCharString();
-		res.c = str[0];
+		res.c = JPyString(obj).asChar();
 	}
 	return res;
 }

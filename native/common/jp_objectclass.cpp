@@ -203,8 +203,8 @@ PyObject* JPObjectClass::getStaticAttribute(const string& name)
 		return fld->getStaticAttribute();
 	}
 
-	JPPyni::setAttributeError(name.c_str());
-	JPPyni::raise("getAttribute");
+	JPyErr::setAttributeError(name.c_str());
+	JPyErr::raise("getAttribute");
 	return NULL; // never reached
 }
 
@@ -216,8 +216,8 @@ void JPObjectClass::setStaticAttribute(const string& name, PyObject* val)
 		fld->setStaticAttribute(val);
 		return;
 	}
-	JPPyni::setAttributeError(name.c_str());
-	JPPyni::raise("__setattr__");
+	JPyErr::setAttributeError(name.c_str());
+	JPyErr::raise("__setattr__");
 }
 
 PyObject* JPObjectClass::asHostObject(jvalue obj)

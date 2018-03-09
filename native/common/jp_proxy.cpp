@@ -98,7 +98,7 @@ JNIEXPORT jobject JNICALL Java_jpype_JPypeInvocationHandler_hostInvoke(
 	}
 	catch(PythonException& ex)
 	{ 
-		JPyErr::clearError();
+		JPyErr::clear();
 		if (ex.isJavaException())
 		{
 			JPyCleaner cleaner;

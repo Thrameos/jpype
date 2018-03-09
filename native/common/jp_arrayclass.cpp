@@ -127,7 +127,7 @@ jvalue JPArrayClass::convertToJava(PyObject* pyobj)
 	{
 		TRACE1("char[]");
 		char* rawData;
-		long size;
+		jlong size;
 		JPyString(obj).getRawByteString(&rawData, size);
 		
 		jbyteArray array = JPEnv::getJava()->NewByteArray(size);
@@ -143,7 +143,7 @@ jvalue JPArrayClass::convertToJava(PyObject* pyobj)
 	{
 		TRACE1("uchar[]");
 		jchar* rawData;
-		long size;
+		jlong size;
 		JPyString(obj).getRawUnicodeString(&rawData, size);
 		
 		jcharArray array = JPEnv::getJava()->NewCharArray(size);

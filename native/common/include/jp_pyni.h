@@ -131,9 +131,14 @@ namespace JPPyni
 	void* prepareCallbackBegin();
 	void prepareCallbackFinish(void* state);
 
-	JPyObject getNone();
-	JPyObject getTrue();
-	JPyObject getFalse();
+	/** Returns a new reference to None */
+	PyObject* getNone();
+
+	/** Returns a new reference to True */
+	PyObject* getTrue();
+
+	/** Returns a new reference to False */
+	PyObject* getFalse();
 
 	extern PyObject* m_GetArrayClassMethod;
 	extern PyObject* m_GetClassMethod;
@@ -253,6 +258,9 @@ class JPyFloat : public JPyObject
 		jfloat asFloat();
 };
 
+/** This wrapper is problematic because it is oriented toward 
+ * Python2.
+ */
 class JPyString : public JPyObject
 {
 	public:
@@ -262,8 +270,6 @@ class JPyString : public JPyObject
 		static bool checkStrict(PyObject* obj);
 		static bool checkUnicode(PyObject* obj);
 		
-		jlong size();
-
 		string asString();
 		jlong asStringAndSize(char** buffer, jlong &length);
 
@@ -273,7 +279,12 @@ class JPyString : public JPyObject
 
 		void getRawByteString(char** outBuffer, jlong& outSize);
 		void getRawUnicodeString(jchar** outBuffer, jlong& outSize);
+
+		/** Get the size of a unicode character */
 		static jlong getUnicodeSize();
+
+		bool isChar();
+		jchar asChar();
 };
 
 class JPyMemoryView : public JPyObject
@@ -330,35 +341,31 @@ class JPySequence : public JPyObject
 		jlong size();
 };
 
-class JPyErr : public JPyObject
+namespace JPyErr
 {
-	public:
-		JPyErr(PyObject* obj) : JPyObject(obj) {}
-		JPyErr(const JPyObject &self) : JPyObject(self) {}
+	void setString(PyObject* type, const char* str);
+	void setObject(PyObject* type, PyObject* str);
 
-		void setString(const char* str);
-		void setObject(PyObject* str);
+	void clear();
 
-		static void clearError();
+	/** Create a runtime error in python */
+	void setRuntimeError(const char* msg);
 
-		/** Create a runtime error in python */
-		static void setRuntimeError(const char* msg);
+	/** Create a attribute error in python */
+	void setAttributeError(const char* msg);
 
-		/** Create a attribute error in python */
-		static void setAttributeError(const char* msg);
+	/** Create a type error in python */
+	void setTypeError(const char* msg);
 
-		/** Create a type error in python */
-		static void setTypeError(const char* msg);
-
-		/** Terminate the function.  
-		 * Must set the error prior to calling raise.
-		 * Call within appropriate try block only. 
-		 * msg is not used.
-		 *
-		 * Produces a PythonException
-		 */
-		static void raise(const char* msg);
-};
+	/** Terminate the function.  
+	 * Must set the error prior to calling raise.
+	 * Call within appropriate try block only. 
+	 * msg is not used.
+	 *
+	 * Produces a PythonException
+	 */
+	void raise(const char* msg);
+}
 
 class JPyDict : public JPyObject
 {

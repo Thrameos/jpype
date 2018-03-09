@@ -16,9 +16,11 @@
 *****************************************************************************/   
 #include <jpype_python.h>
 
-PyObject* JPPyni::m_JavaArrayClass = NULL;
 PyObject* JPPyni::m_GetClassMethod = NULL;
 PyObject* JPPyni::m_GetArrayClassMethod = NULL;
+PyObject* JPPyni::m_GetJavaArrayClassMethod = NULL;
+PyObject* JPPyni::m_JavaArrayClass = NULL;
+PyObject* JPPyni::m_JavaExceptionClass = NULL;
 PyObject* JPPyni::m_ProxyClass = NULL;
 PyObject* JPPyni::m_PythonJavaObject = NULL;
 PyObject* JPPyni::m_PythonJavaClass = NULL;
@@ -142,10 +144,24 @@ JPyCleaner::~JPyCleaner()
 
 //=====================================================================
 // JPyInt
+//
+PyObject* JPyInt::fromInt(jint l)
+{
+#if PY_MAJOR_VERSION >= 3 
+  PY_CHECK( PyObject* res = PyLong_FromLong(l) );
+#else
+  PY_CHECK( PyObject* res = PyInt_FromLong(l) );
+#endif
+  return res; 
+}
 
 PyObject* JPyInt::fromLong(jlong l)
 {
+#if PY_MAJOR_VERSION >= 3 
+  PY_CHECK( PyObject* res = PyLong_FromLongLong(l) );
+#else
   PY_CHECK( PyObject* res = PyInt_FromLong(l) );
+#endif
   return res; 
 }
 
@@ -197,6 +213,11 @@ jlong JPyLong::asLong()
 
 //=====================================================================
 // JPyFloat
+PyObject* JPyFloat::fromFloat(jfloat l)
+{
+  PY_CHECK( PyObject* res = PyFloat_FromDouble(l) );
+  return res; 
+}
 
 PyObject* JPyFloat::fromDouble(jdouble l)
 {
@@ -241,6 +262,12 @@ PyObject* JPyTuple::getItem(jlong ndx)
   return res;
 }
 
+jlong JPyTuple::size() 
+{
+  PY_CHECK( jlong res = PyTuple_Size(pyobj) );
+  return res;
+}
+
 //=====================================================================
 // JPyList
 
@@ -270,9 +297,15 @@ PyObject* JPyList::getItem(jlong ndx)
 //=====================================================================
 // JPySequence
 
+
 bool JPySequence::check(PyObject* obj)
 {
   return (PySequence_Check(obj))?true:false;
+}
+
+jlong JPySequence::size()
+{
+	return PySequence_Size(pyobj);
 }
 
 void JPySequence::setItem(jlong ndx, PyObject* val)
@@ -403,6 +436,53 @@ jlong JPyString::getUnicodeSize()
   return sizeof(Py_UNICODE);
 }
 
+bool JPyString::isChar()
+{
+#if PY_MAJOR_VERSION < 3
+	if (PyUnicode_Check(pyobj))
+		return PyUnicode_GetSize(pyobj)==1;
+	if (PyString_Check(pyobj))
+		return PyString_Size(pyobj)==1;
+#else
+	if (PyUnicode_Check(pyobj))
+		return PyUnicode_GET_LENGTH(pyobj)==1;
+	if (PyBytes_Check(pyobj))
+		return PyBytes_Size(pyobj)==1;
+#endif
+	return false;
+}
+
+jchar JPyString::asChar()
+{
+#if PY_MAJOR_VERSION < 3
+	if (PyString_Check(pyobj))
+		return PyBytes_AsAtring(pyobj)[0];
+	if (PyUnicode_Chec:k(pyobj))
+	{
+		wchar_t buffer;
+		PyUnicode_AsWideChar(pyobj, &buffer, 1);
+		return buffer;
+	}
+#else
+	if (PyBytes_Check(pyobj))
+		return PyBytes_AsString(pyobj)[0];
+  if (PyUnicode_Check(pyobj))
+	{
+		Py_UCS4 value = PyUnicode_ReadChar(pyobj, 0);
+		if (value>0xffff)
+		{
+			PyErr_SetString(PyExc_ValueError, "Unable to pack 4 byte unicode into java char");
+			JPyErr::raise("unicode");
+		}
+		return value;
+	}
+#endif
+	JPyErr::setRuntimeError("error converting string to char");
+	JPyErr::raise("asChar");
+	return 0;
+}
+
+
 //=====================================================================
 // JPyMemoryView
 
@@ -422,17 +502,17 @@ void JPyMemoryView::getByteBufferPtr(char** buffer, jlong& length)
 
 //=====================================================================
 // JPyErr
-void JPyErr::setString(const char* str)
+void JPyErr::setString(PyObject* type, const char* str)
 {
-  PyErr_SetString(pyobj, str);
+  PyErr_SetString(type, str);
 }
 
-void JPyErr::setObject(PyObject* str)
+void JPyErr::setObject(PyObject* type, PyObject* str)
 {
-  PyErr_SetObject(pyobj, str);
+  PyErr_SetObject(type, str);
 }
 
-void JPyErr::clearError()
+void JPyErr::clear()
 {
   PyErr_Clear();
 }
@@ -713,6 +793,21 @@ JPArray* JPyAdaptor::asArray()
 //========================================================
 // JPPyni
 
+PyObject* JPPyni::getNone()
+{
+	Py_RETURN_NONE;
+}
+
+PyObject* JPPyni::getTrue()
+{
+	Py_RETURN_TRUE;
+}
+
+PyObject* JPPyni::getFalse()
+{
+	Py_RETURN_FALSE;
+}
+
 void JPPyni::assertInitialized()
 {
   if (! JPEnv::isInitialized())
@@ -899,7 +994,7 @@ static void errorOccurred()
 
 	// Tell python about it
 	PyObject* pyexclass = cleaner.add(jexclass.getAttrString("PYEXC"));
-	JPyErr(pyexclass).setObject(arg2);
+	JPyErr::setObject(pyexclass, arg2);
 	TRACE_OUT;
 }
 
