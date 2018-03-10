@@ -33,10 +33,11 @@ public :
 		return JPEnv::getJava()->NewLocalRef(m_Object);
 	}
 
+/*
 	JCharString toString();
-
 	PyObject* getAttribute(const string& name);
 	void     setAttribute(const string& name, PyObject* value);
+*/
 
 private :
 	JPObjectClass* m_Class;
