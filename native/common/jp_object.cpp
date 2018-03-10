@@ -27,6 +27,8 @@ JPObject::~JPObject()
 	JPEnv::getJava()->DeleteGlobalRef(m_Object);
 }
 
+
+/*
 JCharString JPObject::toString()
 {
 	if (m_Object == NULL)
@@ -99,3 +101,4 @@ void JPObject::setAttribute(const string& name, PyObject* val)
 	JPyErr::setAttributeError(name.c_str());
 	JPyErr::raise("setAttribute");
 }
+*/
