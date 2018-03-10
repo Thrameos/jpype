@@ -14,13 +14,30 @@
    limitations under the License.
    
 *****************************************************************************/   
-#ifndef _PYJP_OBJECT_H_
-#define _PYJP_OBJECT_H_
+#ifndef _PYJP_VALUE_H_2
+#define _PYJP_VALUE_H_2
 
-namespace PyJPObject
+struct PyJPValue2
 {
-	PyObject* alloc(JPObject* v);
-	bool        check(PyObject* o);
-}
+	PyObject_HEAD
 
-#endif // _PYJP_OBJECT_H_
+	static PyJPValue2* alloc(JPValue* value);
+	static PyJPValue2* alloc(JPClass* cls, const jvalue& value);
+	static JPValue*    getValue(PyObject* self);
+
+	// Object 
+	static void        initType(PyObject* module);
+	static bool        check(PyObject* o);
+	static void        __dealloc__(PyObject* self);
+
+	// Python-visible methods
+	static PyObject*   getJavaClass(PyObject* self, PyObject* args);
+	static PyObject*   getPythonClass(PyObject* self, PyObject* args);
+
+	// Module global methods
+	static PyObject*   convertToJavaValue(PyObject* moduel, PyObject* args);
+
+	JPValue m_Value;
+};
+
+#endif // _PYJP_VALUE_H_2

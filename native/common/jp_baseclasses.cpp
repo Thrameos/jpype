@@ -106,10 +106,13 @@ jvalue JPObjectBaseClass::convertToJava(PyObject* pyobj)
 		return res;
 	}
 
-	else if (obj.isJavaObject())
+	else if (obj.isJavaValue())
 	{
-		JPObject* ref = obj.asJavaObject();
-		res.l = ref->getObject();
+		JPValue ref = obj.asJavaValue();
+		if (ref.getClass()->isObjectClass())
+			res.l = ref->getObject();
+		else
+			res.l = ((JPPrimitiveType*)ref.getClass())->convertToJavaObject(pyobj);
 	}
 
 	else if (obj.isString())
@@ -191,9 +194,17 @@ EMatchType JPClassBaseClass::canConvertToJava(PyObject* pyobj)
 		return base;
 
 	JPLocalFrame frame;
+	if (obj.isNone())
+		return _implicit;
+
 	if (obj.isJavaClass())
-	{
 		return _exact;
+
+	if (obj.isJavaValue())
+	{
+		JPClass* cls = obj.getJavaValue().getClass();
+		if (cls == JPTypeManager::_java_lang_Class;
+			return _exact;
 	}
 	return _none;
 	TRACE_OUT;
@@ -215,10 +226,10 @@ jvalue JPClassBaseClass::convertToJava(PyObject* pyobj)
 		return res;
 	}
 
-	else if (obj.isJavaObject())
+	else if (obj.isJavaValue())
 	{
-		JPObject* ref = obj.asJavaObject();
-		res.l = ref->getObject();
+		const JPValue& ref = obj.asJavaValue();
+		res = ref.getValue();
 	}
 
 	else if (obj.isJavaClass())
@@ -226,18 +237,6 @@ jvalue JPClassBaseClass::convertToJava(PyObject* pyobj)
 		JPClass* w = obj.asJavaClass();
 		jclass lr = w->getNativeClass();
 		res.l = lr;
-		// This is a global reference.  No need to create a local reference
-		return res;
-	}
-
-	else if (obj.isProxy())
-	{
-		res.l = obj.asProxy()->getProxy();
-	}
-
-	else if (obj.isWrapper())
-	{
-		res = obj.getWrapperValue(); // FIXME isn't this one global already
 	}
 
 	res.l = frame.keep(res.l);

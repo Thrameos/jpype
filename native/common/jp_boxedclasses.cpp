@@ -32,55 +32,10 @@ jobject JPBoxedClass::buildObjectWrapper(PyObject* obj)
 	vector<PyObject*> args(1);
 	args.push_back(obj);
 
-	JPObject* pobj = newInstance(args);
-	jobject out = pobj->getObject();
-	delete pobj;
+	JPValue val = newInstance(args);
+	jobject out = val.getObject();
 
 	return frame.keep(out);
-}
-
-jvalue JPBoxedClass::convertToJava(PyObject* pyobj)
-{
-	JPyAdaptor obj(pyobj);
-
-	TRACE_IN("JPObjectClass::convertToJava");
-	JPLocalFrame frame;
-	jvalue res;
-
-	res.l = NULL;
-
-	// assume it is convertible;
-	if (obj.isNone())
-	{
-		res.l = NULL;
-		return res;
-	}
-
-	if (obj.isJavaObject())
-	{
-		JPObject* ref = obj.asJavaObject();
-		res.l = frame.keep(ref->getObject());
-		return res;
-	}
-
-	if (obj.isProxy())
-	{
-		JPProxy* proxy = obj.asProxy();
-		res.l = frame.keep(proxy->getProxy());
-		return res;
-	}
-
-	if (obj.isWrapper())
-	{
-		res = obj.getWrapperValue(); // FIXME isn't this one global already
-		res.l = frame.keep(res.l);
-		return res;
-	}
-
-	// Otherwise construct a new boxed object
-	res.l = buildObjectWrapper(obj);
-	return res;
-	TRACE_OUT;
 }
 
 

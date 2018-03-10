@@ -73,20 +73,10 @@ EMatchType JPStringClass::canConvertToJava(PyObject* pyobj)
 		return _exact;
 	}
 	
-	if (obj.isWrapper())
+	if (obj.isJavaValue())
 	{
-		JPClass* name = obj.getWrapperClass();
-		if (name == JPTypeManager::_java_lang_String)
-		{
-			return _exact;
-		}
-	}
-
-	if (obj.isJavaObject())
-	{
-		JPObject* o = obj.asJavaObject();
-		JPObjectClass* oc = o->getClass();
-		if (oc == this)
+		const JPValue& value = obj.asJavaValue();
+		if (value.getClass() == this)
 		{
 			return _exact;
 		}
@@ -107,25 +97,25 @@ jvalue JPStringClass::convertToJava(PyObject* pyobj)
 		return v;
 	}
 	
-	if (obj.isWrapper())
+	if (obj.isJavaValue())
 	{
-		return obj.getWrapperValue();
-	}
-
-	if (obj.isJavaObject())
-	{
-		JPObject* o = obj.asJavaObject();
-
-		JPObjectClass* oc = o->getClass();
-		if (oc == this)
+		const JPValue& value = obj.asJavaValue();
+		if (value.getClass() == this)
 		{
-			v.l = o->getObject(); 
+			v = value.getValue();
 			return v;
+		}
+		else
+		{
+			JPPyni::setValueError("Invalid class in conversion");
+			JPPyni::raise("convertToJava");
 		}
 	}
 
 	JCharString wstr = JPyString(obj).asJCharString();
 
+	// FIXME java uses a different encoding than standard for 4 byte objects.  
+	// Convert through JChar may lead to errors.
 	jchar* jstr = new jchar[wstr.length()+1];
 	jstr[wstr.length()] = 0;
 	for (size_t i = 0; i < wstr.length(); i++)
@@ -133,7 +123,7 @@ jvalue JPStringClass::convertToJava(PyObject* pyobj)
 		jstr[i] = (jchar)wstr[i];  
 	}
 	jstring res = JPEnv::getJava()->NewString(jstr, (jint)wstr.length());
-	delete[] jstr;
+	delete[] jstr; // FIXME not exception safe
 	
 	v.l = res;
 	

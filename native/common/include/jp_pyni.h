@@ -463,12 +463,8 @@ class JPyAdaptor : public JPyObject
 		}
 
 	// Java
-		bool isJavaObject() const
-		{
-			return isInstance(JPPyni::m_PythonJavaObject);
-		}
-
-		JPObject* asJavaObject();
+		bool isJavaValue() const;
+		const JPValue& asJavaValue();
 
 		bool isJavaClass() const
 		{
@@ -504,9 +500,6 @@ class JPyAdaptor : public JPyObject
 		{
 			return isInstance(JPPyni::m_WrapperClass);
 		}
-
-		JPClass* getWrapperClass();
-		jvalue getWrapperValue();
 
 };
 

@@ -103,8 +103,8 @@ JNIEXPORT jobject JNICALL Java_jpype_JPypeInvocationHandler_hostInvoke(
 		{
 			JPyCleaner cleaner;
 			PyObject* javaExcRef = cleaner.add(ex.getJavaException());
-			JPObject* javaExc = JPyAdaptor(javaExcRef).asJavaObject();
-			jobject obj = javaExc->getObject();
+			const JPValue& value = JPyAdaptor(javaExcRef).asJavaValue();
+			jobject obj = value.getObject();
 			JPEnv::getJava()->Throw((jthrowable)obj);
 		}
 		else

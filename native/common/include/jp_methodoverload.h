@@ -17,7 +17,6 @@
 #ifndef _JPMETHODOVERLOAD_H_
 #define _JPMETHODOVERLOAD_H_
 
-class JPObject;
 class JPMethodOverload
 {
 private:
@@ -27,13 +26,13 @@ public :
 	
 	virtual ~JPMethodOverload();
 	
-	EMatchType              matches(bool ignoreFirst, vector<PyObject*>& args) ;
+	EMatchType  matches(bool ignoreFirst, vector<PyObject*>& args) ;
 
-	PyObject*                invokeInstance(vector<PyObject*>& arg);
+	PyObject*   invokeInstance(vector<PyObject*>& arg);
 
-	PyObject*                invokeStatic(vector<PyObject*>& arg);
+	PyObject*   invokeStatic(vector<PyObject*>& arg);
 
-	JPObject*               invokeConstructor(JPObjectClass* cls, vector<PyObject*>& arg);
+	JPValue     invokeConstructor(JPObjectClass* cls, vector<PyObject*>& arg);
 
 public :	
 	string getSignature();

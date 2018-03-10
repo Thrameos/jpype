@@ -43,13 +43,9 @@ PyObject* PyJPValue::allocObject(jvalue* v)
 
 PyObject* PyJPValue::convertToJValue(PyObject* self, PyObject* arg)
 {
-	if (! JPEnv::isInitialized())
-	{
-		PyErr_SetString(PyExc_RuntimeError, "Java Subsystem not started");
-		return NULL;
-	}
 	JPLocalFrame frame;
 	try {
+		JPPyni::assertInitialized();
 		PyObject* claz;
 		PyObject* value;
 

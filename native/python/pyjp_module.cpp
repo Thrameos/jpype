@@ -280,12 +280,12 @@ PyObject* PyJPModule::raiseJava(PyObject* , PyObject* args)
 	{
 		//PyObject* arg;
 		//PyArg_ParseTuple(args, "O", &arg);
-		//JPObject* obj;
+		//JP Object* obj;
 		//JPCleaner cleaner;
 		//
-		//if (JPyCObject::check(arg) && string((char*)JPyCObject::getDesc(arg)) == "JPObject")
+		//if (JPyCObject::check(arg) && string((char*)JPyCObject::getDesc(arg)) == "JP Object")
 		//{
-		//	obj = (JPObject*)JPyCObject::asVoidPtr(arg);
+		//	obj = (JP Object*)JPyCObject::asVoidPtr(arg);
 		//}
 		//else
 		//{

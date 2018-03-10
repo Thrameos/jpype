@@ -116,14 +116,14 @@ bool JPEnv::isThreadAttached()
 // FIXME.  I dont understand this one.
 void JPEnv::registerRef(PyObject* ref, PyObject* targetRef)
 {
-//	TRACE_IN("JPEnv::registerRef");
-//	JPLocalFrame frame;
-//	JPObject* objRef = JPyAdaptor(s_Host).asObject(ref);
-//	TRACE1("A");
-//	jobject srcObject = objRef->getObject();
-//	JPJni::registerRef(s_Java->getReferenceQueue(), srcObject, (jlong)targetRef->copy());
-//	TRACE_OUT;
-//	TRACE1("B");
+	TRACE_IN("JPEnv::registerRef");
+	JPLocalFrame frame;
+	const JPValue& objRef = JPyAdaptor(s_Host).asJavaValue(ref);
+	TRACE1("A");
+	jobject srcObject = objRef.getObject();
+	JPJni::registerRef(s_Java->getReferenceQueue(), srcObject, (jlong)targetRef->copy());
+	TRACE_OUT;
+	TRACE1("B");
 }
 
 

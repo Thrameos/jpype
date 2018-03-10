@@ -305,7 +305,7 @@ bool JPySequence::check(PyObject* obj)
 
 jlong JPySequence::size()
 {
-	return PySequence_Size(pyobj);
+  return PySequence_Size(pyobj);
 }
 
 void JPySequence::setItem(jlong ndx, PyObject* val)
@@ -439,47 +439,47 @@ jlong JPyString::getUnicodeSize()
 bool JPyString::isChar()
 {
 #if PY_MAJOR_VERSION < 3
-	if (PyUnicode_Check(pyobj))
-		return PyUnicode_GetSize(pyobj)==1;
-	if (PyString_Check(pyobj))
-		return PyString_Size(pyobj)==1;
+  if (PyUnicode_Check(pyobj))
+    return PyUnicode_GetSize(pyobj)==1;
+  if (PyString_Check(pyobj))
+    return PyString_Size(pyobj)==1;
 #else
-	if (PyUnicode_Check(pyobj))
-		return PyUnicode_GET_LENGTH(pyobj)==1;
-	if (PyBytes_Check(pyobj))
-		return PyBytes_Size(pyobj)==1;
+  if (PyUnicode_Check(pyobj))
+    return PyUnicode_GET_LENGTH(pyobj)==1;
+  if (PyBytes_Check(pyobj))
+    return PyBytes_Size(pyobj)==1;
 #endif
-	return false;
+  return false;
 }
 
 jchar JPyString::asChar()
 {
 #if PY_MAJOR_VERSION < 3
-	if (PyString_Check(pyobj))
-		return PyBytes_AsAtring(pyobj)[0];
-	if (PyUnicode_Chec:k(pyobj))
-	{
-		wchar_t buffer;
-		PyUnicode_AsWideChar(pyobj, &buffer, 1);
-		return buffer;
-	}
+  if (PyString_Check(pyobj))
+    return PyBytes_AsAtring(pyobj)[0];
+  if (PyUnicode_Chec:k(pyobj))
+  {
+    wchar_t buffer;
+    PyUnicode_AsWideChar(pyobj, &buffer, 1);
+    return buffer;
+  }
 #else
-	if (PyBytes_Check(pyobj))
-		return PyBytes_AsString(pyobj)[0];
+  if (PyBytes_Check(pyobj))
+    return PyBytes_AsString(pyobj)[0];
   if (PyUnicode_Check(pyobj))
-	{
-		Py_UCS4 value = PyUnicode_ReadChar(pyobj, 0);
-		if (value>0xffff)
-		{
-			PyErr_SetString(PyExc_ValueError, "Unable to pack 4 byte unicode into java char");
-			JPyErr::raise("unicode");
-		}
-		return value;
-	}
+  {
+    Py_UCS4 value = PyUnicode_ReadChar(pyobj, 0);
+    if (value>0xffff)
+    {
+      PyErr_SetString(PyExc_ValueError, "Unable to pack 4 byte unicode into java char");
+      JPyErr::raise("unicode");
+    }
+    return value;
+  }
 #endif
-	JPyErr::setRuntimeError("error converting string to char");
-	JPyErr::raise("asChar");
-	return 0;
+  JPyErr::setRuntimeError("error converting string to char");
+  JPyErr::raise("asChar");
+  return 0;
 }
 
 
@@ -659,26 +659,26 @@ PyObject* PythonException::getJavaException()
 
 string PythonException::getMessage()
 {
-     string message = "";
+   string message = "";
 
-     // Exception class name
-     PyObject* className = JPyObject(m_ExceptionClass).getAttrString("__name__");
-     message += JPyString(className).asString();
-     Py_DECREF(className);
+   // Exception class name
+   PyObject* className = JPyObject(m_ExceptionClass).getAttrString("__name__");
+   message += JPyString(className).asString();
+   Py_DECREF(className);
 
-     // Exception value
-     if(m_ExceptionValue)
-     {
-          // Convert the exception value to string
-          PyObject* pyStrValue = PyObject_Str(m_ExceptionValue);
-          if(pyStrValue)
-          {
-               message += ": " + JPyString(pyStrValue).asString();
-               Py_DECREF(pyStrValue);
-          }
-     }
+   // Exception value
+   if(m_ExceptionValue)
+   {
+      // Convert the exception value to string
+      PyObject* pyStrValue = PyObject_Str(m_ExceptionValue);
+      if(pyStrValue)
+      {
+         message += ": " + JPyString(pyStrValue).asString();
+         Py_DECREF(pyStrValue);
+      }
+   }
 
-     return message;
+   return message;
 }
 
 // =============================================================
@@ -731,49 +731,33 @@ bool JPyCapsule::check(PyObject* obj)
 // JPyAdaptor
 
 // This accepts either the capsule or the python object
-JPObject* JPyAdaptor::asJavaObject()
+bool JPyAdaptor::isJavaValue()
+{
+	return PyObject_HasAttrString(pyobj, "__javavalue__");
+}
+
+const JPValue& JPyAdaptor::asJavaValue()
 {
   JPyCleaner cleaner;
-  if (JPyCapsule::check(pyobj))
-  {
-    return (JPObject*)(JPyCapsule(pyobj).asVoidPtr());
-  }
-  PyObject* javaObject = cleaner.add(getAttrString("__javaobject__"));
-  return (JPObject*)(JPyCapsule(javaObject).asVoidPtr());
+  PyObject* javaObject = cleaner.add(getAttrString("__javavalue__"));
+	if (!PyJPValue::check(javaObject))
+	{
+		JPyErr::setRuntimeError("invalid __javavalue__");
+		JPyErr::raise("asJavaValue");
+	}
+  return PyJPValue::cast(javaObject);
 }
 
 JPClass* JPyAdaptor::asJavaClass()
 {
   JPyCleaner cleaner;
   PyObject* claz = cleaner.add(getAttrString("__javaclass__"));
-  PyJPClass* res = (PyJPClass*)claz;
-  return res->m_Class;
-}
-
-JPClass* JPyAdaptor::getWrapperClass()
-{
-  return asJavaClass();
-//  PyObject* pyTName = JPyObject::getAttrString(pyobj, "typeName");
-//  string tname = JPyString::asString(pyTName);
-//  Py_DECREF(pyTName);
-//  return JPTypeManager::findClass(JPJni::findClass(tname));
-}
-
-jvalue JPyAdaptor::getWrapperValue()
-{
-  JPyCleaner cleaner;
-  JPClass* name = getWrapperClass();
-  PyObject* value = cleaner.add(getAttrString("__javavalue__"));
-  jvalue* v = (jvalue*)JPyCapsule(value).asVoidPtr();
-  Py_DECREF(value);
-
-  if (name->isObjectType())
-  {
-    jvalue res;
-    res.l = JPEnv::getJava()->NewLocalRef(v->l); 
-    return res;
-  }
-  return *v;
+ 	if (!PyJPClass::check(javaObject))
+	{
+		JPyErr::setRuntimeError("invalid __javaclass__");
+		JPyErr::raise("asJavaClass");
+	}
+  return ((PyJPClass*)claz)->m_Class;
 }
 
 JPProxy* JPyAdaptor::asProxy()
@@ -795,17 +779,17 @@ JPArray* JPyAdaptor::asArray()
 
 PyObject* JPPyni::getNone()
 {
-	Py_RETURN_NONE;
+  Py_RETURN_NONE;
 }
 
 PyObject* JPPyni::getTrue()
 {
-	Py_RETURN_TRUE;
+  Py_RETURN_TRUE;
 }
 
 PyObject* JPPyni::getFalse()
 {
-	Py_RETURN_FALSE;
+  Py_RETURN_FALSE;
 }
 
 void JPPyni::assertInitialized()
@@ -898,27 +882,26 @@ PyObject* JPPyni::newStringWrapper(jstring jstr)
 JPyObject JPPyni::newClass(JPObjectClass* m)
 {
   JPyCleaner cleaner;
-	// Allocated a new module PyJPClass
+  // Allocated a new module PyJPClass
   PyObject* co = cleaner.add((PyObject*)PyJPClass::alloc(m));
 
-	// call jpype._jclass._getClassFor()
+  // call jpype._jclass._getClassFor()
   JPyTuple args = cleaner.add(JPyTuple::newTuple(1));
   args.setItem(0, co);
   return JPyObject(m_GetClassMethod).call(args, NULL);
 }
 
-PyObject* JPPyni::newObject(JPObject* obj)
+PyObject* JPPyni::newObject(const JPValue& value)
 {
+	JPClass* cls = value.getClass();
+	jvalue v = value.getValue();
   JPyCleaner cleaner;
   TRACE_IN("JPPyni::newObject");
-  TRACE2("classname", obj->getClass()->getSimpleName());
-
-	// Lookup the class
-  JPObjectClass* jc = obj->getClass();
+  TRACE2("classname", cls->getSimpleName());
 
   // Convert to a capsule
-  JPyObject pyClass = cleaner.add(newClass(jc));
-  PyObject* joHolder = cleaner.add(PyJPObject::alloc(obj));
+  JPyObject pyClass = cleaner.add(newClass(cls));
+  PyObject* joHolder = cleaner.add(PyJPValue::alloc(cls, v));
 
   // Call the python class constructor
   JPyTuple args = cleaner.add(JPyTuple::newTuple(2));
@@ -960,78 +943,80 @@ void JPPyni::returnExternal(void* state)
 // Convert a java exception to python
 static void errorOccurred()
 {
-	TRACE_IN("PyJPModule::errorOccurred");
-	JPLocalFrame frame(8);
-	JPyCleaner cleaner;
+  TRACE_IN("PyJPModule::errorOccurred");
+  JPLocalFrame frame(8);
+  JPyCleaner cleaner;
 
-	// Get the throwable (object instance)
-	jthrowable th = JPEnv::getJava()->ExceptionOccurred();
+  // Get the throwable (object instance)
+  jthrowable th = JPEnv::getJava()->ExceptionOccurred();
+	jvalue val;
+	val.l = th;
 
-	// Tell java we have it covered
-	JPEnv::getJava()->ExceptionClear();
+  // Tell java we have it covered
+  JPEnv::getJava()->ExceptionClear();
 
-	// Find the class for the throwable
-	jclass ec = JPJni::getClass(th);
-	JPObjectClass* jpclass = dynamic_cast<JPObjectClass*>(JPTypeManager::findClass(ec));
-	if (jpclass==NULL)
-	{
+  // Find the class for the throwable
+  jclass ec = JPJni::getClass(th);
+  JPObjectClass* jpclass = dynamic_cast<JPObjectClass*>(JPTypeManager::findClass(ec));
+  if (jpclass==NULL)
+  {
     JPyErr::setRuntimeError("Unable to find java exception type");
-	}
+  }
 
-	// Create an exception object 
-	JPyObject jexclass = cleaner.add(JPPyni::newClass(jpclass));
+  // Create an exception object 
+  JPyObject jexclass = cleaner.add(JPPyni::newClass(jpclass));
 
-	// Convert the throwable to a python object
-	PyObject* pyth = cleaner.add(JPPyni::newObject(new JPObject(jpclass, th)));
+  // Convert the throwable to a python object
+  PyObject* pyth = cleaner.add(JPPyni::newObject(JPValue(jpclass, val)));
 
-	// Arguments to construct the python instance
-	JPyTuple args = cleaner.add(JPyTuple::newTuple(2));
-	args.setItem( 0, JPPyni::m_SpecialConstructorKey);
-	args.setItem( 1, pyth);
+  // Arguments to construct the python instance
+  JPyTuple args = cleaner.add(JPyTuple::newTuple(2));
+  args.setItem( 0, JPPyni::m_SpecialConstructorKey);
+  args.setItem( 1, pyth);
 
-	JPyTuple arg2 = cleaner.add(JPyTuple::newTuple(1));
-	arg2.setItem( 0, args);
+  JPyTuple arg2 = cleaner.add(JPyTuple::newTuple(1));
+  arg2.setItem( 0, args);
 
-	// Tell python about it
-	PyObject* pyexclass = cleaner.add(jexclass.getAttrString("PYEXC"));
-	JPyErr::setObject(pyexclass, arg2);
-	TRACE_OUT;
+  // Tell python about it
+  PyObject* pyexclass = cleaner.add(jexclass.getAttrString("PYEXC"));
+  JPyErr::setObject(pyexclass, arg2);
+  TRACE_OUT;
 }
 
 
 void JPPyni::handleCatch()
 {
-	try 
-	{
-		throw;
-	}
-	catch(JavaException& ex) 
-	{ 
-		try { 
-			errorOccurred(); 
-		} 
-		catch(...) 
-		{ 
-			JPyErr::setRuntimeError("An unknown error occured while handling a Java Exception");
-		}
-	}
-	catch(JPypeException& ex)
-	{
-		try { 
-			JPyErr::setRuntimeError(ex.getMsg()); 
-		} 
-		catch(...) 
-		{ 
-			JPyErr::setRuntimeError("An unknown error occured while handling a JPype Exception");
-		}
-	}
-	catch(PythonException& ex)
-	{
-		// Python error is already set up
-	}
-	catch(...)
-	{
-		JPyErr::setRuntimeError("Unknown Exception");
-	}
+  try 
+  {
+    throw;
+  }
+  catch(JavaException& ex) 
+  { 
+    try { 
+      errorOccurred(); 
+    } 
+    catch(...) 
+    { 
+      JPyErr::setRuntimeError("An unknown error occured while handling a Java Exception");
+    }
+  }
+  catch(JPypeException& ex)
+  {
+    try { 
+      JPyErr::setRuntimeError(ex.getMsg()); 
+    } 
+    catch(...) 
+    { 
+      JPyErr::setRuntimeError("An unknown error occured while handling a JPype Exception");
+    }
+  }
+  catch(PythonException& ex)
+  {
+    // Python error is already set up
+  }
+  catch(...)
+  {
+    JPyErr::setRuntimeError("Unknown Exception");
+  }
 } 
 

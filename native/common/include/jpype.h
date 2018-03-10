@@ -127,10 +127,10 @@ void longToHexString(long value, char* outStr);
 /** Definition of commonly used template types */
 typedef vector<string> StringVector;
 
+class JPValue;
 class JPClass;
 class JPArray;
 class JPArrayClass;
-class JPObject;
 class JPObjectClass;
 class JPField;
 class JPProxy;

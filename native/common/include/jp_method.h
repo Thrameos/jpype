@@ -17,8 +17,6 @@
 #ifndef _JPMETHOD_H_
 #define _JPMETHOD_H_
 
-class JPObject;
-
 /** 
  * JPMethod represents a collection of Methods which share the same name.
  * It does not correspond to a java object.
@@ -53,7 +51,7 @@ public :
 	PyObject*  invoke(vector<PyObject*>&); 
 	PyObject*  invokeStatic(vector<PyObject*>&); 
 	PyObject*  invokeInstance(vector<PyObject*>&); 
-	JPObject* invokeConstructor(vector<PyObject*>& args); 
+	JPValue invokeConstructor(vector<PyObject*>& args); 
 
 	string describe(string prefix);
 

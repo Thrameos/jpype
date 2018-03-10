@@ -235,7 +235,7 @@ PyObject* JPObjectClass::asHostObject(jvalue obj)
 		return arrayType->asHostObject(obj);
 	}
 
-	return JPPyni::newObject(new JPObject((JPObjectClass*)JPTypeManager::findClass(cls), obj.l));
+	return JPPyni::newValue(JPTypeManager::findClass(cls), obj.l);
 	TRACE_OUT;
 }
 
@@ -250,10 +250,10 @@ EMatchType JPObjectClass::canConvertToJava(PyObject* pyobj)
 		return _implicit;
 	}
 
-	if (obj.isJavaObject())
+	if (obj.isJavaValue())
 	{
-		JPObject* o = obj.asJavaObject();
-		JPObjectClass* oc = o->getClass(); 
+		const JPValue& value = obj.asJavaValue();
+		JPClass* oc = value.getClass(); 
 		TRACE2("Match name", oc->m_Name.getSimpleName());
 
 		if (oc == this)
@@ -265,16 +265,6 @@ EMatchType JPObjectClass::canConvertToJava(PyObject* pyobj)
 		if (JPEnv::getJava()->IsAssignableFrom(oc->m_Class, m_Class))
 		{
 			return _implicit;
-		}
-	}
-
-	if (obj.isWrapper())
-	{
-		JPClass* o = obj.getWrapperClass();
-		if (o == this)
-		{
-			TRACE1("exact wrapper");
-			return _exact;
 		}
 	}
 
@@ -309,9 +299,10 @@ jvalue JPObjectClass::convertToJava(PyObject* pyobj)
 		return res;
 	}
 
-	if (obj.isJavaObject())
+	if (obj.isJavaValue())
 	{
-		JPObject* ref = obj.asJavaObject();
+		const JPValue& value = obj.asJavaValue();
+		res = value.getValue();
 		res.l = frame.keep(ref->getObject());
 		return res;
 	}
@@ -323,18 +314,11 @@ jvalue JPObjectClass::convertToJava(PyObject* pyobj)
 		return res;
 	}
 
-	if (obj.isWrapper())
-	{
-		res = obj.getWrapperValue(); // FIXME isn't this one global already
-		res.l = frame.keep(res.l);
-		return res;
-	}
-
 	return res;
 	TRACE_OUT;
 }
 
-JPObject* JPObjectClass::newInstance(vector<PyObject*>& args)
+JPValue JPObjectClass::newInstance(vector<PyObject*>& args)
 {
 	return m_Constructors->invokeConstructor(args);
 }

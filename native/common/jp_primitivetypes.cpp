@@ -69,11 +69,8 @@ jobject JPPrimitiveType::convertToJavaObject(PyObject* pyobj)
 	args[0] = pyobj;
 
 	// Call the new instance
-	JPObject* o = c->newInstance(args);
-	jobject res = o->getObject(); 
-
-	// Keep only the jobject
-	delete o;
+	JPValue val = c->newInstance(args);
+	jobject res = val.getObject();
 	return frame.keep(res);
 }
 

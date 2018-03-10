@@ -272,8 +272,8 @@ PyObject* PyJPClass::newClassInstance(PyObject* o, PyObject* arg)
 			args.push_back(cleaner.add(JPySequence(arg).getItem(i)));
 		}
 
-		JPObject* resObject = cls->newInstance(args);
-	  return PyJPObject::alloc(resObject);
+		const JPValue& val = cls->newInstance(args);
+	  return PyJPValue::alloc(val);
 	}
 	PY_STANDARD_CATCH
 

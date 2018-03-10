@@ -1,5 +1,6 @@
+
 /*****************************************************************************
-   Copyright 2004-2008 Steve Menard
+   Copyright 2004 Steve Ménard
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -14,22 +15,13 @@
    limitations under the License.
    
 *****************************************************************************/   
+#include <jpype.h>
 
 
-#include <jpype_python.h>
-
-static void deleteJPObjectDestructor(CAPSULE_DESTRUCTOR_ARG_TYPE data)
+const jobject& JPValue::getObject() const
 {
-  delete (JPObject*)CAPSULE_EXTRACT(data);
-}
-
-PyObject* PyJPObject::alloc(JPObject* v)
-{
-  return JPyCapsule::fromVoidAndDesc((void*)v, "JPObject", &deleteJPObjectDestructor);
-}
-
-bool PyJPObject::check(PyObject* obj)
-{
-	return JPyCapsule::check(obj) && JPyCapsule(obj).getName() == string("JPObject");
+	if (m_Class->isObjectType())
+		return m_Value.l
+	RAISE(JPypeException, "access primitive value as object");
 }
 

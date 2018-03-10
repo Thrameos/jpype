@@ -310,14 +310,13 @@ PyObject* JPMethodOverload::invokeInstance(vector<PyObject*>& arg)
 	
 		// Arg 0 is "this"
 		PyObject* self = arg[0];
-		JPObject* selfObj = JPyAdaptor(self).asJavaObject();
-	
+		const JPValue& selfValue = JPyAdaptor(self).asJavaValue();
 	
 		JPMallocCleaner<jvalue> v(alen-1);
 		packArgs(v, arg, 1);
 		JPClass* retType = m_ReturnTypeCache;
 	
-		jobject c = selfObj->getObject();
+		jobject c = selfObj.getObject();
 		res = retType->invoke(c, m_Class, m_MethodID, v.borrow());
 		TRACE1("Call finished");
 	}
@@ -328,7 +327,7 @@ PyObject* JPMethodOverload::invokeInstance(vector<PyObject*>& arg)
 	TRACE_OUT;
 }
 
-JPObject* JPMethodOverload::invokeConstructor(JPObjectClass* claz, vector<PyObject*>& arg)
+JPValue JPMethodOverload::invokeConstructor(JPObjectClass* claz, vector<PyObject*>& arg)
 {
 	TRACE_IN("JPMethodOverload::invokeConstructor");
 	ensureTypeCache();
@@ -343,8 +342,7 @@ JPObject* JPMethodOverload::invokeConstructor(JPObjectClass* claz, vector<PyObje
 	val.l = JPEnv::getJava()->NewObjectA(claz->getNativeClass(), m_MethodID, v.borrow());
 	TRACE1("Object created");
 	
-	return new JPObject(claz, val.l);
-
+	return JPValue(claz, val);
 	TRACE_OUT;
 }
 

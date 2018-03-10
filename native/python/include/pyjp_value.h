@@ -14,8 +14,8 @@
    limitations under the License.
    
 *****************************************************************************/   
-#ifndef _PYJVALUE_H_
-#define _PYJVALUE_H_
+#ifndef _PYJP_VALUE_H_
+#define _PYJP_VALUE_H_
 
 namespace PyJPValue
 {
@@ -24,4 +24,4 @@ namespace PyJPValue
 	PyObject* convertToJValue(PyObject* self, PyObject* arg);
 }
 
-#endif // _PYJVALUE_H_
+#endif // _PYJP_VALUE_H_

@@ -33,8 +33,6 @@ public:
 	JPBoxedClass(jclass c);
 	virtual~ JPBoxedClass();
 
-  jvalue convertToJava(PyObject* obj);
-
 private:
   jobject buildObjectWrapper(PyObject* obj);
 };

@@ -106,33 +106,31 @@ PyObject* PyJPMonitor::synchronized(PyObject* obj, PyObject* args)
 		PyArg_ParseTuple(args, "O", &o);
 		JPyAdaptor adaptor(o);
 
-		jobject obj;
-		if (PyJPObject::check(o))
+		jobject obj = 0;
+		if (PyJPValue::check(o))
 		{
-			JPObject* jpo = (JPObject*)JPyCapsule(o).asVoidPtr();
-			obj = jpo->getObject();
+			const PyJPValue& val = PyJPValue::getValue(m_Value);
+			if (val.getClass()->isObjectType())
+				obj = val.getObject();
 		}
 		else if (PyJPClass::check(o))
 		{
-			JPClass* jpo = (JPClass*)o;
+			JPClass* jpo = ((PyJPClass*)o)->m_Class;
 			obj = jpo->getNativeClass();
 		}
 		else if (PyJPArray::check(o))
 		{
-			JPArray* jpo = (JPArray*)o;
+			JPArray* jpo = ((PyJPArray*)o)->m_Object;
 			obj = jpo->getObject();
 		}
 		else if (PyJPArrayClass::check(o))
 		{
-			JPArrayClass* jpo = (JPArrayClass*)o;
+			JPArrayClass* jpo = ((PyJPArrayClass*)o)->m_Class;
 			obj = jpo->getNativeClass();
 		}
-		else if (adaptor.isWrapper() && adaptor.getWrapperClass()->isObjectType())
-		{
-			obj = adaptor.getWrapperValue().l;
-		}
+	
 		// TODO proxy		
-		else 
+		if (!obj)
 		{
 			RAISE(JPypeException, "method only accepts object values.");
 		}
