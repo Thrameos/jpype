@@ -22,6 +22,7 @@ struct PyJPMethod
 	PyObject_HEAD
 	
 	// Python-visible methods
+	static PyTypeObject Type;
 	static void         initType(PyObject* module);
 	static PyJPMethod*  alloc(JPMethod* mth);
 
@@ -41,6 +42,7 @@ struct PyJPBoundMethod
 	PyObject_HEAD
 	
 	// Python-visible methods
+	static PyTypeObject Type;
 	static void         initType(PyObject* module);
 
 	static int         __init__(PyObject* self, PyObject* args, PyObject* kwargs);

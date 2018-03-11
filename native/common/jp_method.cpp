@@ -217,7 +217,7 @@ PyObject* JPMethod::invokeStatic(vector<PyObject*>& args)
 	return currentMatch->invokeStatic(args);
 }
 
-jvalue JPMethod::invokeConstructor(vector<PyObject*>& arg)
+JPValue JPMethod::invokeConstructor(vector<PyObject*>& arg)
 {
 	JPMethodOverload* currentMatch = findOverload(arg, false);
 	return currentMatch->invokeConstructor(m_Class, arg);	

@@ -26,6 +26,7 @@ PyObject* JPPyni::m_PythonJavaObject = NULL;
 PyObject* JPPyni::m_PythonJavaClass = NULL;
 PyObject* JPPyni::m_SpecialConstructorKey = NULL;
 PyObject* JPPyni::m_StringWrapperClass = NULL;
+PyObject* JPPyni::m_WrapperClass = NULL;
 
 //=====================================================================
 // JPyObject
@@ -731,7 +732,7 @@ bool JPyCapsule::check(PyObject* obj)
 // JPyAdaptor
 
 // This accepts either the capsule or the python object
-bool JPyAdaptor::isJavaValue()
+bool JPyAdaptor::isJavaValue() const
 {
 	return PyObject_HasAttrString(pyobj, "__javavalue__");
 }
@@ -745,14 +746,14 @@ const JPValue& JPyAdaptor::asJavaValue()
 		JPyErr::setRuntimeError("invalid __javavalue__");
 		JPyErr::raise("asJavaValue");
 	}
-  return PyJPValue::cast(javaObject);
+  return PyJPValue::getValue(javaObject);
 }
 
 JPClass* JPyAdaptor::asJavaClass()
 {
   JPyCleaner cleaner;
   PyObject* claz = cleaner.add(getAttrString("__javaclass__"));
- 	if (!PyJPClass::check(javaObject))
+ 	if (!PyJPClass::check(claz))
 	{
 		JPyErr::setRuntimeError("invalid __javaclass__");
 		JPyErr::raise("asJavaClass");
@@ -857,11 +858,11 @@ PyObject* JPPyni::newStringWrapper(jstring jstr)
 {
   JPyCleaner cleaner;
   TRACE_IN("JPPyni::newStringWrapper");
-  jvalue* v = new jvalue;
-  v->l = JPEnv::getJava()->NewGlobalRef(jstr);
+  jvalue v;
+  v.l = JPEnv::getJava()->NewGlobalRef(jstr);
 
   // Create a new jvalue wrapper
-  PyObject* value = cleaner.add(PyJPValue::allocObject(v));
+  PyObject* value = cleaner.add(PyJPValue::alloc(JPTypeManager::_java_lang_String, v));
 
   // Set up arguments
   JPyTuple args = cleaner.add(JPyTuple::newTuple(1));
@@ -872,7 +873,7 @@ PyObject* JPPyni::newStringWrapper(jstring jstr)
   PY_CHECK( res = cleaner.add(PyObject_Call(m_StringWrapperClass, args, Py_None)) );
 
   // Push into resource
-  PY_CHECK( PyObject_SetAttrString(res, "_value", cleaner.keep(value) ));
+  PY_CHECK( PyObject_SetAttrString(res, "__javavalue__", cleaner.keep(value) ));
 
   // Return the resource
   return cleaner.keep(res);
@@ -893,7 +894,7 @@ JPyObject JPPyni::newClass(JPObjectClass* m)
 
 PyObject* JPPyni::newObject(const JPValue& value)
 {
-	JPClass* cls = value.getClass();
+	JPObjectClass* cls = (JPObjectClass*)value.getClass();
 	jvalue v = value.getValue();
   JPyCleaner cleaner;
   TRACE_IN("JPPyni::newObject");
@@ -901,7 +902,7 @@ PyObject* JPPyni::newObject(const JPValue& value)
 
   // Convert to a capsule
   JPyObject pyClass = cleaner.add(newClass(cls));
-  PyObject* joHolder = cleaner.add(PyJPValue::alloc(cls, v));
+  PyObject* joHolder = cleaner.add((PyObject*)PyJPValue::alloc(cls, v));
 
   // Call the python class constructor
   JPyTuple args = cleaner.add(JPyTuple::newTuple(2));

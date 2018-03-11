@@ -63,7 +63,6 @@ typedef int Py_ssize_t;
 #include "pyjp_class.h"
 #include "pyjp_field.h"
 #include "pyjp_proxy.h"
-#include "pyjp_object.h"
 #include "pyjp_value.h"
 
 #include "jpype_memory_view.h"

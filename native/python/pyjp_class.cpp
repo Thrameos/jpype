@@ -45,7 +45,7 @@ static PyMethodDef classMethods[] = {
   {NULL},
 };
 
-static PyTypeObject classClassType = 
+PyTypeObject PyJPClass::Type = 
 {
 	PyVarObject_HEAD_INIT(&PyType_Type, 0)
 	"JavaClass",              /*tp_name*/
@@ -90,13 +90,13 @@ static PyTypeObject classClassType =
 // Static methods
 void PyJPClass::initType(PyObject* module)
 {
-	PyType_Ready(&classClassType);
-	PyModule_AddObject(module, "_JavaClass", (PyObject*)&classClassType); 
+	PyType_Ready(&PyJPClass::Type);
+	PyModule_AddObject(module, "_JavaClass", (PyObject*)&PyJPClass::Type); 
 }
 
 PyJPClass* PyJPClass::alloc(JPClass* cls)
 {
-	PyJPClass* res = PyObject_New(PyJPClass, &classClassType);
+	PyJPClass* res = PyObject_New(PyJPClass, &PyJPClass::Type);
 
 	res->m_Class = cls;
 	
@@ -273,7 +273,7 @@ PyObject* PyJPClass::newClassInstance(PyObject* o, PyObject* arg)
 		}
 
 		const JPValue& val = cls->newInstance(args);
-	  return PyJPValue::alloc(val);
+	  return (PyObject*)PyJPValue::alloc(val);
 	}
 	PY_STANDARD_CATCH
 
@@ -327,7 +327,7 @@ PyObject* PyJPClass::isException(PyObject* o, PyObject* args)
 
 bool PyJPClass::check(PyObject* o)
 {
-	return o->ob_type == &classClassType;
+	return o->ob_type == &PyJPClass::Type;
 }
 
 PyObject* convert(vector<jobject> objs, JPClass* classType)

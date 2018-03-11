@@ -17,11 +17,28 @@
 #ifndef _PYJP_VALUE_H_
 #define _PYJP_VALUE_H_
 
-namespace PyJPValue
+struct PyJPValue
 {
-	PyObject* allocPrimitive(jvalue* v);
-	PyObject* allocObject(jvalue* v);
-	PyObject* convertToJValue(PyObject* self, PyObject* arg);
-}
+	PyObject_HEAD
 
-#endif // _PYJP_VALUE_H_
+	static PyObject* alloc(const JPValue& value);
+	static PyObject* alloc(JPClass* cls, jvalue value);
+	static const JPValue&  getValue(PyObject* self);
+
+	// Object A
+	static PyTypeObject Type;
+	static void        initType(PyObject* module);
+	static bool        check(PyObject* o);
+	static void        __dealloc__(PyObject* self);
+
+	// Python-visible methods
+	static PyObject*   getJavaClass(PyObject* self, PyObject* args);
+	static PyObject*   getPythonClass(PyObject* self, PyObject* args);
+
+	// Module global methods
+	static PyObject*   convertToJavaValue(PyObject* moduel, PyObject* args);
+
+	JPValue m_Value;
+};
+
+#endif // _PYJP_VALUE_H_2

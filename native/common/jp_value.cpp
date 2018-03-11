@@ -17,11 +17,10 @@
 *****************************************************************************/   
 #include <jpype.h>
 
-
 const jobject& JPValue::getObject() const
 {
 	if (m_Class->isObjectType())
-		return m_Value.l
+		return m_Value.l;
 	RAISE(JPypeException, "access primitive value as object");
 }
 

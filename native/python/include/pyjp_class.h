@@ -29,6 +29,7 @@ struct PyJPClass
 	static PyObject* findPrimitiveClass(PyObject* obj, PyObject* args);
 	
 	// Python-visible methods
+	static PyTypeObject Type;
 	static void         initType(PyObject* module);
 	static PyJPClass*   alloc(JPClass* cls);
 	static bool   check(PyObject* o);

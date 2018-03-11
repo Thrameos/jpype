@@ -24,11 +24,11 @@
 class JPValue 
 {
   public :
-    JPValue(JPObjectClass* clazz, const jvalue& value)
+    JPValue(JPClass* clazz, const jvalue& value)
       : m_Class(clazz), m_Value(value)
     {}
 
-    JPValue::~JPValue() {}
+    ~JPValue() {}
     
     JPClass* getClass() const
     {
@@ -42,12 +42,12 @@ class JPValue
 
 		const jobject& getObject() const;
 
-    operator jvalue&() { return value; }
-    operator const jvalue&() const { return value; }
+    operator jvalue&() { return m_Value; }
+    operator const jvalue&() const { return m_Value; }
 
   private :
+    JPClass* m_Class;
     jvalue m_Value;
-    JPClass m_Class;
 };
 
 #endif // _JPVALUE_H_

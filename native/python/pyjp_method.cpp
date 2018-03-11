@@ -24,7 +24,7 @@ static PyMethodDef methodMethods[] = {
 	{NULL},
 };
 
-static PyTypeObject methodClassType = 
+PyTypeObject PyJPMethod::Type = 
 {
 	PyVarObject_HEAD_INIT(&PyType_Type, 0)
 	"JavaMethod",              /*tp_name*/
@@ -70,13 +70,13 @@ static PyTypeObject methodClassType =
 // Static methods
 void PyJPMethod::initType(PyObject* module)
 {
-	PyType_Ready(&methodClassType);
-	PyModule_AddObject(module, "_JavaMethod", (PyObject*)&methodClassType); 
+	PyType_Ready(&PyJPMethod::Type);
+	PyModule_AddObject(module, "_JavaMethod", (PyObject*)&PyJPMethod::Type); 
 }
 
 PyJPMethod* PyJPMethod::alloc(JPMethod* m)
 {
-	PyJPMethod* res = PyObject_New(PyJPMethod, &methodClassType);
+	PyJPMethod* res = PyObject_New(PyJPMethod, &PyJPMethod::Type);
 
 	res->m_Method = m;
 	
@@ -201,7 +201,7 @@ static PyMethodDef boundMethodMethods[] = {
 	{NULL},
 };
 
-static PyTypeObject boundMethodClassType = 
+PyTypeObject PyJPBoundMethod::Type = 
 {
 	PyVarObject_HEAD_INIT(&PyType_Type, 0)
 	"JavaBoundMethod",              /*tp_name*/
@@ -247,8 +247,8 @@ static PyTypeObject boundMethodClassType =
 // Static methods
 void PyJPBoundMethod::initType(PyObject* module)
 {
-	PyType_Ready(&boundMethodClassType);
-	PyModule_AddObject(module, "_JavaBoundMethod", (PyObject*)&boundMethodClassType); 
+	PyType_Ready(&PyJPBoundMethod::Type);
+	PyModule_AddObject(module, "_JavaBoundMethod", (PyObject*)&PyJPBoundMethod::Type); 
 }
 
 int PyJPBoundMethod::__init__(PyObject* o, PyObject* args, PyObject* kwargs)
@@ -258,7 +258,7 @@ int PyJPBoundMethod::__init__(PyObject* o, PyObject* args, PyObject* kwargs)
 
 		PyObject* javaMethod;
 		PyObject* inst;
-		PyArg_ParseTuple(args, "OO", &javaMethod, &inst);
+		PyArg_ParseTuple(args, "OO!", &javaMethod, &PyJPMethod::Type, &inst);
 
 		Py_INCREF(inst);
 		Py_INCREF(javaMethod);

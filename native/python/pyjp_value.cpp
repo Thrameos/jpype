@@ -14,70 +14,161 @@
    limitations under the License.
    
 *****************************************************************************/   
+#include <jpype_python.h>  
 
+static PyMethodDef classMethods[] = {
+  {"getJavaClass",         &PyJPValue::getJavaClass, METH_NOARGS, ""},
+  {"getPythonClass",       &PyJPValue::getPythonClass, METH_NOARGS, ""},
+  {NULL},
+};
 
-#include <jpype_python.h>
-
-static void deleteObjectJValueDestructor(CAPSULE_DESTRUCTOR_ARG_TYPE data)
+PyTypeObject PyJPValue::Type = 
 {
-	jvalue* pv = (jvalue*)CAPSULE_EXTRACT(data);
-	JPEnv::getJava()->DeleteGlobalRef(pv->l);
-	delete pv;
+  PyVarObject_HEAD_INIT(&PyType_Type, 0)
+  "JavaValue",               /* tp_name */
+  sizeof(PyJPValue),         /* tp_basicsize */
+  0,                         /* tp_itemsize */
+  PyJPValue::__dealloc__,   /* tp_dealloc */
+  0,                         /* tp_print */
+  0,                         /* tp_getattr */
+  0,                         /* tp_setattr */
+  0,                         /* tp_compare */
+  0,                         /* tp_repr */
+  0,                         /* tp_as_number */
+  0,                         /* tp_as_sequence */
+  0,                         /* tp_as_mapping */
+  0,                         /* tp_hash */
+  0,                         /* tp_call */
+  0,                         /* tp_str */
+  0,                         /* tp_getattro */
+  0,                         /* tp_setattro */
+  0,                         /* tp_as_buffer */
+  Py_TPFLAGS_DEFAULT,        /* tp_flags */
+  "Java Value",              /* tp_doc */
+  0,                         /* tp_traverse */
+  0,                         /* tp_clear */
+  0,                         /* tp_richcompare */
+  0,                         /* tp_weaklistoffset */
+  0,                         /* tp_iter */
+  0,                         /* tp_iternext */
+  classMethods,              /* tp_methods */
+  0,                         /* tp_members */
+  0,                         /* tp_getset */
+  0,                         /* tp_base */
+  0,                         /* tp_dict */
+  0,                         /* tp_descr_get */
+  0,                         /* tp_descr_set */
+  0,                         /* tp_dictoffset */
+  0,                         /* tp_init */
+  0,                         /* tp_alloc */
+  PyType_GenericNew          /* tp_new */
+};
+
+// Static methods
+void PyJPValue::initType(PyObject* module)
+{
+  PyType_Ready(&PyJPValue::Type);
+  PyModule_AddObject(module, "_JavaValue", (PyObject*)&PyJPValue::Type); 
 }
 
-static void deleteJValueDestructor(CAPSULE_DESTRUCTOR_ARG_TYPE data)
+PyObject* PyJPValue::alloc(const JPValue& value)
 {
-	jvalue* pv = (jvalue*)CAPSULE_EXTRACT(data);
-	delete pv;
+  return alloc(value.getClass(), value.getValue());
 }
 
-PyObject* PyJPValue::allocPrimitive(jvalue* v)
+PyObject* PyJPValue::alloc(JPClass* cls, jvalue value)
 {
-	return JPyCapsule::fromVoidAndDesc((void*)v, "object jvalue", deleteObjectJValueDestructor);
+  PyJPValue* res = PyObject_New(PyJPValue, &PyJPValue::Type);
+  if (cls->isObjectType())
+    value.l = JPEnv::getJava()->NewGlobalRef(value.l);
+  res->m_Value = JPValue(cls, value);
+  return (PyObject*)res;
 }
 
-PyObject* PyJPValue::allocObject(jvalue* v)
+void PyJPValue::__dealloc__(PyObject* o)
 {
-  return JPyCapsule::fromVoidAndDesc((void*)v, "jvalue", deleteJValueDestructor);
+  TRACE_IN("PyJPValue::__dealloc__");
+  PyJPValue* self = (PyJPValue*)o;
+	JPClass* cls = self->m_Value.getClass();
+  if (cls->isObjectType())
+    JPEnv::getJava()->DeleteGlobalRef(self->m_Value.getValue().l);
+  Py_TYPE(self)->tp_free(o);
+  TRACE_OUT;
 }
 
-PyObject* PyJPValue::convertToJValue(PyObject* self, PyObject* arg)
+bool PyJPValue::check(PyObject* o)
 {
-	JPLocalFrame frame;
-	try {
-		JPPyni::assertInitialized();
-		PyObject* claz;
-		PyObject* value;
+  return o->ob_type == &PyJPValue::Type;
+}
 
-		PyArg_ParseTuple(arg, "OO", &claz, &value);
-		if ( !PyJPClass::check(claz))
+const JPValue& PyJPValue::getValue(PyObject* self)
+{
+  return ((PyJPValue*)self)->m_Value;
+}
+
+/** Get a java object representing the java.lang.Class */
+PyObject* PyJPValue::getJavaClass(PyObject* obj, PyObject* args)
+{
+  JPLocalFrame frame;
+	try
+  {
+    PyJPValue* value = (PyJPValue*) obj;
+    jvalue v;
+    v.l = (jobject)(value->m_Value.getClass()->getNativeClass());
+    return JPTypeManager::_java_lang_Class->asHostObject(v);
+  }
+  PY_STANDARD_CATCH
+  return NULL;
+}
+
+/** Get the python class for this value */
+PyObject* PyJPValue::getPythonClass(PyObject* obj, PyObject* args)
+{
+  JPLocalFrame frame;
+  try
+	{
+    PyJPValue* value = (PyJPValue*) obj;
+    JPClass* cls = value->m_Value.getClass();
+		if (cls->isArray())
 		{
-			RAISE(JPypeException, "argument 1 must be a _jpype.JavaClass");
+			JPArrayClass* acls = (JPArrayClass*)cls;
+			return JPPyni::newArrayClass(acls);
 		}
-
-		JPClass* type = ((PyJPClass*)claz)->m_Class;
-		if (type==NULL)
+		else if (cls->isObjectType())
 		{
-			Py_RETURN_NONE;
+			JPObjectClass* ocls = (JPObjectClass*)cls;
+			return JPPyni::newClass(ocls);
 		}
+    Py_RETURN_NONE;
+  }
+  PY_STANDARD_CATCH
+  return NULL;
+}
 
-		jvalue v = type->convertToJava(value);
-		jvalue* pv = new jvalue();
 
-		// Transfer ownership to python
-		if (type->isObjectType())
-		{
-			pv->l = JPEnv::getJava()->NewGlobalRef(v.l);
-			return PyJPValue::allocObject(pv);
-		}
-		else
-		{
-			*pv = v;
-			return PyJPValue::allocPrimitive(pv);
-		}
-	}
-	PY_STANDARD_CATCH
+// =================================================================
+// Global functions
 
-	return NULL;
+PyObject* PyJPValue::convertToJavaValue(PyObject* module, PyObject* args)
+{
+  JPLocalFrame frame;
+  try
+	{
+    JPPyni::assertInitialized();
+    PyObject* claz;
+    PyObject* value;
+
+    PyArg_ParseTuple(args, "O!O", &PyJPClass::Type, &claz, &value);
+    JPClass* type = ((PyJPClass*)claz)->m_Class;
+    if (type == NULL)
+    {
+      Py_RETURN_NONE;
+    }
+
+    jvalue v = type->convertToJava(value);
+    return alloc(type, v);
+  }
+  PY_STANDARD_CATCH
+  return NULL;
 }
 

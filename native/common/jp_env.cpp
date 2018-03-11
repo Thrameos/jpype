@@ -118,10 +118,10 @@ void JPEnv::registerRef(PyObject* ref, PyObject* targetRef)
 {
 	TRACE_IN("JPEnv::registerRef");
 	JPLocalFrame frame;
-	const JPValue& objRef = JPyAdaptor(s_Host).asJavaValue(ref);
+	const JPValue& objRef = JPyAdaptor(ref).asJavaValue();
 	TRACE1("A");
 	jobject srcObject = objRef.getObject();
-	JPJni::registerRef(s_Java->getReferenceQueue(), srcObject, (jlong)targetRef->copy());
+	JPJni::registerRef(s_Java->getReferenceQueue(), srcObject, (jlong)targetRef);
 	TRACE_OUT;
 	TRACE1("B");
 }

@@ -44,7 +44,7 @@ static PyMethodDef jpype_methods[] =
   {"findArrayClass", &PyJPArrayClass::findArrayClass, METH_VARARGS, ""},
   {"findPrimitiveClass", &PyJPClass::findPrimitiveClass, METH_VARARGS, ""},
   {"createProxy", &PyJPProxy::createProxy, METH_VARARGS, ""},
-  {"convertToJValue", &PyJPValue::convertToJValue, METH_VARARGS, ""},
+  {"convertToJValue", &PyJPValue::convertToJavaValue, METH_VARARGS, ""},
 
   {"convertToDirectBuffer", &PyJPModule::convertToDirectBuffer, METH_VARARGS, ""},
 

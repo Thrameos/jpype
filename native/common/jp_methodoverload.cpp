@@ -316,7 +316,7 @@ PyObject* JPMethodOverload::invokeInstance(vector<PyObject*>& arg)
 		packArgs(v, arg, 1);
 		JPClass* retType = m_ReturnTypeCache;
 	
-		jobject c = selfObj.getObject();
+		jobject c = selfValue.getObject();
 		res = retType->invoke(c, m_Class, m_MethodID, v.borrow());
 		TRACE1("Call finished");
 	}

@@ -235,7 +235,7 @@ PyObject* JPObjectClass::asHostObject(jvalue obj)
 		return arrayType->asHostObject(obj);
 	}
 
-	return JPPyni::newValue(JPTypeManager::findClass(cls), obj.l);
+	return JPPyni::newObject(JPValue(JPTypeManager::findClass(cls), obj));
 	TRACE_OUT;
 }
 
@@ -262,7 +262,7 @@ EMatchType JPObjectClass::canConvertToJava(PyObject* pyobj)
 			return _exact;
 		}
 
-		if (JPEnv::getJava()->IsAssignableFrom(oc->m_Class, m_Class))
+		if (JPEnv::getJava()->IsAssignableFrom(oc->getNativeClass(), getNativeClass()))
 		{
 			return _implicit;
 		}
@@ -303,7 +303,7 @@ jvalue JPObjectClass::convertToJava(PyObject* pyobj)
 	{
 		const JPValue& value = obj.asJavaValue();
 		res = value.getValue();
-		res.l = frame.keep(ref->getObject());
+		res.l = frame.keep(res.l);
 		return res;
 	}
 

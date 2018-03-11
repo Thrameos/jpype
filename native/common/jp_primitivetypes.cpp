@@ -48,13 +48,13 @@ JPObjectClass* JPPrimitiveType::getBoxedClass()
 	return m_BoxedClass;
 }
 
-bool checkWrapper(PyObject* pyobj, JPClass* cls)
+bool checkValue(PyObject* pyobj, JPClass* cls)
 {
 	JPyAdaptor obj(pyobj);
-	if (obj.isWrapper())
+	if (obj.isJavaValue())
 	{
-		JPClass* name = obj.getWrapperClass();
-		return (name == cls);
+		const JPValue& value = obj.asJavaValue();
+		return (value.getClass() == cls);
 	}
 	return false;
 }
@@ -104,7 +104,7 @@ EMatchType JPByteType::canConvertToJava(PyObject* pyobj)
 		return _implicit;
 	}
 
-	if (checkWrapper(obj, JPTypeManager::_byte))
+	if (checkValue(obj, JPTypeManager::_byte))
 	{
 		return _exact;
 	}
@@ -117,6 +117,10 @@ jvalue JPByteType::convertToJava(PyObject* pyobj)
 	JPyAdaptor obj(pyobj);
 
 	jvalue res;
+	if (checkValue(obj, JPTypeManager::_byte))
+	{
+		return obj.asJavaValue();
+	}
 	if (obj.isInt())
 	{
 		jint l = JPyInt(obj).asInt();
@@ -136,10 +140,6 @@ jvalue JPByteType::convertToJava(PyObject* pyobj)
 			JPyErr::raise("JPByteType::convertToJava");
 		}
 		res.b = (jbyte)l;
-	}
-	else if (obj.isWrapper())
-	{
-		return obj.getWrapperValue();
 	}
 	return res;
 }
@@ -201,7 +201,7 @@ EMatchType JPShortType::canConvertToJava(PyObject* pyobj)
 		return _implicit;
 	}
 
-	if (checkWrapper(obj, JPTypeManager::_short))
+	if (checkValue(obj, JPTypeManager::_short))
 	{
 		return _exact;
 	}
@@ -214,6 +214,10 @@ jvalue JPShortType::convertToJava(PyObject* pyobj)
 	JPyAdaptor obj(pyobj);
 
 	jvalue res;
+	if (checkValue(obj, JPTypeManager::_short))
+	{
+		return obj.asJavaValue();
+	}
 	if (obj.isInt())
 	{
 		jint l = JPyInt(obj).asInt();;
@@ -234,10 +238,6 @@ jvalue JPShortType::convertToJava(PyObject* pyobj)
 			JPyErr::raise("JPShortType::convertToJava");
 		}
 		res.s = (jshort)l;
-	}
-	else if (obj.isWrapper())
-	{
-		return obj.getWrapperValue();
 	}
 	return res;
 }
@@ -271,9 +271,14 @@ EMatchType JPIntType::canConvertToJava(PyObject* pyobj)
 		return _none;
 	}
 
+	if (checkValue(obj, JPTypeManager::_int))
+	{
+		return _exact;
+	}
+
 	if (obj.isInt())
 	{
-		if (obj.isJavaObject())
+		if (obj.isJavaValue())
 		{
 			return _implicit;
 		}
@@ -285,11 +290,6 @@ EMatchType JPIntType::canConvertToJava(PyObject* pyobj)
 		return _implicit;
 	}
 
-	if (checkWrapper(obj, JPTypeManager::_int))
-	{
-		return _exact;
-	}
-
 	return _none;
 }
 
@@ -298,6 +298,10 @@ jvalue JPIntType::convertToJava(PyObject* pyobj)
 	JPyAdaptor obj(pyobj);
 
 	jvalue res;
+	if (checkValue(obj, JPTypeManager::_int))
+	{
+		return obj.asJavaValue();
+	}
 	if (obj.isInt())
 	{
 		jint l = JPyInt(obj).asInt();;
@@ -318,10 +322,6 @@ jvalue JPIntType::convertToJava(PyObject* pyobj)
 			JPyErr::raise("JPIntType::convertToJava");
 		}
 		res.i = (jint)l;
-	}
-	else if (obj.isWrapper())
-	{
-		return obj.getWrapperValue();
 	}
 
 	return res;
@@ -357,6 +357,11 @@ EMatchType JPLongType::canConvertToJava(PyObject* pyobj)
 		return _none;
 	}
 
+	if (checkValue(obj, JPTypeManager::_long))
+	{
+		return _exact;
+	}
+
 	if (obj.isInt())
 	{
 		return _implicit;
@@ -364,15 +369,10 @@ EMatchType JPLongType::canConvertToJava(PyObject* pyobj)
 
 	if (obj.isLong())
 	{
-		if (obj.isJavaObject())
+		if (obj.isJavaValue())
 		{
 			return _implicit;
 		}
-		return _exact;
-	}
-
-	if (checkWrapper(obj, JPTypeManager::_long))
-	{
 		return _exact;
 	}
 
@@ -384,6 +384,10 @@ jvalue JPLongType::convertToJava(PyObject* pyobj)
 	JPyAdaptor obj(pyobj);
 
 	jvalue res;
+	if (checkValue(obj, JPTypeManager::_long))
+	{
+		return obj.asJavaValue();
+	}
 	if (obj.isInt())
 	{
 		res.j = (jlong)JPyInt(obj).asInt();
@@ -391,10 +395,6 @@ jvalue JPLongType::convertToJava(PyObject* pyobj)
 	else if (obj.isLong())
 	{
 		res.j = (jlong)JPyLong(obj).asLong();
-	}
-	else if (obj.isWrapper())
-	{
-		return obj.getWrapperValue();
 	}
 	else
 	{
@@ -433,18 +433,18 @@ EMatchType JPFloatType::canConvertToJava(PyObject* pyobj)
 		return _none;
 	}
 
+	if (checkValue(obj, JPTypeManager::_float))
+	{
+		return _exact;
+	}
+
 	if (obj.isFloat())
 	{
-		if (obj.isJavaObject())
+		if (obj.isJavaValue())
 		{
 			return _implicit;
 		}
 		return _implicit;
-	}
-
-	if (checkWrapper(obj, JPTypeManager::_float))
-	{
-		return _exact;
 	}
 
 	// Java allows conversion to any type with a longer range even if lossy
@@ -461,9 +461,9 @@ jvalue JPFloatType::convertToJava(PyObject* pyobj)
 	JPyAdaptor obj(pyobj);
 
 	jvalue res;
-	if (obj.isWrapper())
+	if (checkValue(obj, JPTypeManager::_float))
 	{
-		return obj.getWrapperValue();
+		return obj.asJavaValue();
 	}
 	else if (obj.isInt())
 	{
@@ -518,17 +518,17 @@ EMatchType JPDoubleType::canConvertToJava(PyObject* pyobj)
 		return _none;
 	}
 
-	if (obj.isFloat())
+	if (checkValue(obj, JPTypeManager::_double))
 	{
-	  if (obj.isJavaObject())
-		{
-			return _implicit;
-		}
 		return _exact;
 	}
 
-	if (checkWrapper(obj, JPTypeManager::_double))
+	if (obj.isFloat())
 	{
+	  if (obj.isJavaValue())
+		{
+			return _implicit;
+		}
 		return _exact;
 	}
 
@@ -546,9 +546,9 @@ jvalue JPDoubleType::convertToJava(PyObject* pyobj)
 	JPyAdaptor obj(pyobj);
 
 	jvalue res;
-	if (obj.isWrapper())
+	if (checkValue(obj, JPTypeManager::_double))
 	{
-		return obj.getWrapperValue();
+		return obj.asJavaValue();
 	}
 	else if (obj.isInt())
 	{
@@ -599,14 +599,14 @@ EMatchType JPCharType::canConvertToJava(PyObject* pyobj)
 		return _none;
 	}
 
+	if (checkValue(obj, JPTypeManager::_char))
+	{
+		return _exact;
+	}
+
 	if (obj.isString() && JPyString(obj).isChar())
 	{
 		return _implicit;
-	}
-
-	if (checkWrapper(obj, JPTypeManager::_char))
-	{
-		return _exact;
 	}
 
 	return _none;
@@ -618,9 +618,9 @@ jvalue JPCharType::convertToJava(PyObject* pyobj)
 
 	jvalue res;
 
-	if (obj.isWrapper())
+	if (checkValue(obj, JPTypeManager::_char))
 	{
-		return obj.getWrapperValue();
+		return obj.asJavaValue();
 	}
 	else
 	{
@@ -658,14 +658,14 @@ EMatchType JPBooleanType::canConvertToJava(PyObject* pyobj)
 {
 	JPyAdaptor obj(pyobj);
 
+	if (checkValue(obj, JPTypeManager::_boolean))
+	{
+		return _exact;
+	}
+
 	if (obj.isInt() || obj.isLong())
 	{
 		return _implicit;
-	}
-
-	if (checkWrapper(obj, JPTypeManager::_boolean))
-	{
-		return _exact;
 	}
 
 	// FIXME what about isTrue and isFalse? Those should be exact
@@ -677,9 +677,9 @@ jvalue JPBooleanType::convertToJava(PyObject* pyobj)
 {
 	JPyAdaptor obj(pyobj);
 	jvalue res;
-	if (obj.isWrapper())
+	if (checkValue(obj, JPTypeManager::_boolean))
 	{
-		return obj.getWrapperValue();
+		return obj.asJavaValue();
 	}
 	else if (obj.isLong())
 	{

@@ -74,7 +74,7 @@ EMatchType JPArrayClass::canConvertToJava(PyObject* pyobj)
 		// Strings are also char[]
 		return _implicit;
 	}
-	else if (obj.isSequence() && !obj.isJavaObject())
+	else if (obj.isSequence() && !obj.isJavaValue())
 	{
 		JPyCleaner cleaner;
 		TRACE1("Sequence");

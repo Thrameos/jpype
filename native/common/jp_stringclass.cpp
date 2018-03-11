@@ -107,8 +107,8 @@ jvalue JPStringClass::convertToJava(PyObject* pyobj)
 		}
 		else
 		{
-			JPPyni::setValueError("Invalid class in conversion");
-			JPPyni::raise("convertToJava");
+			JPyErr::setTypeError("Invalid class in conversion");
+			JPyErr::raise("convertToJava");
 		}
 	}
 

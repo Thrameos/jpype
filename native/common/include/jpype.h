@@ -142,6 +142,7 @@ class HostException;
 #include "jp_utility.h"
 #include "jp_pyni.h"
 #include "jp_javaenv.h"
+#include "jp_value.h"
 #include "jp_env.h"
 #include "jp_jni.h"
 
@@ -163,7 +164,6 @@ class HostException;
 #include "jp_typemanager.h"
 
 #include "jp_objectbase.h"
-#include "jp_object.h"
 #include "jp_array.h"
 
 #include "jp_invocationhandler.h"

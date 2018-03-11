@@ -49,24 +49,26 @@ public:
   /** Get the value of a static field.
 	 * throws AttributeError if not found.
 	 */	
-	PyObject*                getStaticAttribute(const string& attr_name);
+	PyObject* getStaticAttribute(const string& attr_name);
 
   /** Set the value of a static field.
 	 * throws AttributeError if not found.
 	 */	
-	void                    setStaticAttribute(const string& attr_name, PyObject* val);
-	
-	JPObject*               newInstance(vector<PyObject*>& args);
+	void setStaticAttribute(const string& attr_name, PyObject* val);
+
+  /** Create a new instance Java object.
+	 */	
+	JPValue newInstance(vector<PyObject*>& args);
 
 	/** Get a member field.
 	 * Returns the field or NULL if not found.
 	 */
-	JPField*                getInstanceField(const string& name);
+	JPField* getInstanceField(const string& name);
 
 	/** Get a static field.
 	 * Returns the field or NULL if not found.
 	 */
-	JPField*                getStaticField(const string& name);
+	JPField* getStaticField(const string& name);
 
   /** Get a method.
 	 * Returns the method or NULL if not found.

@@ -40,6 +40,13 @@ EMatchType JPObjectBaseClass::canConvertToJava(PyObject* pyobj)
 	TRACE_IN("JPObjectBaseClass::canConvertToJava");
 
 	// arrays are objects
+	if (obj.isJavaValue())
+	{
+		TRACE1("From jvalue");
+		return _implicit;
+	}
+
+	// arrays are objects
 	if (obj.isArray())
 	{
 		TRACE1("From array");
@@ -108,9 +115,9 @@ jvalue JPObjectBaseClass::convertToJava(PyObject* pyobj)
 
 	else if (obj.isJavaValue())
 	{
-		JPValue ref = obj.asJavaValue();
-		if (ref.getClass()->isObjectClass())
-			res.l = ref->getObject();
+		const JPValue& ref = obj.asJavaValue();
+		if (ref.getClass()->isObjectType())
+			res.l = ref.getObject();
 		else
 			res.l = ((JPPrimitiveType*)ref.getClass())->convertToJavaObject(pyobj);
 	}
@@ -157,11 +164,6 @@ jvalue JPObjectBaseClass::convertToJava(PyObject* pyobj)
 		res.l = proxy->getProxy();
 	}
 
-	else if (obj.isWrapper())
-	{
-		res = obj.getWrapperValue(); // FIXME isn't this one global already
-	}
-
 	res.l = frame.keep(res.l);
 	return res;
 	TRACE_OUT;
@@ -202,8 +204,8 @@ EMatchType JPClassBaseClass::canConvertToJava(PyObject* pyobj)
 
 	if (obj.isJavaValue())
 	{
-		JPClass* cls = obj.getJavaValue().getClass();
-		if (cls == JPTypeManager::_java_lang_Class;
+		JPClass* cls = obj.asJavaValue().getClass();
+		if (cls == JPTypeManager::_java_lang_Class)
 			return _exact;
 	}
 	return _none;

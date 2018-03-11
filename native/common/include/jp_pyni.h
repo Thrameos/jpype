@@ -111,7 +111,7 @@ namespace JPPyni
 
 	JPyObject newClass(JPObjectClass* m);
 
-	/** Create a new python object of type JavaArray
+	/** Create a new python object of type JavaArrayCladd
 	 */
 	JPyObject newArrayClass(JPArrayClass* m);
 
@@ -126,7 +126,9 @@ namespace JPPyni
 
 	void printError();
 	PyObject* newStringWrapper(jstring jstr);
-	PyObject* newObject(JPObject* obj);
+
+	/** Create a python JObject */
+  PyObject* newObject(const JPValue& value);
 
 	void* prepareCallbackBegin();
 	void prepareCallbackFinish(void* state);
@@ -351,10 +353,13 @@ namespace JPyErr
 	/** Create a runtime error in python */
 	void setRuntimeError(const char* msg);
 
-	/** Create a attribute error in python */
+	/** Create a attribute error in python.
+	 */
 	void setAttributeError(const char* msg);
 
-	/** Create a type error in python */
+	/** Create a type error in python
+	 * Use when an object is cast to the wrong type.
+	 */
 	void setTypeError(const char* msg);
 
 	/** Terminate the function.  
