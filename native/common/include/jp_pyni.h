@@ -105,7 +105,7 @@ namespace JPPyni
 	/** Handle for exceptions.
 	 * This will rethrow the exception and pass the exception to python.
 	 */
-	void handleCatch();
+	void handleException();
 
 	JPyObject newMethod(JPMethod* m);
 

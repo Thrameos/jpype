@@ -52,7 +52,8 @@ typedef int Py_ssize_t;
 #define ASSERT_JAVA_INITIALIZED JPPyni::assertInitialized();
 
 #define PY_CHECK(op) op; { if (PyErr_Occurred()) throw PythonException();  };
-#define PY_STANDARD_CATCH catch(...) { JPPyni::handleCatch(); }
+#define PY_STANDARD_CATCH catch(...) { JPPyni::handleException(); }
+
 // =================================================================
 
 #include "pyjp_module.h"

@@ -586,102 +586,6 @@ void JPyDict::setItemString( PyObject* o, const char* n)
 }
 
 
-// =====================================================
-// PythonException
-
-PythonException::PythonException()
-{
-  JPyCleaner cleaner;
-  TRACE_IN("PythonException::PythonException");
-  PyObject* traceback;
-  PyErr_Fetch(&m_ExceptionClass, &m_ExceptionValue, &traceback);
-  Py_INCREF(m_ExceptionClass);
-  Py_XINCREF(m_ExceptionValue);
-
-  JPyObject name = cleaner.add(JPyObject(m_ExceptionClass).getAttrString("__name__"));
-  string ascname = JPyString(name).asString();
-  TRACE1(ascname);
-  TRACE1(m_ExceptionValue->ob_type->tp_name);
-
-  PyErr_Restore(m_ExceptionClass, m_ExceptionValue, traceback);
-  TRACE_OUT;
-}
-
-PythonException::PythonException(const PythonException& ex)
-{
-  m_ExceptionClass = ex.m_ExceptionClass;
-  Py_INCREF(m_ExceptionClass);
-  m_ExceptionValue = ex.m_ExceptionValue;
-  Py_INCREF(m_ExceptionValue);
-}
-
-PythonException::~PythonException()
-{
-  Py_XDECREF(m_ExceptionClass);
-  Py_XDECREF(m_ExceptionValue);
-}
-
-PyObject* PythonException::getJavaException()
-{
-  PyObject* retVal = NULL;
-
-  // If the exception was caught further down ...
-  if (JPySequence::check(m_ExceptionValue) && JPySequence(m_ExceptionValue).size() == 1)
-  {
-    PyObject* v0 = JPySequence(m_ExceptionValue).getItem(0);
-    if (JPySequence::check(v0) && JPySequence(v0).size() == 2)
-    {
-      PyObject* v00 = JPySequence(v0).getItem(0);
-      PyObject* v01 = JPySequence(v0).getItem(1);
-
-      if (v00 == JPPyni::m_SpecialConstructorKey)
-      {
-        retVal = v01;
-      }
-      else
-      {
-        Py_DECREF(v01);
-      }
-
-      Py_DECREF(v00);
-    }
-    else
-    {
-      Py_DECREF(v0);
-    }
-  }
-  else
-  {
-    Py_XINCREF(m_ExceptionValue);
-    retVal = m_ExceptionValue;
-  }
-  return retVal;
-}
-
-string PythonException::getMessage()
-{
-   string message = "";
-
-   // Exception class name
-   PyObject* className = JPyObject(m_ExceptionClass).getAttrString("__name__");
-   message += JPyString(className).asString();
-   Py_DECREF(className);
-
-   // Exception value
-   if(m_ExceptionValue)
-   {
-      // Convert the exception value to string
-      PyObject* pyStrValue = PyObject_Str(m_ExceptionValue);
-      if(pyStrValue)
-      {
-         message += ": " + JPyString(pyStrValue).asString();
-         Py_DECREF(pyStrValue);
-      }
-   }
-
-   return message;
-}
-
 // =============================================================
 // Capsule
 
@@ -843,10 +747,6 @@ void JPPyni::printError()
   PyErr_Clear();
 }
 
-//bool JPPyni::isJavaException(PythonException* ex)
-//{
-//  return JPyObject(ex->m_ExceptionClass).isSubclass(m_JavaExceptionClass);
-//}
 
 //PyObject* JPPyni::getJavaException(PythonException* ex)
 //{
@@ -941,10 +841,116 @@ void JPPyni::returnExternal(void* state)
   PyEval_RestoreThread(_save);
 }
 
-// Convert a java exception to python
-static void errorOccurred()
+// =====================================================
+// PythonException
+
+PythonException::PythonException()
 {
-  TRACE_IN("PyJPModule::errorOccurred");
+  JPyCleaner cleaner;
+  TRACE_IN("PythonException::PythonException");
+  PyObject* traceback;
+
+	// Retrieve the last python error.
+  PyErr_Fetch(&m_ExceptionClass, &m_ExceptionValue, &traceback);
+
+	// Hold them for the duration of this object
+  Py_INCREF(m_ExceptionClass);
+  Py_XINCREF(m_ExceptionValue);
+
+	// Lookup the name of the exception
+  TRACE1(JPyString(cleaner.add(JPyObject(m_ExceptionClass).getAttrString("__name__")).asString()));
+  TRACE1(m_ExceptionValue->ob_type->tp_name);
+
+	// Restore the python error 
+  PyErr_Restore(m_ExceptionClass, m_ExceptionValue, traceback);
+  TRACE_OUT;
+}
+
+PythonException::PythonException(const PythonException& ex)
+{
+  m_ExceptionClass = ex.m_ExceptionClass;
+  Py_INCREF(m_ExceptionClass);
+  m_ExceptionValue = ex.m_ExceptionValue;
+  Py_INCREF(m_ExceptionValue);
+}
+
+PythonException::~PythonException()
+{
+  Py_XDECREF(m_ExceptionClass);
+  Py_XDECREF(m_ExceptionValue);
+}
+
+bool PythonException::isJavaException()
+{
+	return JPyObject(m_ExceptionClass).isSubclass(JPPyni::m_JavaExceptionClass);
+}
+
+PyObject* PythonException::getJavaException()
+{
+  PyObject* retVal = NULL;
+
+  // If the exception was caught further down ...
+  if (JPySequence::check(m_ExceptionValue) && JPySequence(m_ExceptionValue).size() == 1)
+  {
+    PyObject* v0 = JPySequence(m_ExceptionValue).getItem(0);
+    if (JPySequence::check(v0) && JPySequence(v0).size() == 2)
+    {
+      PyObject* v00 = JPySequence(v0).getItem(0);
+      PyObject* v01 = JPySequence(v0).getItem(1);
+
+      if (v00 == JPPyni::m_SpecialConstructorKey)
+      {
+        retVal = v01;
+      }
+      else
+      {
+        Py_DECREF(v01);
+      }
+
+      Py_DECREF(v00);
+    }
+    else
+    {
+      Py_DECREF(v0);
+    }
+  }
+  else
+  {
+    Py_XINCREF(m_ExceptionValue);
+    retVal = m_ExceptionValue;
+  }
+  return retVal;
+}
+
+string PythonException::getMessage()
+{
+   string message = "";
+
+   // Exception class name
+   PyObject* className = JPyObject(m_ExceptionClass).getAttrString("__name__");
+   message += JPyString(className).asString();
+   Py_DECREF(className);
+
+   // Exception value
+   if(m_ExceptionValue)
+   {
+      // Convert the exception value to string
+      PyObject* pyStrValue = PyObject_Str(m_ExceptionValue);
+      if(pyStrValue)
+      {
+         message += ": " + JPyString(pyStrValue).asString();
+         Py_DECREF(pyStrValue);
+      }
+   }
+
+   return message;
+}
+
+
+// Convert a java exception to python
+static void handleJavaException()
+{
+  TRACE_IN("PyJPModule::handleJavaException");
   JPLocalFrame frame(8);
   JPyCleaner cleaner;
 
@@ -985,7 +991,7 @@ static void errorOccurred()
 }
 
 
-void JPPyni::handleCatch()
+void JPPyni::handleException()
 {
   try 
   {
@@ -994,7 +1000,7 @@ void JPPyni::handleCatch()
   catch(JavaException& ex) 
   { 
     try { 
-      errorOccurred(); 
+      handleJavaException(); 
     } 
     catch(...) 
     { 
