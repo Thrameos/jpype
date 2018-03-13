@@ -9,12 +9,12 @@ struct membuf : std::streambuf
     }
 };
 
-std::string transcribe(char* in, size_t len, 
-		JPEncoding& sourceEncoding,
-		JPEncoding& targetEncoding)
+std::string transcribe(const char* in, size_t len, 
+		const JPEncoding& sourceEncoding,
+		const JPEncoding& targetEncoding)
 {
 	// Convert input to istream source
-	membuf sbuf(in, in+len);
+	membuf sbuf(const_cast<char*>(in), const_cast<char*>(in+len));
 	std::istream inStream(&sbuf);
 
 	// Create an output stream with reserve
@@ -38,7 +38,7 @@ std::string transcribe(char* in, size_t len,
 
 //**************************************************************
 
-void JPEncodingUTF8::encode(std::ostream& out, unsigned int c)
+void JPEncodingUTF8::encode(std::ostream& out, unsigned int c) const
 {
 	if (c<0x80)
 	{
@@ -68,7 +68,7 @@ void JPEncodingUTF8::encode(std::ostream& out, unsigned int c)
 	}
 }
 
-unsigned int JPEncodingUTF8::fetch(std::istream& in)
+unsigned int JPEncodingUTF8::fetch(std::istream& in) const
 {
 	if (in.eof()) return -1;
 	unsigned int c0 = in.get();
@@ -143,7 +143,7 @@ unsigned int JPEncodingUTF8::fetch(std::istream& in)
 // and shame on the goat that hauled your sorry butt into work each day.
 
 
-void JPEncodingJavaUTF8::encode(std::ostream& out, unsigned int c)
+void JPEncodingJavaUTF8::encode(std::ostream& out, unsigned int c) const
 {
   if (c==0)
 	{
@@ -184,7 +184,7 @@ void JPEncodingJavaUTF8::encode(std::ostream& out, unsigned int c)
 }
 
 
-unsigned int JPEncodingJavaUTF8::fetch(std::istream& in)
+unsigned int JPEncodingJavaUTF8::fetch(std::istream& in) const
 {
 	if (in.eof()) return -1;
 	unsigned int c0 = in.get();

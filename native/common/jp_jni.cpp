@@ -15,6 +15,7 @@
 
 *****************************************************************************/
 #include <jpype.h>
+#include <jp_encoding.h>
 
 namespace { // impl detail
 	jmethodID getClassID;
