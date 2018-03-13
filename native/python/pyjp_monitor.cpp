@@ -104,7 +104,7 @@ PyObject* PyJPMonitor::synchronized(PyObject* obj, PyObject* args)
 		PyObject* o;
 		
 		PyArg_ParseTuple(args, "O", &o);
-		JPyAdaptor adaptor(o);
+		JPyObject adaptor(o);
 
 		jobject obj = 0;
 		if (PyJPValue::check(o))

@@ -38,14 +38,8 @@ PyObject* JPStringClass::asHostObject(jvalue val)
 	if (JPEnv::getJava()->getConvertStringObjects())
 	{
 		TRACE1(" Performing conversion");
-		jsize len = JPEnv::getJava()->GetStringLength(v);
-
-		jboolean isCopy;
-		const jchar* str = JPEnv::getJava()->GetStringChars(v, &isCopy);
-		// FIXME
-		PyObject* res = JPyString::fromUnicode(str, len);
-		JPEnv::getJava()->ReleaseStringChars(v, str);
-
+		string str = JPJni::getUTF8(v);
+		PyObject* res = JPyString::fromUTF8(str);
 		return res;
 	}
 	else
@@ -60,7 +54,7 @@ PyObject* JPStringClass::asHostObject(jvalue val)
 
 EMatchType JPStringClass::canConvertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 	JPLocalFrame frame;
 
 	if (obj.isNull() || obj.isNone())
@@ -86,7 +80,7 @@ EMatchType JPStringClass::canConvertToJava(PyObject* pyobj)
 
 jvalue JPStringClass::convertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	TRACE_IN("JPStringClass::convertToJava");
 	jvalue v;
@@ -112,18 +106,11 @@ jvalue JPStringClass::convertToJava(PyObject* pyobj)
 		}
 	}
 
-	JCharString wstr = JPyString(obj).asJCharString();
-
-	// FIXME java uses a different encoding than standard for 4 byte objects.  
-	// Convert through JChar may lead to errors.
-	jchar* jstr = new jchar[wstr.length()+1];
-	jstr[wstr.length()] = 0;
-	for (size_t i = 0; i < wstr.length(); i++)
-	{
-		jstr[i] = (jchar)wstr[i];  
-	}
-	jstring res = JPEnv::getJava()->NewString(jstr, (jint)wstr.length());
-	delete[] jstr; // FIXME not exception safe
+	jlong length;
+	char* str;
+  JPyString(obj).asStringUTF8(str, length);
+	string cppstr(str, length);
+	jstring res = JPJni::newStringUTF8(cppstr);
 	
 	v.l = res;
 	

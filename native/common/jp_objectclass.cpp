@@ -241,7 +241,7 @@ PyObject* JPObjectClass::asHostObject(jvalue obj)
 
 EMatchType JPObjectClass::canConvertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	JPLocalFrame frame;
 	TRACE_IN("JPObjectClass::canConvertToJava");
@@ -284,7 +284,7 @@ EMatchType JPObjectClass::canConvertToJava(PyObject* pyobj)
 
 jvalue JPObjectClass::convertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	TRACE_IN("JPObjectClass::convertToJava");
 	JPLocalFrame frame;

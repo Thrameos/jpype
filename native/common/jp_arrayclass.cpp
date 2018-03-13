@@ -35,7 +35,7 @@ bool JPArrayClass::isObjectType() const
 
 EMatchType JPArrayClass::canConvertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	TRACE_IN("JPArrayClass::canConvertToJava");
 	JPLocalFrame frame;
@@ -110,7 +110,7 @@ PyObject* JPArrayClass::asHostObject(jvalue val)
 
 jvalue JPArrayClass::convertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	TRACE_IN("JPArrayClass::convertToJava");
 	JPLocalFrame frame;

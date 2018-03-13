@@ -36,12 +36,12 @@ jlong JPyObject::length()
   return res;
 }
 
-void JPyObject::incref()
+void JPyObjectBase::incref()
 {
   Py_XINCREF(pyobj);
 }
 
-void JPyObject::decref()
+void JPyObjectBase::decref()
 {
   Py_XDECREF(pyobj);
 }
@@ -51,7 +51,7 @@ bool JPyObject::isNone() const
   return pyobj == Py_None;
 }
 
-bool JPyObject::hasAttr(PyObject* k)
+bool JPyObjectBase::hasAttr(PyObject* k)
 {
   PY_CHECK( int res = PyObject_HasAttr(pyobj, k) );
   if (res) 
@@ -59,19 +59,19 @@ bool JPyObject::hasAttr(PyObject* k)
   return false;
 }
 
-PyObject* JPyObject::getAttr(PyObject* k)
+PyObject* JPyObjectBase::getAttr(PyObject* k)
 {
   PY_CHECK( PyObject* res = PyObject_GetAttr(pyobj, k) );
   return res;
 }
 
-PyObject* JPyObject::getAttrString(const char* k)
+PyObject* JPyObjectBase::getAttrString(const char* k)
 {
   PY_CHECK( PyObject* res = PyObject_GetAttrString(pyobj, (char*)k) );
   return res;
 }
 
-void JPyObject::setAttrString(const char* k, PyObject *v)
+void JPyObjectBase::setAttrString(const char* k, PyObject *v)
 {
   PY_CHECK( PyObject_SetAttrString(pyobj, (char*)k, v ) );
 }
@@ -363,6 +363,17 @@ string JPyString::asString()
   TRACE_OUT;
 }
 
+void JPyString::asStringUTF(string &str, jlong& length)
+{
+	TRACE_IN("JPyString::asStringUTF");
+	Py_ssize_t pylen;
+	char* out = PyUnicode_AsUTF8AndSize(pyobj, &pylen);
+	// length not counting final null
+	length=pylen;
+  str = string(out, length);
+	TRACE_OUT;
+}
+
 JCharString JPyString::asJCharString() 
 {  
   PyObject* torelease = NULL;
@@ -374,6 +385,7 @@ JCharString JPyString::asJCharString()
     torelease = pyobj;
   }
 
+	// FIXME This code needs to be able to understand the difference between Java unicode and Python unicode representations
   Py_UNICODE* val = PyUnicode_AS_UNICODE(pyobj);  
   Py_ssize_t len = length();
   JCharString res(len);
@@ -633,15 +645,15 @@ bool JPyCapsule::check(PyObject* obj)
 
 
 // ======================================================================
-// JPyAdaptor
+// JPyObject
 
 // This accepts either the capsule or the python object
-bool JPyAdaptor::isJavaValue() const
+bool JPyObject::isJavaValue() const
 {
 	return PyObject_HasAttrString(pyobj, "__javavalue__");
 }
 
-const JPValue& JPyAdaptor::asJavaValue()
+const JPValue& JPyObject::asJavaValue()
 {
   JPyCleaner cleaner;
   PyObject* javaObject = cleaner.add(getAttrString("__javavalue__"));
@@ -653,7 +665,7 @@ const JPValue& JPyAdaptor::asJavaValue()
   return PyJPValue::getValue(javaObject);
 }
 
-JPClass* JPyAdaptor::asJavaClass()
+JPClass* JPyObject::asJavaClass()
 {
   JPyCleaner cleaner;
   PyObject* claz = cleaner.add(getAttrString("__javaclass__"));
@@ -665,14 +677,14 @@ JPClass* JPyAdaptor::asJavaClass()
   return ((PyJPClass*)claz)->m_Class;
 }
 
-JPProxy* JPyAdaptor::asProxy()
+JPProxy* JPyObject::asProxy()
 {
   JPyCleaner cleaner;
   PyObject* jproxy = cleaner.add(getAttrString("__javaproxy__"));
   return (JPProxy*)JPyCapsule(jproxy).asVoidPtr();
 }
 
-JPArray* JPyAdaptor::asArray()
+JPArray* JPyObject::asArray()
 {
   JPyCleaner cleaner;
   PyObject* javaObject = cleaner.add(getAttrString("__javaobject__"));  
@@ -759,7 +771,7 @@ PyObject* JPPyni::newStringWrapper(jstring jstr)
   JPyCleaner cleaner;
   TRACE_IN("JPPyni::newStringWrapper");
   jvalue v;
-  v.l = JPEnv::getJava()->NewGlobalRef(jstr);
+  v.l = jstr; // This will be referenced by the PyJPValue
 
   // Create a new jvalue wrapper
   PyObject* value = cleaner.add(PyJPValue::alloc(JPTypeManager::_java_lang_String, v));

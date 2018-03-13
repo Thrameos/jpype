@@ -59,40 +59,31 @@ public :
 // Python gracefully.  Adaptors do not handle memory management.  
 // The Cleaner is used to make memory is handled properly.
 
-class JPyObject 
+class JPyObjectBase
 {
 	public:
-		JPyObject(PyObject* obj) : pyobj(obj) {}
-		JPyObject(const JPyObject &self) : pyobj(self.pyobj) {}
+		JPyObjectBase(PyObject* obj) : pyobj(obj) {}
+		JPyObjectBase(const JPyObjectBase &self) : pyobj(self.pyobj) {}
 
 		void incref();
 		void decref();
-
-		jlong length();
-
-		bool hasAttr(PyObject* k);
-		PyObject* getAttr(PyObject* k);
-		PyObject* getAttrString(const char* k);
-		void setAttrString(const char* k, PyObject *v);
-		PyObject* call(PyObject* a, PyObject* w);
-
-		bool isNull() const 
-		{
-			return pyobj == NULL;
-		}
-
-		bool isNone() const;
-		bool isInstance(PyObject* t) const;
-		bool isSubclass(PyObject* t) const;
 
 		operator PyObject*() const
 		{
 			return pyobj;
 		}
 
+		bool hasAttr(PyObject* k);
+		PyObject* getAttr(PyObject* k);
+		PyObject* getAttrString(const char* k);
+		void setAttrString(const char* k, PyObject *v);
+
 	protected:
 		PyObject* pyobj;
 };
+
+class JPyObject;
+
 
 namespace JPPyni
 {
@@ -158,11 +149,11 @@ namespace JPPyni
 	void returnExternal(void* state);
 };
 
-class JPyBool : public JPyObject
+class JPyBool : public JPyObjectBase
 {
 	public :
-		JPyBool(PyObject* obj) : JPyObject(obj) {}
-		JPyBool(const JPyObject &self) : JPyObject(self) {}
+		JPyBool(PyObject* obj) : JPyObjectBase(obj) {}
+		JPyBool(const JPyObjectBase &self) : JPyObjectBase(self) {}
 
 		static bool check(PyObject* obj);		
 		static JPyBool fromLong(jlong value);
@@ -171,11 +162,11 @@ class JPyBool : public JPyObject
 		bool isFalse();		
 };
 
-class JPyCapsule : public JPyObject
+class JPyCapsule : public JPyObjectBase
 {
 	public :
-		JPyCapsule(PyObject* obj) : JPyObject(obj) {}
-		JPyCapsule(const JPyObject &self) : JPyObject(self) {}
+		JPyCapsule(PyObject* obj) : JPyObjectBase(obj) {}
+		JPyCapsule(const JPyObjectBase &self) : JPyObjectBase(self) {}
 
 		static bool check(PyObject* obj);
 		static PyObject* fromVoid(void* data, PyCapsule_Destructor destr);
@@ -184,11 +175,11 @@ class JPyCapsule : public JPyObject
 		const char* getName();
 };
 
-class JPyType : public JPyObject
+class JPyType : public JPyObjectBase
 {
 	public:
-		JPyType(PyObject* obj) : JPyObject(obj) {}
-		JPyType(const JPyObject &self) : JPyObject(self) {}
+		JPyType(PyObject* obj) : JPyObjectBase(obj) {}
+		JPyType(const JPyObjectBase &self) : JPyObjectBase(self) {}
 
 		static bool check(PyObject* obj);
 		bool isSubclass(PyObject* o2);
@@ -214,7 +205,7 @@ class JPyCleaner
 		template <typename T> PyObject* keep(T object)
 		{
 			PyObject* obj = (PyObject*)object;
-			JPyObject(obj).incref();
+			JPyObjectBase(obj).incref();
 			return obj;
 		}
 
@@ -222,11 +213,11 @@ class JPyCleaner
 		vector<PyObject*> refs;
 };
 
-class JPyInt : public JPyObject
+class JPyInt : public JPyObjectBase
 {
 	public:
-		JPyInt(PyObject* obj) : JPyObject(obj) {}
-		JPyInt(const JPyObject &self) : JPyObject(self) {}
+		JPyInt(PyObject* obj) : JPyObjectBase(obj) {}
+		JPyInt(const JPyObjectBase &self) : JPyObjectBase(self) {}
 
 		static bool check(PyObject* obj);
 
@@ -235,11 +226,11 @@ class JPyInt : public JPyObject
 		jint asInt();
 };
 
-class JPyLong : public JPyObject
+class JPyLong : public JPyObjectBase
 {
 	public:
-		JPyLong(PyObject* obj) : JPyObject(obj) {}
-		JPyLong(const JPyObject &self) : JPyObject(self) {}
+		JPyLong(PyObject* obj) : JPyObjectBase(obj) {}
+		JPyLong(const JPyObjectBase &self) : JPyObjectBase(self) {}
 
 		static bool check(PyObject* obj);
 
@@ -247,11 +238,11 @@ class JPyLong : public JPyObject
 		jlong asLong();
 };
 
-class JPyFloat : public JPyObject
+class JPyFloat : public JPyObjectBase
 {
 	public:
-		JPyFloat(PyObject* obj) : JPyObject(obj) {}
-		JPyFloat(const JPyObject &self) : JPyObject(self) {}
+		JPyFloat(PyObject* obj) : JPyObjectBase(obj) {}
+		JPyFloat(const JPyObjectBase &self) : JPyObjectBase(self) {}
 
 		static bool check(PyObject* obj);
 		static PyObject* fromDouble(jdouble l);
@@ -263,17 +254,19 @@ class JPyFloat : public JPyObject
 /** This wrapper is problematic because it is oriented toward 
  * Python2.
  */
-class JPyString : public JPyObject
+class JPyString : public JPyObjectBase
 {
 	public:
-		JPyString(PyObject* obj) : JPyObject(obj) {}
-		JPyString(const JPyObject &self) : JPyObject(self) {}
+		JPyString(PyObject* obj) : JPyObjectBase(obj) {}
+		JPyString(const JPyObjectBase &self) : JPyObjectBase(self) {}
 		static bool check(PyObject* obj);
 		static bool checkStrict(PyObject* obj);
 		static bool checkUnicode(PyObject* obj);
 		
 		string asString();
 		jlong asStringAndSize(char** buffer, jlong &length);
+
+		void asStringUTF(char* &str, jlong& length);
 
 		JCharString asJCharString();
 		static JPyObject fromUnicode(const jchar* str, int len);
@@ -289,20 +282,20 @@ class JPyString : public JPyObject
 		jchar asChar();
 };
 
-class JPyMemoryView : public JPyObject
+class JPyMemoryView : public JPyObjectBase
 {
 	public:
-		JPyMemoryView(PyObject* obj) : JPyObject(obj) {}
-		JPyMemoryView(const JPyObject &self) : JPyObject(self) {}
+		JPyMemoryView(PyObject* obj) : JPyObjectBase(obj) {}
+		JPyMemoryView(const JPyObjectBase &self) : JPyObjectBase(self) {}
 		static bool check(PyObject* obj);
 		void getByteBufferPtr(char** outBuffer, jlong& outSize);
 };
 
-class JPyTuple : public JPyObject
+class JPyTuple : public JPyObjectBase
 {
 	public:
-		JPyTuple(PyObject* obj) : JPyObject(obj) {}
-		JPyTuple(const JPyObject &self) : JPyObject(self) {}
+		JPyTuple(PyObject* obj) : JPyObjectBase(obj) {}
+		JPyTuple(const JPyObjectBase &self) : JPyObjectBase(self) {}
 
 		static JPyTuple newTuple(jlong sz);
 		static bool check(PyObject* obj);
@@ -313,11 +306,11 @@ class JPyTuple : public JPyObject
 		jlong	size();
 };
 
-class JPyList : public JPyObject
+class JPyList : public JPyObjectBase
 {
 	public:
-		JPyList(PyObject* obj) : JPyObject(obj) {}
-		JPyList(const JPyObject &self) : JPyObject(self) {}
+		JPyList(PyObject* obj) : JPyObjectBase(obj) {}
+		JPyList(const JPyObjectBase &self) : JPyObjectBase(self) {}
 
 		static JPyList newList(jlong sz);
 		static bool check(PyObject* obj);
@@ -327,11 +320,11 @@ class JPyList : public JPyObject
 		jlong size();
 };
 
-class JPySequence : public JPyObject
+class JPySequence : public JPyObjectBase
 {
 	public:
-		JPySequence(PyObject* obj) : JPyObject(obj) {}
-		JPySequence(const JPyObject &self) : JPyObject(self) {}
+		JPySequence(PyObject* obj) : JPyObjectBase(obj) {}
+		JPySequence(const JPyObjectBase &self) : JPyObjectBase(self) {}
 
 		// Note this use to work the same for list, sequence and tuple, but that breaks pypy
 		static bool check(PyObject* obj);
@@ -372,11 +365,11 @@ namespace JPyErr
 	void raise(const char* msg);
 }
 
-class JPyDict : public JPyObject
+class JPyDict : public JPyObjectBase
 {
 	public:
-		JPyDict(PyObject* obj) : JPyObject(obj) {}
-		JPyDict(const JPyObject &self) : JPyObject(self) {}
+		JPyDict(PyObject* obj) : JPyObjectBase(obj) {}
+		JPyDict(const JPyObjectBase &self) : JPyObjectBase(self) {}
 
 		static bool check(PyObject* obj);
 
@@ -388,14 +381,24 @@ class JPyDict : public JPyObject
 		void setItemString(PyObject* o, const char* n);
 };
 
-/** This serves as a dispatch wrapper for decoding the type
- * of an object.
- */
-class JPyAdaptor : public JPyObject
+class JPyObject : public JPyObjectBase
 {
 	public:
-		JPyAdaptor(PyObject* obj) : JPyObject(obj) {}
-		JPyAdaptor(const JPyObject &self) : JPyObject(self) {}
+		JPyObject(PyObject* obj) : JPyObjectBase(obj) {}
+		JPyObject(const JPyObjectBase &self) : JPyObjectBase(self) {}
+
+		jlong length();
+
+		PyObject* call(PyObject* a, PyObject* w);
+
+		bool isNull() const 
+		{
+			return pyobj == NULL;
+		}
+
+		bool isNone() const;
+		bool isInstance(PyObject* t) const;
+		bool isSubclass(PyObject* t) const;
 
 		bool isByteString()
 		{
@@ -498,14 +501,9 @@ class JPyAdaptor : public JPyObject
 		{
 			return isInstance(JPPyni::m_ProxyClass);
 		}
+
 		JPProxy* asProxy();
-
-	// Wrapper
-		bool  isWrapper()
-		{
-			return isInstance(JPPyni::m_WrapperClass);
-		}
-
 };
+
 
 #endif

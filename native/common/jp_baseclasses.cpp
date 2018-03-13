@@ -29,7 +29,7 @@ JPObjectBaseClass::~JPObjectBaseClass()
 
 EMatchType JPObjectBaseClass::canConvertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
   EMatchType base=JPObjectClass::canConvertToJava(obj);
 	if (base!=_none)
@@ -100,7 +100,7 @@ EMatchType JPObjectBaseClass::canConvertToJava(PyObject* pyobj)
 // all primitive types (via boxing), strings, arrays, and python bridge classes
 jvalue JPObjectBaseClass::convertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	TRACE_IN("JPObjectBaseClass::convertToJava");
 	JPLocalFrame frame;
@@ -188,7 +188,7 @@ JPClassBaseClass::~JPClassBaseClass()
 
 EMatchType JPClassBaseClass::canConvertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	TRACE_IN("JPClassBaseClass::convertToJava");
 	EMatchType base = JPObjectClass::canConvertToJava(obj);
@@ -214,7 +214,7 @@ EMatchType JPClassBaseClass::canConvertToJava(PyObject* pyobj)
 
 jvalue JPClassBaseClass::convertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	TRACE_IN("JPObjectClass::convertToJava");
 	JPLocalFrame frame;

@@ -91,7 +91,7 @@ JPBoxedByteClass::~JPBoxedByteClass()
 
 EMatchType JPBoxedByteClass::canConvertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	EMatchType base = JPObjectClass::canConvertToJava(pyobj);
 	if (base == _none && obj.isInt())
@@ -112,7 +112,7 @@ JPBoxedShortClass::~JPBoxedShortClass()
 
 EMatchType JPBoxedShortClass::canConvertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	EMatchType base = JPObjectClass::canConvertToJava(pyobj);
 	if (base == _none && obj.isInt())
@@ -134,7 +134,7 @@ JPBoxedIntegerClass::~JPBoxedIntegerClass()
 
 EMatchType JPBoxedIntegerClass::canConvertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	EMatchType base = JPObjectClass::canConvertToJava(pyobj);
 	if (base == _none && obj.isInt())
@@ -155,7 +155,7 @@ JPBoxedLongClass::~JPBoxedLongClass()
 
 EMatchType JPBoxedLongClass::canConvertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	EMatchType base = JPObjectClass::canConvertToJava(pyobj);
 	if (base == _none && obj.isLong())
@@ -176,7 +176,7 @@ JPBoxedFloatClass::~JPBoxedFloatClass()
 
 EMatchType JPBoxedFloatClass::canConvertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	EMatchType base = JPObjectClass::canConvertToJava(pyobj);
 	if (base == _none && obj.isFloat())
@@ -197,7 +197,7 @@ JPBoxedDoubleClass::~JPBoxedDoubleClass()
 
 EMatchType JPBoxedDoubleClass::canConvertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	EMatchType base = JPObjectClass::canConvertToJava(pyobj);
 	if (base == _none && obj.isFloat())

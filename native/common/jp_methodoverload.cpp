@@ -310,7 +310,7 @@ PyObject* JPMethodOverload::invokeInstance(vector<PyObject*>& arg)
 	
 		// Arg 0 is "this"
 		PyObject* self = arg[0];
-		const JPValue& selfValue = JPyAdaptor(self).asJavaValue();
+		const JPValue& selfValue = JPyObject(self).asJavaValue();
 	
 		JPMallocCleaner<jvalue> v(alen-1);
 		packArgs(v, arg, 1);

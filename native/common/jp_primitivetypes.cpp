@@ -50,7 +50,7 @@ JPObjectClass* JPPrimitiveType::getBoxedClass()
 
 bool checkValue(PyObject* pyobj, JPClass* cls)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 	if (obj.isJavaValue())
 	{
 		const JPValue& value = obj.asJavaValue();
@@ -87,7 +87,7 @@ PyObject* JPByteType::asHostObjectFromObject(jobject val)
 
 EMatchType JPByteType::canConvertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	if (obj.isNone())
 	{
@@ -114,7 +114,7 @@ EMatchType JPByteType::canConvertToJava(PyObject* pyobj)
 
 jvalue JPByteType::convertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	jvalue res;
 	if (checkValue(obj, JPTypeManager::_byte))
@@ -146,7 +146,7 @@ jvalue JPByteType::convertToJava(PyObject* pyobj)
 
 PyObject* JPByteType::convertToDirectBuffer(PyObject* pysrc)
 {
-	JPyAdaptor src(pysrc);
+	JPyObject src(pysrc);
 	JPLocalFrame frame;
 	TRACE_IN("JPByteType::convertToDirectBuffer");
 	if (src.isByteBuffer())
@@ -184,7 +184,7 @@ PyObject* JPShortType::asHostObjectFromObject(jobject val)
 
 EMatchType JPShortType::canConvertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	if (obj.isNone())
 	{
@@ -211,7 +211,7 @@ EMatchType JPShortType::canConvertToJava(PyObject* pyobj)
 
 jvalue JPShortType::convertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	jvalue res;
 	if (checkValue(obj, JPTypeManager::_short))
@@ -264,7 +264,7 @@ PyObject* JPIntType::asHostObjectFromObject(jobject val)
 
 EMatchType JPIntType::canConvertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	if (obj.isNone())
 	{
@@ -295,7 +295,7 @@ EMatchType JPIntType::canConvertToJava(PyObject* pyobj)
 
 jvalue JPIntType::convertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	jvalue res;
 	if (checkValue(obj, JPTypeManager::_int))
@@ -350,7 +350,7 @@ PyObject* JPLongType::asHostObjectFromObject(jobject val)
 
 EMatchType JPLongType::canConvertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	if (obj.isNone())
 	{
@@ -381,7 +381,7 @@ EMatchType JPLongType::canConvertToJava(PyObject* pyobj)
 
 jvalue JPLongType::convertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	jvalue res;
 	if (checkValue(obj, JPTypeManager::_long))
@@ -426,7 +426,7 @@ PyObject* JPFloatType::asHostObjectFromObject(jobject val)
 
 EMatchType JPFloatType::canConvertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	if (obj.isNone())
 	{
@@ -458,7 +458,7 @@ EMatchType JPFloatType::canConvertToJava(PyObject* pyobj)
 
 jvalue JPFloatType::convertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	jvalue res;
 	if (checkValue(obj, JPTypeManager::_float))
@@ -511,7 +511,7 @@ PyObject* JPDoubleType::asHostObjectFromObject(jobject val)
 
 EMatchType JPDoubleType::canConvertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	if (obj.isNone())
 	{
@@ -543,7 +543,7 @@ EMatchType JPDoubleType::canConvertToJava(PyObject* pyobj)
 
 jvalue JPDoubleType::convertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	jvalue res;
 	if (checkValue(obj, JPTypeManager::_double))
@@ -592,7 +592,7 @@ PyObject* JPCharType::asHostObjectFromObject(jobject val)
 
 EMatchType JPCharType::canConvertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	if (obj.isNone())
 	{
@@ -614,7 +614,7 @@ EMatchType JPCharType::canConvertToJava(PyObject* pyobj)
 
 jvalue JPCharType::convertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	jvalue res;
 
@@ -656,7 +656,7 @@ PyObject* JPBooleanType::asHostObjectFromObject(jobject val)
 
 EMatchType JPBooleanType::canConvertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 
 	if (checkValue(obj, JPTypeManager::_boolean))
 	{
@@ -675,7 +675,7 @@ EMatchType JPBooleanType::canConvertToJava(PyObject* pyobj)
 
 jvalue JPBooleanType::convertToJava(PyObject* pyobj)
 {
-	JPyAdaptor obj(pyobj);
+	JPyObject obj(pyobj);
 	jvalue res;
 	if (checkValue(obj, JPTypeManager::_boolean))
 	{

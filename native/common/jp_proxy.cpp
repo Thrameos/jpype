@@ -42,11 +42,11 @@ JNIEXPORT jobject JNICALL Java_jpype_JPypeInvocationHandler_hostInvoke(
 	JPyCleaner cleaner;
 
 	try {
-		string cname = JPJni::asciiFromJava(name);
+		string cname = JPJni::getUTF8(name);
 
 		PyObject* hostObjRef = (PyObject*)hostObj;
 
-		JPyAdaptor callable = JPyAdaptor(cleaner.add(JPPyni::getCallableFrom(hostObjRef, cname)));
+		JPyObject callable = JPyObject(cleaner.add(JPPyni::getCallableFrom(hostObjRef, cname)));
 
 		// If method can't be called, throw an exception
 		if (callable.isNull() || callable.isNone())
@@ -66,9 +66,9 @@ JNIEXPORT jobject JNICALL Java_jpype_JPypeInvocationHandler_hostInvoke(
 		}
 
 		// Call the method in python
-		JPyAdaptor returnValue = JPyAdaptor(cleaner.add(callable.call(pyargs, NULL)));
+		JPyObject returnValue = JPyObject(cleaner.add(callable.call(pyargs, NULL)));
 
-		// Convet the return back to java
+		// Convert the return back to java
 		JPClass* returnType = JPTypeManager::findClass(nativeReturnType);
 		if (returnValue.isNull() || returnValue.isNone())
 		{
@@ -103,7 +103,7 @@ JNIEXPORT jobject JNICALL Java_jpype_JPypeInvocationHandler_hostInvoke(
 		{
 			JPyCleaner cleaner;
 			PyObject* javaExcRef = cleaner.add(ex.getJavaException());
-			const JPValue& value = JPyAdaptor(javaExcRef).asJavaValue();
+			const JPValue& value = JPyObject(javaExcRef).asJavaValue();
 			jobject obj = value.getObject();
 			JPEnv::getJava()->Throw((jthrowable)obj);
 		}

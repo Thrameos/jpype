@@ -193,7 +193,6 @@ void init()
 	s_minShort = JPEnv::getJava()->GetStaticShortField(shortClass, fid);
 	fid = JPEnv::getJava()->GetStaticFieldID(shortClass, "MAX_VALUE", "S");
 	s_maxShort = JPEnv::getJava()->GetStaticShortField(shortClass, fid);
-
 	fid = JPEnv::getJava()->GetStaticFieldID(intClass, "MIN_VALUE", "I");
 	s_minInt = JPEnv::getJava()->GetStaticIntField(intClass, fid);
 	fid = JPEnv::getJava()->GetStaticFieldID(intClass, "MAX_VALUE", "I");
@@ -205,26 +204,42 @@ void init()
 	s_maxFloat = JPEnv::getJava()->GetStaticFloatField(floatClass, fid);
 }
 
-string asciiFromJava(jstring str)
+// Exception safe wrapper
+class JavaStringToUTF
+{
+	public:
+		jstring str;
+		const char* cstr;
+
+		JavaStringToUTF(jstring str)
+		{
+			jboolean isCopy;
+			this->str = str;
+			this->cstr = JPEnv::getJava()->GetUTFChars(str, &isCopy);
+		}
+
+		~JavaStringToUTF()
+		{
+			JPEnv::getJava()->ReleaseStringUTFChars(str, cstr);
+		}
+};
+
+string getUTF8(jstring str)
 {
 	JPLocalFrame frame;
-	const char* cstr = NULL;
-	jboolean isCopy;
-	cstr = JPEnv::getJava()->GetStringUTFChars(str, &isCopy);
+	JavaStringToUTF jstr(str);
 	int length = JPEnv::getJava()->GetStringLength(str);
-
-	string res;
-	for (int i = 0; i < length; i++)
-	{
-		res += (char)cstr[i];
-	}
-
-	JPEnv::getJava()->ReleaseStringUTFChars(str, cstr);
-
-	return res;
+	// Java used modified utf8, but we will need utf8.  
+	return transcribe(jstr.cstr, length, JPEncodingJavaUTF8(), JPEncodingUTF8());
 }
 
-JCharString unicodeFromJava(jstring str)
+jstring newStringUTF8(const string& str)
+{
+	string out = transcribe(str.c_str(), str.size(), JPEncodingUTF8(), JPEncodingJavaUTF8());
+	return JPEnv::getJava()->NewStringUTF(out.c_str());
+}
+
+/*JCharString unicodeFromJava(jstring str)
 {
 	JPLocalFrame frame;
 	const jchar* cstr = NULL;
@@ -237,13 +252,15 @@ JCharString unicodeFromJava(jstring str)
 
 	return res;
 }
+*/
 
+/*
 jstring javaStringFromJCharString(JCharString& wstr)
 {
 	jstring result = JPEnv::getJava()->NewString(wstr.c_str(), (jint)wstr.length());
-
 	return result;
 }
+*/
 
 jclass getClass(jobject o)
 {
@@ -260,7 +277,7 @@ string getSimpleName(jclass c)
 {
 	JPLocalFrame frame;
 	jstring jname = (jstring)JPEnv::getJava()->CallObjectMethod(c, getNameID);
-	string name = asciiFromJava(jname);
+	string name = getUTF8(jname);
 
 	// Class.getName returns something weird for arrays ...
 	if (name[0] == '[')
@@ -495,7 +512,7 @@ string getMemberName(jobject o)
 	JPLocalFrame frame;
 	jstring name = (jstring)JPEnv::getJava()->CallObjectMethod(o, getMemberNameID);
 
-	string simpleName = asciiFromJava(name);
+	string simpleName = getUTF8(name);
 	return simpleName;
 }
 
@@ -622,7 +639,7 @@ string getStackTrace(jthrowable th)
 
 	jstring res = toString(strWriter);
 
-	return asciiFromJava(res);
+	return getUTF8(res);
 }
 
 string getMessage(jthrowable th)
@@ -630,7 +647,7 @@ string getMessage(jthrowable th)
   JPLocalFrame frame;
 	jstring jstr = (jstring)JPEnv::getJava()->CallObjectMethod(th, getMessageID);
 
-	return asciiFromJava(jstr);
+	return getUTF8(jstr);
 }
 
 bool isThrowable(jclass c)
