@@ -15,6 +15,7 @@
    
 *****************************************************************************/   
 #include <jpype_python.h>
+#include <jp_encoding.h>
 
 PyObject* JPPyni::m_GetClassMethod = NULL;
 PyObject* JPPyni::m_GetArrayClassMethod = NULL;
@@ -205,7 +206,7 @@ jlong JPyLong::asLong()
 #if PY_MAJOR_VERSION >= 3
   PY_CHECK( res = PyLong_AsLongLong(pyobj) );
 #elif LONG_MAX > 2147483647
-  PY_CHECK( res = PyInt_Check(pyobj) ? PyInt_asLong(pyobj) : PyLong_asLongLong(pyobj) );
+  PY_CHECK( res = PyInt_Check(pyobj) ? PyInt_AsLong(pyobj) : PyLong_AsLongLong(pyobj) );
 #else
   PY_CHECK( res = PyLong_asLongLong(pyobj); );
 #endif
@@ -363,15 +364,55 @@ string JPyString::asString()
   TRACE_OUT;
 }
 
+string JPyString::asStringUTF8() 
+{  
+  TRACE_IN("JPyString::asStringUTF8");
+  PyObject* val;
+  string res;
+	Py_ssize_t size = 0;
+	char* buffer;
+#if PY_MAJOR_VERSION < 3
+  if (PyUnicode_Check(pyobj))
+  {
+    PY_CHECK( val = PyUnicode_AsEncodedObject(pyobj, "UTF-8", "strict") );
+		PY_CHECK( PyBytes_AsStringAndSize(val, &buffer, &size) );
+    res = string(buffer, size);
+    Py_DECREF(val);
+  }
+	else
+  {
+    PY_CHECK( buffer = PyString_AsString(pyobj) );
+    res = string(buffer);
+  }
+#else
+  if (PyUnicode_Check(pyobj)) 
+	{
+    PY_CHECK( val = PyUnicode_AsEncodedString(pyobj, "UTF-8", "strict") );
+    PY_CHECK( PyBytes_AsStringAndSize(val, &buffer, &size) );
+		res = string(buffer, size);
+    Py_DECREF(val);
+  }
+	else 
+	{
+    PY_CHECK( PyBytes_AsStringAndSize(pyobj, &buffer, &size) );
+		res = string(buffer, size);
+  }
+#endif
+  return res;
+  TRACE_OUT;
+}
+
+
+/*
 void JPyString::asStringUTF(string &str, jlong& length)
 {
-	TRACE_IN("JPyString::asStringUTF");
-	Py_ssize_t pylen;
-	char* out = PyUnicode_AsUTF8AndSize(pyobj, &pylen);
-	// length not counting final null
-	length=pylen;
+  TRACE_IN("JPyString::asStringUTF");
+  Py_ssize_t pylen;
+  char* out = PyUnicode_AsUTF8AndSize(pyobj, &pylen);
+  // length not counting final null
+  length=pylen;
   str = string(out, length);
-	TRACE_OUT;
+  TRACE_OUT;
 }
 
 JCharString JPyString::asJCharString() 
@@ -385,7 +426,7 @@ JCharString JPyString::asJCharString()
     torelease = pyobj;
   }
 
-	// FIXME This code needs to be able to understand the difference between Java unicode and Python unicode representations
+  // FIXME This code needs to be able to understand the difference between Java unicode and Python unicode representations
   Py_UNICODE* val = PyUnicode_AS_UNICODE(pyobj);  
   Py_ssize_t len = length();
   JCharString res(len);
@@ -402,28 +443,41 @@ JCharString JPyString::asJCharString()
   return res;
   TRACE_OUT;
 }
+*/
 
-JPyObject JPyString::fromUnicode(const jchar* str, int len) 
+JPyObject JPyString::fromCharUTF16(jchar str) 
 {
-  Py_UNICODE* value = new Py_UNICODE[len+1];
-  // FIXME the encoding for jni is not the same as standard.  Need special handling for 4 byte codes
-  value[len] = 0;
-  for (int i = 0; i < len; i++)
-  {
-    value[i] = (Py_UNICODE)str[i];
-  }
-  PY_CHECK( PyObject* obj = PyUnicode_FromUnicode(value, len) );
-  delete[] value;
-  return JPyObject(obj);
+  // Convert to UTF-8
+  stringstream ss;
+  JPEncodingUTF8 encoding;
+  encoding.encode(ss, str);
+
+  // Convert to Python
+  return fromStringUTF8(ss.str());
 }
 
-JPyObject JPyString::fromString(const char* str) 
+JPyObject JPyString::fromString(const string& str) 
 {
+  Py_ssize_t len = str.size();
 #if PY_MAJOR_VERSION < 3
-  PY_CHECK( PyObject* obj = PyString_FromString(str) );
+  PY_CHECK( PyObject* obj = PyString_FromStringAndSize(str.c_str(), len) );
   return JPyObject(obj);
 #else
-  PY_CHECK( PyObject* bytes = PyBytes_FromString(str) );
+  PY_CHECK( PyObject* bytes = PyBytes_FromStringAndSize(str.c_str(), len) );
+  PY_CHECK( PyObject* unicode = PyUnicode_FromEncodedObject(bytes, "UTF-8", "strict") );
+  Py_DECREF(bytes);
+  return JPyObject(unicode);
+#endif
+}
+
+JPyObject JPyString::fromStringUTF8(const string& str) 
+{
+  Py_ssize_t len = str.size();
+#if PY_MAJOR_VERSION < 3
+  PY_CHECK( PyObject* obj = PyUnicode_FromStringAndSize(str.c_str(), len) );
+  return JPyObject(obj);
+#else
+  PY_CHECK( PyObject* bytes = PyBytes_FromStringAndSize(str.c_str(), len) );
   PY_CHECK( PyObject* unicode = PyUnicode_FromEncodedObject(bytes, "UTF-8", "strict") );
   Py_DECREF(bytes);
   return JPyObject(unicode);
@@ -437,12 +491,15 @@ void JPyString::getRawByteString(char** buffer, jlong& outSize)
   outSize = (long)tempSize;
 }
 
+/*
+// This is needed for unicode to jchar[] in array conversions
 void JPyString::getRawUnicodeString(jchar** outBuffer, jlong& outSize)
 {
   // FIXME jni uses a different encoding than is standard, thus we may need conversion here.
   outSize = length();
   *outBuffer = (jchar*)PyUnicode_AsUnicode(pyobj);
 }
+*/
 
 jlong JPyString::getUnicodeSize()
 {
@@ -469,11 +526,11 @@ jchar JPyString::asChar()
 {
 #if PY_MAJOR_VERSION < 3
   if (PyString_Check(pyobj))
-    return PyBytes_AsAtring(pyobj)[0];
-  if (PyUnicode_Chec:k(pyobj))
+    return PyString_AsString(pyobj)[0];
+  if (PyUnicode_Check(pyobj))
   {
     wchar_t buffer;
-    PyUnicode_AsWideChar(pyobj, &buffer, 1);
+    PyUnicode_AsWideChar((PyUnicodeObject*)pyobj, &buffer, 1);
     return buffer;
   }
 #else
@@ -650,18 +707,18 @@ bool JPyCapsule::check(PyObject* obj)
 // This accepts either the capsule or the python object
 bool JPyObject::isJavaValue() const
 {
-	return PyObject_HasAttrString(pyobj, "__javavalue__");
+  return PyObject_HasAttrString(pyobj, "__javavalue__");
 }
 
 const JPValue& JPyObject::asJavaValue()
 {
   JPyCleaner cleaner;
   PyObject* javaObject = cleaner.add(getAttrString("__javavalue__"));
-	if (!PyJPValue::check(javaObject))
-	{
-		JPyErr::setRuntimeError("invalid __javavalue__");
-		JPyErr::raise("asJavaValue");
-	}
+  if (!PyJPValue::check(javaObject))
+  {
+    JPyErr::setRuntimeError("invalid __javavalue__");
+    JPyErr::raise("asJavaValue");
+  }
   return PyJPValue::getValue(javaObject);
 }
 
@@ -669,11 +726,11 @@ JPClass* JPyObject::asJavaClass()
 {
   JPyCleaner cleaner;
   PyObject* claz = cleaner.add(getAttrString("__javaclass__"));
- 	if (!PyJPClass::check(claz))
-	{
-		JPyErr::setRuntimeError("invalid __javaclass__");
-		JPyErr::raise("asJavaClass");
-	}
+   if (!PyJPClass::check(claz))
+  {
+    JPyErr::setRuntimeError("invalid __javaclass__");
+    JPyErr::raise("asJavaClass");
+  }
   return ((PyJPClass*)claz)->m_Class;
 }
 
@@ -722,7 +779,7 @@ JPyObject JPPyni::newArrayClass(JPArrayClass* m)
 {
   JPyCleaner cleaner;
   JPyTuple args = cleaner.add(JPyTuple::newTuple(1));
-  PyObject* cname = cleaner.add(JPyString::fromString(m->getSimpleName().c_str()));
+  PyObject* cname = cleaner.add(JPyString::fromString(m->getSimpleName()));
   args.setItem(0, cname);
   return JPyObject(m_GetArrayClassMethod).call(args, NULL);
 }
@@ -747,7 +804,7 @@ JPyObject JPPyni::newArray(JPArray* m)
 JPyObject JPPyni::getCallableFrom(PyObject* ref, string& name)
 {
   JPyCleaner cleaner;
-  PyObject* pname = cleaner.add(JPyString::fromString(name.c_str()));
+  PyObject* pname = cleaner.add(JPyString::fromString(name));
   PyObject* mname = cleaner.add(JPyString::fromString("getCallable"));
   PY_CHECK( PyObject* callable = PyObject_CallMethodObjArgs(ref, mname, pname, NULL); )
   return callable;
@@ -806,8 +863,8 @@ JPyObject JPPyni::newClass(JPObjectClass* m)
 
 PyObject* JPPyni::newObject(const JPValue& value)
 {
-	JPObjectClass* cls = (JPObjectClass*)value.getClass();
-	jvalue v = value.getValue();
+  JPObjectClass* cls = (JPObjectClass*)value.getClass();
+  jvalue v = value.getValue();
   JPyCleaner cleaner;
   TRACE_IN("JPPyni::newObject");
   TRACE2("classname", cls->getSimpleName());
@@ -862,18 +919,18 @@ PythonException::PythonException()
   TRACE_IN("PythonException::PythonException");
   PyObject* traceback;
 
-	// Retrieve the last python error.
+  // Retrieve the last python error.
   PyErr_Fetch(&m_ExceptionClass, &m_ExceptionValue, &traceback);
 
-	// Hold them for the duration of this object
+  // Hold them for the duration of this object
   Py_INCREF(m_ExceptionClass);
   Py_XINCREF(m_ExceptionValue);
 
-	// Lookup the name of the exception
+  // Lookup the name of the exception
   TRACE1(JPyString(cleaner.add(JPyObject(m_ExceptionClass).getAttrString("__name__")).asString()));
   TRACE1(m_ExceptionValue->ob_type->tp_name);
 
-	// Restore the python error 
+  // Restore the python error 
   PyErr_Restore(m_ExceptionClass, m_ExceptionValue, traceback);
   TRACE_OUT;
 }
@@ -894,7 +951,7 @@ PythonException::~PythonException()
 
 bool PythonException::isJavaException()
 {
-	return JPyObject(m_ExceptionClass).isSubclass(JPPyni::m_JavaExceptionClass);
+  return JPyObject(m_ExceptionClass).isSubclass(JPPyni::m_JavaExceptionClass);
 }
 
 PyObject* PythonException::getJavaException()
@@ -968,8 +1025,8 @@ static void handleJavaException()
 
   // Get the throwable (object instance)
   jthrowable th = JPEnv::getJava()->ExceptionOccurred();
-	jvalue val;
-	val.l = th;
+  jvalue val;
+  val.l = th;
 
   // Tell java we have it covered
   JPEnv::getJava()->ExceptionClear();

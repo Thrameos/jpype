@@ -122,7 +122,7 @@ PyObject* PyJPClass::getName(PyObject* o, PyObject* arg)
 
 		string name = self->m_Class->getSimpleName();
 
-		PyObject* res = JPyString::fromString(name.c_str());
+		PyObject* res = JPyString::fromString(name);
 
 		return res;
 	}

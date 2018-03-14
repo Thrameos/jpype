@@ -38,8 +38,8 @@ PyObject* JPStringClass::asHostObject(jvalue val)
 	if (JPEnv::getJava()->getConvertStringObjects())
 	{
 		TRACE1(" Performing conversion");
-		string str = JPJni::getUTF8(v);
-		PyObject* res = JPyString::fromUTF8(str);
+		string str = JPJni::getStringUTF8(v);
+		PyObject* res = JPyString::fromStringUTF8(str);
 		return res;
 	}
 	else
@@ -106,11 +106,8 @@ jvalue JPStringClass::convertToJava(PyObject* pyobj)
 		}
 	}
 
-	jlong length;
-	char* str;
-  JPyString(obj).asStringUTF8(str, length);
-	string cppstr(str, length);
-	jstring res = JPJni::newStringUTF8(cppstr);
+  string str = JPyString(obj).asStringUTF8();
+	jstring res = JPJni::newStringUTF8(str);
 	
 	v.l = res;
 	

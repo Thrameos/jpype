@@ -216,7 +216,7 @@ class JavaStringToUTF
 		{
 			jboolean isCopy;
 			this->str = str;
-			this->cstr = JPEnv::getJava()->GetUTFChars(str, &isCopy);
+			this->cstr = JPEnv::getJava()->GetStringUTFChars(str, &isCopy);
 		}
 
 		~JavaStringToUTF()
@@ -225,7 +225,7 @@ class JavaStringToUTF
 		}
 };
 
-string getUTF8(jstring str)
+string getStringUTF8(jstring str)
 {
 	JPLocalFrame frame;
 	JavaStringToUTF jstr(str);
@@ -278,7 +278,7 @@ string getSimpleName(jclass c)
 {
 	JPLocalFrame frame;
 	jstring jname = (jstring)JPEnv::getJava()->CallObjectMethod(c, getNameID);
-	string name = getUTF8(jname);
+	string name = getStringUTF8(jname);
 
 	// Class.getName returns something weird for arrays ...
 	if (name[0] == '[')
@@ -513,7 +513,7 @@ string getMemberName(jobject o)
 	JPLocalFrame frame;
 	jstring name = (jstring)JPEnv::getJava()->CallObjectMethod(o, getMemberNameID);
 
-	string simpleName = getUTF8(name);
+	string simpleName = getStringUTF8(name);
 	return simpleName;
 }
 
@@ -640,7 +640,7 @@ string getStackTrace(jthrowable th)
 
 	jstring res = toString(strWriter);
 
-	return getUTF8(res);
+	return getStringUTF8(res);
 }
 
 string getMessage(jthrowable th)
@@ -648,7 +648,7 @@ string getMessage(jthrowable th)
   JPLocalFrame frame;
 	jstring jstr = (jstring)JPEnv::getJava()->CallObjectMethod(th, getMessageID);
 
-	return getUTF8(jstr);
+	return getStringUTF8(jstr);
 }
 
 bool isThrowable(jclass c)

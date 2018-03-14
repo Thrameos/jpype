@@ -139,7 +139,11 @@ jvalue JPArrayClass::convertToJava(PyObject* pyobj)
 		
 		res.l = array;
 	}
-	else if (obj.isUnicodeString() && m_ComponentType==JPTypeManager::_char && JPyString::getUnicodeSize() == sizeof(jchar))
+/*	
+  // FIXME this is very special case in which python size matched 
+	// java and assumed they had the same encoding which they don't.
+	// seems like a bad idea.
+  else if (obj.isUnicodeString() && m_ComponentType==JPTypeManager::_char && JPyString::getUnicodeSize() == sizeof(jchar))
 	{
 		TRACE1("uchar[]");
 		jchar* rawData;
@@ -155,6 +159,7 @@ jvalue JPArrayClass::convertToJava(PyObject* pyobj)
 		
 		res.l = array;
 	}
+*/
 	else if (obj.isSequence())
 	{
 		JPyCleaner cleaner;

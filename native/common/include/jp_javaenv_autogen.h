@@ -436,6 +436,7 @@ void CallVoidMethod(jobject a0, jmethodID a1);
 jboolean IsAssignableFrom(jclass a0, jclass a1);
 /** NewString */
 jstring NewString(const jchar* a0, int a1);
+jstring NewStringUTF(const char* a0);
 /** GetSuperclass */
 jclass GetSuperclass(jclass a0);
 /** GetStringUTFChars */

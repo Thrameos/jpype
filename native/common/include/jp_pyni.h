@@ -263,14 +263,30 @@ class JPyString : public JPyObjectBase
 		static bool checkStrict(PyObject* obj);
 		static bool checkUnicode(PyObject* obj);
 		
-		string asString();
 		jlong asStringAndSize(char** buffer, jlong &length);
 
-		void asStringUTF(char* &str, jlong& length);
+		static JPyObject fromCharUTF16(jchar);
 
+		void asStringUTF(char* &str, jlong& length);
 		JCharString asJCharString();
 		static JPyObject fromUnicode(const jchar* str, int len);
-		static JPyObject fromString(const char* str);
+
+		/** Create a new string in python.
+		 * This is primarily used for message reporting 
+		 * and creating simple ascii strings.  It is not safe for UTF8
+		 * encoded characters.
+		 *
+		 * @returns a PyString in python2 and a PyUnicode in python3.
+		 */
+		static JPyObject fromString(const string& str);
+		string asString();
+
+		/** Create a python PyUnicode from a string.
+		 * Does not create a PyString in python even if the 
+		 * encoding is strictly less that 0x80.
+		 */
+		static JPyObject fromStringUTF8(const string& str);
+		string asStringUTF8();
 
 		void getRawByteString(char** outBuffer, jlong& outSize);
 		void getRawUnicodeString(jchar** outBuffer, jlong& outSize);

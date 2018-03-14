@@ -9,7 +9,7 @@ class JPEncoding
 {
 	public:
 		JPEncoding() {}
-		virtual ~JPEncoding()=0;
+		virtual ~JPEncoding();
 
 		/** Store a code point in an outgoing buffer. */
 		virtual void encode(std::ostream& out, unsigned int codePoint) const =0;

@@ -574,20 +574,12 @@ PyObject* JPDoubleType::convertToDirectBuffer(PyObject* src)
 
 PyObject* JPCharType::asHostObject(jvalue val)   
 {
-	jchar str[2];
-	str[0] = val.c;
-	str[1] = 0;
-	
-	return JPyString::fromUnicode(str, 1);
+	return JPyString::fromCharUTF16(val.c);
 }
 
 PyObject* JPCharType::asHostObjectFromObject(jobject val)
 {
-	jchar str[2];
-	str[0] = JPJni::charValue(val);
-	str[1] = 0;
-	
-	return JPyString::fromUnicode(str, 1);
+	return JPyString::fromCharUTF16(JPJni::charValue(val));
 } 
 
 EMatchType JPCharType::canConvertToJava(PyObject* pyobj)

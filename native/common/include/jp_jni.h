@@ -42,7 +42,7 @@ namespace JPJni
 	void stopJPypeReferenceQueue();
 	void registerRef(jobject refQueue, jobject obj, jlong hostRef);
 
-	string getUTF8(jstring str);
+	string getStringUTF8(jstring str);
 	jstring newStringUTF8(const string& str);
 //	JCharString unicodeFromJava(jstring str);
 //	jstring javaStringFromJCharString(JCharString& str);

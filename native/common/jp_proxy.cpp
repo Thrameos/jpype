@@ -42,7 +42,7 @@ JNIEXPORT jobject JNICALL Java_jpype_JPypeInvocationHandler_hostInvoke(
 	JPyCleaner cleaner;
 
 	try {
-		string cname = JPJni::getUTF8(name);
+		string cname = JPJni::getStringUTF8(name);
 
 		PyObject* hostObjRef = (PyObject*)hostObj;
 

@@ -122,7 +122,7 @@ PyObject* PyJPMethod::__str__(PyObject* o)
 
 	sout << "<method " << self->m_Method->getClassName() << "." << self->m_Method->getName() << ">";
 
-	return JPyString::fromString(sout.str().c_str());
+	return JPyString::fromString(sout.str());
 }
 
 PyObject* PyJPMethod::isBeanAccessor(PyObject* o, PyObject* arg)
@@ -161,7 +161,7 @@ PyObject* PyJPMethod::getName(PyObject* o, PyObject* arg)
 
 		string name = self->m_Method->getName();
 
-		PyObject* res = JPyString::fromString(name.c_str());
+		PyObject* res = JPyString::fromString(name);
 
 		return res;
 	}
@@ -187,7 +187,7 @@ PyObject* PyJPMethod::matchReport(PyObject* o, PyObject* pyargs)
 
 		string report = self->m_Method->matchReport(vargs);
 
-		PyObject* res = JPyString::fromString(report.c_str());
+		PyObject* res = JPyString::fromString(report);
 
 		return res;
 	}
@@ -325,7 +325,7 @@ PyObject* PyJPBoundMethod::__str__(PyObject* o)
 
 	sout << "<bound method " << self->m_Method->m_Method->getClassName() << "." << self->m_Method->m_Method->getName() << ">";
 
-	return JPyString::fromString(sout.str().c_str());
+	return JPyString::fromString(sout.str());
 }
 
 PyObject* PyJPBoundMethod::matchReport(PyObject* o, PyObject* args)
@@ -347,7 +347,7 @@ PyObject* PyJPBoundMethod::matchReport(PyObject* o, PyObject* args)
 
 		string report = self->m_Method->m_Method->matchReport(vargs);
 
-		PyObject* res = JPyString::fromString(report.c_str());
+		PyObject* res = JPyString::fromString(report);
 
 		return res;
 	}

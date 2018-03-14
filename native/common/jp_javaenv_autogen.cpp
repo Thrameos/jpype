@@ -1568,6 +1568,20 @@ jstring JPJavaEnv::NewString(const jchar* a0, int a1)
 
 }
 
+jstring JPJavaEnv::NewStringUTF(const char* a0)
+{     jstring res;
+
+    JNIEnv* env = getJNIEnv();
+    void* _save = JPPyni::gotoExternal();
+
+	res = env->functions->NewStringUTF(env, a0);
+ 
+    JPPyni::returnExternal(_save);
+    JAVA_CHECK("NewStringUTF");
+    return res;
+
+}
+
 jclass JPJavaEnv::GetSuperclass(jclass a0)
 {     jclass res;
 

@@ -1,5 +1,8 @@
 #include <jp_encoding.h>
 
+JPEncoding::~JPEncoding()
+{}
+
 // char* to stream from 
 // https://stackoverflow.com/questions/7781898/get-an-istream-from-a-char
 struct membuf : std::streambuf
