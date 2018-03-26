@@ -32,73 +32,43 @@ typedef int Py_ssize_t;
 #define PY_SSIZE_T_MIN INT_MIN
 #endif
 
-#include "pythonenv.h"
+// =================================================================
 
-namespace JPypeModule
-{
-	PyObject* startup(PyObject* obj, PyObject* args);
-	PyObject* attach(PyObject* obj, PyObject* args);
-	PyObject* dumpJVMStats(PyObject* obj);
-	PyObject* shutdown(PyObject* obj);
-	PyObject* synchronized(PyObject* obj, PyObject* args);
-	PyObject* isStarted(PyObject* obj);
-	PyObject* attachThread(PyObject* obj);
-	PyObject* detachThread(PyObject* obj);
-	PyObject* isThreadAttached(PyObject* obj);
-	PyObject* getJException(PyObject* obj, PyObject* args);
-	PyObject* raiseJava(PyObject* obj, PyObject* args);
-	PyObject* attachThreadAsDaemon(PyObject* obj);
-	PyObject* startReferenceQueue(PyObject* obj, PyObject* args);
-	PyObject* stopReferenceQueue(PyObject* obj);
+#if (    (PY_VERSION_HEX <  0x02070000) \
+     || ((PY_VERSION_HEX >= 0x03000000) \
+      && (PY_VERSION_HEX <  0x03010000)) )
 
-	PyObject* setConvertStringObjects(PyObject* obj, PyObject* args);
-	PyObject* setResource(PyObject* obj, PyObject* args);
-}
+    #include "capsulethunk.h"
+    #define USE_CAPSULE 1
+    typedef void* CAPSULE_DESTRUCTOR_ARG_TYPE;
+    typedef void (*PyCapsule_Destructor)(void*);
+    #define CAPSULE_EXTRACT(obj) (obj)
+#else
+    typedef PyObject* CAPSULE_DESTRUCTOR_ARG_TYPE;
+    #define CAPSULE_EXTRACT(obj) (PyCapsule_GetPointer(obj, PyCapsule_GetName(obj)))
+#endif
 
-namespace JPypeJavaClass
-{
-	PyObject* findClass(PyObject* obj, PyObject* args);
-};
+// =================================================================
+#define ASSERT_JAVA_INITIALIZED JPPyni::assertInitialized();
 
-namespace JPypeJavaProxy
-{
-	PyObject* createProxy(PyObject*, PyObject* arg);
-};
+#define PY_CHECK(op) op; { if (PyErr_Occurred()) throw PythonException();  };
+#define PY_STANDARD_CATCH catch(...) { JPPyni::handleException(); }
 
-namespace JPypeJavaArray
-{
-	PyObject* findArrayClass(PyObject* obj, PyObject* args);
-	PyObject* getArrayLength(PyObject* self, PyObject* arg);
-	PyObject* getArrayItem(PyObject* self, PyObject* arg);
-	PyObject* getArraySlice(PyObject* self, PyObject* arg);
-	PyObject* setArraySlice(PyObject* self, PyObject* arg);
-	PyObject* newArray(PyObject* self, PyObject* arg);
-	PyObject* setArrayItem(PyObject* self, PyObject* arg);
-	PyObject* setArrayValues(PyObject* self, PyObject* arg);
-};
+// =================================================================
 
-namespace JPypeJavaNio
-{
-	PyObject* convertToDirectBuffer(PyObject* self, PyObject* arg);
-};
-
-namespace JPypeJavaException
-{
-	void errorOccurred();
-};
-
-#include "py_monitor.h"
-#include "py_method.h"
-#include "py_class.h"
-#include "py_field.h"
-
-#include "py_hostenv.h"
+#include "pyjp_module.h"
+#include "pyjp_monitor.h"
+#include "pyjp_method.h"
+#include "pyjp_array.h"
+#include "pyjp_arrayclass.h"
+#include "pyjp_class.h"
+#include "pyjp_field.h"
+#include "pyjp_proxy.h"
+#include "pyjp_value.h"
 
 #include "jpype_memory_view.h"
 
-extern PythonHostEnvironment* hostEnv;
-
 // Utility method
-PyObject* detachRef(HostRef* ref);
+//PyObject* detachRef(HostRef* ref);
 
 #endif // _JPYPE_PYTHON_H_

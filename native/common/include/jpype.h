@@ -127,31 +127,43 @@ void longToHexString(long value, char* outStr);
 /** Definition of commonly used template types */
 typedef vector<string> StringVector;
 
+class JPValue;
+class JPClass;
+class JPArray;
+class JPArrayClass;
+class JPObjectClass;
+class JPField;
+class JPProxy;
+class JPMethod;
+class HostException;
 
 // Base utility headers
-#include "jp_typename.h"
+#include "jp_type.h"
 #include "jp_utility.h"
+#include "jp_pyni.h"
 #include "jp_javaenv.h"
-#include "jp_hostenv.h"
+#include "jp_value.h"
 #include "jp_env.h"
-#include "jp_jniutil.h"
+#include "jp_jni.h"
 
 
 // Other header files
-#include "jp_type.h"
+#include "jp_class.h"
 #include "jp_primitivetypes.h"
-#include "jp_objecttypes.h"
+#include "jp_objectclass.h"
+#include "jp_arrayclass.h"
+
+// Specializations for objects special python type matching
+#include "jp_baseclasses.h"
+#include "jp_stringclass.h"
+#include "jp_boxedclasses.h"
 
 #include "jp_field.h"
 #include "jp_methodoverload.h"
 #include "jp_method.h"
-#include "jp_classbase.h"
-#include "jp_class.h"
-#include "jp_arrayclass.h"
 #include "jp_typemanager.h"
 
 #include "jp_objectbase.h"
-#include "jp_object.h"
 #include "jp_array.h"
 
 #include "jp_invocationhandler.h"

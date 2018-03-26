@@ -31,31 +31,18 @@ class JPLocalFrame
 	bool popped;
 public:
 	/** Create a new local frame with a minimum number of entries */
-	JPLocalFrame(int i=LOCAL_FRAME_DEFAULT);
+	JPLocalFrame(size_t i=LOCAL_FRAME_DEFAULT);
 
 	/** Exit the local frame and keep a local reference to an object */
-	jobject keep(jobject);
+	jobject keep(jobject obj);
+
+ 	jclass keep(jclass obj)
+	{
+		return (jclass) keep((jobject)obj);
+	}
 
 	/** Exit the local frame if get has not been called. */
 	~JPLocalFrame();
-};
-
-/**
- * Simple tample class for managing host references.
- */
-class JPCleaner
-{
-public :
-	JPCleaner();	
-	virtual ~JPCleaner();
-	
-	void add(HostRef* r);
-	void addAll(vector<HostRef*>& r);
-	void remove(HostRef* r);
-	void removeAll(vector<HostRef*>& r);
-	
-private :
-	vector<HostRef*> m_HostObjects;
 };
 
 template<typename T>
@@ -89,11 +76,6 @@ private :
 namespace JPEnv
 {	
 	/**
-	* Initialize the JPype subs-system. Does NOT load the JVM
-	*/
-	void init(HostEnvironment* hostEnv);
-	
-	/**
 	* Load the JVM
 	* TODO : add the non-string parameters, for possible callbacks
 	*/
@@ -106,14 +88,13 @@ namespace JPEnv
 	bool isThreadAttached();
 
 	JPJavaEnv*       getJava();
-	HostEnvironment* getHost();
 
 	/**
 	* Check if the JPype environment has been initialized
 	*/
 	bool isInitialized();
 	
-	void registerRef(HostRef*, HostRef* targetRef);
+	void registerRef(PyObject*, PyObject* targetRef);
 }
 
 #endif // _JPENV_H_

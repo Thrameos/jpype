@@ -16,109 +16,152 @@
 *****************************************************************************/   
 #include <jpype.h>
 
-jobject JPPrimitiveType::convertToJavaObject(HostRef* obj)
+/** This contains the specializations needed for converting primitive types to and from python types  
+ * when passing arguments and returns.
+ */
+
+JPPrimitiveType::JPPrimitiveType(const string& boxedName) :
+    JPClass(JPJni::findPrimitiveClass(boxedName))
+{
+	// Get the boxed java class
+	m_BoxedClass=(JPObjectClass*)JPTypeManager::findClass(JPJni::findClass(boxedName));
+}
+
+JPPrimitiveType::~JPPrimitiveType()
+{
+}
+	
+
+// These are singletons created by the type manager.
+JPVoidType::JPVoidType() : JPPrimitiveType("java/lang/Void") {}
+JPBooleanType::JPBooleanType() : JPPrimitiveType("java/lang/Boolean") {}
+JPByteType::JPByteType() : JPPrimitiveType("java/lang/Byte") {}
+JPCharType::JPCharType() : JPPrimitiveType("java/lang/Character") {}
+JPShortType::JPShortType() : JPPrimitiveType("java/lang/Short") {}
+JPIntType::JPIntType() : JPPrimitiveType("java/lang/Integer") {}
+JPLongType::JPLongType() : JPPrimitiveType("java/lang/Long") {}
+JPFloatType::JPFloatType() : JPPrimitiveType("java/lang/Float") {}
+JPDoubleType::JPDoubleType() : JPPrimitiveType("java/lang/Double") {}
+
+JPObjectClass* JPPrimitiveType::getBoxedClass()
+{
+	return m_BoxedClass;
+}
+
+bool checkValue(PyObject* pyobj, JPClass* cls)
+{
+	JPyObject obj(pyobj);
+	if (obj.isJavaValue())
+	{
+		const JPValue& value = obj.asJavaValue();
+		return (value.getClass() == cls);
+	}
+	return false;
+}
+
+jobject JPPrimitiveType::convertToJavaObject(PyObject* pyobj)
 {
 	JPLocalFrame frame;
-	JPTypeName tname = getObjectType();
-	JPClass* c = JPTypeManager::findClass(tname);
+	JPObjectClass* c = getBoxedClass();
 
-	vector<HostRef*> args(1);
-	args[0] = obj;
+	// Create a vector with one element needed for newInstance
+	vector<PyObject*> args(1);
+	args[0] = pyobj;
 
-	JPObject* o = c->newInstance(args);
-	jobject res = o->getObject(); 
-	delete o;
+	// Call the new instance
+	JPValue val = c->newInstance(args);
+	jobject res = val.getObject();
 	return frame.keep(res);
 }
 
-HostRef* JPByteType::asHostObject(jvalue val) 
+PyObject* JPByteType::asHostObject(jvalue val) 
 {
-	return JPEnv::getHost()->newInt(val.b);
+	return JPyInt::fromInt(val.b);
 }
 
-HostRef* JPByteType::asHostObjectFromObject(jvalue val)
+PyObject* JPByteType::asHostObjectFromObject(jobject val)
 {
-	long v = JPJni::intValue(val.l);
-	return JPEnv::getHost()->newInt(v);
+	jint v = JPJni::intValue(val);
+	return JPyInt::fromInt(v);
 } 
 
-EMatchType JPByteType::canConvertToJava(HostRef* obj)
+EMatchType JPByteType::canConvertToJava(PyObject* pyobj)
 {
-	if (JPEnv::getHost()->isNone(obj))
+	JPyObject obj(pyobj);
+
+	if (obj.isNone())
 	{
 		return _none;
 	}
 
-	if (JPEnv::getHost()->isInt(obj))
+	if (obj.isInt())
 	{
 		return _implicit;
 	}
 
-	if (JPEnv::getHost()->isLong(obj))
+	if (obj.isLong())
 	{
 		return _implicit;
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (checkValue(obj, JPTypeManager::_byte))
 	{
-		JPTypeName name = JPEnv::getHost()->getWrapperTypeName(obj);
-		if (name.getType() == JPTypeName::_byte)
-		{
-			return _exact;
-		}
+		return _exact;
 	}
-
 
 	return _none;
 }
 
-jvalue JPByteType::convertToJava(HostRef* obj)
+jvalue JPByteType::convertToJava(PyObject* pyobj)
 {
+	JPyObject obj(pyobj);
+
 	jvalue res;
-	if (JPEnv::getHost()->isInt(obj))
+	if (checkValue(obj, JPTypeManager::_byte))
 	{
-		jint l = JPEnv::getHost()->intAsInt(obj);;
+		return obj.asJavaValue();
+	}
+	if (obj.isInt())
+	{
+		jint l = JPyInt(obj).asInt();
 		if (l < JPJni::s_minByte || l > JPJni::s_maxByte)
 		{
-			JPEnv::getHost()->setTypeError("Cannot convert value to Java byte");
-			JPEnv::getHost()->raise("JPByteType::convertToJava");
+			JPyErr::setTypeError("Cannot convert value to Java byte");
+			JPyErr::raise("JPByteType::convertToJava");
 		}
 		res.b = (jbyte)l;
 	}
-	else if (JPEnv::getHost()->isLong(obj))
+	else if (obj.isLong())
 	{
-		jlong l = JPEnv::getHost()->longAsLong(obj);
+		jlong l = JPyLong(obj).asLong();
 		if (l < JPJni::s_minByte || l > JPJni::s_maxByte)
 		{
-			JPEnv::getHost()->setTypeError("Cannot convert value to Java byte");
-			JPEnv::getHost()->raise("JPByteType::convertToJava");
+			JPyErr::setTypeError("Cannot convert value to Java byte");
+			JPyErr::raise("JPByteType::convertToJava");
 		}
 		res.b = (jbyte)l;
-	}
-	else if (JPEnv::getHost()->isWrapper(obj))
-	{
-		return JPEnv::getHost()->getWrapperValue(obj);
 	}
 	return res;
 }
 
-HostRef* JPByteType::convertToDirectBuffer(HostRef* src)
+PyObject* JPByteType::convertToDirectBuffer(PyObject* pysrc)
 {
+	JPyObject src(pysrc);
 	JPLocalFrame frame;
 	TRACE_IN("JPByteType::convertToDirectBuffer");
-	if (JPEnv::getHost()->isByteBuffer(src))
+	if (src.isByteBuffer())
 	{
 
 		char* rawData;
-		long size;
-		JPEnv::getHost()->getByteBufferPtr(src, &rawData, size);
+		jlong size;
+		JPyMemoryView(pysrc).getByteBufferPtr(&rawData, size);
 
 		jobject obj = JPEnv::getJava()->NewDirectByteBuffer(rawData, size);
 
 		jvalue v;
 		v.l = obj;
-		JPTypeName name = JPJni::getClassName(v.l);
-		JPType* type = JPTypeManager::getType(name);
+		jclass cls = JPJni::getClass(obj);
+		JPClass* type = JPTypeManager::findClass(cls);
 		return type->asHostObject(v);
 	}
 
@@ -128,164 +171,163 @@ HostRef* JPByteType::convertToDirectBuffer(HostRef* src)
 
 //----------------------------------------------------------------------------
 
-HostRef* JPShortType::asHostObject(jvalue val) 
+PyObject* JPShortType::asHostObject(jvalue val) 
 {
-	return JPEnv::getHost()->newInt(val.s);
+	return JPyInt::fromInt(val.s);
 }
 
-HostRef* JPShortType::asHostObjectFromObject(jvalue val)
+PyObject* JPShortType::asHostObjectFromObject(jobject val)
 {
-	long v = JPJni::intValue(val.l);
-	return JPEnv::getHost()->newInt(v);
+	jint v = JPJni::intValue(val);
+	return JPyInt::fromInt(v);
 } 
 
-EMatchType JPShortType::canConvertToJava(HostRef* obj)
+EMatchType JPShortType::canConvertToJava(PyObject* pyobj)
 {
-	if (JPEnv::getHost()->isNone(obj))
+	JPyObject obj(pyobj);
+
+	if (obj.isNone())
 	{
 		return _none;
 	}
 
-	if (JPEnv::getHost()->isInt(obj))
+	if (obj.isInt())
 	{
 		return _implicit;
 	}
 
-	if (JPEnv::getHost()->isLong(obj))
+	if (obj.isLong())
 	{
 		return _implicit;
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (checkValue(obj, JPTypeManager::_short))
 	{
-		JPTypeName name = JPEnv::getHost()->getWrapperTypeName(obj);
-		if (name.getType() == JPTypeName::_short)
-		{
-			return _exact;
-		}
+		return _exact;
 	}
 
 	return _none;
 }
 
-jvalue JPShortType::convertToJava(HostRef* obj)
+jvalue JPShortType::convertToJava(PyObject* pyobj)
 {
+	JPyObject obj(pyobj);
+
 	jvalue res;
-	if (JPEnv::getHost()->isInt(obj))
+	if (checkValue(obj, JPTypeManager::_short))
 	{
-		jint l = JPEnv::getHost()->intAsInt(obj);;
+		return obj.asJavaValue();
+	}
+	if (obj.isInt())
+	{
+		jint l = JPyInt(obj).asInt();;
 		if (l < JPJni::s_minShort || l > JPJni::s_maxShort)
 		{
-			JPEnv::getHost()->setTypeError("Cannot convert value to Java short");
-			JPEnv::getHost()->raise("JPShortType::convertToJava");
+			JPyErr::setTypeError("Cannot convert value to Java short");
+			JPyErr::raise("JPShortType::convertToJava");
 		}
 
 		res.s = (jshort)l;
 	}
-	else if (JPEnv::getHost()->isLong(obj))
+	else if (obj.isLong())
 	{
-		jlong l = JPEnv::getHost()->longAsLong(obj);;
+		jlong l = JPyLong(obj).asLong();;
 		if (l < JPJni::s_minShort || l > JPJni::s_maxShort)
 		{
-			JPEnv::getHost()->setTypeError("Cannot convert value to Java short");
-			JPEnv::getHost()->raise("JPShortType::convertToJava");
+			JPyErr::setTypeError("Cannot convert value to Java short");
+			JPyErr::raise("JPShortType::convertToJava");
 		}
 		res.s = (jshort)l;
-	}
-	else if (JPEnv::getHost()->isWrapper(obj))
-	{
-		return JPEnv::getHost()->getWrapperValue(obj);
 	}
 	return res;
 }
 
-HostRef* JPShortType::convertToDirectBuffer(HostRef* src)
+PyObject* JPShortType::convertToDirectBuffer(PyObject* src)
 {
 		RAISE(JPypeException, "Unable to convert to Direct Buffer");
-	
 }
 
 
 //-------------------------------------------------------------------------------
 
 
-HostRef* JPIntType::asHostObject(jvalue val) 
+PyObject* JPIntType::asHostObject(jvalue val) 
 {
-	return JPEnv::getHost()->newInt(val.i);
+	return JPyInt::fromInt(val.i);
 }
 
-HostRef* JPIntType::asHostObjectFromObject(jvalue val)
+PyObject* JPIntType::asHostObjectFromObject(jobject val)
 {
-	long v = JPJni::intValue(val.l);
-	return JPEnv::getHost()->newInt(v);
+	long v = JPJni::intValue(val);
+	return JPyInt::fromInt(v);
 } 
 
-EMatchType JPIntType::canConvertToJava(HostRef* obj)
+EMatchType JPIntType::canConvertToJava(PyObject* pyobj)
 {
-	if (JPEnv::getHost()->isNone(obj))
+	JPyObject obj(pyobj);
+
+	if (obj.isNone())
 	{
 		return _none;
 	}
 
-	if (JPEnv::getHost()->isInt(obj))
+	if (checkValue(obj, JPTypeManager::_int))
 	{
-		if (JPEnv::getHost()->isObject(obj))
+		return _exact;
+	}
+
+	if (obj.isInt())
+	{
+		if (obj.isJavaValue())
 		{
 			return _implicit;
 		}
 		return _exact;
 	}
 
-	if (JPEnv::getHost()->isLong(obj))
+	if (obj.isLong())
 	{
 		return _implicit;
-	}
-
-	if (JPEnv::getHost()->isWrapper(obj))
-	{
-		JPTypeName name = JPEnv::getHost()->getWrapperTypeName(obj);
-		if (name.getType() == JPTypeName::_int)
-		{
-			return _exact;
-		}
 	}
 
 	return _none;
 }
 
-jvalue JPIntType::convertToJava(HostRef* obj)
+jvalue JPIntType::convertToJava(PyObject* pyobj)
 {
+	JPyObject obj(pyobj);
+
 	jvalue res;
-	if (JPEnv::getHost()->isInt(obj))
+	if (checkValue(obj, JPTypeManager::_int))
 	{
-		jint l = JPEnv::getHost()->intAsInt(obj);;
+		return obj.asJavaValue();
+	}
+	if (obj.isInt())
+	{
+		jint l = JPyInt(obj).asInt();;
 		if (l < JPJni::s_minInt || l > JPJni::s_maxInt)
 		{
-			JPEnv::getHost()->setTypeError("Cannot convert value to Java int");
-			JPEnv::getHost()->raise("JPIntType::convertToJava");
+			JPyErr::setTypeError("Cannot convert value to Java int");
+			JPyErr::raise("JPIntType::convertToJava");
 		}
 
 		res.i = (jint)l;
 	}
-	else if (JPEnv::getHost()->isLong(obj))
+	else if (obj.isLong())
 	{
-		jlong l = JPEnv::getHost()->longAsLong(obj);;
+		jlong l = JPyLong(obj).asLong();;
 		if (l < JPJni::s_minInt || l > JPJni::s_maxInt)
 		{
-			JPEnv::getHost()->setTypeError("Cannot convert value to Java int");
-			JPEnv::getHost()->raise("JPIntType::convertToJava");
+			JPyErr::setTypeError("Cannot convert value to Java int");
+			JPyErr::raise("JPIntType::convertToJava");
 		}
 		res.i = (jint)l;
-	}
-	else if (JPEnv::getHost()->isWrapper(obj))
-	{
-		return JPEnv::getHost()->getWrapperValue(obj);
 	}
 
 	return res;
 }
 
-HostRef* JPIntType::convertToDirectBuffer(HostRef* src)
+PyObject* JPIntType::convertToDirectBuffer(PyObject* src)
 {
 		RAISE(JPypeException, "Unable to convert to Direct Buffer");
 	
@@ -293,121 +335,120 @@ HostRef* JPIntType::convertToDirectBuffer(HostRef* src)
 
 //-------------------------------------------------------------------------------
 
-HostRef* JPLongType::asHostObject(jvalue val) 
+PyObject* JPLongType::asHostObject(jvalue val) 
 {
 	TRACE_IN("JPLongType::asHostObject");
-	return JPEnv::getHost()->newLong(val.j);
+	return JPyLong::fromLong(val.j);
 	TRACE_OUT;
 }
 
-HostRef* JPLongType::asHostObjectFromObject(jvalue val)
+PyObject* JPLongType::asHostObjectFromObject(jobject val)
 {
-	jlong v = JPJni::longValue(val.l);
-	return JPEnv::getHost()->newLong(v);
+	jlong v = JPJni::longValue(val);
+	return JPyLong::fromLong(v);
 } 
 
-EMatchType JPLongType::canConvertToJava(HostRef* obj)
+EMatchType JPLongType::canConvertToJava(PyObject* pyobj)
 {
-	if (JPEnv::getHost()->isNone(obj))
+	JPyObject obj(pyobj);
+
+	if (obj.isNone())
 	{
 		return _none;
 	}
 
-	if (JPEnv::getHost()->isInt(obj))
+	if (checkValue(obj, JPTypeManager::_long))
+	{
+		return _exact;
+	}
+
+	if (obj.isInt())
 	{
 		return _implicit;
 	}
 
-	if (JPEnv::getHost()->isLong(obj))
+	if (obj.isLong())
 	{
-		if (JPEnv::getHost()->isObject(obj))
+		if (obj.isJavaValue())
 		{
 			return _implicit;
 		}
 		return _exact;
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
-	{
-		JPTypeName name = JPEnv::getHost()->getWrapperTypeName(obj);
-		if (name.getType() == JPTypeName::_long)
-		{
-			return _exact;
-		}
-	}
-
 	return _none;
 }
 
-jvalue JPLongType::convertToJava(HostRef* obj)
+jvalue JPLongType::convertToJava(PyObject* pyobj)
 {
+	JPyObject obj(pyobj);
+
 	jvalue res;
-	if (JPEnv::getHost()->isInt(obj))
+	if (checkValue(obj, JPTypeManager::_long))
 	{
-		res.j = (jlong)JPEnv::getHost()->intAsInt(obj);
+		return obj.asJavaValue();
 	}
-	else if (JPEnv::getHost()->isLong(obj))
+	if (obj.isInt())
 	{
-		res.j = (jlong)JPEnv::getHost()->longAsLong(obj);
+		res.j = (jlong)JPyInt(obj).asInt();
 	}
-	else if (JPEnv::getHost()->isWrapper(obj))
+	else if (obj.isLong())
 	{
-		return JPEnv::getHost()->getWrapperValue(obj);
+		res.j = (jlong)JPyLong(obj).asLong();
 	}
 	else
 	{
-		JPEnv::getHost()->setTypeError("Cannot convert value to Java long");
-		JPEnv::getHost()->raise("JPLongType::convertToJava");
+		JPyErr::setTypeError("Cannot convert value to Java long");
+		JPyErr::raise("JPLongType::convertToJava");
 		res.j = 0; // never reached
 	}
 	return res;
 }
 
-HostRef* JPLongType::convertToDirectBuffer(HostRef* src)
+PyObject* JPLongType::convertToDirectBuffer(PyObject* src)
 {
 		RAISE(JPypeException, "Unable to convert to Direct Buffer");
 	
 }
 
 //-------------------------------------------------------------------------------
-HostRef* JPFloatType::asHostObject(jvalue val) 
+PyObject* JPFloatType::asHostObject(jvalue val) 
 {
-	return JPEnv::getHost()->newFloat(val.f);
+	return JPyFloat::fromFloat(val.f);
 }
 
-HostRef* JPFloatType::asHostObjectFromObject(jvalue val)
+PyObject* JPFloatType::asHostObjectFromObject(jobject val)
 {
-	double v = JPJni::doubleValue(val.l);
-	return JPEnv::getHost()->newFloat(v);
+	// FIXME this is odd
+	jdouble v = JPJni::doubleValue(val);
+	return JPyFloat::fromDouble(v);
 } 
 
-EMatchType JPFloatType::canConvertToJava(HostRef* obj)
+EMatchType JPFloatType::canConvertToJava(PyObject* pyobj)
 {
-	if (JPEnv::getHost()->isNone(obj))
+	JPyObject obj(pyobj);
+
+	if (obj.isNone())
 	{
 		return _none;
 	}
 
-	if (JPEnv::getHost()->isFloat(obj))
+	if (checkValue(obj, JPTypeManager::_float))
 	{
-		if (JPEnv::getHost()->isObject(obj))
+		return _exact;
+	}
+
+	if (obj.isFloat())
+	{
+		if (obj.isJavaValue())
 		{
 			return _implicit;
 		}
 		return _implicit;
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
-	{
-		JPTypeName name = JPEnv::getHost()->getWrapperTypeName(obj);
-		if (name.getType() == JPTypeName::_float)
-		{
-			return _exact;
-		}
-	}
-
 	// Java allows conversion to any type with a longer range even if lossy
-	if (JPEnv::getHost()->isInt(obj) || JPEnv::getHost()->isLong(obj))
+	if (obj.isInt() || obj.isLong())
 	{
 		return _implicit;
 	}
@@ -415,87 +456,84 @@ EMatchType JPFloatType::canConvertToJava(HostRef* obj)
 	return _none;
 }
 
-jvalue JPFloatType::convertToJava(HostRef* obj)
+jvalue JPFloatType::convertToJava(PyObject* pyobj)
 {
+	JPyObject obj(pyobj);
+
 	jvalue res;
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (checkValue(obj, JPTypeManager::_float))
 	{
-		return JPEnv::getHost()->getWrapperValue(obj);
+		return obj.asJavaValue();
 	}
-	else if (JPEnv::getHost()->isInt(obj))
+	else if (obj.isInt())
 	{
-		res.d = JPEnv::getHost()->intAsInt(obj);;
+		res.d = JPyInt(obj).asInt();
 	}
-	else if (JPEnv::getHost()->isLong(obj))
+	else if (obj.isLong())
 	{
-		res.d = JPEnv::getHost()->longAsLong(obj);;
+		res.d = JPyLong(obj).asLong();
 	}
 	else
 	{
-		double l = JPEnv::getHost()->floatAsDouble(obj);
+		jdouble l = JPyFloat(obj).asDouble();
 		if (l > 0 && (l < JPJni::s_minFloat || l > JPJni::s_maxFloat))
 		{
-			JPEnv::getHost()->setTypeError("Cannot convert value to Java float");
-			JPEnv::getHost()->raise("JPFloatType::convertToJava");
+			JPyErr::setTypeError("Cannot convert value to Java float");
+			JPyErr::raise("JPFloatType::convertToJava");
 		}
 		else if (l < 0 && (l > -JPJni::s_minFloat || l < -JPJni::s_maxFloat))
 		{
-			JPEnv::getHost()->setTypeError("Cannot convert value to Java float");
-			JPEnv::getHost()->raise("JPFloatType::convertToJava");
+			JPyErr::setTypeError("Cannot convert value to Java float");
+			JPyErr::raise("JPFloatType::convertToJava");
 		}
 		res.f = (jfloat)l;
 	}
 	return res;
 }
 
-HostRef* JPFloatType::convertToDirectBuffer(HostRef* src)
+PyObject* JPFloatType::convertToDirectBuffer(PyObject* src)
 {
 		RAISE(JPypeException, "Unable to convert to Direct Buffer");
-	
 }
 
 //---------------------------------------------------------------------------
 
-HostRef* JPDoubleType::asHostObject(jvalue val) 
+PyObject* JPDoubleType::asHostObject(jvalue val) 
 {
-	HostRef* res = JPEnv::getHost()->newFloat(val.d);
-
-	return res;
+	return JPyFloat::fromFloat(val.d);
 }
 
-HostRef* JPDoubleType::asHostObjectFromObject(jvalue val)
+PyObject* JPDoubleType::asHostObjectFromObject(jobject val)
 {
-	double v = JPJni::doubleValue(val.l);
-	return JPEnv::getHost()->newFloat(v);
+	jdouble v = JPJni::doubleValue(val);
+	return JPyFloat::fromDouble(v);
 } 
 
-EMatchType JPDoubleType::canConvertToJava(HostRef* obj)
+EMatchType JPDoubleType::canConvertToJava(PyObject* pyobj)
 {
-	if (JPEnv::getHost()->isNone(obj))
+	JPyObject obj(pyobj);
+
+	if (obj.isNone())
 	{
 		return _none;
 	}
 
-	if (JPEnv::getHost()->isFloat(obj))
+	if (checkValue(obj, JPTypeManager::_double))
 	{
-	  if (JPEnv::getHost()->isObject(obj))
+		return _exact;
+	}
+
+	if (obj.isFloat())
+	{
+	  if (obj.isJavaValue())
 		{
 			return _implicit;
 		}
 		return _exact;
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
-	{
-		JPTypeName name = JPEnv::getHost()->getWrapperTypeName(obj);
-		if (name.getType() == JPTypeName::_double)
-		{
-			return _exact;
-		}
-	}
-
 	// Java allows conversion to any type with a longer range even if lossy
-	if (JPEnv::getHost()->isInt(obj) || JPEnv::getHost()->isLong(obj))
+	if (obj.isInt() || obj.isLong())
 	{
 		return _implicit;
 	}
@@ -503,160 +541,226 @@ EMatchType JPDoubleType::canConvertToJava(HostRef* obj)
 	return _none;
 }
 
-jvalue JPDoubleType::convertToJava(HostRef* obj)
+jvalue JPDoubleType::convertToJava(PyObject* pyobj)
 {
+	JPyObject obj(pyobj);
+
 	jvalue res;
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (checkValue(obj, JPTypeManager::_double))
 	{
-		return JPEnv::getHost()->getWrapperValue(obj);
+		return obj.asJavaValue();
 	}
-	else if (JPEnv::getHost()->isInt(obj))
+	else if (obj.isInt())
 	{
-		res.d = JPEnv::getHost()->intAsInt(obj);;
+		res.d = JPyInt(obj).asInt();
 	}
-	else if (JPEnv::getHost()->isLong(obj))
+	else if (obj.isLong())
 	{
-		res.d = JPEnv::getHost()->longAsLong(obj);;
+		res.d = JPyLong(obj).asLong();
 	}
 	else
 	{
-		res.d = (jdouble)JPEnv::getHost()->floatAsDouble(obj);
+		res.d = JPyFloat(obj).asDouble();
 	}
 	return res;
 }
 
-HostRef* JPDoubleType::convertToDirectBuffer(HostRef* src)
+PyObject* JPDoubleType::convertToDirectBuffer(PyObject* src)
 {
 		RAISE(JPypeException, "Unable to convert to Direct Buffer");
-	
 }
 
 //----------------------------------------------------------------
 
-HostRef* JPCharType::asHostObject(jvalue val)   
+PyObject* JPCharType::asHostObject(jvalue val)   
 {
 	jchar str[2];
 	str[0] = val.c;
 	str[1] = 0;
 	
-	return JPEnv::getHost()->newStringFromUnicode(str, 1);
+	return JPyString::fromUnicode(str, 1);
 }
 
-HostRef* JPCharType::asHostObjectFromObject(jvalue val)
+PyObject* JPCharType::asHostObjectFromObject(jobject val)
 {
 	jchar str[2];
-	str[0] = JPJni::charValue(val.l);
+	str[0] = JPJni::charValue(val);
 	str[1] = 0;
 	
-	return JPEnv::getHost()->newStringFromUnicode(str, 1);
+	return JPyString::fromUnicode(str, 1);
 } 
 
-EMatchType JPCharType::canConvertToJava(HostRef* obj)
+EMatchType JPCharType::canConvertToJava(PyObject* pyobj)
 {
-	if (JPEnv::getHost()->isNone(obj))
+	JPyObject obj(pyobj);
+
+	if (obj.isNone())
 	{
 		return _none;
 	}
 
-	if (JPEnv::getHost()->isString(obj) && JPEnv::getHost()->getStringLength(obj) == 1)
+	if (checkValue(obj, JPTypeManager::_char))
 	{
-		return _implicit;
+		return _exact;
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (obj.isString() && JPyString(obj).isChar())
 	{
-		JPTypeName name = JPEnv::getHost()->getWrapperTypeName(obj);
-		if (name.getType() == JPTypeName::_char)
-		{
-			return _exact;
-		}
+		return _implicit;
 	}
 
 	return _none;
 }
 
-jvalue JPCharType::convertToJava(HostRef* obj)
+jvalue JPCharType::convertToJava(PyObject* pyobj)
 {
+	JPyObject obj(pyobj);
+
 	jvalue res;
 
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (checkValue(obj, JPTypeManager::_char))
 	{
-		return JPEnv::getHost()->getWrapperValue(obj);
+		return obj.asJavaValue();
 	}
 	else
 	{
-		JCharString str = JPEnv::getHost()->stringAsJCharString(obj);
-
-		res.c = str[0];
+		res.c = JPyString(obj).asChar();
 	}
 	return res;
 }
 
-HostRef* JPCharType::convertToDirectBuffer(HostRef* src)
+PyObject* JPCharType::convertToDirectBuffer(PyObject* src)
 {
 		RAISE(JPypeException, "Unable to convert to Direct Buffer");
-	
 }
 
 //----------------------------------------------------------------------------------------
 
-HostRef* JPBooleanType::asHostObject(jvalue val) 
+PyObject* JPBooleanType::asHostObject(jvalue val) 
 {
 	if (val.z)
 	{
-		return JPEnv::getHost()->getTrue();
+		return JPPyni::getTrue();
 	}
-	return JPEnv::getHost()->getFalse();
+	return JPPyni::getFalse();
 }
 
-HostRef* JPBooleanType::asHostObjectFromObject(jvalue val)
+PyObject* JPBooleanType::asHostObjectFromObject(jobject val)
 {
-	bool z = JPJni::booleanValue(val.l);
-	if (z)
+	if (JPJni::booleanValue(val))
 	{
-		return JPEnv::getHost()->getTrue();
+		return JPPyni::getTrue();
 	}
-	return JPEnv::getHost()->getFalse();
+	return JPPyni::getFalse();
 } 
 
-EMatchType JPBooleanType::canConvertToJava(HostRef* obj)
+EMatchType JPBooleanType::canConvertToJava(PyObject* pyobj)
 {
-	if (JPEnv::getHost()->isInt(obj) || JPEnv::getHost()->isLong(obj))
+	JPyObject obj(pyobj);
+
+	if (checkValue(obj, JPTypeManager::_boolean))
+	{
+		return _exact;
+	}
+
+	if (obj.isInt() || obj.isLong())
 	{
 		return _implicit;
 	}
 
-	if (JPEnv::getHost()->isWrapper(obj))
-	{
-		JPTypeName name = JPEnv::getHost()->getWrapperTypeName(obj);
-		if (name.getType() == JPTypeName::_boolean)
-		{
-			return _exact;
-		}
-	}
+	// FIXME what about isTrue and isFalse? Those should be exact
 
 	return _none;
 }
 
-jvalue JPBooleanType::convertToJava(HostRef* obj)
+jvalue JPBooleanType::convertToJava(PyObject* pyobj)
 {
+	JPyObject obj(pyobj);
 	jvalue res;
-	if (JPEnv::getHost()->isWrapper(obj))
+	if (checkValue(obj, JPTypeManager::_boolean))
 	{
-		return JPEnv::getHost()->getWrapperValue(obj);
+		return obj.asJavaValue();
 	}
-	else if (JPEnv::getHost()->isLong(obj))
+	else if (obj.isLong())
 	{
-		res.z = (jboolean)JPEnv::getHost()->longAsLong(obj);
+		res.z = (jboolean)JPyLong(obj).asLong();
 	}
 	else
 	{
-		res.z = (jboolean)JPEnv::getHost()->intAsInt(obj);
+		res.z = (jboolean)JPyInt(obj).asInt();
 	}
 	return res;
 }
 
-HostRef* JPBooleanType::convertToDirectBuffer(HostRef* src)
+PyObject* JPBooleanType::convertToDirectBuffer(PyObject* src)
 {
 		RAISE(JPypeException, "Unable to convert to Direct Buffer");
 }
+
+// --------------------------------------
+// Type conversion tables
+
+// FIXME I am almost sure these are not used as it appears to be wrong in several locations.
+// Remove this when we are sure.
+
+bool JPVoidType::isAssignableTo(const JPClass* other) const
+{
+	return other == JPTypeManager::_void;
+}
+
+bool JPByteType::isAssignableTo(const JPClass* other) const
+{
+	return other == JPTypeManager::_byte
+			|| other == JPTypeManager::_short
+			|| other == JPTypeManager::_int
+			|| other == JPTypeManager::_long
+			|| other == JPTypeManager::_float
+			|| other == JPTypeManager::_double;
+}
+
+bool JPShortType::isAssignableTo(const JPClass* other) const
+{
+	return other == JPTypeManager::_short
+			|| other == JPTypeManager::_int
+			|| other == JPTypeManager::_long
+			|| other == JPTypeManager::_float
+			|| other == JPTypeManager::_double;
+}
+
+
+bool JPIntType::isAssignableTo(const JPClass* other) const
+{
+	return other == JPTypeManager::_int
+			|| other == JPTypeManager::_long
+			|| other == JPTypeManager::_float
+			|| other == JPTypeManager::_double;
+}
+
+bool JPLongType::isAssignableTo(const JPClass* other) const
+{
+	return other == JPTypeManager::_long
+			|| other == JPTypeManager::_float
+			|| other == JPTypeManager::_double;
+}
+
+bool JPFloatType::isAssignableTo(const JPClass* other) const
+{
+	return other == JPTypeManager::_float
+			|| other == JPTypeManager::_double;
+}
+
+bool JPDoubleType::isAssignableTo(const JPClass* other) const
+{
+	return other == JPTypeManager::_double;
+}
+
+bool JPCharType::isAssignableTo(const JPClass* other) const
+{
+	return other == JPTypeManager::_char;
+}
+
+bool JPBooleanType::isAssignableTo(const JPClass* other) const
+{
+	return other == JPTypeManager::_boolean;
+}
+

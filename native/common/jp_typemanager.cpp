@@ -16,157 +16,261 @@
 *****************************************************************************/
 #include <jpype.h>
 
+#include <map>
+#include <list>
 namespace {
 //AT's on porting:
 // 1) TODO: test on HP-UX platform. Cause: it is suspected to be an undefined order of initialization of static objects
 //
 //  2) TODO: in any case, use of static objects may impose problems in multi-threaded environment.
-	typedef map<JPTypeName::ETypes, JPType*> TypeMap;
-	typedef map<string, JPClass* > JavaClassMap;
-	typedef map<string, JPArrayClass* > JavaArrayClassMap;
-
-	TypeMap typeMap;
+	typedef std::list<JPClass*> JavaClassList;
+	typedef std::map<int, JavaClassList> JavaClassMap;
 	JavaClassMap javaClassMap;
-	JavaArrayClassMap javaArrayClassMap;
-
-//	TypeMap typeMap;
-//	JavaClassMap javaClassMap;
-//	JavaArrayClassMap javaArrayClassMap;
 }
 
 namespace JPTypeManager {
 
-void init()
+int loadedClasses = 0;
+JPPrimitiveType *_void  = 0;
+JPPrimitiveType *_boolean  = 0;
+JPPrimitiveType *_byte  = 0;
+JPPrimitiveType *_char  = 0;
+JPPrimitiveType *_short  = 0;
+JPPrimitiveType *_long  = 0;
+JPPrimitiveType *_int  = 0;
+JPPrimitiveType *_float  = 0;
+JPPrimitiveType *_double  = 0;
+JPClass *_java_lang_Object  = 0;
+JPClass *_java_lang_Class  = 0;
+JPClass *_java_lang_String  = 0;
+JPClass *_java_lang_Boolean = 0;
+JPClass *_java_lang_Byte = 0;
+JPClass *_java_lang_Character = 0;
+JPClass *_java_lang_Short = 0;
+JPClass *_java_lang_Integer = 0;
+JPClass *_java_lang_Long = 0;
+JPClass *_java_lang_Float = 0;
+JPClass *_java_lang_Double = 0;
+
+void registerClass(JPClass* type)
 {
-	typeMap[JPTypeName::_void] = new JPVoidType();
-	typeMap[JPTypeName::_byte] = new JPByteType();
-	typeMap[JPTypeName::_short] = new JPShortType();
-	typeMap[JPTypeName::_int] = new JPIntType();
-	typeMap[JPTypeName::_long] = new JPLongType();
-	typeMap[JPTypeName::_float] = new JPFloatType();
-	typeMap[JPTypeName::_double] = new JPDoubleType();
-	typeMap[JPTypeName::_char] = new JPCharType();
-	typeMap[JPTypeName::_boolean] = new JPBooleanType();
-	typeMap[JPTypeName::_string] = new JPStringType();
-
-	// Preload the "primitive" types
-	javaClassMap["byte"] = new JPClass(JPTypeName::fromSimple("byte"), JPJni::getByteClass());
-	javaClassMap["short"] = new JPClass(JPTypeName::fromSimple("short"), JPJni::getShortClass());
-	javaClassMap["int"] = new JPClass(JPTypeName::fromSimple("int"), JPJni::getIntegerClass());
-	javaClassMap["long"] = new JPClass(JPTypeName::fromSimple("long"), JPJni::getLongClass());
-	javaClassMap["float"] = new JPClass(JPTypeName::fromSimple("float"), JPJni::getFloatClass());
-	javaClassMap["double"] = new JPClass(JPTypeName::fromSimple("double"), JPJni::getDoubleClass());
-	javaClassMap["char"] = new JPClass(JPTypeName::fromSimple("char"), JPJni::getCharacterClass());
-	javaClassMap["boolean"] = new JPClass(JPTypeName::fromSimple("boolean"), JPJni::getBooleanClass());
-	javaClassMap["void"] = new JPClass(JPTypeName::fromSimple("void"), JPJni::getVoidClass());
-}
-
-JPClass* findClass(const JPTypeName& name)
-{
-	// Fist check in the map ...
-	JavaClassMap::iterator cur = javaClassMap.find(name.getSimpleName());
-
-	if (cur != javaClassMap.end())
-	{
-		return cur->second;
-	}
-
-	TRACE_IN("JPTypeManager::findClass");
-	TRACE1(name.getSimpleName());
-
-	// No we havent got it .. lets load it!!!
-	JPLocalFrame frame;
-	if (JPEnv::getJava()==0)
-		return 0;
-
-	jclass cls = JPEnv::getJava()->FindClass(name.getNativeName().c_str());
-	JPClass* res = new JPClass(name, cls);
-	// Finish loading it
-	res->postLoad();
-	// Register it here before we do anything else
-	javaClassMap[name.getSimpleName()] = res;
-
-	return res;
+	TRACE_IN("JPTypeManager::registerClass");
+	loadedClasses++;
+	int hash = JPJni::hashCode(type->getNativeClass());
+	TRACE2(hash, type->getSimpleName());
+	type->postLoad();
+	javaClassMap[hash].push_back(type);
 	TRACE_OUT;
 }
 
-JPArrayClass* findArrayClass(const JPTypeName& name)
+void init()
 {
-	// Fist check in the map ...
-	JavaArrayClassMap::iterator cur = javaArrayClassMap.find(name.getSimpleName());
+	TRACE_IN("JPTypeManager::init");
+	// This will load all of the specializations that we need to operate
+	// All other classes can be loaded later as JPObjectClass or JPArrayClass.
+	
+	// Preload basic types (specializations)
+	registerClass(_java_lang_Object = new JPObjectBaseClass());
+	registerClass(_java_lang_Class = new JPClassBaseClass());
 
-	if (cur != javaArrayClassMap.end())
+	// Preload the boxed types 
+	registerClass(_java_lang_Boolean = new JPBoxedBooleanClass());
+	registerClass(_java_lang_Byte = new JPBoxedByteClass());
+	registerClass(_java_lang_Character = new JPBoxedCharacterClass());
+	registerClass(_java_lang_Short = new JPBoxedShortClass());
+	registerClass(_java_lang_Integer = new JPBoxedIntegerClass());
+	registerClass(_java_lang_Long = new JPBoxedLongClass());
+	registerClass(_java_lang_Float = new JPBoxedFloatClass());
+	registerClass(_java_lang_Double = new JPBoxedDoubleClass());
+
+	// Preload the primitive types
+	registerClass(_void=new JPVoidType());
+	registerClass(_boolean=new JPBooleanType());
+	registerClass(_byte=new JPByteType());
+	registerClass(_char=new JPCharType());
+	registerClass(_short=new JPShortType());
+	registerClass(_int=new JPIntType());
+	registerClass(_long=new JPLongType());
+	registerClass(_float=new JPFloatType());
+	registerClass(_double=new JPDoubleType());
+
+	// Preload the string type
+	registerClass(_java_lang_String = new JPStringClass());
+	TRACE_OUT;
+}
+
+JPClass* findClassByName(const std::string& cls)
+{
+	if (JPEnv::getJava() == 0)
+		return NULL;
+	return findClass(JPJni::findClass(cls));
+}
+
+JPClass* findClass(jclass cls)
+{
+	if (JPEnv::getJava() == 0)
+		return NULL;
+
+	// If  the class lookup failed then we will receive NULL
+	if (cls == NULL)
+		return NULL;
+
+	int hash = JPJni::hashCode(cls);
+
+	// First check in the map ...
+	JavaClassMap::iterator cur = javaClassMap.find(hash);
+	if (cur != javaClassMap.end())
 	{
-		return cur->second;
+		for (JavaClassList::iterator item=cur->second.begin(); item!=cur->second.end(); ++item)
+		{
+			if (JPEnv::getJava()->IsSameObject((jobject)((*item)->getNativeClass()),(jobject)cls))
+				return *item;
+		}
 	}
+
+	TRACE_IN("JPTypeManager::findClass");
+	TRACE1(JPJni::getSimpleName(cls));
 
 	// No we havent got it .. lets load it!!!
 	JPLocalFrame frame;
-	jclass cls = JPEnv::getJava()->FindClass(name.getNativeName().c_str());
-	JPArrayClass* res = new JPArrayClass(name, cls);
 
-	// Register it here before we do anything else
-	javaArrayClassMap[name.getSimpleName()] = res;
-
-	return res;
-}
-
-JPType* getType(const JPTypeName& t)
-{
-	TRACE_IN("JPTypeManager::getType");
-	TRACE1(t.getSimpleName());
-	map<JPTypeName::ETypes, JPType*>::iterator it = typeMap.find(t.getType());
-
-	if (it != typeMap.end())
+	JPClass* res;
+	if (JPJni::isArray(cls))
 	{
-		return it->second;
-	}
-
-	if (t.getType() == JPTypeName::_array)
-	{
-		JPArrayClass* c = findArrayClass(t);
-		return c;
+		res = new JPArrayClass(cls);
 	}
 	else
 	{
-		JPClass* c = findClass(t);
-		return c;
+		res = new JPObjectClass(cls);
 	}
+
+	registerClass(res);
+
+	return res;
 	TRACE_OUT;
 }
 
 void shutdown()
 {
 	flushCache();
-
-	// delete primitive types
-	for(TypeMap::iterator i = typeMap.begin(); i != typeMap.end(); ++i)
-	{
-		delete i->second;
-	}
 }
 
 void flushCache()
 {
 	for(JavaClassMap::iterator i = javaClassMap.begin(); i != javaClassMap.end(); ++i)
 	{
-		delete i->second;
-	}
-
-	for(JavaArrayClassMap::iterator i = javaArrayClassMap.begin();
-			i != javaArrayClassMap.end(); ++i)
-	{
-		delete i->second;
+		for (JavaClassList::iterator j = i->second.begin(); j!= i->second.end(); ++j)
+			delete *j;
 	}
 
 	javaClassMap.clear();
-	javaArrayClassMap.clear();
+	loadedClasses = 0;
 }
 
 int getLoadedClasses()
 {
 	// dignostic tools ... unlikely to load more classes than int can hold ...
-	return (int)(javaClassMap.size() + javaArrayClassMap.size());
+	return loadedClasses;
 }
+
+static string convertToQualifiedName(const string& str)
+{
+	// simple names are of the form :
+	//   a.c.d.E
+	
+	// qualifed names are of the form :
+	//   a/c/d/E
+	
+	string result = str;
+	for (unsigned int j = 0; j < result.length(); j++)
+	{
+		if (result[j] == '.') 
+		{
+			result[j] = '/';
+		}
+	}
+	return result;
+}
+
+string getQualifiedName(const string& name)
+{
+	string simple = name;
+	string componentName = simple;
+		
+	// is it an array?
+	size_t arrayDimCount = 0;
+	if (simple.length() > 0 && simple[simple.length()-1] == ']')
+	{
+		size_t i = simple.length()-1;
+		while (simple[i] == ']' || simple[i] == '[')
+		{
+			i--;
+		}
+		componentName = simple.substr(0, i+1);
+		arrayDimCount = (simple.length() - componentName.length())/2;
+	}
+
+	string nativeComponent = componentName;
+	if (componentName == "void")
+	{
+		nativeComponent="V";
+	}
+	else if (componentName == "byte")
+	{
+		nativeComponent="B";
+	}
+	else if (componentName == "short")
+	{
+		nativeComponent="S";
+	}
+	else if (componentName == "int")
+	{
+		nativeComponent="I";
+	}
+	else if (componentName == "long")
+	{
+		nativeComponent="J";
+	}
+	else if (componentName == "float")
+	{
+		nativeComponent="F";
+	}
+	else if (componentName == "double")
+	{
+		nativeComponent="D";
+	}
+	else if (componentName == "char")
+	{
+		nativeComponent="C";
+	}
+	else if (componentName == "boolean")
+	{
+		nativeComponent="Z";
+	}
+	else
+	{
+		if (arrayDimCount > 0)
+		{
+			nativeComponent = string("L") + convertToQualifiedName(componentName) + ";";
+		}
+		else
+		{
+			nativeComponent = convertToQualifiedName(componentName);
+		}
+	}
+	
+	if (arrayDimCount > 0)
+	{
+		stringstream str;
+		for (unsigned int i = 0; i < arrayDimCount; i++)
+		{
+			str << "[";
+		}
+		str << nativeComponent;
+		return str.str();
+	}
+	return nativeComponent;
+}
+
 
 } // end of namespace JPTypeManager

@@ -17,26 +17,26 @@
 #ifndef _JPMETHOD_H_
 #define _JPMETHOD_H_
 
-class JPObject;
-
+/** 
+ * JPMethod represents a collection of Methods which share the same name.
+ * It does not correspond to a java object.
+ *
+ */
 class JPMethod
 {
 public :
 	/**
 	 * Create a new method based on class and a name;
 	 */
-	JPMethod(jclass clazz, const string& name, bool isConstructor);
-	virtual ~JPMethod()
-	{
-		JPEnv::getJava()->DeleteGlobalRef(m_Class);
-	}
+	JPMethod(JPObjectClass* clazz, const string& name, bool isConstructor);
+	virtual ~JPMethod();
 
 
 public :
 	const string& getName() const;
 	string getClassName() const;
 	
-	void addOverload(JPClass* clazz, jobject mth);
+	void addOverload(JPObjectClass* clazz, jobject mth);
 	void addOverloads(JPMethod* o);
 	
 	bool hasStatic(); 
@@ -48,22 +48,22 @@ public :
 	bool isBeanMutator();
 	bool isBeanAccessor();
 
-	HostRef*  invoke(vector<HostRef*>&); 
-	HostRef*  invokeStatic(vector<HostRef*>&); 
-	HostRef*  invokeInstance(vector<HostRef*>&); 
-	JPObject* invokeConstructor(vector<HostRef*>& args); 
+	PyObject*  invoke(vector<PyObject*>&); 
+	PyObject*  invokeStatic(vector<PyObject*>&); 
+	PyObject*  invokeInstance(vector<PyObject*>&); 
+	JPValue invokeConstructor(vector<PyObject*>& args); 
 
 	string describe(string prefix);
 
-	string matchReport(vector<HostRef*>&);
+	string matchReport(vector<PyObject*>&);
 	void ensureOverloadOrderCache();
 
 private :
-	JPMethodOverload* findOverload(vector<HostRef*>& arg, bool needStatic);
+	JPMethodOverload* findOverload(vector<PyObject*>& arg, bool needStatic);
 
-	jclass                        m_Class;
-	string                        m_Name;
-	map<string, JPMethodOverload> m_Overloads;
+	JPObjectClass*                 m_Class;
+	string                         m_Name;
+	map<string, JPMethodOverload*> m_Overloads;
 
 	struct OverloadData {
 		OverloadData(JPMethodOverload* o) : m_Overload(o) {}

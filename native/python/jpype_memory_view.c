@@ -107,15 +107,17 @@ _IntTupleFromSsizet(int len, Py_ssize_t *vals)
 	PyObject *o;
 	PyObject *intTuple;
 
-	if (vals == NULL) {
-		Py_INCREF(Py_None);
-		return Py_None;
+	if (vals == NULL) 
+	{
+		Py_RETURN_NONE;
 	}
 	intTuple = PyTuple_New(len);
 	if (!intTuple) return NULL;
-	for(i=0; i<len; i++) {
+	for(i=0; i<len; i++) 
+	{
 		o = PyInt_FromSsize_t(vals[i]);
-		if (!o) {
+		if (!o) 
+		{
 			Py_DECREF(intTuple);
 			return NULL;
 		}

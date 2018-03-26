@@ -24,7 +24,6 @@
 #include <Python.h>
 
 namespace { // impl details
-	 HostEnvironment* s_Host = NULL;
 	 JPJavaEnv*       s_Java = NULL;
 }
 
@@ -32,23 +31,12 @@ JPJavaEnv* JPEnv::getJava()
 {
 	return s_Java;
 }
-HostEnvironment* JPEnv::getHost()
-{
-	return s_Host;
-}
 
 bool JPEnv::isInitialized()
 {
-	return getJava() != NULL && getHost() != NULL;
+	return getJava() != NULL ;
 }
 
-void JPEnv::init(HostEnvironment* hostEnv)
-{
-	s_Host = hostEnv;
-	
-	JPTypeName::init();  
-}
-	
 void JPEnv::loadJVM(const string& vmPath, char ignoreUnrecognized, const StringVector& args)
 {
 	TRACE_IN("JPEnv::loadJVM");
@@ -78,8 +66,13 @@ void JPEnv::loadJVM(const string& vmPath, char ignoreUnrecognized, const StringV
 		RAISE(JPypeException, "Unable to start JVM");
 	}
 
-	JPTypeManager::init();
+	// First thing we need to get all of our jni methods loaded
 	JPJni::init();
+
+	// After we have the jni methods we can preload the type tables
+	JPTypeManager::init();
+
+	// Then we can install the proxy code
 	JPProxy::init();
 
 	TRACE_OUT;
@@ -120,15 +113,15 @@ bool JPEnv::isThreadAttached()
 	return s_Java->isThreadAttached();
 }
 
-
-void JPEnv::registerRef(HostRef* ref, HostRef* targetRef)
+// FIXME.  I dont understand this one.
+void JPEnv::registerRef(PyObject* ref, PyObject* targetRef)
 {
 	TRACE_IN("JPEnv::registerRef");
 	JPLocalFrame frame;
-	JPObject* objRef = s_Host->asObject(ref);
+	const JPValue& objRef = JPyObject(ref).asJavaValue();
 	TRACE1("A");
-	jobject srcObject = objRef->getObject();
-	JPJni::registerRef(s_Java->getReferenceQueue(), srcObject, (jlong)targetRef->copy());
+	jobject srcObject = objRef.getObject();
+	JPJni::registerRef(s_Java->getReferenceQueue(), srcObject, (jlong)targetRef);
 	TRACE_OUT;
 	TRACE1("B");
 }
@@ -191,11 +184,11 @@ void JPypeTracer::trace1(const char* name, const string& msg)
 	}
 }
 
-JPLocalFrame::JPLocalFrame(int i)
+JPLocalFrame::JPLocalFrame(size_t i)
 {
 	// FIXME check return code
 	popped=false;
-	JPEnv::getJava()->PushLocalFrame(i);
+	JPEnv::getJava()->PushLocalFrame((int)i);
 }
 
 jobject JPLocalFrame::keep(jobject obj)
@@ -210,108 +203,6 @@ JPLocalFrame::~JPLocalFrame()
 	{
 		JPEnv::getJava()->PopLocalFrame(NULL);
 	}
-}
-
-JPCleaner::JPCleaner()
-{
-}
-
-JPCleaner::~JPCleaner()
-{
-	// FIXME use an exception safe enclosure would be better here
-	PyGILState_STATE state = PyGILState_Ensure();
-
-//AT's comments on porting:
-// A variety of Unix compilers do not allow redefinition of the same variable in "for" cycles
-	for (vector<HostRef*>::iterator cur2 = m_HostObjects.begin(); cur2 != m_HostObjects.end(); cur2++)
-	{
-		(*cur2)->release();
-	}
-
-	PyGILState_Release(state);
-}
-
-void JPCleaner::add(HostRef* obj)
-{
-	m_HostObjects.push_back(obj);
-}
-
-void JPCleaner::remove(HostRef* obj)
-{
-	for (vector<HostRef*>::iterator cur2 = m_HostObjects.begin(); cur2 != m_HostObjects.end(); cur2++)
-	{
-		if (*cur2 == obj)
-		{
-			m_HostObjects.erase(cur2);
-			return;
-		}
-	}
-}
-
-void JPCleaner::addAll(vector<HostRef*>& r) 
-{
-	m_HostObjects.insert(m_HostObjects.end(), r.begin(), r.end());
-}
-
-void JPCleaner::removeAll(vector<HostRef*>& r)
-{
-	for (vector<HostRef*>::iterator cur = r.begin(); cur != r.end(); cur++)
-	{
-		remove(*cur);
-	}
-}
-
-HostRef::HostRef(void* data, bool acquire)
-{
-	if (acquire)
-	{
-		m_HostData = JPEnv::getHost()->acquireRef(data);
-	}
-	else
-	{
-		m_HostData = data;
-	}
-}
-
-HostRef::HostRef(void* data)
-{
-	m_HostData = JPEnv::getHost()->acquireRef(data);
-}
-
-HostRef::~HostRef()
-{
-	JPEnv::getHost()->releaseRef(m_HostData);
-}
-
-HostRef::HostRef(const HostRef& h)
-{
-	m_HostData = JPEnv::getHost()->acquireRef(h.m_HostData);
-}
-
-HostRef& HostRef::operator=(const HostRef& h) {
-	m_HostData = JPEnv::getHost()->acquireRef(h.m_HostData);
-	return *this;
-}
-
-	
-HostRef* HostRef::copy()
-{
-	return new HostRef(m_HostData);
-}
-
-void HostRef::release()
-{
-	delete this;
-}
-
-bool HostRef::isNull()
-{
-	return JPEnv::getHost()->isRefNull(m_HostData);
-}
-
-void* HostRef::data()
-{
-	return m_HostData;
 }
 
 JCharString::JCharString(const jchar* c)

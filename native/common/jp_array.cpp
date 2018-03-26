@@ -16,11 +16,11 @@
 *****************************************************************************/   
 #include <jpype.h>
 
-JPArray::JPArray(const JPTypeName& name, jarray inst)
+JPArray::JPArray(JPArrayClass* cls, jarray inst)
 {
 	TRACE_IN("JPArray::JPArray");
-	TRACE1(name.getSimpleName());
-	m_Class = JPTypeManager::findArrayClass(name);
+	TRACE1(cls->getSimpleName());
+	m_Class = cls;
 	m_Object = (jarray)JPEnv::getJava()->NewGlobalRef(inst);
 	TRACE2("len=",getLength());
 	TRACE_OUT;
@@ -36,31 +36,30 @@ int JPArray::getLength()
 	return JPEnv::getJava()->GetArrayLength(m_Object);
 }
 
-vector<HostRef*> JPArray::getRange(int start, int stop)
+vector<PyObject*> JPArray::getRange(int start, int stop)
 {
 	TRACE_IN("JPArray::getRange");
-	JPType* compType = m_Class->getComponentType();
-	TRACE2("Compoennt type", compType->getName().getSimpleName());
+	JPClass* compType = m_Class->getComponentType();
+	TRACE2("Component type", compType->getSimpleName());
 	
-	vector<HostRef*> res = compType->getArrayRange(m_Object, start, stop-start);
+	vector<PyObject*> res = compType->getArrayRange(m_Object, start, stop-start);
 	
 	return res;
 	TRACE_OUT;
 }	
 
+// This is only used if the component is a primitive type
 PyObject* JPArray::getSequenceFromRange(int start, int stop)
 {
-//	TRACE_IN("JPArray::getSequenceFromRange");
-	JPType* compType = m_Class->getComponentType();
-//	TRACE2("Component type", compType->getName().getSimpleName());
-
+	JPPrimitiveType* compType = dynamic_cast<JPPrimitiveType*>(m_Class->getComponentType());
+	if (compType == NULL)
+		RAISE(JPypeException, "not valid for objects");
 	return compType->getArrayRangeToSequence(m_Object, start, stop);
-//  TRACE_OUT
 }
 
-void JPArray::setRange(int start, int stop, vector<HostRef*>& val)
+void JPArray::setRange(int start, int stop, vector<PyObject*>& val)
 {
-	JPType* compType = m_Class->getComponentType();
+	JPClass* compType = m_Class->getComponentType();
 	
 	unsigned int len = stop-start;
 	size_t plength = val.size();
@@ -74,7 +73,7 @@ void JPArray::setRange(int start, int stop, vector<HostRef*>& val)
 
 	for (size_t i = 0; i < plength; i++)
 	{
-		HostRef* v = val[i];
+		PyObject* v = val[i];
 		if ( compType->canConvertToJava(v)<= _explicit)
 		{
 			RAISE(JPypeException, "Unable to convert.");
@@ -84,13 +83,13 @@ void JPArray::setRange(int start, int stop, vector<HostRef*>& val)
 	compType->setArrayRange(m_Object, start, stop-start, val);
 }
 
-void JPArray::setRange(int start, int stop, PyObject* sequence)
+void JPArray::setRangePrimitive(int start, int stop, PyObject* sequence)
 {
-	JPType* compType = m_Class->getComponentType();
+	JPPrimitiveType* compType = dynamic_cast<JPPrimitiveType*>(m_Class->getComponentType());
 	unsigned int len = stop-start;
 	// check bounds of sequence which is to be assigned
-	HostRef h(sequence);
-	unsigned int plength = JPEnv::getHost()->getSequenceLength(&h);
+	JPySequence h(sequence);
+	unsigned int plength = h.size();
 
 	if (len != plength)
 	{
@@ -102,9 +101,9 @@ void JPArray::setRange(int start, int stop, PyObject* sequence)
 	compType->setArrayRange(m_Object, start, len, sequence);
 }
 
-void JPArray::setItem(int ndx, HostRef* val)
+void JPArray::setItem(int ndx, PyObject* val)
 {
-	JPType* compType = m_Class->getComponentType();
+	JPClass* compType = m_Class->getComponentType();
 	if (compType->canConvertToJava(val) <= _explicit)
 	{
 		RAISE(JPypeException, "Unable to convert.");
@@ -113,16 +112,11 @@ void JPArray::setItem(int ndx, HostRef* val)
 	compType->setArrayItem(m_Object, ndx, val);
 }
 
-HostRef* JPArray::getItem(int ndx)
+PyObject* JPArray::getItem(int ndx)
 {
-	JPType* compType = m_Class->getComponentType();
+	JPClass* compType = m_Class->getComponentType();
 
 	return compType->getArrayItem(m_Object, ndx);
-}
-
-JPType* JPArray::getType()
-{
-	return m_Class;
 }
 
 jvalue  JPArray::getValue()
@@ -131,6 +125,7 @@ jvalue  JPArray::getValue()
 	val.l = JPEnv::getJava()->NewLocalRef(m_Object);
 	return val;
 }
+
 JCharString JPArray::toString()
 {
 	static const char* value = "Array wrapper";

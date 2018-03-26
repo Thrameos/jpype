@@ -16,21 +16,9 @@
 *****************************************************************************/   
 #include <jpype.h>
 
-JPField::JPField() :
-    m_Name(""),
-    m_Class(NULL),
-    m_IsStatic(false),
-    m_IsFinal(false),
-    m_Field(),
-    m_FieldID(NULL),
-    m_Type()
+// fld is a java.lang.reflect.Field instance
+JPField::JPField(JPObjectClass* clazz, jobject fld)
 {
-}
-
-JPField::JPField(JPClass* clazz, jobject fld)
-{
-	TRACE_IN("JPField::JPField1");
-	
 	m_Class = clazz;
 	m_Field = JPEnv::getJava()->NewGlobalRef(fld);
 	
@@ -39,35 +27,13 @@ JPField::JPField(JPClass* clazz, jobject fld)
 	m_IsStatic = JPJni::isMemberStatic(fld);
 	m_IsFinal = JPJni::isMemberFinal(fld);
 	m_FieldID = JPEnv::getJava()->FromReflectedField(fld);
-	m_Type = JPJni::getType(m_Field);	
-
-	TRACE2("field type", m_Type.getSimpleName());
-	
-
-	TRACE_OUT
-}
-
-JPField::JPField(const JPField& fld)
-{
-	TRACE_IN("JPField::JPField2");
-	
-	m_Name = fld.m_Name; 
-	m_IsStatic = fld.m_IsStatic;
-	m_IsFinal = fld.m_IsFinal;
-	m_FieldID = fld.m_FieldID;
-	m_Type = fld.m_Type;
-
-	m_Class = fld.m_Class;
-
-	m_Field = JPEnv::getJava()->NewGlobalRef(fld.m_Field);
-	TRACE_OUT;
+	m_Type = (jclass)JPEnv::getJava()->NewGlobalRef(JPJni::getType(m_Field));	
 }
 
 JPField::~JPField() NO_EXCEPT_FALSE
 {
-	TRACE_IN("JPField::~JPField");
 	JPEnv::getJava()->DeleteGlobalRef(m_Field);
-	TRACE_OUT;
+	JPEnv::getJava()->DeleteGlobalRef(m_Type);
 }
 	
 bool JPField::isStatic() const
@@ -80,16 +46,15 @@ const string& JPField::getName() const
 	return m_Name;
 }	
 
-HostRef* JPField::getStaticAttribute() 
+PyObject* JPField::getStaticAttribute() 
 {
 	TRACE_IN("JPField::getStaticAttribute");
-	JPType* type = JPTypeManager::getType(m_Type);
-	jclass claz = m_Class->getClass();
-	return type->getStaticValue(claz, m_FieldID, m_Type);
+	JPClass* type = JPTypeManager::findClass(m_Type);
+	return type->getStaticValue(type, m_FieldID);
 	TRACE_OUT;	
 }
 
-void JPField::setStaticAttribute(HostRef* val) 
+void JPField::setStaticAttribute(PyObject* val) 
 {
 	TRACE_IN("JPField::setStaticAttribute");
 
@@ -100,30 +65,28 @@ void JPField::setStaticAttribute(HostRef* val)
 		RAISE(JPypeException, err.str().c_str());
 	}
 
-	JPType* type = JPTypeManager::getType(m_Type);
+	JPClass* type = JPTypeManager::findClass(m_Type);
 	if (type->canConvertToJava(val) <= _explicit)
 	{
 		stringstream err;
-		err << "unable to convert to " << type->getName().getSimpleName();
+		err << "unable to convert to " << type->getSimpleName();
 		RAISE(JPypeException, err.str().c_str());
 	}
 		
-	jclass claz = m_Class->getClass();
-	type->setStaticValue(claz, m_FieldID, val);		
+	type->setStaticValue(m_Class, m_FieldID, val);		
 	TRACE_OUT;
 }
 
-HostRef* JPField::getAttribute(jobject inst) 
+PyObject* JPField::getAttribute(jobject inst) 
 {
 	TRACE_IN("JPField::getAttribute");
-	TRACE2("field type", m_Type.getSimpleName()); 
-	JPType* type = JPTypeManager::getType(m_Type);
-	
-	return type->getInstanceValue(inst, m_FieldID, m_Type);	
+	TRACE2("field type", JPJni::getSimpleName(m_Type)); 
+	JPClass* type = JPTypeManager::findClass(m_Type);
+	return type->getInstanceValue(inst, m_FieldID);	
 	TRACE_OUT;
 }
 
-void JPField::setAttribute(jobject inst, HostRef* val) 
+void JPField::setAttribute(jobject inst, PyObject* val) 
 {
 	TRACE_IN("JPField::setAttribute");
 	if (m_IsFinal)
@@ -133,11 +96,11 @@ void JPField::setAttribute(jobject inst, HostRef* val)
 		RAISE(JPypeException, err.str().c_str());
 	}
 
-	JPType* type = JPTypeManager::getType(m_Type);
+	JPClass* type = JPTypeManager::findClass(m_Type);
 	if (type->canConvertToJava(val) <= _explicit)
 	{
 		stringstream err;
-		err << "unable to convert to " << type->getName().getSimpleName();
+		err << "unable to convert to " << type->getSimpleName();
 		RAISE(JPypeException, err.str().c_str());
 	}
 		

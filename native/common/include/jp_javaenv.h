@@ -126,6 +126,8 @@ public :
 	jobject NewLocalRef(jobject obj);
 	void DeleteLocalRef(jobject obj);
 
+	bool IsSameObject(jobject a, jobject b);
+
 	bool ExceptionCheck();
 	void ExceptionDescribe();
 	void ExceptionClear();

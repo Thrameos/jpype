@@ -22,18 +22,17 @@
  */
 class JPField
 {
+private:
+	JPField(const JPField&);
+
 public :
 	/**
-	 * default constructor
-	 */
-	JPField();
-	
-	/**
 	 * Create a new field based on class and java.lang.Field object
+	 *
+	 * clazz is the class with the field
+	 * fld is the Field instance (java.lang.Field)
 	 */
-	JPField(JPClass* clazz, jobject fld);
-	
-	JPField(const JPField&);
+	JPField(JPObjectClass* clazz, jobject fld);
 	
 	/**
 	 * destructor
@@ -44,16 +43,17 @@ public :
 	bool isStatic() const;
 	
 	const string& getName() const;
-	const JPTypeName& getType() const
+
+	JPObjectClass* getClass() const
 	{
-		return m_Type;
+		return m_Class;
 	}
 	
-	HostRef* getStaticAttribute();
-	void     setStaticAttribute(HostRef* val);
+	PyObject* getStaticAttribute();
+	void     setStaticAttribute(PyObject* val);
 	
-	HostRef* getAttribute(jobject inst);
-	void     setAttribute(jobject inst, HostRef* val);
+	PyObject* getAttribute(jobject inst);
+	void     setAttribute(jobject inst, PyObject* val);
 
 	bool isFinal() const
 	{
@@ -61,13 +61,13 @@ public :
 	}
 
 private :
-	string                 m_Name;
-	JPClass*			   m_Class;
-	bool                   m_IsStatic;
-	bool                   m_IsFinal;
-	jobject                m_Field;
-	jfieldID               m_FieldID;
-	JPTypeName             m_Type;
+	string     m_Name;
+	JPObjectClass*   m_Class;
+	bool       m_IsStatic;
+	bool       m_IsFinal;
+	jobject    m_Field;
+	jfieldID   m_FieldID;
+	jclass     m_Type;
 };
 
 #endif // _JPFIELD_H_

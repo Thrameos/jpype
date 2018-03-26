@@ -62,7 +62,7 @@ void JPJavaEnv::load(const string& path)
 	GetCreatedJVMs_Method = (jint (JNICALL *)(JavaVM ** , jsize, jsize*))GetAdapter()->getSymbol("JNI_GetCreatedJavaVMs");
 	// No idea why I can't find this symbol .... no matter, it does not work anyway.
 	//JNI_DestroyJavaVM = (jint (__stdcall *)(struct JavaVM_ *))GetAdapter()->getSymbol("DestroyJavaVM");
-TRACE_OUT;
+	TRACE_OUT;
 }
 
 void JPJavaEnv::shutdown()
@@ -186,7 +186,7 @@ jobject JPJavaEnv::NewLocalRef(jobject a0)
 	jobject res;
 	JNIEnv* env = getJNIEnv();
 	res = env->functions->NewLocalRef(env, a0);
-	MTRACE3((long)a0, "=>", (long)res); //, JPJni::getClassName(a0).getSimpleName());
+	MTRACE3((long)a0, "=>", (long)res); 
 	return res;
 	MTRACE_OUT;
 }
@@ -197,11 +197,17 @@ jobject JPJavaEnv::NewGlobalRef(jobject a0)
 	jobject res;
 	JNIEnv* env = getJNIEnv();
 	res = env->functions->NewGlobalRef(env, a0);
-	MTRACE3((long)a0, "=>", (long)res); //, JPJni::getClassName(a0).getSimpleName());
+	MTRACE3((long)a0, "=>", (long)res); 
 	return res;
 	MTRACE_OUT;
 }
 
+
+bool JPJavaEnv::IsSameObject(jobject a, jobject b)
+{
+	JNIEnv* env = getJNIEnv();
+	return env->functions->IsSameObject(env, a, b);
+}
 
 
 bool JPJavaEnv::ExceptionCheck()
@@ -315,7 +321,7 @@ jobject JPJavaEnv::NewObjectA(jclass a0, jmethodID a1, jvalue* a2)
 	JPLocalFrame frame;
 	jobject res;
 	JNIEnv* env = getJNIEnv();
-	void* _save = JPEnv::getHost()->gotoExternal();
+	void* _save = JPPyni::gotoExternal();
 
 	res = env->functions->AllocObject(env, a0);
 	JAVA_CHECK("NewObjectA");
@@ -327,7 +333,7 @@ jobject JPJavaEnv::NewObjectA(jclass a0, jmethodID a1, jvalue* a2)
 		res = NULL;
 	}
 
-  JPEnv::getHost()->returnExternal(_save);
+  JPPyni::returnExternal(_save);
   JAVA_CHECK("NewObjectA");
   return frame.keep(res);
 }
@@ -337,7 +343,7 @@ jobject JPJavaEnv::NewObject(jclass a0, jmethodID a1)
 	JPLocalFrame frame;
 	jobject res;
   JNIEnv* env = getJNIEnv();
-  void* _save = JPEnv::getHost()->gotoExternal();
+  void* _save = JPPyni::gotoExternal();
 
 	res = env->functions->AllocObject(env, a0);
 	JAVA_CHECK("NewObject");
@@ -349,7 +355,7 @@ jobject JPJavaEnv::NewObject(jclass a0, jmethodID a1)
 		//DeleteLocalRef(res); // This line does not make sense
 	}
 
-  JPEnv::getHost()->returnExternal(_save);
+  JPPyni::returnExternal(_save);
   JAVA_CHECK("NewObject");
   return frame.keep(res);
 }

@@ -1,5 +1,5 @@
 /*****************************************************************************
-   Copyright 2004 Steve M�nard
+   Copyright 2004 Steve Ménard
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -14,95 +14,104 @@
    limitations under the License.
    
 *****************************************************************************/   
-#ifndef _JPCLASS_H_
-#define _JPCLASS_H_
+#ifndef _JPPOBJECTTYPE_H_
+#define _JPPOBJECTTYPE_H_
 
-/**
- * Class to wrap Java Class and provide low-level behavior
- */
-class JPClass : public JPClassBase
+// Base type for ArrayClass, PrimitiveType, ObjectClass, and StringClass
+class JPClass
 {
+protected :
+	JPClass(jclass c);
+	
 public :
-	JPClass(const JPTypeName& tname, jclass c);
-	virtual~ JPClass();
+	virtual ~JPClass();
 
-public :
-	/** 
-	 * Called to fully load base classes and members 
-	 */
-	void postLoad();
-	
-	HostRef*                getStaticAttribute(const string& attr_name);
-	void                    setStaticAttribute(const string& attr_name, HostRef* val);
-	
-	JPObject*               newInstance(vector<HostRef*>& args);
-	
-	JPField*                getInstanceField(const string& name);
-	JPField*                getStaticField(const string& name);
-	JPMethod*				getMethod(const string& name);
-	vector<JPMethod*>		getMethods() const
+	// Accessors
+	virtual const string& getSimpleName() const
 	{
-		vector<JPMethod*> res;
-		res.reserve(m_Methods.size());
-		for (map<string, JPMethod*>::const_iterator cur = m_Methods.begin(); cur != m_Methods.end(); cur++)
-		{
-			res.push_back(cur->second);
-		}
-		return res;
+		return m_Name;
 	}
 
-	jclass getClass()
+	virtual jclass getNativeClass() const
 	{
 		return m_Class;
 	}
 
-	map<string, JPField*>& getStaticFields()
-	{
-		return m_StaticFields;
-	}
-	
-	map<string, JPField*>& getInstanceFields()
-	{
-		return m_InstanceFields;
-	}
+// Conversion methods
+	virtual PyObject*   asHostObject(jvalue val) = 0;
 
-	bool isFinal();
-	bool isAbstract();
-	bool isInterface()
-	{
-		return m_IsInterface;
-	}
+	// FIXME This is used only by JPProxy. 
+	// it is not obvious why it is required at all.
+	virtual PyObject*   asHostObjectFromObject(jobject val);
 
-	JPClass* getSuperClass();
-	const vector<JPClass*>& getInterfaces() const;
+	/** Convert a host ref to a java value.
+	 * This preserves primitives.
+	 */
+	virtual jvalue     convertToJava(PyObject* obj) = 0;
 
-	bool isSubclass(JPClass*);
-	
-	string describe();
+	/** Convert a host ref to a java object.
+	 * This will box primitives.
+	 */
+	virtual jobject    convertToJavaObject(PyObject* obj);
 
-public : // JPType implementation
-	virtual HostRef*   asHostObject(jvalue val);
-	virtual EMatchType canConvertToJava(HostRef* obj);
-	virtual jvalue     convertToJava(HostRef* obj);
-	
-private :
-	void loadSuperClass();	
-	void loadSuperInterfaces();	
-	void loadFields();	
-	void loadMethods();	
-	void loadConstructors();	
+	/** Determine if a host ref can be converted to an object of this type.
+	 */
+	virtual EMatchType canConvertToJava(PyObject* obj) = 0;
 
-	jobject buildObjectWrapper(HostRef* obj);
+// Probe methods
+	bool			         isAbstract() const;
+	bool	             isArray() const;
+	bool			         isFinal() const;
+	virtual bool       isInterface() const;
+	virtual bool       isObjectType() const = 0;
+	long               getClassModifiers();
 
-private :
-	bool                    m_IsInterface;
-	JPClass*				m_SuperClass;
-	vector<JPClass*>		m_SuperInterfaces;
-	map<string, JPField*>   m_StaticFields;
-	map<string, JPField*>   m_InstanceFields;
-	map<string, JPMethod*>	m_Methods;
-	JPMethod*				m_Constructors;
+	/** Returns true if this class can be assigned to a target class.
+	 * This will be true if this class implements or extends the target class.
+	 * (For some reason Java uses the name isAssignableFrom which confuses the hell
+	 * out of everyone.)
+	 */
+	bool               isAssignableTo(const JPClass* o) const;
+
+// Get/Set a static field
+  /** Get a static value.  
+	 * This allocates a new host reference. The host reference must
+	 * be deleted.
+	 */
+	virtual PyObject*   getStaticValue(JPClass* c, jfieldID fid);
+
+	/** Set a static field to a value.
+	 * This is required because JNI has different methods for each different 
+	 * type.
+	 */
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, PyObject* val);
+
+	// Get/Set a member field
+	virtual PyObject*   getInstanceValue(jobject c, jfieldID fid);
+	virtual void       setInstanceValue(jobject c, jfieldID fid, PyObject* val);
+
+  // Invoke a method that produces this class (static)
+	virtual PyObject*   invokeStatic(JPClass*, jmethodID, jvalue*);
+
+  // Invoke a method that produces this class (member)
+	virtual PyObject*   invoke(jobject, JPClass* clazz, jmethodID, jvalue*);
+
+	// Array methods
+	virtual jarray     newArrayInstance(int size);
+	virtual vector<PyObject*> getArrayRange(jarray, int start, int length);
+	virtual PyObject*   getArrayItem(jarray, int ndx);
+	virtual void       setArrayItem(jarray, int ndx, PyObject* val);
+	virtual void       setArrayRange(jarray, int start, int length, vector<PyObject*>& vals);
+
+	virtual PyObject*   convertToDirectBuffer(PyObject* src);
+
+	// Loading support
+	virtual void postLoad()
+	{}
+
+protected :
+	jclass m_Class;
+	string m_Name;
 };
 
-
-#endif // _JPCLASS_H_
+#endif // _JPPOBJECTTYPE_H_

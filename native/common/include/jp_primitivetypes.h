@@ -17,76 +17,62 @@
 #ifndef _JPPRIMITIVETYPE_H_
 #define _JPPRIMITIVETYPE_H_
 
-class JPPrimitiveType : public JPType
+class JPPrimitiveType : public JPClass
 {
 protected :
-	JPPrimitiveType(JPTypeName::ETypes type, bool isObject, const JPTypeName& objectType) :
-		m_Type(JPTypeName::fromType(type)),
-		m_IsObject(isObject),
-		m_ObjectTypeName(objectType)
-	{
-	}
+	JPPrimitiveType(const string& boxedNative);
 	
-	virtual ~JPPrimitiveType()
-	{
-	}
+	virtual ~JPPrimitiveType();
 	
 private :
-	JPTypeName m_Type;
-	bool       m_IsObject;
-	JPTypeName m_ObjectTypeName;
+	JPObjectClass* m_BoxedClass;
 
 public :
 	virtual bool       isObjectType() const
 	{ 
-		return m_IsObject; 
-	}
-	
-	virtual const JPTypeName& getName() const
-	{
-		return m_Type;
-	}
-	
-	virtual const JPTypeName& getObjectType() const
-	{
-		return m_ObjectTypeName;
+		return false;
 	}
 
-	virtual jobject	   convertToJavaObject(HostRef* obj);
+	virtual jobject	   convertToJavaObject(PyObject* obj);
 
-	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length) = 0;
+	virtual PyObject* getArrayRangeToSequence(jarray array, int start, int length) = 0;
 
-	virtual void setArrayRange(jarray, int, int, PyObject*) = 0;
+	/** Special implementation for primitive types.
+	 */
+	virtual void       setArrayRange(jarray array, int start, int length, PyObject* sequence) = 0;
+
+	/** 
+	 * Conversion type to change a primitive to a boxed type.
+	 */
+	JPObjectClass* getBoxedClass();
 };
 
 class JPVoidType : public JPPrimitiveType
 {
 public :
-	JPVoidType() : JPPrimitiveType(JPTypeName::_void, false, JPTypeName::fromSimple("java.lang.Void"))
-	{
-	}
+	JPVoidType();
 	
 	virtual ~JPVoidType()
 	{
 	}
 	
 public : // JPType implementation
-	virtual HostRef*  getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType);
-	virtual void       setStaticValue(jclass c, jfieldID fid, HostRef* val);
-	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType);
-	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
-	virtual HostRef*  asHostObject(jvalue val);
-	virtual HostRef*   asHostObjectFromObject(jvalue val);
-	virtual EMatchType canConvertToJava(HostRef* obj);
-	virtual jvalue     convertToJava(HostRef* obj);	
-	virtual HostRef*  invokeStatic(jclass, jmethodID, jvalue*);
-	virtual HostRef*  invoke(jobject, jclass, jmethodID, jvalue*);
+	virtual PyObject*  getStaticValue(JPClass* c, jfieldID fid);
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, PyObject* val);
+	virtual PyObject*  getInstanceValue(jobject c, jfieldID fid);
+	virtual void       setInstanceValue(jobject c, jfieldID fid, PyObject* val);
+	virtual PyObject*  asHostObject(jvalue val);
+	virtual PyObject*   asHostObjectFromObject(jobject val);
+	virtual EMatchType canConvertToJava(PyObject* obj);
+	virtual jvalue     convertToJava(PyObject* obj);	
+	virtual PyObject*  invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual PyObject*  invoke(jobject, JPClass*, jmethodID, jvalue*);
 
 	virtual jarray    newArrayInstance(int size);
-	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);
-	virtual void      setArrayRange(jarray, int start, int length, vector<HostRef*>& vals);
-	virtual HostRef* getArrayItem(jarray, int ndx);
-	virtual void      setArrayItem(jarray, int ndx, HostRef* val);
+	virtual vector<PyObject*> getArrayRange(jarray, int start, int length);
+	virtual void      setArrayRange(jarray, int start, int length, vector<PyObject*>& vals);
+	virtual PyObject* getArrayItem(jarray, int ndx);
+	virtual void      setArrayItem(jarray, int ndx, PyObject* val);
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length)
 	{
 		RAISE(JPypeException, "not impled for void*");
@@ -96,359 +82,285 @@ public : // JPType implementation
 		RAISE(JPypeException, "not impled for void*");
 	}
 
-	virtual HostRef*   convertToDirectBuffer(HostRef* src);
-	virtual bool isSubTypeOf(const JPType& other) const
-	{
-		return other.getName().getType() == JPTypeName::_void;
-	}
+	virtual PyObject*   convertToDirectBuffer(PyObject* src);
+	virtual bool isAssignableTo(const JPClass* other) const;
 };
 
 class JPByteType : public JPPrimitiveType
 {
 public :
-	JPByteType() : JPPrimitiveType(JPTypeName::_byte, false, JPTypeName::fromSimple("java.lang.Byte"))
-	{
-	}
+	JPByteType();
 	
 	virtual ~JPByteType()
 	{
 	}
 
 public : // JPType implementation
-	virtual HostRef*  getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType);
-	virtual void       setStaticValue(jclass c, jfieldID fid, HostRef* val);
-	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType);
-	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
-	virtual HostRef*  asHostObject(jvalue val);
-	virtual HostRef*   asHostObjectFromObject(jvalue val);
-	virtual EMatchType canConvertToJava(HostRef* obj);
-	virtual jvalue     convertToJava(HostRef* obj);
+	virtual PyObject*  getStaticValue(JPClass* c, jfieldID fid);
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, PyObject* val);
+	virtual PyObject*  getInstanceValue(jobject c, jfieldID fid);
+	virtual void       setInstanceValue(jobject c, jfieldID fid, PyObject* val);
+	virtual PyObject*  asHostObject(jvalue val);
+	virtual PyObject*   asHostObjectFromObject(jobject val);
+	virtual EMatchType canConvertToJava(PyObject* obj);
+	virtual jvalue     convertToJava(PyObject* obj);
 	
-	virtual HostRef*  invokeStatic(jclass, jmethodID, jvalue*);
-	virtual HostRef*  invoke(jobject, jclass, jmethodID, jvalue*);
+	virtual PyObject*  invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual PyObject*  invoke(jobject, JPClass*, jmethodID, jvalue*);
 
 	virtual jarray    newArrayInstance(int size);
-	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);
-	virtual void      setArrayRange(jarray, int start, int length, vector<HostRef*>& vals);
+	virtual vector<PyObject*> getArrayRange(jarray, int start, int length);
+	virtual void      setArrayRange(jarray, int start, int length, vector<PyObject*>& vals);
 	virtual void      setArrayRange(jarray, int start, int length, PyObject* sequence);
-	virtual HostRef* getArrayItem(jarray, int ndx);
-	virtual void      setArrayItem(jarray, int ndx, HostRef* val);
+	virtual PyObject* getArrayItem(jarray, int ndx);
+	virtual void      setArrayItem(jarray, int ndx, PyObject* val);
 	// this returns tuple instead of list, for performance reasons
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 
 
-	virtual HostRef*   convertToDirectBuffer(HostRef* src);
+	virtual PyObject*   convertToDirectBuffer(PyObject* src);
 
-	virtual bool isSubTypeOf(const JPType& other) const
-	{
-		JPTypeName::ETypes otherType = other.getName().getType();
-		return otherType == JPTypeName::_byte
-				|| otherType == JPTypeName::_short
-				|| otherType == JPTypeName::_int
-				|| otherType == JPTypeName::_long
-				|| otherType == JPTypeName::_float
-				|| otherType == JPTypeName::_double;
-	}
-
+	virtual bool isAssignableTo(const JPClass* other) const;
 };
 
 class JPShortType : public JPPrimitiveType
 {
 public :
-	JPShortType() : JPPrimitiveType(JPTypeName::_short, false, JPTypeName::fromSimple("java.lang.Short"))
-	{
-	}
+	JPShortType();
 	
 	virtual ~JPShortType()
 	{
 	}
 
 public : // JPType implementation
-	virtual HostRef*  getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType);
-	virtual void       setStaticValue(jclass c, jfieldID fid, HostRef* val);
-	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType);
-	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
-	virtual HostRef*  asHostObject(jvalue val);
-	virtual HostRef*   asHostObjectFromObject(jvalue val);
-	virtual EMatchType canConvertToJava(HostRef* obj);
-	virtual jvalue     convertToJava(HostRef* obj);
+	virtual PyObject*  getStaticValue(JPClass* c, jfieldID fid);
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, PyObject* val);
+	virtual PyObject*  getInstanceValue(jobject c, jfieldID fid);
+	virtual void       setInstanceValue(jobject c, jfieldID fid, PyObject* val);
+	virtual PyObject*  asHostObject(jvalue val);
+	virtual PyObject*   asHostObjectFromObject(jobject val);
+	virtual EMatchType canConvertToJava(PyObject* obj);
+	virtual jvalue     convertToJava(PyObject* obj);
 	
-	virtual HostRef*  invokeStatic(jclass, jmethodID, jvalue*);
-	virtual HostRef*  invoke(jobject, jclass, jmethodID, jvalue*);
+	virtual PyObject*  invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual PyObject*  invoke(jobject, JPClass*, jmethodID, jvalue*);
 
 	virtual jarray    newArrayInstance(int size);
-	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);
-	virtual void      setArrayRange(jarray, int start, int length, vector<HostRef*>& vals);
+	virtual vector<PyObject*> getArrayRange(jarray, int start, int length);
+	virtual void      setArrayRange(jarray, int start, int length, vector<PyObject*>& vals);
 	virtual void      setArrayRange(jarray, int start, int length, PyObject* sequence);
-	virtual HostRef* getArrayItem(jarray, int ndx);
-	virtual void      setArrayItem(jarray, int ndx, HostRef* val);
+	virtual PyObject* getArrayItem(jarray, int ndx);
+	virtual void      setArrayItem(jarray, int ndx, PyObject* val);
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 
-	virtual HostRef*   convertToDirectBuffer(HostRef* src);
-	virtual bool isSubTypeOf(const JPType& other) const
-	{
-		JPTypeName::ETypes otherType = other.getName().getType();
-		return otherType == JPTypeName::_short
-				|| otherType == JPTypeName::_int
-				|| otherType == JPTypeName::_long
-				|| otherType == JPTypeName::_float
-				|| otherType == JPTypeName::_double;
-	}
-
+	virtual PyObject*   convertToDirectBuffer(PyObject* src);
+	virtual bool isAssignableTo(const JPClass* other) const;
 };
 
 class JPIntType : public JPPrimitiveType
 {
 public :
-	JPIntType(): JPPrimitiveType(JPTypeName::_int, false, JPTypeName::fromSimple("java.lang.Integer"))
-	{
-	}
+	JPIntType();
 	
 	virtual ~JPIntType()
 	{
 	}
 
 public : // JPType implementation
-	virtual HostRef*  getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType);
-	virtual void       setStaticValue(jclass c, jfieldID fid, HostRef* val);
-	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType);
-	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
-	virtual HostRef*  asHostObject(jvalue val);
-	virtual HostRef*   asHostObjectFromObject(jvalue val);
-	virtual EMatchType canConvertToJava(HostRef* obj);
-	virtual jvalue     convertToJava(HostRef* obj);
+	virtual PyObject*  getStaticValue(JPClass* c, jfieldID fid);
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, PyObject* val);
+	virtual PyObject*  getInstanceValue(jobject c, jfieldID fid);
+	virtual void       setInstanceValue(jobject c, jfieldID fid, PyObject* val);
+	virtual PyObject*  asHostObject(jvalue val);
+	virtual PyObject*   asHostObjectFromObject(jobject val);
+	virtual EMatchType canConvertToJava(PyObject* obj);
+	virtual jvalue     convertToJava(PyObject* obj);
 	
-	virtual HostRef*  invokeStatic(jclass, jmethodID, jvalue*);
-	virtual HostRef*  invoke(jobject, jclass, jmethodID, jvalue*);
+	virtual PyObject*  invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual PyObject*  invoke(jobject, JPClass*, jmethodID, jvalue*);
 
 	virtual jarray    newArrayInstance(int size);
-	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);
-	virtual void      setArrayRange(jarray, int start, int length, vector<HostRef*>& vals);
+	virtual vector<PyObject*> getArrayRange(jarray, int start, int length);
+	virtual void      setArrayRange(jarray, int start, int length, vector<PyObject*>& vals);
 	virtual void      setArrayRange(jarray, int, int, PyObject*);
-	virtual HostRef* getArrayItem(jarray, int ndx);
-	virtual void      setArrayItem(jarray, int ndx, HostRef* val);
+	virtual PyObject* getArrayItem(jarray, int ndx);
+	virtual void      setArrayItem(jarray, int ndx, PyObject* val);
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 
-	virtual HostRef*   convertToDirectBuffer(HostRef* src);
+	virtual PyObject*   convertToDirectBuffer(PyObject* src);
 
-	virtual bool isSubTypeOf(const JPType& other) const
-	{
-		JPTypeName::ETypes otherType = other.getName().getType();
-		return otherType == JPTypeName::_int
-				|| otherType == JPTypeName::_long
-				|| otherType == JPTypeName::_float
-				|| otherType == JPTypeName::_double;
-	}
+	virtual bool isAssignableTo(const JPClass* other) const;
 };
 
 class JPLongType : public JPPrimitiveType
 {
 public :
-	JPLongType() : JPPrimitiveType(JPTypeName::_long, false, JPTypeName::fromSimple("java.lang.Long"))
-	{
-	}
+	JPLongType();
 	
 	virtual ~JPLongType()
 	{
 	}
 
 public : // JPType implementation
-	virtual HostRef*  getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType);
-	virtual void       setStaticValue(jclass c, jfieldID fid, HostRef* val);
-	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType);
-	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
-	virtual HostRef*  asHostObject(jvalue val);
-	virtual HostRef*   asHostObjectFromObject(jvalue val);
-	virtual EMatchType canConvertToJava(HostRef* obj);
-	virtual jvalue     convertToJava(HostRef* obj);
+	virtual PyObject*  getStaticValue(JPClass* c, jfieldID fid);
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, PyObject* val);
+	virtual PyObject*  getInstanceValue(jobject c, jfieldID fid);
+	virtual void       setInstanceValue(jobject c, jfieldID fid, PyObject* val);
+	virtual PyObject*  asHostObject(jvalue val);
+	virtual PyObject*   asHostObjectFromObject(jobject val);
+	virtual EMatchType canConvertToJava(PyObject* obj);
+	virtual jvalue     convertToJava(PyObject* obj);
 	
-	virtual HostRef*  invokeStatic(jclass, jmethodID, jvalue*);
-	virtual HostRef*  invoke(jobject, jclass, jmethodID, jvalue*);
+	virtual PyObject*  invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual PyObject*  invoke(jobject, JPClass*, jmethodID, jvalue*);
 
 	virtual jarray    newArrayInstance(int size);
-	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);
-	virtual void      setArrayRange(jarray, int start, int length, vector<HostRef*>& vals);
+	virtual vector<PyObject*> getArrayRange(jarray, int start, int length);
+	virtual void      setArrayRange(jarray, int start, int length, vector<PyObject*>& vals);
 	virtual void      setArrayRange(jarray, int start, int length, PyObject* sequence);
-	virtual HostRef* getArrayItem(jarray, int ndx);
-	virtual void      setArrayItem(jarray, int ndx, HostRef* val);
+	virtual PyObject* getArrayItem(jarray, int ndx);
+	virtual void      setArrayItem(jarray, int ndx, PyObject* val);
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 
-	virtual HostRef*   convertToDirectBuffer(HostRef* src);
-	virtual bool isSubTypeOf(const JPType& other) const
-	{
-		JPTypeName::ETypes otherType = other.getName().getType();
-		return otherType == JPTypeName::_long
-				|| otherType == JPTypeName::_float
-				|| otherType == JPTypeName::_double;
-	}
+	virtual PyObject*   convertToDirectBuffer(PyObject* src);
+	virtual bool isAssignableTo(const JPClass* other) const;
 };
 
 class JPFloatType : public JPPrimitiveType
 {
 public :
-	JPFloatType() : JPPrimitiveType(JPTypeName::_float, false, JPTypeName::fromSimple("java.lang.Float"))
-	{
-	}
+	JPFloatType();
 	
 	virtual ~JPFloatType()
 	{
 	}
 
 public : // JPType implementation
-	virtual HostRef*  getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType);
-	virtual void       setStaticValue(jclass c, jfieldID fid, HostRef* val);
-	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType);
-	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
-	virtual HostRef*  asHostObject(jvalue val);
-	virtual HostRef*   asHostObjectFromObject(jvalue val);
-	virtual EMatchType canConvertToJava(HostRef* obj);
-	virtual jvalue     convertToJava(HostRef* obj);
+	virtual PyObject*  getStaticValue(JPClass* c, jfieldID fid);
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, PyObject* val);
+	virtual PyObject*  getInstanceValue(jobject c, jfieldID fid);
+	virtual void       setInstanceValue(jobject c, jfieldID fid, PyObject* val);
+	virtual PyObject*  asHostObject(jvalue val);
+	virtual PyObject*   asHostObjectFromObject(jobject val);
+	virtual EMatchType canConvertToJava(PyObject* obj);
+	virtual jvalue     convertToJava(PyObject* obj);
 	
-	virtual HostRef*  invokeStatic(jclass, jmethodID, jvalue*);
-	virtual HostRef*  invoke(jobject, jclass, jmethodID, jvalue*);
+	virtual PyObject*  invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual PyObject*  invoke(jobject, JPClass*, jmethodID, jvalue*);
 
 	virtual jarray    newArrayInstance(int size);
-	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);
-	virtual void      setArrayRange(jarray, int start, int length, vector<HostRef*>& vals);
+	virtual vector<PyObject*> getArrayRange(jarray, int start, int length);
+	virtual void      setArrayRange(jarray, int start, int length, vector<PyObject*>& vals);
 	virtual void      setArrayRange(jarray, int start, int length, PyObject* sequence);
-	virtual HostRef* getArrayItem(jarray, int ndx);
-	virtual void      setArrayItem(jarray, int ndx, HostRef* val);
+	virtual PyObject* getArrayItem(jarray, int ndx);
+	virtual void      setArrayItem(jarray, int ndx, PyObject* val);
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 	
-	virtual HostRef*   convertToDirectBuffer(HostRef* src);
-	virtual bool isSubTypeOf(const JPType& other) const
-	{
-		JPTypeName::ETypes otherType = other.getName().getType();
-		return otherType == JPTypeName::_float
-				|| otherType == JPTypeName::_double;
-	}
+	virtual PyObject*   convertToDirectBuffer(PyObject* src);
+	virtual bool isAssignableTo(const JPClass* other) const;
 };
 
 class JPDoubleType : public JPPrimitiveType
 {
 public :
-	JPDoubleType() : JPPrimitiveType(JPTypeName::_double, false, JPTypeName::fromSimple("java.lang.Double"))
-	{
-	}
+	JPDoubleType();
 	
 	virtual ~JPDoubleType()
 	{
 	}
 
 public : // JPType implementation
-	virtual HostRef*  getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType);
-	virtual void       setStaticValue(jclass c, jfieldID fid, HostRef* val);
-	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType);
-	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
-	virtual HostRef*  asHostObject(jvalue val);
-	virtual HostRef*   asHostObjectFromObject(jvalue val);
-	virtual EMatchType canConvertToJava(HostRef* obj);
-	virtual jvalue     convertToJava(HostRef* obj);
+	virtual PyObject*  getStaticValue(JPClass* c, jfieldID fid);
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, PyObject* val);
+	virtual PyObject*  getInstanceValue(jobject c, jfieldID fid);
+	virtual void       setInstanceValue(jobject c, jfieldID fid, PyObject* val);
+	virtual PyObject*  asHostObject(jvalue val);
+	virtual PyObject*   asHostObjectFromObject(jobject val);
+	virtual EMatchType canConvertToJava(PyObject* obj);
+	virtual jvalue     convertToJava(PyObject* obj);
 	
-	virtual HostRef*  invokeStatic(jclass, jmethodID, jvalue*);
-	virtual HostRef*  invoke(jobject, jclass, jmethodID, jvalue*);
+	virtual PyObject*  invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual PyObject*  invoke(jobject, JPClass*, jmethodID, jvalue*);
 
 	virtual jarray    newArrayInstance(int size);
-	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);
-	virtual void      setArrayRange(jarray, int start, int length, vector<HostRef*>& vals);
+	virtual vector<PyObject*> getArrayRange(jarray, int start, int length);
+	virtual void      setArrayRange(jarray, int start, int length, vector<PyObject*>& vals);
 	virtual void      setArrayRange(jarray, int start, int length, PyObject* sequence);
-	virtual HostRef* getArrayItem(jarray, int ndx);
-	virtual void      setArrayItem(jarray, int ndx, HostRef* val);
+	virtual PyObject* getArrayItem(jarray, int ndx);
+	virtual void      setArrayItem(jarray, int ndx, PyObject* val);
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 	
-	virtual HostRef*   convertToDirectBuffer(HostRef* src);
+	virtual PyObject*   convertToDirectBuffer(PyObject* src);
 
-	virtual bool isSubTypeOf(const JPType& other) const
-	{
-		JPTypeName::ETypes otherType = other.getName().getType();
-		return otherType == JPTypeName::_double;
-	}
-
+	virtual bool isAssignableTo(const JPClass* other) const;
 };
 
 class JPCharType : public JPPrimitiveType
 {
 public :
-	JPCharType() : JPPrimitiveType(JPTypeName::_char, false, JPTypeName::fromSimple("java.lang.Character"))
-	{
-	}
+	JPCharType();
 	
 	virtual ~JPCharType()
 	{
 	}
 
 public : // JPType implementation
-	virtual HostRef*   getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType);
-	virtual void       setStaticValue(jclass c, jfieldID fid, HostRef* val);
-	virtual HostRef*   getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType);
-	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
-	virtual HostRef*   asHostObject(jvalue val);
-	virtual HostRef*   asHostObjectFromObject(jvalue val);
-	virtual EMatchType canConvertToJava(HostRef* obj);
-	virtual jvalue     convertToJava(HostRef* obj);
+	virtual PyObject*   getStaticValue(JPClass* c, jfieldID fid);
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, PyObject* val);
+	virtual PyObject*   getInstanceValue(jobject c, jfieldID fid);
+	virtual void       setInstanceValue(jobject c, jfieldID fid, PyObject* val);
+	virtual PyObject*   asHostObject(jvalue val);
+	virtual PyObject*   asHostObjectFromObject(jobject val);
+	virtual EMatchType canConvertToJava(PyObject* obj);
+	virtual jvalue     convertToJava(PyObject* obj);
 	
-	virtual HostRef*   invokeStatic(jclass, jmethodID, jvalue*);
-	virtual HostRef*   invoke(jobject, jclass, jmethodID, jvalue*);
+	virtual PyObject*   invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual PyObject*   invoke(jobject, JPClass*, jmethodID, jvalue*);
 
 	virtual jarray    newArrayInstance(int size);
-	virtual vector<HostRef*>  getArrayRange(jarray, int start, int length);
-	virtual void      setArrayRange(jarray, int start, int length, vector<HostRef*>& vals);
+	virtual vector<PyObject*>  getArrayRange(jarray, int start, int length);
+	virtual void      setArrayRange(jarray, int start, int length, vector<PyObject*>& vals);
 	virtual void      setArrayRange(jarray, int start, int length, PyObject* sequence);
-	virtual HostRef*  getArrayItem(jarray, int ndx);
-	virtual void      setArrayItem(jarray, int ndx, HostRef* val);
+	virtual PyObject*  getArrayItem(jarray, int ndx);
+	virtual void      setArrayItem(jarray, int ndx, PyObject* val);
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 	
-	virtual HostRef*   convertToDirectBuffer(HostRef* src);
-	virtual bool isSubTypeOf(const JPType& other) const
-	{
-		JPTypeName::ETypes otherType = other.getName().getType();
-		return otherType == JPTypeName::_char
-				|| otherType == JPTypeName::_int
-				|| otherType == JPTypeName::_long
-				|| otherType == JPTypeName::_float
-				|| otherType == JPTypeName::_double;
-	}
-
+	virtual PyObject*   convertToDirectBuffer(PyObject* src);
+	virtual bool isAssignableTo(const JPClass* other) const;
 };
 
 class JPBooleanType : public JPPrimitiveType
 {
 public :
-	JPBooleanType() : JPPrimitiveType(JPTypeName::_boolean, false, JPTypeName::fromSimple("java.lang.Boolean"))
-	{
-	}
+	JPBooleanType();
 	
 	virtual ~JPBooleanType()
 	{
 	}
 
 public : // JPType implementation
-	virtual HostRef*  getStaticValue(jclass c, jfieldID fid, JPTypeName& tgtType);
-	virtual void       setStaticValue(jclass c, jfieldID fid, HostRef* val);
-	virtual HostRef*  getInstanceValue(jobject c, jfieldID fid, JPTypeName& tgtType);
-	virtual void       setInstanceValue(jobject c, jfieldID fid, HostRef* val);
-	virtual HostRef*  asHostObject(jvalue val);
-	virtual HostRef*   asHostObjectFromObject(jvalue val);
-	virtual EMatchType canConvertToJava(HostRef* obj);
-	virtual jvalue     convertToJava(HostRef* obj);
+	virtual PyObject*  getStaticValue(JPClass* c, jfieldID fid);
+	virtual void       setStaticValue(JPClass* c, jfieldID fid, PyObject* val);
+	virtual PyObject*  getInstanceValue(jobject c, jfieldID fid);
+	virtual void       setInstanceValue(jobject c, jfieldID fid, PyObject* val);
+	virtual PyObject*  asHostObject(jvalue val);
+	virtual PyObject*   asHostObjectFromObject(jobject val);
+	virtual EMatchType canConvertToJava(PyObject* obj);
+	virtual jvalue     convertToJava(PyObject* obj);
 	
-	virtual HostRef*  invokeStatic(jclass, jmethodID, jvalue*);
-	virtual HostRef*  invoke(jobject, jclass, jmethodID, jvalue*);
+	virtual PyObject*  invokeStatic(JPClass*, jmethodID, jvalue*);
+	virtual PyObject*  invoke(jobject, JPClass*, jmethodID, jvalue*);
 
 	virtual jarray    newArrayInstance(int size);
-	virtual vector<HostRef*> getArrayRange(jarray, int start, int length);
-	virtual void      setArrayRange(jarray, int start, int length, vector<HostRef*>& vals);
+	virtual vector<PyObject*> getArrayRange(jarray, int start, int length);
+	virtual void      setArrayRange(jarray, int start, int length, vector<PyObject*>& vals);
 	virtual void      setArrayRange(jarray, int start, int length, PyObject* sequence);
-	virtual HostRef* getArrayItem(jarray, int ndx);
-	virtual void      setArrayItem(jarray, int ndx, HostRef* val);
+	virtual PyObject* getArrayItem(jarray, int ndx);
+	virtual void      setArrayItem(jarray, int ndx, PyObject* val);
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 	
-	virtual HostRef*   convertToDirectBuffer(HostRef* src);
-	virtual bool isSubTypeOf(const JPType& other) const
-	{
-		JPTypeName::ETypes otherType = other.getName().getType();
-		return otherType == JPTypeName::_boolean;
-	}
+	virtual PyObject*   convertToDirectBuffer(PyObject* src);
+	virtual bool isAssignableTo(const JPClass* other) const;
 };
 
 #endif // _JPPRIMITIVETYPE_H_

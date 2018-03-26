@@ -17,23 +17,22 @@
 #ifndef _JPMETHODOVERLOAD_H_
 #define _JPMETHODOVERLOAD_H_
 
-class JPObject;
 class JPMethodOverload
 {
-public :
-	JPMethodOverload();
+private:
 	JPMethodOverload(const JPMethodOverload& o);
-	JPMethodOverload(JPClass* claz, jobject mth);
+public :
+	JPMethodOverload(JPObjectClass* claz, jobject mth);
 	
 	virtual ~JPMethodOverload();
 	
-	EMatchType              matches(bool ignoreFirst, vector<HostRef*>& args) ;
+	EMatchType  matches(bool ignoreFirst, vector<PyObject*>& args) ;
 
-	HostRef*                invokeInstance(vector<HostRef*>& arg);
+	PyObject*   invokeInstance(vector<PyObject*>& arg);
 
-	HostRef*                invokeStatic(vector<HostRef*>& arg);
+	PyObject*   invokeStatic(vector<PyObject*>& arg);
 
-	JPObject*               invokeConstructor(jclass, vector<HostRef*>& arg);
+	JPValue     invokeConstructor(JPObjectClass* cls, vector<PyObject*>& arg);
 
 public :	
 	string getSignature();
@@ -53,9 +52,10 @@ public :
 		return m_IsVarArgs;
 	}
 
-	const JPTypeName& getReturnType() const
+	JPClass* getReturnType()
 	{
-		return m_ReturnType;
+    ensureTypeCache(); 
+	  return  m_ReturnTypeCache;
 	}
 
 	unsigned char getArgumentCount() const
@@ -65,24 +65,24 @@ public :
 
 	string getArgumentString();
 
-  void packArgs(JPMallocCleaner<jvalue>& v, vector<HostRef*>& arg, size_t skip);
+  void packArgs(JPMallocCleaner<jvalue>& v, vector<PyObject*>& arg, size_t skip);
 	bool isSameOverload(JPMethodOverload& o);
-	string matchReport(vector<HostRef*>& args);
+	string matchReport(vector<PyObject*>& args);
 	bool isMoreSpecificThan(JPMethodOverload& other) const;
 private:
 	void ensureTypeCache() const;
 private :
-	JPClass*                 m_Class;
+	JPObjectClass*                 m_Class;
 	jobject                  m_Method;
 	jmethodID                m_MethodID;
-	JPTypeName               m_ReturnType;
-	vector<JPTypeName>       m_Arguments;
+	jclass                   m_ReturnType;
+	vector<jclass>           m_Arguments;
 	bool                     m_IsStatic;
 	bool                     m_IsFinal;
 	bool                     m_IsVarArgs;
 	bool                     m_IsConstructor;
-	mutable vector<JPType*>  m_ArgumentsTypeCache;
-	mutable JPType*          m_ReturnTypeCache;
+	mutable vector<JPClass*>  m_ArgumentsTypeCache;
+	mutable JPClass*          m_ReturnTypeCache;
 };
 
 #endif // _JPMETHODOVERLOAD_H_

@@ -22,31 +22,70 @@
  */
 namespace JPTypeManager
 {
+  extern JPPrimitiveType *_void;
+  extern JPPrimitiveType *_boolean;
+  extern JPPrimitiveType *_byte;
+  extern JPPrimitiveType *_char;
+  extern JPPrimitiveType *_short;
+  extern JPPrimitiveType *_long;
+  extern JPPrimitiveType *_int;
+  extern JPPrimitiveType *_float ;
+  extern JPPrimitiveType *_double;
+
+  extern JPClass *_java_lang_Object;
+  extern JPClass *_java_lang_Class;
+  extern JPClass *_java_lang_String;
+
+  extern JPClass *_java_lang_Boolean;
+  extern JPClass *_java_lang_Byte;
+  extern JPClass *_java_lang_Char;
+  extern JPClass *_java_lang_Short;
+  extern JPClass *_java_lang_Integer;
+  extern JPClass *_java_lang_Long;
+  extern JPClass *_java_lang_Float;
+  extern JPClass *_java_lang_Double;
+
 	/**
 	 * Initialize the type manager caches
 	 */
-	void                         init();
+	void init();
 	
 	/**
 	 * delete allocated typenames, should only be called at program termination
 	 */
-	void                         shutdown();
+	void shutdown();
 
-	JPType*                      getType(const JPTypeName& name);
-	
-	/**
-	 * The pointer returned is NOT owned by the caller
-	 */
-	JPClass*					   findClass(const JPTypeName&);
 
 	/**
+	 * Get a bridge class by java native name.
+	 *
 	 * The pointer returned is NOT owned by the caller
 	 */
-	JPArrayClass*			   findArrayClass(const JPTypeName&);
+	JPClass* findClassByName(const std::string& cls);
 
-	void                        flushCache();
+	/**
+	 * Get a bridge class from a java native class.
+	 *
+	 * The pointer returned is NOT owned by the caller
+	 *
+	 * Will be JType, JClass or JArrayClass based on the type
+	 * 
+	 * May return NULL if the java class does not exist.
+	 * Will return NULL if the jclass is NULL.
+	 */
+	JPClass* findClass(jclass cls);
 
-	int                         getLoadedClasses();
+	void flushCache();
+
+	int getLoadedClasses();
+
+	/** 
+	 * Convert a simple name to a qualified name.
+	 *
+	 * This produces a something suitable for 
+	 * JPJni::findClass() or JPTypeManager::findClassByName()
+	 */
+	string getQualifiedName(const string& name);
 }
 
 #endif // _JPCLASS_H_
