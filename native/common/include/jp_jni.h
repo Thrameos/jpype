@@ -24,8 +24,6 @@ namespace JPJni
 	extern jclass s_StringClass;
 	extern jclass s_NoSuchMethodErrorClass;
 	extern jclass s_RuntimeExceptionClass;
-	extern jclass s_ProxyClass;
-	extern jmethodID s_NewProxyInstanceID;
 
 	extern jlong s_minByte;
 	extern jlong s_maxByte;
@@ -37,10 +35,6 @@ namespace JPJni
 	extern jfloat s_maxFloat;
 
 	void init();
-
-	void startJPypeReferenceQueue(bool);
-	void stopJPypeReferenceQueue();
-	void registerRef(jobject refQueue, jobject obj, jlong hostRef);
 
 	string getStringUTF8(jstring str);
 	jstring newStringUTF8(const string& str);

@@ -37,6 +37,21 @@ bool JPEnv::isInitialized()
 	return getJava() != NULL ;
 }
 
+void initialize()
+{
+	// First thing we need to get all of our jni methods loaded
+	JPJni::init();
+
+	// After we have the jni methods we can preload the type tables
+	JPTypeManager::init();
+
+	// Then we can install the proxy code
+	JPProxy::init();
+
+	// Then install the reference queue
+	JPReference::init();
+}
+
 void JPEnv::loadJVM(const string& vmPath, char ignoreUnrecognized, const StringVector& args)
 {
 	TRACE_IN("JPEnv::loadJVM");
@@ -65,15 +80,7 @@ void JPEnv::loadJVM(const string& vmPath, char ignoreUnrecognized, const StringV
 	if (s_Java == NULL) {
 		RAISE(JPypeException, "Unable to start JVM");
 	}
-
-	// First thing we need to get all of our jni methods loaded
-	JPJni::init();
-
-	// After we have the jni methods we can preload the type tables
-	JPTypeManager::init();
-
-	// Then we can install the proxy code
-	JPProxy::init();
+	initialize();
 
 	TRACE_OUT;
 }
@@ -89,13 +96,9 @@ void JPEnv::attachJVM(const string& vmPath)
 	if (s_Java == NULL) {
 		RAISE(JPypeException, "Unable to attach to JVM");
 	}
-
-	JPTypeManager::init();
-	JPJni::init();
-	JPProxy::init();
+	initialize();
 
 	TRACE_OUT;
-	
 }
 
 void JPEnv::attachCurrentThread()
@@ -112,20 +115,6 @@ bool JPEnv::isThreadAttached()
 {
 	return s_Java->isThreadAttached();
 }
-
-// FIXME.  I dont understand this one.
-void JPEnv::registerRef(PyObject* ref, PyObject* targetRef)
-{
-	TRACE_IN("JPEnv::registerRef");
-	JPLocalFrame frame;
-	const JPValue& objRef = JPyObject(ref).asJavaValue();
-	TRACE1("A");
-	jobject srcObject = objRef.getObject();
-	JPJni::registerRef(s_Java->getReferenceQueue(), srcObject, (jlong)targetRef);
-	TRACE_OUT;
-	TRACE1("B");
-}
-
 
 static int jpype_traceLevel = 0;
 

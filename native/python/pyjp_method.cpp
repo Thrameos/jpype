@@ -292,7 +292,7 @@ PyObject* PyJPBoundMethod::__call__(PyObject* o, PyObject* pyargs, PyObject* kwa
 			}
 	
 			result = self->m_Method->m_Method->invoke(vargs);
-			TRACE2("Call finished, result = ", res);	
+			TRACE1("Call finished");	
 		}
 		return result;
 	}

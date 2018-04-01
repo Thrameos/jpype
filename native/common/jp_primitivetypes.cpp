@@ -157,6 +157,7 @@ PyObject* JPByteType::convertToDirectBuffer(PyObject* pysrc)
 		JPyMemoryView(pysrc).getByteBufferPtr(&rawData, size);
 
 		jobject obj = JPEnv::getJava()->NewDirectByteBuffer(rawData, size);
+		JPReference::registerRef(obj, pysrc);
 
 		jvalue v;
 		v.l = obj;
@@ -242,12 +243,6 @@ jvalue JPShortType::convertToJava(PyObject* pyobj)
 	return res;
 }
 
-PyObject* JPShortType::convertToDirectBuffer(PyObject* src)
-{
-		RAISE(JPypeException, "Unable to convert to Direct Buffer");
-}
-
-
 //-------------------------------------------------------------------------------
 
 
@@ -327,12 +322,6 @@ jvalue JPIntType::convertToJava(PyObject* pyobj)
 	return res;
 }
 
-PyObject* JPIntType::convertToDirectBuffer(PyObject* src)
-{
-		RAISE(JPypeException, "Unable to convert to Direct Buffer");
-	
-}
-
 //-------------------------------------------------------------------------------
 
 PyObject* JPLongType::asHostObject(jvalue val) 
@@ -405,11 +394,6 @@ jvalue JPLongType::convertToJava(PyObject* pyobj)
 	return res;
 }
 
-PyObject* JPLongType::convertToDirectBuffer(PyObject* src)
-{
-		RAISE(JPypeException, "Unable to convert to Direct Buffer");
-	
-}
 
 //-------------------------------------------------------------------------------
 PyObject* JPFloatType::asHostObject(jvalue val) 
@@ -491,11 +475,6 @@ jvalue JPFloatType::convertToJava(PyObject* pyobj)
 	return res;
 }
 
-PyObject* JPFloatType::convertToDirectBuffer(PyObject* src)
-{
-		RAISE(JPypeException, "Unable to convert to Direct Buffer");
-}
-
 //---------------------------------------------------------------------------
 
 PyObject* JPDoubleType::asHostObject(jvalue val) 
@@ -565,11 +544,6 @@ jvalue JPDoubleType::convertToJava(PyObject* pyobj)
 	return res;
 }
 
-PyObject* JPDoubleType::convertToDirectBuffer(PyObject* src)
-{
-		RAISE(JPypeException, "Unable to convert to Direct Buffer");
-}
-
 //----------------------------------------------------------------
 
 PyObject* JPCharType::asHostObject(jvalue val)   
@@ -619,11 +593,6 @@ jvalue JPCharType::convertToJava(PyObject* pyobj)
 		res.c = JPyString(obj).asChar();
 	}
 	return res;
-}
-
-PyObject* JPCharType::convertToDirectBuffer(PyObject* src)
-{
-		RAISE(JPypeException, "Unable to convert to Direct Buffer");
 }
 
 //----------------------------------------------------------------------------------------
@@ -682,11 +651,6 @@ jvalue JPBooleanType::convertToJava(PyObject* pyobj)
 		res.z = (jboolean)JPyInt(obj).asInt();
 	}
 	return res;
-}
-
-PyObject* JPBooleanType::convertToDirectBuffer(PyObject* src)
-{
-		RAISE(JPypeException, "Unable to convert to Direct Buffer");
 }
 
 // --------------------------------------

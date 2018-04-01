@@ -7,21 +7,13 @@ public class JPypeReference extends PhantomReference
 {
   private long mHostReference;
 
-  public JPypeReference(Object arg0, ReferenceQueue arg1)
+  public JPypeReference(Object arg0, ReferenceQueue arg1, long host)
   {
     super(arg0, arg1);
+		this.mHostReference = host;
   }
 
-  long getHostReference()
-  {
-    return mHostReference;
-  }
-
-  void setHostReference(long aHostReference)
-  {
-    mHostReference = aHostReference;
-  }
-
+/*
   public int hashCode()
   {
     return (int) mHostReference;
@@ -36,4 +28,12 @@ public class JPypeReference extends PhantomReference
     
     return ((JPypeReference) arg0).mHostReference == mHostReference;
   }
+*/
+
+	public void dispose()
+	{
+		removeHostReference(mHostReference);
+	}
+
+  private static native void removeHostReference(long hostRef);
 }

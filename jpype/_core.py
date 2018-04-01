@@ -29,13 +29,16 @@ from . import _jio
 from . import _properties
 from . import nio
 from . import reflect
-from . import _refdaemon
 
-_usePythonThreadForDaemon = False
+# Reference daemon is now an automatic function of the jvm.  
+# The user should not need to interfer with it.
+#from . import _refdaemon
 
-def setUsePythonThreadForDeamon(v):
-    global _usePythonThreadForDaemon
-    _usePythonThreadForDaemon = v
+#_usePythonThreadForDaemon = False
+#
+#def setUsePythonThreadForDeamon(v):
+#    global _usePythonThreadForDaemon
+#    _usePythonThreadForDaemon = v
 
 _initializers=[]
 
@@ -71,17 +74,17 @@ def startJVM(jvm, *args):
     _initialize()
 
     # start the reference daemon thread
-    if _usePythonThreadForDaemon:
-        _refdaemon.startPython()
-    else:
-        _refdaemon.startJava()
+#    if _usePythonThreadForDaemon:
+#        _refdaemon.startPython()
+#    else:
+#        _refdaemon.startJava()
 
 def attachToJVM(jvm):
     _jpype.attach(jvm)
     _initialize()
 
 def shutdownJVM():
-    _refdaemon.stop()
+#    _refdaemon.stop()
     _jpype.shutdown()
 
 def isThreadAttachedToJVM():

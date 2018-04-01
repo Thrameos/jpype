@@ -82,7 +82,6 @@ public : // JPType implementation
 		RAISE(JPypeException, "not impled for void*");
 	}
 
-	virtual PyObject*   convertToDirectBuffer(PyObject* src);
 	virtual bool isAssignableTo(const JPClass* other) const;
 };
 
@@ -118,7 +117,8 @@ public : // JPType implementation
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 
 
-	virtual PyObject*   convertToDirectBuffer(PyObject* src);
+	/** This only applys to byte buffers currently. */
+	PyObject*   convertToDirectBuffer(PyObject* src);
 
 	virtual bool isAssignableTo(const JPClass* other) const;
 };
@@ -153,7 +153,6 @@ public : // JPType implementation
 	virtual void      setArrayItem(jarray, int ndx, PyObject* val);
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 
-	virtual PyObject*   convertToDirectBuffer(PyObject* src);
 	virtual bool isAssignableTo(const JPClass* other) const;
 };
 
@@ -187,7 +186,6 @@ public : // JPType implementation
 	virtual void      setArrayItem(jarray, int ndx, PyObject* val);
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 
-	virtual PyObject*   convertToDirectBuffer(PyObject* src);
 
 	virtual bool isAssignableTo(const JPClass* other) const;
 };
@@ -222,7 +220,6 @@ public : // JPType implementation
 	virtual void      setArrayItem(jarray, int ndx, PyObject* val);
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 
-	virtual PyObject*   convertToDirectBuffer(PyObject* src);
 	virtual bool isAssignableTo(const JPClass* other) const;
 };
 
@@ -256,7 +253,6 @@ public : // JPType implementation
 	virtual void      setArrayItem(jarray, int ndx, PyObject* val);
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 	
-	virtual PyObject*   convertToDirectBuffer(PyObject* src);
 	virtual bool isAssignableTo(const JPClass* other) const;
 };
 
@@ -290,8 +286,6 @@ public : // JPType implementation
 	virtual void      setArrayItem(jarray, int ndx, PyObject* val);
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 	
-	virtual PyObject*   convertToDirectBuffer(PyObject* src);
-
 	virtual bool isAssignableTo(const JPClass* other) const;
 };
 
@@ -325,7 +319,6 @@ public : // JPType implementation
 	virtual void      setArrayItem(jarray, int ndx, PyObject* val);
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 	
-	virtual PyObject*   convertToDirectBuffer(PyObject* src);
 	virtual bool isAssignableTo(const JPClass* other) const;
 };
 
@@ -359,7 +352,6 @@ public : // JPType implementation
 	virtual void      setArrayItem(jarray, int ndx, PyObject* val);
 	virtual PyObject* getArrayRangeToSequence(jarray, int start, int length);
 	
-	virtual PyObject*   convertToDirectBuffer(PyObject* src);
 	virtual bool isAssignableTo(const JPClass* other) const;
 };
 

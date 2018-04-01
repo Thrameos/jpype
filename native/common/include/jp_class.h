@@ -40,8 +40,9 @@ public :
 // Conversion methods
 	virtual PyObject*   asHostObject(jvalue val) = 0;
 
-	// FIXME This is used only by JPProxy. 
-	// it is not obvious why it is required at all.
+	/** This is used by Proxy.  The class and the 
+	 * object type can differ in the case of primitives.
+	 */
 	virtual PyObject*   asHostObjectFromObject(jobject val);
 
 	/** Convert a host ref to a java value.
@@ -102,8 +103,6 @@ public :
 	virtual PyObject*   getArrayItem(jarray, int ndx);
 	virtual void       setArrayItem(jarray, int ndx, PyObject* val);
 	virtual void       setArrayRange(jarray, int start, int length, vector<PyObject*>& vals);
-
-	virtual PyObject*   convertToDirectBuffer(PyObject* src);
 
 	// Loading support
 	virtual void postLoad()

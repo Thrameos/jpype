@@ -37,8 +37,8 @@ static PyMethodDef jpype_methods[] =
   {"detachThreadFromJVM", (PyCFunction)&PyJPModule::detachThread, METH_NOARGS, ""},
   {"dumpJVMStats", (PyCFunction)&PyJPModule::dumpJVMStats, METH_NOARGS, ""},
   {"attachThreadAsDaemon", (PyCFunction)&PyJPModule::attachThreadAsDaemon, METH_NOARGS, ""},
-  {"startReferenceQueue", &PyJPModule::startReferenceQueue, METH_VARARGS, ""},
-  {"stopReferenceQueue", (PyCFunction)&PyJPModule::stopReferenceQueue, METH_NOARGS, ""},
+//  {"startReferenceQueue", &PyJPModule::startReferenceQueue, METH_VARARGS, ""},
+//  {"stopReferenceQueue", (PyCFunction)&PyJPModule::stopReferenceQueue, METH_NOARGS, ""},
 
   {"findClass", &PyJPClass::findClass, METH_VARARGS, ""},
   {"findArrayClass", &PyJPArrayClass::findArrayClass, METH_VARARGS, ""},
@@ -158,6 +158,8 @@ PyObject* PyJPModule::startup(PyObject* obj, PyObject* args)
 		JPEnv::loadJVM(cVmPath, ignoreUnrecognized, args);
 		Py_RETURN_NONE;
 	}
+	//  FIXME if we have a java error and the system is not completely initialized 
+	//  then we may segfault here.
 	PY_STANDARD_CATCH
 
 	return NULL;
@@ -209,7 +211,7 @@ PyObject* PyJPModule::dumpJVMStats(PyObject* obj)
 
 PyObject* PyJPModule::shutdown(PyObject* obj)
 {
-	TRACE_IN("shutdown");
+	TRACE_IN("PyJPModule::shutdown");
 	try {
 		JPPyni::assertInitialized();
 		//dumpJVMStats(obj);
@@ -240,6 +242,7 @@ PyObject* PyJPModule::isStarted(PyObject* obj)
 
 PyObject* PyJPModule::attachThread(PyObject* obj)
 {
+	TRACE_IN("PyJPModule::attachThread");
 	try {
 		JPPyni::assertInitialized();
 		JPEnv::attachCurrentThread();
@@ -248,10 +251,12 @@ PyObject* PyJPModule::attachThread(PyObject* obj)
 	PY_STANDARD_CATCH;
 
 	return NULL;
+	TRACE_OUT;
 }
 
 PyObject* PyJPModule::detachThread(PyObject* obj)
 {
+	TRACE_IN("PyJPModule::detachThread");
 	try {
 		JPPyni::assertInitialized();
 		JPEnv::getJava()->DetachCurrentThread();
@@ -260,6 +265,7 @@ PyObject* PyJPModule::detachThread(PyObject* obj)
 	PY_STANDARD_CATCH;
 
 	return NULL;
+	TRACE_OUT;
 }
 
 PyObject* PyJPModule::isThreadAttached(PyObject* obj)
@@ -276,6 +282,7 @@ PyObject* PyJPModule::isThreadAttached(PyObject* obj)
 
 PyObject* PyJPModule::raiseJava(PyObject* , PyObject* args)
 {
+	TRACE_IN("PyJPModule::raiseJava");
 	try 
 	{
 		//PyObject* arg;
@@ -311,6 +318,7 @@ PyObject* PyJPModule::raiseJava(PyObject* , PyObject* args)
 	}
 	PY_STANDARD_CATCH;
 	return NULL;
+	TRACE_OUT;
 }
 
 PyObject* PyJPModule::attachThreadAsDaemon(PyObject* obj)
@@ -326,6 +334,7 @@ PyObject* PyJPModule::attachThreadAsDaemon(PyObject* obj)
 }
 
 
+/*
 PyObject* PyJPModule::startReferenceQueue(PyObject* obj, PyObject* args)
 {
 	try {
@@ -351,7 +360,7 @@ PyObject* PyJPModule::stopReferenceQueue(PyObject* obj)
 	PY_STANDARD_CATCH;
 	return NULL;
 }
-
+*/
 
 PyObject* PyJPModule::setConvertStringObjects(PyObject* obj, PyObject* args)
 {
@@ -380,6 +389,7 @@ PyObject* PyJPModule::setConvertStringObjects(PyObject* obj, PyObject* args)
  */
 PyObject* PyJPModule::setResource(PyObject* self, PyObject* arg)
 {	
+	TRACE_IN("PyJPModule::setResource");
 	try {
 		char* tname;
 		PyObject* value;
@@ -421,6 +431,7 @@ PyObject* PyJPModule::setResource(PyObject* self, PyObject* arg)
 	PY_STANDARD_CATCH
 
 	return NULL;
+	TRACE_OUT;
 }
 
 PyObject* PyJPModule::convertToDirectBuffer(PyObject* self, PyObject* args)
@@ -442,8 +453,6 @@ PyObject* PyJPModule::convertToDirectBuffer(PyObject* self, PyObject* args)
 
 			TRACE1("Converting");
 			res = type->convertToDirectBuffer(src);
-			JPEnv::registerRef(res, src);
-			TRACE1("detaching result");
 		}
 
 		if (res != NULL)

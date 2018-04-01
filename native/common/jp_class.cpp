@@ -195,11 +195,6 @@ PyObject* JPClass::asHostObjectFromObject(jobject obj)
 	return asHostObject(val);
 }
 
-PyObject* JPClass::convertToDirectBuffer(PyObject* src)
-{
-	RAISE(JPypeException, "Unable to convert to Direct Buffer");
-}
-
 bool JPClass::isAssignableTo(const JPClass* o) const
 {
 	if (o == NULL)

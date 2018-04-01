@@ -31,18 +31,18 @@ namespace {
 namespace JPTypeManager {
 
 int loadedClasses = 0;
-JPPrimitiveType *_void  = 0;
-JPPrimitiveType *_boolean  = 0;
-JPPrimitiveType *_byte  = 0;
-JPPrimitiveType *_char  = 0;
-JPPrimitiveType *_short  = 0;
-JPPrimitiveType *_long  = 0;
-JPPrimitiveType *_int  = 0;
-JPPrimitiveType *_float  = 0;
-JPPrimitiveType *_double  = 0;
-JPClass *_java_lang_Object  = 0;
-JPClass *_java_lang_Class  = 0;
-JPClass *_java_lang_String  = 0;
+JPVoidType    *_void = 0;
+JPBooleanType *_boolean = 0;
+JPByteType    *_byte = 0;
+JPCharType    *_char = 0;
+JPShortType   *_short = 0;
+JPLongType    *_long = 0;
+JPIntType     *_int = 0;
+JPFloatType   *_float = 0;
+JPDoubleType  *_double = 0;
+JPClass *_java_lang_Object = 0;
+JPClass *_java_lang_Class = 0;
+JPClass *_java_lang_String = 0;
 JPClass *_java_lang_Boolean = 0;
 JPClass *_java_lang_Byte = 0;
 JPClass *_java_lang_Character = 0;

@@ -109,6 +109,7 @@ const JPValue& PyJPValue::getValue(PyObject* self)
 /** Get a java object representing the java.lang.Class */
 PyObject* PyJPValue::getJavaClass(PyObject* obj, PyObject* args)
 {
+  TRACE_IN("PyJPValue::getJavaClass");
   JPLocalFrame frame;
 	try
   {
@@ -119,11 +120,13 @@ PyObject* PyJPValue::getJavaClass(PyObject* obj, PyObject* args)
   }
   PY_STANDARD_CATCH
   return NULL;
+  TRACE_OUT;
 }
 
 /** Get the python class for this value */
 PyObject* PyJPValue::getPythonClass(PyObject* obj, PyObject* args)
 {
+  TRACE_IN("PyJPValue::getPythonClass");
   JPLocalFrame frame;
   try
 	{
@@ -143,6 +146,7 @@ PyObject* PyJPValue::getPythonClass(PyObject* obj, PyObject* args)
   }
   PY_STANDARD_CATCH
   return NULL;
+  TRACE_OUT;
 }
 
 
@@ -151,6 +155,7 @@ PyObject* PyJPValue::getPythonClass(PyObject* obj, PyObject* args)
 
 PyObject* PyJPValue::convertToJavaValue(PyObject* module, PyObject* args)
 {
+  TRACE_IN("PyJPValue::convertToJavaValue");
   JPLocalFrame frame;
   try
 	{
@@ -170,5 +175,6 @@ PyObject* PyJPValue::convertToJavaValue(PyObject* module, PyObject* args)
   }
   PY_STANDARD_CATCH
   return NULL;
+  TRACE_OUT;
 }
 

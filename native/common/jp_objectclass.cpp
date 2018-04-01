@@ -68,7 +68,7 @@ void JPObjectClass::postLoad()
 
 void JPObjectClass::loadSuperClass()
 {
-	TRACE_IN("JPObjectClass::loadSuperClass");
+//	TRACE_IN("JPObjectClass::loadSuperClass");
 	JPLocalFrame frame;
 	// base class .. if any
 	if (!m_IsInterface)
@@ -76,13 +76,13 @@ void JPObjectClass::loadSuperClass()
 		jclass baseClass = JPEnv::getJava()->GetSuperclass(m_Class);
 		m_SuperClass = (JPObjectClass*)JPTypeManager::findClass(baseClass);
 	}
-	TRACE_OUT;
+//	TRACE_OUT;
 }
 
 void JPObjectClass::loadSuperInterfaces()
 {
 	JPLocalFrame frame(32);
-	TRACE_IN("JPObjectClass::loadSuperInterfaces");
+//	TRACE_IN("JPObjectClass::loadSuperInterfaces");
 	// Super interfaces
 	vector<jclass> intf = JPJni::getInterfaces(frame, m_Class);
 	for (vector<jclass>::iterator it = intf.begin(); it != intf.end(); it++)
@@ -90,13 +90,13 @@ void JPObjectClass::loadSuperInterfaces()
 		JPObjectClass* interface = (JPObjectClass*)JPTypeManager::findClass(*it);
 		m_SuperInterfaces.push_back(interface);
 	}
-	TRACE_OUT;
+//	TRACE_OUT;
 }
 
 void JPObjectClass::loadFields()
 {
 	JPLocalFrame frame(32);
-	TRACE_IN("JPObjectClass::loadFields");
+//	TRACE_IN("JPObjectClass::loadFields");
 	// fields
 	vector<jobject> fields = JPJni::getDeclaredFields(frame, m_Class);
 
@@ -112,13 +112,13 @@ void JPObjectClass::loadFields()
 			m_InstanceFields[field->getName()] = field;
 		}
 	}
-	TRACE_OUT;
+//	TRACE_OUT;
 }
 
 void JPObjectClass::loadMethods()
 {
 	JPLocalFrame frame(32);
-	TRACE_IN("JPObjectClass::loadMethods");
+//	TRACE_IN("JPObjectClass::loadMethods");
 
 	// methods
 	vector<jobject> methods = JPJni::getMethods(frame, m_Class);
@@ -135,13 +135,13 @@ void JPObjectClass::loadMethods()
 
 		method->addOverload(this, *it);
 	}
-	TRACE_OUT;
+//	TRACE_OUT;
 }
 
 void JPObjectClass::loadConstructors()
 {
 	JPLocalFrame frame(32);
-	TRACE_IN("JPObjectClass::loadMethods");
+//	TRACE_IN("JPObjectClass::loadMethods");
 	m_Constructors = new JPMethod(this, "[init", true);
 
 	if (JPJni::isAbstract(m_Class))
@@ -150,9 +150,7 @@ void JPObjectClass::loadConstructors()
 		return;
 	}
 
-
 	vector<jobject> methods = JPJni::getDeclaredConstructors(frame, m_Class);
-
 	for (vector<jobject>::iterator it = methods.begin(); it != methods.end(); it++)
 	{
 		if (JPJni::isMemberPublic(*it))
@@ -160,7 +158,7 @@ void JPObjectClass::loadConstructors()
 			m_Constructors->addOverload(this, *it);
 		}
 	}
-	TRACE_OUT;
+//	TRACE_OUT;
 }
 
 JPField* JPObjectClass::getInstanceField(const string& name)
@@ -191,7 +189,6 @@ JPMethod* JPObjectClass::getMethod(const string& name)
 	{
 		return NULL;
 	}
-
 	return it->second;
 }
 
@@ -202,7 +199,6 @@ PyObject* JPObjectClass::getStaticAttribute(const string& name)
 	{
 		return fld->getStaticAttribute();
 	}
-
 	JPyErr::setAttributeError(name.c_str());
 	JPyErr::raise("getAttribute");
 	return NULL; // never reached
@@ -222,12 +218,11 @@ void JPObjectClass::setStaticAttribute(const string& name, PyObject* val)
 
 PyObject* JPObjectClass::asHostObject(jvalue obj)
 {
-	TRACE_IN("JPObjectClass::asHostObject");
+//	TRACE_IN("JPObjectClass::asHostObject");
 	if (obj.l == NULL)
 	{
 		return JPPyni::getNone();
 	}
-
 	jclass cls = JPJni::getClass(obj.l);
 	if (JPJni::isArray(cls))
 	{
@@ -236,7 +231,7 @@ PyObject* JPObjectClass::asHostObject(jvalue obj)
 	}
 
 	return JPPyni::newObject(JPValue(JPTypeManager::findClass(cls), obj));
-	TRACE_OUT;
+//	TRACE_OUT;
 }
 
 EMatchType JPObjectClass::canConvertToJava(PyObject* pyobj)
@@ -254,7 +249,7 @@ EMatchType JPObjectClass::canConvertToJava(PyObject* pyobj)
 	{
 		const JPValue& value = obj.asJavaValue();
 		JPClass* oc = value.getClass(); 
-		TRACE2("Match name", oc->m_Name.getSimpleName());
+		TRACE2("Match name", oc->getSimpleName());
 
 		if (oc == this)
 		{

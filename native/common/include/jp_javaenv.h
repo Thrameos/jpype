@@ -66,7 +66,6 @@ class JPJavaEnv
 public :
 	JPJavaEnv(JavaVM* vm) :
 		jvm(vm),
-		referenceQueue(NULL),
 		convertStringObjects(true)
 	{
 	}	
@@ -80,7 +79,6 @@ private :
 	static jint (JNICALL *GetCreatedJVMs_Method)(JavaVM **pvm, jsize size, jsize* nVms);
 
 	JavaVM* jvm;
-	jobject referenceQueue;
 	bool convertStringObjects;
 
 	JNIEnv* getJNIEnv();
@@ -104,16 +102,6 @@ public :
 		return convertStringObjects;
 	}
 
-	
-	void setReferenceQueue(jobject obj)
-	{
-		referenceQueue = NewGlobalRef(obj);
-	}
-
-	jobject getReferenceQueue()
-	{
-		return referenceQueue;
-	}
 	
 	void shutdown();
 	void checkInitialized();

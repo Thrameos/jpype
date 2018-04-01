@@ -20,7 +20,7 @@
 // Define this to generate the trace calls
 
 // Define this to make the trace calls do their output. 
-//#define TRACING
+#define TRACING
 
 // Define this to make the trace calls for referencing.
 //#define MTRACING
@@ -145,6 +145,8 @@ class HostException;
 #include "jp_value.h"
 #include "jp_env.h"
 #include "jp_jni.h"
+#include "jp_thunk.h"
+#include "jp_reference.h"
 
 
 // Other header files
@@ -166,9 +168,7 @@ class HostException;
 #include "jp_objectbase.h"
 #include "jp_array.h"
 
-#include "jp_invocationhandler.h"
 #include "jp_reference.h"
-#include "jp_referencequeue.h"
 #include "jp_proxy.h"
 
 #include "jp_monitor.h"

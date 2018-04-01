@@ -81,14 +81,6 @@ namespace { // impl detail
 	jmethodID booleanValueID;
 	jmethodID charValueID;
 
-	jclass    JPypeReferenceClass;
-	jmethodID JPypeReferenceConstructorMethod;
-	jclass    JPypeReferenceQueueClass;
-	jmethodID JPypeReferenceQueueConstructorMethod;
-	jmethodID JPypeReferenceQueueRegisterMethod;
-	jmethodID JPypeReferenceQueueStartMethod;
-	jmethodID JPypeReferenceQueueRunMethod;
-	jmethodID JPypeReferenceQueueStopMethod;
 }
 
 namespace JPJni {
@@ -97,8 +89,6 @@ namespace JPJni {
 	jclass s_StringClass;
 	jclass s_NoSuchMethodErrorClass;
 	jclass s_RuntimeExceptionClass;
-	jclass s_ProxyClass = 0;
-	jmethodID s_NewProxyInstanceID;
 
 	jlong s_minByte;
 	jlong s_maxByte;
@@ -143,9 +133,6 @@ void init()
 
 	s_NoSuchMethodErrorClass = (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("java/lang/NoSuchMethodError") );
 	s_RuntimeExceptionClass = (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("java/lang/RuntimeException") );
-
-	s_ProxyClass = (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("java/lang/reflect/Proxy") );
-	s_NewProxyInstanceID = JPEnv::getJava()->GetStaticMethodID(s_ProxyClass, "newProxyInstance", "(Ljava/lang/ClassLoader;[Ljava/lang/Class;Ljava/lang/reflect/InvocationHandler;)Ljava/lang/Object;");
 
 	memberClass = (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("java/lang/reflect/Member"));
 	getModifiersID = JPEnv::getJava()->GetMethodID(memberClass, "getModifiers", "()I");
@@ -703,57 +690,6 @@ jclass findPrimitiveClass(const std::string& name)
 	jfieldID fid = JPEnv::getJava()->GetStaticFieldID(cls, "TYPE", "Ljava/lang/Class;");
 	jclass res = (jclass)JPEnv::getJava()->GetStaticObjectField(cls, fid);
 	return frame.keep(res);
-}
-
-void startJPypeReferenceQueue(bool useJavaThread)
-{
-	JPLocalFrame frame;
-
-	JPypeReferenceQueueClass = (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("jpype/ref/JPypeReferenceQueue"));
-	JPypeReferenceQueueConstructorMethod = JPEnv::getJava()->GetMethodID(JPypeReferenceQueueClass, "<init>", "()V");
-	JPypeReferenceQueueRegisterMethod = JPEnv::getJava()->GetMethodID(JPypeReferenceQueueClass, "registerRef", "(Ljpype/ref/JPypeReference;J)V");
-	JPypeReferenceQueueStartMethod = JPEnv::getJava()->GetMethodID(JPypeReferenceQueueClass, "startManaging", "()V");
-	JPypeReferenceQueueRunMethod = JPEnv::getJava()->GetMethodID(JPypeReferenceQueueClass, "run", "()V");
-	JPypeReferenceQueueStopMethod = JPEnv::getJava()->GetMethodID(JPypeReferenceQueueClass, "stop", "()V");
-
-	JPypeReferenceClass = (jclass)JPEnv::getJava()->NewGlobalRef(JPEnv::getJava()->FindClass("jpype/ref/JPypeReference"));
-	JPypeReferenceConstructorMethod = JPEnv::getJava()->GetMethodID(JPypeReferenceClass, "<init>", "(Ljava/lang/Object;Ljava/lang/ref/ReferenceQueue;)V");
-
-	jobject obj = JPEnv::getJava()->NewObject(JPypeReferenceQueueClass, JPypeReferenceQueueConstructorMethod);
-	JPEnv::getJava()->setReferenceQueue(obj);
-
-	if (useJavaThread)
-	{
-		JPEnv::getJava()->CallVoidMethod(obj, JPypeReferenceQueueStartMethod);
-	}
-	else
-	{
-		JPEnv::getJava()->CallVoidMethod(obj, JPypeReferenceQueueRunMethod);
-	}
-
-}
-
-void stopJPypeReferenceQueue()
-{
-	JPEnv::getJava()->CallVoidMethod(JPEnv::getJava()->getReferenceQueue(), JPypeReferenceQueueStopMethod);
-}
-
-void registerRef(jobject refQueue, jobject obj, jlong hostRef)
-{
-	JPLocalFrame frame;
-	TRACE_IN("registerRef");
-	// create the ref ...
-	jvalue args[2];
-	args[0].l = obj;
-	args[1].l = refQueue;
-
-	jobject refObj = JPEnv::getJava()->NewObjectA(JPypeReferenceClass, JPypeReferenceConstructorMethod, args);
-
-	args[0].l = refObj;
-	args[1].j = hostRef;
-
-	JPEnv::getJava()->CallVoidMethodA(refQueue, JPypeReferenceQueueRegisterMethod, args);
-	TRACE_OUT;
 }
 
 } // end of namespace JNIEnv

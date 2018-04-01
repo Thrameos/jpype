@@ -927,7 +927,7 @@ PythonException::PythonException()
   Py_XINCREF(m_ExceptionValue);
 
   // Lookup the name of the exception
-  TRACE1(JPyString(cleaner.add(JPyObject(m_ExceptionClass).getAttrString("__name__")).asString()));
+  TRACE1(JPyString(cleaner.add(JPyObject(m_ExceptionClass).getAttrString("__name__"))).asString());
   TRACE1(m_ExceptionValue->ob_type->tp_name);
 
   // Restore the python error 

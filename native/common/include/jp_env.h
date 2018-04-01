@@ -93,8 +93,6 @@ namespace JPEnv
 	* Check if the JPype environment has been initialized
 	*/
 	bool isInitialized();
-	
-	void registerRef(PyObject*, PyObject* targetRef);
 }
 
 #endif // _JPENV_H_

@@ -5,7 +5,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * This class is a helper to manage the 2 different lifecyel systems.
+ * This class is a helper to manage the 2 different lifecycle systems.
  * 
  * @author smenard
  * 
@@ -13,26 +13,27 @@ import java.util.Set;
 public class JPypeReferenceQueue extends ReferenceQueue implements Runnable
 {
   /** also serves as mutex */
-  private Set     mHostReferences = new HashSet();
   private boolean mStopped        = false;
   private Thread  mQueueThread;
   private Object  mQueueStopMutex = new Object();
 
-  public void registerRef(JPypeReference ref, long hostRef)
+	/** Create a new managed referecen between java and the host.
+	 */
+  public void registerRef(Object obj, long hostRef)
   {
-//    System.out.println("registering reference to "+hostRef);
-    ref.setHostReference(hostRef);
-    mHostReferences.add(ref);
+		// Create a new reference
+		JPypeReference ref = new JPypeReference(obj, this, hostRef);
   }
 
   /**
    * this method is long running. It will return only if the queue gets stopped
    * 
    */
-  public void startManaging()
+  public void start()
   {
     //System.out.println("Starting the reference queue thread");
     mQueueThread = new Thread(this);
+		mQueueThread.setDaemon(true);
     mQueueThread.start();
   }
 
@@ -42,32 +43,19 @@ public class JPypeReferenceQueue extends ReferenceQueue implements Runnable
     {
       try
       {
-        // check if a ref has been queued. and check if the thred has been
+        // check if a ref has been queued. and check if the thread has been
         // stopped every 0.25 seconds
         JPypeReference ref = (JPypeReference) remove(250);
         if (ref != null)
         {
-//          System.out.println("Got a reference! "+ref.getHostReference());
-          synchronized (mHostReferences)
-          {
-            mHostReferences.remove(ref);
-          }
-          try
-          {
-            removeHostReference(ref.getHostReference());
-          }
-          finally
-          {
-            ref.setHostReference(-1);
-          }
+					ref.dispose();
         }
       }
       catch (InterruptedException ex)
       {
-        // don't know why ... don;t really care ...
+        // don't know why ... don't really care ...
       }
     }
-    mHostReferences = null;
 //    System.out.println("reference queue thread has stopped");
     synchronized (mQueueStopMutex)
     {
@@ -94,5 +82,4 @@ public class JPypeReferenceQueue extends ReferenceQueue implements Runnable
     }
   }
 
-  private static native void removeHostReference(long hostRef);
 }

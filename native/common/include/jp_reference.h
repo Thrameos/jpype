@@ -16,8 +16,13 @@
 *****************************************************************************/   
 #ifndef _JPREFERENCE_H_
 #define _JPREFERENCE_H_
+#include <jpype.h>
 
-extern jbyte JPypeReference[];
-jsize getJPypeReferenceLength();
+namespace JPReference
+{
+	void init();
+	void stop();
+	void registerRef(jobject jobj, PyObject* pyobj);
+}
 
 #endif // _JPREFERENCE_H_
