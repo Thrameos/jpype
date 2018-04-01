@@ -29,7 +29,9 @@ struct PyJPValue
 	static PyTypeObject Type;
 	static void        initType(PyObject* module);
 	static bool        check(PyObject* o);
-	static void        __dealloc__(PyObject* self);
+	static PyObject*   __new__(PyTypeObject* self, PyObject* args, PyObject* kwargs);
+	static int         __init__(PyJPValue* self, PyObject* args, PyObject* kwargs);
+	static void        __dealloc__(PyJPValue* self);
 
 	// Python-visible methods
 	static PyObject*   getJavaClass(PyObject* self, PyObject* args);

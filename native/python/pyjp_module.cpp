@@ -86,6 +86,7 @@ PyMODINIT_FUNC init_jpype()
 	PyJPArray::initType(module);	
 	PyJPArrayClass::initType(module);	
 	PyJPField::initType(module);	
+	PyJPValue::initType(module);	
 
 #if (PY_VERSION_HEX < 0x02070000)
 	jpype_memoryview_init(module);
@@ -395,6 +396,7 @@ PyObject* PyJPModule::setResource(PyObject* self, PyObject* arg)
 		PyObject* value;
 		PyArg_ParseTuple(arg, "sO", &tname, &value);
 		string name = tname;
+		TRACE1(name);
 
 		if (name == "WrapperClass")
 			JPPyni::m_WrapperClass = value;
@@ -449,10 +451,8 @@ PyObject* PyJPModule::convertToDirectBuffer(PyObject* self, PyObject* args)
 		if (JPyMemoryView::check(src))
 		{
 			// converts to byte buffer ...
-			JPClass* type = JPTypeManager::_byte;
-
 			TRACE1("Converting");
-			res = type->convertToDirectBuffer(src);
+			res = JPTypeManager::_byte->convertToDirectBuffer(src);
 		}
 
 		if (res != NULL)

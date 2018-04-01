@@ -95,7 +95,3 @@ jarray JPVoidType::newArrayInstance(int)
 	RAISE(JPypeException, "void cannot be the type of an array.");
 }
 
-PyObject* JPVoidType::convertToDirectBuffer(PyObject* src)
-{
-	RAISE(JPypeException, "Unable to convert to Direct Buffer");
-}

@@ -27,35 +27,36 @@ struct PyJPClass
 	// Module global methods
 	static PyObject* findClass(PyObject* obj, PyObject* args);
 	static PyObject* findPrimitiveClass(PyObject* obj, PyObject* args);
+
+	// Internal side utility functions
+	static PyJPClass*   alloc(JPClass* cls);
+	static bool   check(PyObject* o);
+	static void         initType(PyObject* module);
 	
 	// Python-visible methods
 	static PyTypeObject Type;
-	static void         initType(PyObject* module);
-	static PyJPClass*   alloc(JPClass* cls);
-	static bool   check(PyObject* o);
+	static void      __dealloc__(PyJPClass* o);
 
-	static void        __dealloc__(PyObject* o);
+	static PyObject* getName(PyJPClass* self, PyObject* arg);
+	static PyObject* getBaseClass(PyJPClass* self, PyObject* arg);
+	static PyObject* getBaseInterfaces(PyJPClass* self, PyObject* arg);
+	static PyObject* getClassMethods(PyJPClass* self, PyObject* arg);
+	static PyObject* getClassFields(PyJPClass* self, PyObject* arg);
+	static PyObject* newClassInstance(PyJPClass* self, PyObject* arg);
+	static PyObject* isInterface(PyJPClass* self, PyObject* arg);
+	static PyObject* isPrimitive(PyJPClass* self, PyObject* arg);
+	static PyObject* isSubclass(PyJPClass* self, PyObject* arg);
+	static PyObject* isException(PyJPClass* self, PyObject* arg);
+	static PyObject* isArray(PyJPClass* self, PyObject* arg);
+	static PyObject* isAbstract(PyJPClass* self, PyObject* arg);
 
-	static PyObject* getName(PyObject* self, PyObject* arg);
-	static PyObject* getBaseClass(PyObject* self, PyObject* arg);
-	static PyObject* getBaseInterfaces(PyObject* self, PyObject* arg);
-	static PyObject* getClassMethods(PyObject* self, PyObject* arg);
-	static PyObject* getClassFields(PyObject* self, PyObject* arg);
-	static PyObject* newClassInstance(PyObject* self, PyObject* arg);
-	static PyObject* isInterface(PyObject* self, PyObject* arg);
-	static PyObject* isPrimitive(PyObject* self, PyObject* arg);
-	static PyObject* isSubclass(PyObject* self, PyObject* arg);
-	static PyObject* isException(PyObject* self, PyObject* arg);
-	static PyObject* isArray(PyObject* self, PyObject* arg);
-	static PyObject* isAbstract(PyObject* self, PyObject* arg);
-
-	static PyObject* getConstructors(PyObject* self);
-	static PyObject* getDeclaredConstructors(PyObject* self);
-	static PyObject* getDeclaredFields(PyObject* self);
-	static PyObject* getDeclaredMethods(PyObject* self);
-	static PyObject* getFields(PyObject* self);
-	static PyObject* getMethods(PyObject* self);
-	static PyObject* getModifiers(PyObject* self);
+	static PyObject* getConstructors(PyJPClass* self);
+	static PyObject* getDeclaredConstructors(PyJPClass* self);
+	static PyObject* getDeclaredFields(PyJPClass* self);
+	static PyObject* getDeclaredMethods(PyJPClass* self);
+	static PyObject* getFields(PyJPClass* self);
+	static PyObject* getMethods(PyJPClass* self);
+	static PyObject* getModifiers(PyJPClass* self);
 
 	JPClass* m_Class;
 };

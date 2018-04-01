@@ -28,9 +28,9 @@ PyTypeObject PyJPMethod::Type =
 {
 	PyVarObject_HEAD_INIT(&PyType_Type, 0)
 	"JavaMethod",              /*tp_name*/
-	sizeof(PyJPMethod),      /*tp_basicsize*/
+	sizeof(PyJPMethod),        /*tp_basicsize*/
 	0,                         /*tp_itemsize*/
-	PyJPMethod::__dealloc__,                   /*tp_dealloc*/
+	PyJPMethod::__dealloc__,   /*tp_dealloc*/
 	0,                         /*tp_print*/
 	0,                         /*tp_getattr*/
 	0,                         /*tp_setattr*/
@@ -40,21 +40,21 @@ PyTypeObject PyJPMethod::Type =
 	0,                         /*tp_as_sequence*/
 	0,                         /*tp_as_mapping*/
 	0,                         /*tp_hash */
-	PyJPMethod::__call__,                         /*tp_call*/
-	PyJPMethod::__str__,                         /*tp_str*/
+	PyJPMethod::__call__,      /*tp_call*/
+	PyJPMethod::__str__,       /*tp_str*/
 	0,                         /*tp_getattro*/
 	0,                         /*tp_setattro*/
 	0,                         /*tp_as_buffer*/
 	Py_TPFLAGS_DEFAULT,        /*tp_flags*/
-	"Java Method",                  /*tp_doc */
-	0,		                   /* tp_traverse */
-	0,		                   /* tp_clear */
-	0,		                   /* tp_richcompare */
-	0,		                   /* tp_weaklistoffset */
-	0,		                   /* tp_iter */
-	0,		                   /* tp_iternext */
-	methodMethods,                   /* tp_methods */
-	0,						   /* tp_members */
+	"Java Method",             /*tp_doc */
+	0,		                     /* tp_traverse */
+	0,		                     /* tp_clear */
+	0,		                     /* tp_richcompare */
+	0,		                     /* tp_weaklistoffset */
+	0,		                     /* tp_iter */
+	0,		                     /* tp_iternext */
+	methodMethods,             /* tp_methods */
+	0,						             /* tp_members */
 	0,                         /* tp_getset */
 	0,                         /* tp_base */
 	0,                         /* tp_dict */
@@ -110,8 +110,7 @@ PyObject* PyJPMethod::__call__(PyObject* o, PyObject* pyargs, PyObject* kwargs)
 void PyJPMethod::__dealloc__(PyObject* o)
 {
 	PyJPMethod* self = (PyJPMethod*)o;
-
-	Py_TYPE(self)->tp_free(o);
+	Py_TYPE(o)->tp_free(o);
 }
 
 PyObject* PyJPMethod::__str__(PyObject* o)
@@ -204,8 +203,8 @@ static PyMethodDef boundMethodMethods[] = {
 PyTypeObject PyJPBoundMethod::Type = 
 {
 	PyVarObject_HEAD_INIT(&PyType_Type, 0)
-	"JavaBoundMethod",              /*tp_name*/
-	sizeof(PyJPBoundMethod),      /*tp_basicsize*/
+	"JavaBoundMethod",         /*tp_name*/
+	sizeof(PyJPBoundMethod),   /*tp_basicsize*/
 	0,                         /*tp_itemsize*/
 	PyJPBoundMethod::__dealloc__,                   /*tp_dealloc*/
 	0,                         /*tp_print*/
@@ -217,28 +216,28 @@ PyTypeObject PyJPBoundMethod::Type =
 	0,                         /*tp_as_sequence*/
 	0,                         /*tp_as_mapping*/
 	0,                         /*tp_hash */
-	PyJPBoundMethod::__call__,                         /*tp_call*/
-	PyJPBoundMethod::__str__,                         /*tp_str*/
+	PyJPBoundMethod::__call__, /*tp_call*/
+	PyJPBoundMethod::__str__,  /*tp_str*/
 	0,                         /*tp_getattro*/
 	0,                         /*tp_setattro*/
 	0,                         /*tp_as_buffer*/
 	Py_TPFLAGS_DEFAULT,        /*tp_flags*/
-	"Java Bound Method",                  /*tp_doc */
-	0,		                   /* tp_traverse */
-	0,		                   /* tp_clear */
-	0,		                   /* tp_richcompare */
-	0,		                   /* tp_weaklistoffset */
-	0,		                   /* tp_iter */
-	0,		                   /* tp_iternext */
-	boundMethodMethods,                   /* tp_methods */
-	0,						   /* tp_members */
+	"Java Bound Method",       /*tp_doc */
+	0,		                     /* tp_traverse */
+	0,		                     /* tp_clear */
+	0,		                     /* tp_richcompare */
+	0,		                     /* tp_weaklistoffset */
+	0,		                     /* tp_iter */
+	0,		                     /* tp_iternext */
+	boundMethodMethods,        /* tp_methods */
+	0,						             /* tp_members */
 	0,                         /* tp_getset */
 	0,                         /* tp_base */
 	0,                         /* tp_dict */
 	0,                         /* tp_descr_get */
 	0,                         /* tp_descr_set */
 	0,                         /* tp_dictoffset */
-	PyJPBoundMethod::__init__,                         /* tp_init */
+	PyJPBoundMethod::__init__, /* tp_init */
 	0,                         /* tp_alloc */
 	PyType_GenericNew          /* tp_new */
 
@@ -312,7 +311,7 @@ void PyJPBoundMethod::__dealloc__(PyObject* o)
 	Py_XDECREF(self->m_Instance);
 	Py_XDECREF(self->m_Method);
 
-	Py_TYPE(self)->tp_free(o);
+	Py_TYPE(o)->tp_free(o);
 	TRACE1("Method freed");
 	TRACE_OUT;
 }

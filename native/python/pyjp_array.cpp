@@ -88,8 +88,8 @@ void PyJPArray::__dealloc__(PyObject* o)
 {
   TRACE_IN("PyJPArray::__dealloc__");
   PyJPArray* self = (PyJPArray*)o;
-  Py_TYPE(self)->tp_free(o);
   delete self->m_Object;	
+	Py_TYPE(o)->tp_free(o);
   TRACE_OUT;
 }
 
@@ -114,7 +114,10 @@ PyObject* PyJPArray::getArrayItem(PyObject* o, PyObject* arg)
 		PyJPArray* self = (PyJPArray*)o;
 		JPArray* a = self->m_Object;
 		int ndx;
-		PyArg_ParseTuple(arg, "i", &ndx);
+		if (!PyArg_ParseTuple(arg, "i", &ndx))
+		{
+			return NULL;
+		}
 		int length = a->getLength();
 		if (ndx < 0) ndx = length + ndx;
 		return a->getItem(ndx);
@@ -131,7 +134,10 @@ PyObject* PyJPArray::setArrayItem(PyObject* o, PyObject* arg)
 		JPArray* a = self->m_Object;
 		int ndx;
 		PyObject* value;
-		PyArg_ParseTuple(arg, "iO", &ndx, &value);
+		if (!PyArg_ParseTuple(arg, "iO", &ndx, &value))
+		{
+			return NULL;
+		}
 		int length = a->getLength();
 		if (ndx < 0) ndx = length + ndx;
 		self->m_Object->setItem(ndx, arg);
@@ -151,7 +157,10 @@ PyObject* PyJPArray::getArraySlice(PyObject* o, PyObject* arg)
 
 		int lo = -1;
 		int hi = -1;
-		PyArg_ParseTuple(arg, "ii", &lo, &hi);
+		if (!PyArg_ParseTuple(arg, "ii", &lo, &hi))
+		{
+			return NULL;
+		}
 
 		int length = a->getLength();
 		// stolen from jcc, to get nice slice support
@@ -202,7 +211,10 @@ PyObject* PyJPArray::setArraySlice(PyObject* o, PyObject* arg)
 		int lo = -1;
 		int hi = -1;
 		PyObject* pysequence;
-		PyArg_ParseTuple(arg, "iiO", &lo, &hi, &pysequence);
+		if (!PyArg_ParseTuple(arg, "iiO", &lo, &hi, &pysequence))
+		{
+			return NULL;
+		}
 
 		int length = a->getLength();
 		int length2 = JPySequence(pysequence).size();

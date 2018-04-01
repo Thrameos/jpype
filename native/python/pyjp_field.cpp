@@ -30,10 +30,10 @@ static PyMethodDef fieldMethods[] = {
 static PyTypeObject fieldClassType = 
 {
 	PyVarObject_HEAD_INIT(&PyType_Type, 0)
-	"JavaField",              /*tp_name*/
-	sizeof(PyJPField),      /*tp_basicsize*/
+	"JavaField",               /*tp_name*/
+	sizeof(PyJPField),         /*tp_basicsize*/
 	0,                         /*tp_itemsize*/
-	PyJPField::__dealloc__,                   /*tp_dealloc*/
+	PyJPField::__dealloc__,    /*tp_dealloc*/
 	0,                         /*tp_print*/
 	0,                         /*tp_getattr*/
 	0,                         /*tp_setattr*/
@@ -49,15 +49,15 @@ static PyTypeObject fieldClassType =
 	0,                         /*tp_setattro*/
 	0,                         /*tp_as_buffer*/
 	Py_TPFLAGS_DEFAULT,        /*tp_flags*/
-	"Java Field",                  /*tp_doc */
-	0,		                   /* tp_traverse */
-	0,		                   /* tp_clear */
-	0,		                   /* tp_richcompare */
-	0,		                   /* tp_weaklistoffset */
-	0,		                   /* tp_iter */
-	0,		                   /* tp_iternext */
-	fieldMethods,                   /* tp_methods */
-	0,						   /* tp_members */
+	"Java Field",              /*tp_doc */
+	0,		                     /* tp_traverse */
+	0,		                     /* tp_clear */
+	0,		                     /* tp_richcompare */
+	0,		                     /* tp_weaklistoffset */
+	0,		                     /* tp_iter */
+	0,		                     /* tp_iternext */
+	fieldMethods,              /* tp_methods */
+	0,						             /* tp_members */
 	0,                         /* tp_getset */
 	0,                         /* tp_base */
 	0,                         /* tp_dict */
@@ -74,23 +74,21 @@ static PyTypeObject fieldClassType =
 void PyJPField::initType(PyObject* module)
 {
 	PyType_Ready(&fieldClassType);
+	Py_INCREF(&fieldClassType);
 	PyModule_AddObject(module, "_JavaField", (PyObject*)&fieldClassType); 
 }
 
 PyJPField* PyJPField::alloc(JPField* m)
 {
 	PyJPField* res = PyObject_New(PyJPField, &fieldClassType);
-	
 	res->m_Field = m;
-	
 	return res;
 }
 
 void PyJPField::__dealloc__(PyObject* o)
 {
 	PyJPField* self = (PyJPField*)o;
-
-	Py_TYPE(self)->tp_free(o);
+	Py_TYPE(o)->tp_free(o);
 }
 
 PyObject* PyJPField::getName(PyObject* o, PyObject* arg)
@@ -98,15 +96,10 @@ PyObject* PyJPField::getName(PyObject* o, PyObject* arg)
   JPLocalFrame frame;
 	try {
 		PyJPField* self = (PyJPField*)o;
-
 		string name = self->m_Field->getName();
-
-		PyObject* res = JPyString::fromString(name);
-
-		return res;
+		return JPyString::fromString(name);
 	}
 	PY_STANDARD_CATCH
-
 	return NULL;
 }
 
@@ -162,9 +155,11 @@ PyObject* PyJPField::getInstanceAttribute(PyObject* o, PyObject* arg)
 
 	try {
 		PyJPField* self = (PyJPField*)o;
-
 		PyObject* jo;
-		PyArg_ParseTuple(arg, "O!", &PyJPValue::Type, &jo);
+		if (!PyArg_ParseTuple(arg, "O!", &PyJPValue::Type, &jo))
+		{
+			return NULL;
+		}
 		const JPValue& val = PyJPValue::getValue(jo);
 		return self->m_Field->getAttribute(val.getObject());
 	}

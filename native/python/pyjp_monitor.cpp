@@ -83,10 +83,8 @@ void PyJPMonitor::__dealloc__(PyObject* o)
 {
 	JPLocalFrame frame;
 	PyJPMonitor* self = (PyJPMonitor*)o;
-
 	delete self->state;
-
-	Py_TYPE(self)->tp_free(o);
+	Py_TYPE(o)->tp_free(o);
 }
 
 PyObject* PyJPMonitor::__str__(PyObject* o)
