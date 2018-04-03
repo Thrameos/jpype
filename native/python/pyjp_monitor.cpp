@@ -118,7 +118,7 @@ PyObject* PyJPMonitor::synchronized(PyObject* obj, PyObject* args)
 		jobject obj = 0;
 		if (PyJPValue::check(o))
 		{
-			const JPValue& val = PyJPValue::getValue(o);
+			const JPValue& val = ((PyJPValue*)o)->m_Value;
 			if (val.getClass()->isObjectType())
 				obj = val.getObject();
 		}

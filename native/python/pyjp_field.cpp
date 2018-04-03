@@ -128,11 +128,10 @@ PyObject* PyJPField::setInstanceAttribute(PyJPField* self, PyObject* arg)
 {
   JPLocalFrame frame;
 	try {
-		PyObject* jo;
+		PyJPValue* jo;
 		PyObject* value;
 		PyArg_ParseTuple(arg, "O!O", &PyJPValue::Type, &jo, &value);
-		const JPValue& val = PyJPValue::getValue(value);
-		self->m_Field->setAttribute(val.getObject(), value);
+		self->m_Field->setAttribute(jo->m_Value.getObject(), value);
 		Py_RETURN_NONE;
 	}
 	PY_STANDARD_CATCH
@@ -145,13 +144,12 @@ PyObject* PyJPField::getInstanceAttribute(PyJPField* self, PyObject* arg)
 	TRACE_IN("getInstanceAttribute");
   JPLocalFrame frame(8);
 	try {
-		PyObject* jo;
+		PyJPValue* jo;
 		if (!PyArg_ParseTuple(arg, "O!", &PyJPValue::Type, &jo))
 		{
 			return NULL;
 		}
-		const JPValue& val = PyJPValue::getValue(jo);
-		return self->m_Field->getAttribute(val.getObject());
+		return self->m_Field->getAttribute(jo->m_Value.getObject());
 	}
 	PY_STANDARD_CATCH
 

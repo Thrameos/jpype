@@ -23,23 +23,20 @@ struct PyJPValue
 
 	static PyObject* alloc(const JPValue& value);
 	static PyObject* alloc(JPClass* cls, jvalue value);
-	static const JPValue&  getValue(PyObject* self);
 
-	// Object A
 	static PyTypeObject Type;
 	static void        initType(PyObject* module);
 	static bool        check(PyObject* o);
+
+	// Object A
 	static PyObject*   __new__(PyTypeObject* self, PyObject* args, PyObject* kwargs);
 	static int         __init__(PyJPValue* self, PyObject* args, PyObject* kwargs);
 	static void        __dealloc__(PyJPValue* self);
 	static PyObject*   __str__(PyJPValue* self);
 
 	// Python-visible methods
-	static PyObject*   getJavaClass(PyObject* self, PyObject* args);
-	static PyObject*   getPythonClass(PyObject* self, PyObject* args);
-
-	// Module global methods
-	static PyObject*   convertToJavaValue(PyObject* moduel, PyObject* args);
+	static PyObject*   getJavaClass(PyJPValue* self, PyObject* args);
+	static PyObject*   getPythonClass(PyJPValue* self, PyObject* args);
 
 	JPValue m_Value;
 };

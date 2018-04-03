@@ -80,7 +80,7 @@ int PyJPProxy::__init__(PyJPProxy* self, PyObject* args, PyObject* kwargs)
 
 		// Parse arguments
 		PyObject* pyintf;
-		if (!PyArg_ParseTuple(arg, "O", &pyintf))
+		if (!PyArg_ParseTuple(args, "O", &pyintf))
 		{
 			return -1;
 		}
@@ -100,7 +100,7 @@ int PyJPProxy::__init__(PyJPProxy* self, PyObject* args, PyObject* kwargs)
 			}
 			interfaces.push_back(c);
 		}
-		self->m_Proxy = new JPProxy(self, interfaces);
+		self->m_Proxy = new JPProxy((PyObject*)self, interfaces);
 		return 0;
 	}
 	PY_STANDARD_CATCH
@@ -116,7 +116,7 @@ PyObject* PyJPProxy::__str__(PyJPProxy* self)
 	return JPyString::fromString(sout.str());
 }
 
-void PyJPValue::__dealloc__(PyJPProxy* self)
+void PyJPProxy::__dealloc__(PyJPProxy* self)
 {
   TRACE_IN("PyJPProxy::dealloc");
   delete self->m_Proxy;
