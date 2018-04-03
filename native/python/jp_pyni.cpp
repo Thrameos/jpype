@@ -655,37 +655,6 @@ void JPyDict::setItemString( PyObject* o, const char* n)
 }
 
 
-// =============================================================
-// Capsule
-
-PyObject* JPyCapsule::fromVoid(void* data, PyCapsule_Destructor destr)
-{
-  PY_CHECK( PyObject* res = PyCapsule_New(data, (char *)NULL, destr) );
-  return res;
-}
-
-PyObject* JPyCapsule::fromVoidAndDesc(void* data, const char* desc, PyCapsule_Destructor destr)
-{
-  PY_CHECK( PyObject* res = PyCapsule_New(data, desc, destr) );
-  return res;
-}
-
-void* JPyCapsule::asVoidPtr()
-{
-  PY_CHECK( void* res = PyCapsule_GetPointer(pyobj, PyCapsule_GetName(pyobj)) );
-  return res;
-}
-
-const char* JPyCapsule::getName()
-{
-  PY_CHECK( const char* res = (const char*)PyCapsule_GetName(pyobj) );
-  return res;
-}
-
-bool JPyCapsule::check(PyObject* obj)
-{
-  return PyCapsule_CheckExact(obj);
-}
 
 //void JPyHelper::dumpSequenceRefs(PyObject* seq, const char* comment)
 //{
@@ -704,7 +673,7 @@ bool JPyCapsule::check(PyObject* obj)
 // ======================================================================
 // JPyObject
 
-// This accepts either the capsule or the python object
+// This accepts either the python object
 bool JPyObject::isJavaValue() const
 {
   return PyObject_HasAttrString(pyobj, "__javavalue__");
@@ -713,39 +682,93 @@ bool JPyObject::isJavaValue() const
 const JPValue& JPyObject::asJavaValue()
 {
   JPyCleaner cleaner;
-  PyObject* javaObject = cleaner.add(getAttrString("__javavalue__"));
-  if (!PyJPValue::check(javaObject))
-  {
-    JPyErr::setRuntimeError("invalid __javavalue__");
-    JPyErr::raise("asJavaValue");
-  }
-  return PyJPValue::getValue(javaObject);
+	PyObject* obj = NULL;
+ 	if (PyJPValue::check(pyobj))
+	{
+		obj = pyobj;
+	}
+  else
+	{
+		obj = cleaner.add(getAttrString("__javavalue__"));
+		if (!PyJPValue::check(obj))
+		{
+			stringstream sstr;
+			sstr << "invalid __javavalue__ expected PyJPValue, got " << 
+				Py_TYPE(javaObject)->tp_name;
+			JPyErr::setRuntimeError(sstr.str().c_str());
+			JPyErr::raise("asJavaValue");
+		}
+	}
+  return ((PyJPValue*)obj)->m_Value;
 }
 
 JPClass* JPyObject::asJavaClass()
 {
   JPyCleaner cleaner;
-  PyObject* claz = cleaner.add(getAttrString("__javaclass__"));
-   if (!PyJPClass::check(claz))
-  {
-    JPyErr::setRuntimeError("invalid __javaclass__");
-    JPyErr::raise("asJavaClass");
-  }
-  return ((PyJPClass*)claz)->m_Class;
+	PyObject* obj = NULL;
+	if (PyJPClass::check(pyobj))
+	{
+		obj = pyobj;
+	}
+	else
+	{
+    obj = cleaner.add(getAttrString("__javaclass__"));
+		if (!PyJPClass::check(obj))
+		{
+			stringstream sstr;
+			sstr << "invalid __javaclass__ expected PyJPClass, got " << 
+				Py_TYPE(javaObject)->tp_name;
+			JPyErr::setRuntimeError(sstr.str().c_str());
+			JPyErr::raise("asJavaClass");
+		}
+	}
+  return ((PyJPClass*)obj)->m_Class;
 }
 
 JPProxy* JPyObject::asProxy()
 {
   JPyCleaner cleaner;
-  PyObject* jproxy = cleaner.add(getAttrString("__javaproxy__"));
-  return (JPProxy*)JPyCapsule(jproxy).asVoidPtr();
+ 	PyObject* obj = NULL;
+	if (PyJPProxy::check(pyobj))
+	{
+		obj = pyobj;
+	}
+	else
+	{
+    obj = cleaner.add(getAttrString("__javaproxy__"));
+		if (!PyJPClass::check(obj))
+		{
+			stringstream sstr;
+			sstr << "invalid __javaproxy__ expected PyJPProxy, got " << 
+				Py_TYPE(javaObject)->tp_name;
+			JPyErr::setRuntimeError(sstr.str().c_str());
+			JPyErr::raise("asJavaProxy");
+		}
+	}
+  return ((PyJPProxy*)obj)->m_Proxy;
 }
 
 JPArray* JPyObject::asArray()
 {
   JPyCleaner cleaner;
-  PyObject* javaObject = cleaner.add(getAttrString("__javaobject__"));  
-  return ((PyJPArray*)javaObject)->m_Object;
+	PyObject* obj = NULL;
+	if (PyJPArray::check(pyobj))
+	{
+		obj = pyobj;
+	}
+	else
+	{
+    obj = cleaner.add(getAttrString("__javaarray__"));
+		if (!PyJPClass::check(obj))
+		{
+			stringstream sstr;
+			sstr << "invalid __javaarray__ expected PyJPArray, got " << 
+				Py_TYPE(javaObject)->tp_name;
+			JPyErr::setRuntimeError(sstr.str().c_str());
+			JPyErr::raise("asJavaClass");
+		}
+	}
+  return ((PyJPArray*)obj)->m_Object;
 }
 
 //========================================================
@@ -861,6 +884,7 @@ JPyObject JPPyni::newClass(JPObjectClass* m)
   return JPyObject(m_GetClassMethod).call(args, NULL);
 }
 
+// Create a python wrapper object for a jobject
 PyObject* JPPyni::newObject(const JPValue& value)
 {
   JPObjectClass* cls = (JPObjectClass*)value.getClass();
@@ -869,14 +893,14 @@ PyObject* JPPyni::newObject(const JPValue& value)
   TRACE_IN("JPPyni::newObject");
   TRACE2("classname", cls->getSimpleName());
 
-  // Convert to a capsule
+  // Convert to a python
   JPyObject pyClass = cleaner.add(newClass(cls));
-  PyObject* joHolder = cleaner.add((PyObject*)PyJPValue::alloc(cls, v));
+  PyObject* pyValue = cleaner.add((PyObject*)PyJPValue::alloc(cls, v));
 
   // Call the python class constructor
   JPyTuple args = cleaner.add(JPyTuple::newTuple(2));
   args.setItem(0, m_SpecialConstructorKey);
-  args.setItem(1, joHolder);
+  args.setItem(1, pyValue);
 
   JPyTuple arg2 = cleaner.add(JPyTuple::newTuple(1));
   arg2.setItem(0, args);
@@ -884,30 +908,14 @@ PyObject* JPPyni::newObject(const JPValue& value)
   TRACE_OUT;
 }
 
-void* JPPyni::prepareCallbackBegin()
-{
-  PyGILState_STATE state = PyGILState_Ensure();;
-  return (void*)new PyGILState_STATE(state);
-}
-
-void JPPyni::prepareCallbackFinish(void* state)
-{
-  PyGILState_STATE* state2 = (PyGILState_STATE*)state;
-  PyGILState_Release(*state2);
-  delete state2;
-}
-
 void* JPPyni::gotoExternal()
 {  
-  PyThreadState *_save; 
-  _save = PyEval_SaveThread();
-  return (void*)_save;
+  return (void*)(PyEval_SaveThread());
 }
 
 void JPPyni::returnExternal(void* state)
 {
-  PyThreadState *_save = (PyThreadState *)state;
-  PyEval_RestoreThread(_save);
+  PyEval_RestoreThread((PyThreadState*)_save);
 }
 
 // =====================================================
@@ -1037,25 +1045,27 @@ static void handleJavaException()
   if (jpclass==NULL)
   {
     JPyErr::setRuntimeError("Unable to find java exception type");
+		return;
   }
 
   // Create an exception object 
   JPyObject jexclass = cleaner.add(JPPyni::newClass(jpclass));
 
   // Convert the throwable to a python object
-  PyObject* pyth = cleaner.add(JPPyni::newObject(JPValue(jpclass, val)));
+  PyObject* pyvalue = cleaner.add((PyObject*)PyJPValue::alloc(jpclass, val));
 
   // Arguments to construct the python instance
   JPyTuple args = cleaner.add(JPyTuple::newTuple(2));
   args.setItem( 0, JPPyni::m_SpecialConstructorKey);
-  args.setItem( 1, pyth);
+  args.setItem( 1, pyvalue);
 
   JPyTuple arg2 = cleaner.add(JPyTuple::newTuple(1));
   arg2.setItem( 0, args);
 
   // Tell python about it
-  PyObject* pyexclass = cleaner.add(jexclass.getAttrString("PYEXC"));
-  JPyErr::setObject(pyexclass, arg2);
+  JPyErr::setObject(jexclass, arg2);
+//  PyObject* pyexclass = cleaner.add(jexclass.getAttrString("PYEXC"));
+//  JPyErr::setObject(pyexclass, arg2);
   TRACE_OUT;
 }
 

@@ -39,7 +39,7 @@ static PyMethodDef classMethods[] = {
   {"getBaseInterfaces",       (PyCFunction)&PyJPClass::getBaseInterfaces, METH_NOARGS, ""},
   {"isSubclass",              (PyCFunction)&PyJPClass::isSubclass, METH_VARARGS, ""},
   {"isPrimitive",             (PyCFunction)&PyJPClass::isPrimitive, METH_NOARGS, ""},
-  {"isException",             (PyCFunction)&PyJPClass::isException, METH_NOARGS, ""},
+  {"isThrowable",             (PyCFunction)&PyJPClass::isThrowable, METH_NOARGS, ""},
   {"isArray",                 (PyCFunction)&PyJPClass::isArray, METH_NOARGS, ""},
   {"isAbstract",              (PyCFunction)&PyJPClass::isAbstract, METH_NOARGS, ""},
   {"getSuperclass",           (PyCFunction)&PyJPClass::getBaseClass, METH_NOARGS, ""},
@@ -53,46 +53,46 @@ static PyMethodDef classMethods[] = {
   {NULL},
 };
 
-PyTypeObject PyJPClass::Type = 
+PyTypeObject PyJPClass::Type =
 {
 	PyVarObject_HEAD_INIT(NULL, 0)
-	"JavaClass",                        /*tp_name*/
-	sizeof(PyJPClass),                  /*tp_basicsize*/
-	0,                                  /*tp_itemsize*/
-	(destructor)PyJPClass::__dealloc__, /*tp_dealloc*/
-	0,                                  /*tp_print*/
-	0,                                  /*tp_getattr*/
-	0,                                  /*tp_setattr*/
-	0,                                  /*tp_compare*/
-	0,                                  /*tp_repr*/
-	0,                                  /*tp_as_number*/
-	0,                                  /*tp_as_sequence*/
-	0,                                  /*tp_as_mapping*/
-	0,                                  /*tp_hash */
-	0,                                  /*tp_call*/
-	0,                                  /*tp_str*/
-	0,                                  /*tp_getattro*/
-	0,                                  /*tp_setattro*/
-	0,                                  /*tp_as_buffer*/
-	Py_TPFLAGS_DEFAULT,                 /*tp_flags*/
-	"Java Class",                       /*tp_doc */
-	0,		                              /* tp_traverse */
-	0,		                              /* tp_clear */
-	0,		                              /* tp_richcompare */
-	0,		                              /* tp_weaklistoffset */
-	0,		                              /* tp_iter */
-	0,		                              /* tp_iternext */
-	classMethods,                       /* tp_methods */
-	0,						                      /* tp_members */
-	0,                                  /* tp_getset */
-	0,                                  /* tp_base */
-	0,                                  /* tp_dict */
-	0,                                  /* tp_descr_get */
-	0,                                  /* tp_descr_set */
-	0,                                  /* tp_dictoffset */
-	0,                                  /* tp_init */
-	0,                                  /* tp_alloc */
-	PyType_GenericNew                   /* tp_new */
+	/* tp_name           */ "PyJPClass",
+	/* tp_basicsize      */ sizeof(PyJPClass),
+	/* tp_itemsize       */ 0,
+	/* tp_dealloc        */ (destructor)PyJPClass::__dealloc__,
+	/* tp_print          */ 0,
+	/* tp_getattr        */ 0,
+	/* tp_setattr        */ 0,
+	/* tp_compare        */ 0,
+	/* tp_repr           */ 0,
+	/* tp_as_number      */ 0,
+	/* tp_as_sequence    */ 0,
+	/* tp_as_mapping     */ 0,
+	/* tp_hash           */ 0,
+	/* tp_call           */ 0,
+	/* tp_str            */ (reprfunc)PyJPClass::__str__,
+	/* tp_getattro       */ 0,
+	/* tp_setattro       */ 0,
+	/* tp_as_buffer      */ 0,
+	/* tp_flags          */ Py_TPFLAGS_DEFAULT,
+	/* tp_doc            */ "Java Class",
+	/* tp_traverse       */ 0,		
+	/* tp_clear          */ 0,		
+	/* tp_richcompare    */ 0,		
+	/* tp_weaklistoffset */ 0,		
+	/* tp_iter           */ 0,		
+	/* tp_iternext       */ 0,		
+	/* tp_methods        */ classMethods,
+	/* tp_members        */ 0,						
+	/* tp_getset         */ 0,
+	/* tp_base           */ 0,
+	/* tp_dict           */ 0,
+	/* tp_descr_get      */ 0,
+	/* tp_descr_set      */ 0,
+	/* tp_dictoffset     */ 0,
+	/* tp_init           */ (initproc)PyJPClass::__init__,
+	/* tp_alloc          */ 0,
+	/* tp_new            */ (newfunc)PyJPClass::__new__
 };
 
 // Static methods
@@ -100,7 +100,12 @@ void PyJPClass::initType(PyObject* module)
 {
 	PyType_Ready(&PyJPClass::Type);
 	Py_INCREF(&PyJPClass::Type);
-	PyModule_AddObject(module, "_JavaClass", (PyObject*)&PyJPClass::Type); 
+	PyModule_AddObject(module, "PyJPClass", (PyObject*)&PyJPClass::Type);
+}
+
+bool PyJPClass::check(PyObject* o)
+{
+	return o->ob_type == &PyJPClass::Type;
 }
 
 PyJPClass* PyJPClass::alloc(JPClass* cls)
@@ -108,6 +113,81 @@ PyJPClass* PyJPClass::alloc(JPClass* cls)
 	PyJPClass* res = PyObject_New(PyJPClass, &PyJPClass::Type);
 	res->m_Class = cls;
 	return res;
+}
+
+PyObject* PyJPClass::__new__(PyTypeObject* type, PyObject* args, PyObject* kwargs)
+{
+	PyJPClass* self = (PyJPClass*)type->tp_alloc(type, 0);
+	self->m_Class = NULL;
+	return (PyObject*)self;
+}
+
+
+// Replacement for convertToJava.
+int PyJPClass::__init__(PyJPClass* self, PyObject* args, PyObject* kwargs)
+{
+  TRACE_IN("PyJPClass::init");
+  JPLocalFrame frame;
+  try
+	{
+    JPPyni::assertInitialized();
+
+		char* cname;
+		int primitive = 0;
+    if (!PyArg_ParseTuple(args, "s|i", &cname, &primitive))
+		{
+			JPyErr::setRuntimeError("Unable to get string and integer");
+			return -1;
+		}
+
+		if (primitive)
+		{
+			// Special handling for primitives, needed for JWrapper
+			TRACE2("primitive class",cname);
+			std::string name = cname;
+			JPClass* claz = NULL;
+			if ( name=="boolean")
+				claz = JPTypeManager::_boolean;
+			else if ( name=="byte")
+				claz = JPTypeManager::_byte;
+			else if ( name=="char")
+				claz = JPTypeManager::_char;
+			else if ( name=="short")
+				claz = JPTypeManager::_short;
+			else if ( name=="int")
+				claz = JPTypeManager::_int;
+			else if ( name=="long")
+				claz = JPTypeManager::_long;
+			else if ( name=="float")
+				claz = JPTypeManager::_float;
+			else if ( name=="double")
+				claz = JPTypeManager::_double;
+			self->m_Class = claz;
+
+		}
+		else
+		{
+			TRACE2("object class", cname);
+			string name = JPTypeManager::getQualifiedName(cname);
+			self->m_Class = JPTypeManager::findClassByName(name);
+			// This may throw java.lang.NoClassDefFoundError
+		}
+
+		// Fail if we don't get a class
+		if (self->m_Class == NULL)
+		{
+			printf("Failed\n");
+			stringstream sout;
+			sout << "unable to find java class named "<< cname;
+			JPyErr::setRuntimeError(sout.str().c_str());
+			return -1;
+		}
+
+		return 0;
+  }
+  PY_STANDARD_CATCH
+  return -1;
+  TRACE_OUT;
 }
 
 void PyJPClass::__dealloc__(PyJPClass* self)
@@ -119,6 +199,14 @@ void PyJPClass::__dealloc__(PyJPClass* self)
 	}
 	Py_TYPE(self)->tp_free((PyObject*)self);
 	TRACE_OUT;
+}
+
+PyObject* PyJPClass::__str__(PyJPClass* self)
+{
+	JPLocalFrame frame;
+	stringstream sout;
+	sout << "<java class " << self->m_Class->getSimpleName() << ">";
+	return JPyString::fromString(sout.str());
 }
 
 PyObject* PyJPClass::getName(PyJPClass* self, PyObject* arg)
@@ -283,7 +371,7 @@ PyObject* PyJPClass::newClassInstance(PyJPClass* o, PyObject* arg)
 PyObject* PyJPClass::isInterface(PyJPClass* self, PyObject* arg)
 {
 	JPLocalFrame frame;
-	try 
+	try
 	{
 		return PyBool_FromLong(self->m_Class->isInterface());
 	}
@@ -295,12 +383,12 @@ PyObject* PyJPClass::isInterface(PyJPClass* self, PyObject* arg)
 PyObject* PyJPClass::isSubclass(PyJPClass* self, PyObject* arg)
 {
 	JPLocalFrame frame;
-	try 
+	try
 	{
 		char* other;
 
 		// This is another chicken and egg problem.  We need to check
-		// sub class from within the customizer hooks and those 
+		// sub class from within the customizer hooks and those
 		// are during object construction.  Thus we will check by
 		// string rather than directly using the class.
 		//
@@ -314,10 +402,10 @@ PyObject* PyJPClass::isSubclass(PyJPClass* self, PyObject* arg)
 	return NULL;
 }
 
-PyObject* PyJPClass::isException(PyJPClass* self, PyObject* args)
+PyObject* PyJPClass::isThrowable(PyJPClass* self, PyObject* args)
 {
 	JPLocalFrame frame;
-	try 
+	try
 	{
 		bool res = JPJni::isThrowable(self->m_Class->getNativeClass());
 		return PyBool_FromLong(res);
@@ -326,10 +414,6 @@ PyObject* PyJPClass::isException(PyJPClass* self, PyObject* args)
 	return NULL;
 }
 
-bool PyJPClass::check(PyObject* o)
-{
-	return o->ob_type == &PyJPClass::Type;
-}
 
 // internal function used to support the next few methods
 PyObject* convert(vector<jobject> objs, JPClass* classType)
@@ -463,7 +547,7 @@ PyObject* PyJPClass::isAbstract(PyJPClass* self, PyObject* args)
 
 // FIXME both of these methods could be in the __init__ method for PyJPClass
 // eliminating unneeds global entry points.
-
+/*
 PyObject* PyJPClass::findClass(PyObject* obj, PyObject* args)
 {
 	TRACE_IN("JPypeModule::findClass");
@@ -486,7 +570,7 @@ PyObject* PyJPClass::findClass(PyObject* obj, PyObject* args)
 
 		return res;
 	}
-	PY_STANDARD_CATCH;  
+	PY_STANDARD_CATCH;
 
 	PyErr_Clear();
 	Py_RETURN_NONE;
@@ -538,7 +622,7 @@ PyObject* PyJPClass::findPrimitiveClass(PyObject* obj, PyObject* args)
 
 		return res;
 	}
-	PY_STANDARD_CATCH;  
+	PY_STANDARD_CATCH;
 
 	PyErr_Clear();
 	Py_RETURN_NONE;
@@ -546,4 +630,4 @@ PyObject* PyJPClass::findPrimitiveClass(PyObject* obj, PyObject* args)
 	TRACE_OUT;
 }
 
-
+*/

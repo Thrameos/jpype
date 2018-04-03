@@ -38,6 +38,7 @@ _COMPARABLE_METHODS = {
 def _initialize():
     global _COMPARABLE, _JAVACLASS, _JAVAOBJECT, _JAVATHROWABLE, _RUNTIMEEXCEPTION, _VERSION
     registerClassCustomizer(_JavaLangClassCustomizer())
+    registerClassCustomizer(_JavaThrowableCustomizer())
 
     _JAVAOBJECT = JClass("java.lang.Object")
     _JAVACLASS = JClass("java.lang.Class")
@@ -47,6 +48,7 @@ def _initialize():
     _jpype.setResource('JavaObject', _JavaObject)
     _jpype.setResource('GetClassMethod',_getClassFor)
     _jpype.setResource('SpecialConstructorKey',_SPECIAL_CONSTRUCTOR_KEY)
+    _jpype.setResource('JavaExceptionClass', JavaException)
 
 def getJVMVersion():
     """ Get the jvm version if the jvm is started.
@@ -76,12 +78,11 @@ class JClassCustomizer(object):
 def JClass(name):
     if not _jpype.isStarted():
         raise RuntimeError("JVM not started yet. Cannot find java class %s"%name)
-    jc = _jpype.findClass(name)
-    if jc is None:
-        raise _RUNTIMEEXCEPTION.PYEXC("Class %s not found" % name)
-
-    return _getClassFor(jc)
-
+    try:
+        return _getClassFor(_jpype._JavaClass(name))
+    except JavaException:
+        pass
+    raise _RUNTIMEEXCEPTION("Class %s not found" % name)
 
 def _getClassFor(javaClass):
     name = javaClass.getName()
@@ -97,10 +98,6 @@ def _javaNew(self, *args):
     return object.__new__(self)
 
 
-def _javaExceptionNew(self, *args):
-    return Exception.__new__(self)
-
-
 def _isJavaCtor(args):
     if len(args)==1 and isinstance(args[0], tuple) \
             and args[0][0] is _SPECIAL_CONSTRUCTOR_KEY:
@@ -109,14 +106,13 @@ def _isJavaCtor(args):
  
 
 def _javaInit(self, *args):
-    object.__init__(self)
-
     if len(args) == 1 and isinstance(args[0], tuple) \
        and args[0][0] is _SPECIAL_CONSTRUCTOR_KEY:
-        self.__javaobject__ = args[0][1]
+        self.__javavalue__ = args[0][1]
     else:
-        self.__javaobject__ = self.__class__.__javaclass__.newClassInstance(
+        self.__javavalue__ = self.__class__.__javaclass__.newClassInstance(
             *args)
+    object.__init__(self)
 
 
 def _javaGetAttr(self, name):
@@ -196,7 +192,6 @@ class _JavaInterface(object):
 #     Foo().getClass() - java.lang.Class<Foo> 
 #
 
-
 class _JavaClass(type):
     """ Base class for all Java Class types. 
 
@@ -230,10 +225,6 @@ class _JavaClass(type):
                 bases.append(_JavaObject)
             else:
                 bases.append(_getClassFor(bjc))
-
-        if _JAVATHROWABLE is not None and jc.isSubclass("java.lang.Throwable"):
-            from . import _jexception
-            members["PYEXC"] = _jexception._makePythonException(name, bjc)
 
         itf = jc.getBaseInterfaces()
         for ic in itf:
@@ -313,3 +304,47 @@ class _JavaLangClassCustomizer(JClassCustomizer):
         members['_forName']=members['forName']
         del members['forName']
         fields['forName']= _jclass_forName
+
+#**********************************************************
+class JavaException(Exception):
+    def __init__(self, *args, **kwargs):
+        if len(args) == 1 and isinstance(args[0], tuple) \
+           and args[0][0] is _SPECIAL_CONSTRUCTOR_KEY:
+            self.__javavalue__ = args[0][1]
+        else:
+            self.__javavalue__ = self.__class__.__javaclass__.newClassInstance(
+                *args)
+        Exception.__init__(self)
+
+    def message(self):
+        return self.getMessage()
+
+    def stacktrace(self):
+        StringWriter = _jclass.JClass("java.io.StringWriter")
+        PrintWriter = _jclass.JClass("java.io.PrintWriter")
+        sw = StringWriter()
+        pw = PrintWriter(sw)
+
+        self.printStackTrace(pw)
+        pw.flush()
+        r = sw.toString()
+        sw.close()
+        return r
+
+    def __str__(self):
+        return self.getMessage()
+
+# This one is included for compatiblity and should be deprecated
+def JException(cls):
+    return cls
+
+class _JavaThrowableCustomizer(JClassCustomizer):
+    def canCustomize(self, name, jc):
+        return jc.isThrowable()==True
+
+    def customize(self, name, jc, bases, members, fields, **kwargs):
+        if name=="java.lang.Throwable":
+            bases.append(JavaException)
+        members['__init__']=JavaException.__init__
+        members['__str__']=JavaException.__str__
+

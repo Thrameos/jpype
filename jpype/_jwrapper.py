@@ -28,21 +28,21 @@ if sys.version > '3':
 def _initialize():
     _jpype.setResource('WrapperClass', _JWrapper)
     _jpype.setResource('StringWrapperClass', JString)
-    JBoolean.__javaclass__=_jpype.findPrimitiveClass('boolean')
-    JByte.__javaclass__=_jpype.findPrimitiveClass('byte')
-    JChar.__javaclass__=_jpype.findPrimitiveClass('char')
-    JShort.__javaclass__=_jpype.findPrimitiveClass('short')
-    JInt.__javaclass__=_jpype.findPrimitiveClass('int')
-    JLong.__javaclass__=_jpype.findPrimitiveClass('long')
-    JFloat.__javaclass__=_jpype.findPrimitiveClass('float')
-    JDouble.__javaclass__=_jpype.findPrimitiveClass('double')
-    JString.__javaclass__=_jpype.findClass('java.lang.String')
+    JBoolean.__javaclass__=_jpype.PyJPClass('boolean', True)
+    JByte.__javaclass__=_jpype.PyJPClass('byte', True)
+    JChar.__javaclass__=_jpype.PyJPClass('char', True)
+    JShort.__javaclass__=_jpype.PyJPClass('short', True)
+    JInt.__javaclass__=_jpype.PyJPClass('int', True)
+    JLong.__javaclass__=_jpype.PyJPClass('long', True)
+    JFloat.__javaclass__=_jpype.PyJPClass('float', True)
+    JDouble.__javaclass__=_jpype.PyJPClass('double', True)
+    JString.__javaclass__=_jpype.PyJPClass('java.lang.String')
 
 class _JWrapper(object):
     def __init__(self, v):
         if v is not None:
             self._pyv = v
-            self._value = _jpype.convertToJValue(self.__javaclass__, v)
+            self._value = _jpype.PyJPValue(self.__javaclass__, v)
         else:
             self._value = None
 
@@ -71,6 +71,7 @@ class JChar(_JWrapper):
 class JBoolean(_JWrapper):
     pass
 
+# FIXME this should likely just go to the java.lang.String class 
 class JString(_JWrapper):
     pass
 
@@ -109,12 +110,12 @@ def _getDefaultTypeName(obj):
         "Unable to determine the default type of {0}".format(obj.__class__))
 
 class JObject(_JWrapper):
-    typeName="java.lang.Object"
+    #typeName="java.lang.Object"
     def __init__(self, v, tp=None):
         if tp is None:
-            tp = _jpype.findClass(_getDefaultTypeName(v))
+            tp = _jpype.PyJPClass(_getDefaultTypeName(v))
         if isinstance(tp, _jclass._JavaClass):
             tp = tp.__javaclass__
 
         self.__javaclass__ = tp
-        self._value = _jpype.convertToJValue(self.__javaclass__, v)
+        self._value = _jpype.PyJPValue(self.__javaclass__, v)

@@ -17,15 +17,15 @@
 #include <jpype_python.h>  
 
 static PyMethodDef classMethods[] = {
-  {"getJavaClass",         &PyJPValue::getJavaClass, METH_NOARGS, ""},
-  {"getPythonClass",       &PyJPValue::getPythonClass, METH_NOARGS, ""},
+  {"getJavaClass",   (PyCFunction)&PyJPValue::getJavaClass, METH_NOARGS, ""},
+  {"getPythonClass", (PyCFunction)&PyJPValue::getPythonClass, METH_NOARGS, ""},
   {NULL},
 };
 
 PyTypeObject PyJPValue::Type = 
 {
   PyVarObject_HEAD_INIT(NULL, 0)
-  "JavaValue",                        /* tp_name */
+  "PyJPValue",                        /* tp_name */
   sizeof(PyJPValue),                  /* tp_basicsize */
   0,                                  /* tp_itemsize */
   (destructor)PyJPValue::__dealloc__, /* tp_dealloc */
@@ -39,7 +39,7 @@ PyTypeObject PyJPValue::Type =
   0,                                  /* tp_as_mapping */
   0,                                  /* tp_hash */
   0,                                  /* tp_call */
-  0,                                  /* tp_str */
+  (reprfunc)PyJPValue::__str__,       /* tp_str */
   0,                                  /* tp_getattro */
   0,                                  /* tp_setattro */
   0,                                  /* tp_as_buffer */
@@ -68,11 +68,13 @@ PyTypeObject PyJPValue::Type =
 void PyJPValue::initType(PyObject* module)
 {
   PyType_Ready(&PyJPValue::Type);
-	printf("JPValue.tp_free: %p\n", (void*)PyJPValue::Type.tp_free);
-	printf("JPValue.tp_alloc: %p\n", (void*)PyJPValue::Type.tp_alloc);
-	printf("JPValue.tp_new: %p\n", (void*)PyJPValue::Type.tp_new);
 	Py_INCREF(&PyJPValue::Type);
-  PyModule_AddObject(module, "_JavaValue", (PyObject*)&PyJPValue::Type); 
+  PyModule_AddObject(module, "PyJPValue", (PyObject*)&PyJPValue::Type); 
+}
+
+bool PyJPValue::check(PyObject* o)
+{
+  return o->ob_type == &PyJPValue::Type;
 }
 
 // These are from the internal methods when we alreayd have the jvalue
@@ -131,6 +133,14 @@ int PyJPValue::__init__(PyJPValue* self, PyObject* args, PyObject* kwargs)
   TRACE_OUT;
 }
 
+PyObject* PyJPValue::__str__(PyJPValue* self)
+{
+	JPLocalFrame frame;
+	stringstream sout;
+	sout << "<java value " << self->m_Value.getClass()->getSimpleName() << ">";
+	return JPyString::fromString(sout.str());
+}
+
 void PyJPValue::__dealloc__(PyJPValue* self)
 {
   TRACE_IN("PyJPValue::dealloc");
@@ -149,26 +159,16 @@ void PyJPValue::__dealloc__(PyJPValue* self)
   TRACE_OUT;
 }
 
-bool PyJPValue::check(PyObject* o)
-{
-  return o->ob_type == &PyJPValue::Type;
-}
-
-const JPValue& PyJPValue::getValue(PyObject* self)
-{
-  return ((PyJPValue*)self)->m_Value;
-}
 
 /** Get a java object representing the java.lang.Class */
-PyObject* PyJPValue::getJavaClass(PyObject* obj, PyObject* args)
+PyObject* PyJPValue::getJavaClass(PyJPValue* self, PyObject* args)
 {
   TRACE_IN("PyJPValue::getJavaClass");
   JPLocalFrame frame;
 	try
   {
-    PyJPValue* value = (PyJPValue*) obj;
     jvalue v;
-    v.l = (jobject)(value->m_Value.getClass()->getNativeClass());
+    v.l = (jobject)(self->m_Value.getClass()->getNativeClass());
     return JPTypeManager::_java_lang_Class->asHostObject(v);
   }
   PY_STANDARD_CATCH
@@ -177,14 +177,13 @@ PyObject* PyJPValue::getJavaClass(PyObject* obj, PyObject* args)
 }
 
 /** Get the python class for this value */
-PyObject* PyJPValue::getPythonClass(PyObject* obj, PyObject* args)
+PyObject* PyJPValue::getPythonClass(PyJPValue* self, PyObject* args)
 {
   TRACE_IN("PyJPValue::getPythonClass");
   JPLocalFrame frame;
   try
 	{
-    PyJPValue* value = (PyJPValue*) obj;
-    JPClass* cls = value->m_Value.getClass();
+    JPClass* cls = self->m_Value.getClass();
 		if (cls->isArray())
 		{
 			JPArrayClass* acls = (JPArrayClass*)cls;
@@ -202,7 +201,7 @@ PyObject* PyJPValue::getPythonClass(PyObject* obj, PyObject* args)
   TRACE_OUT;
 }
 
-
+/*
 // =================================================================
 // Global functions
 
@@ -230,4 +229,5 @@ PyObject* PyJPValue::convertToJavaValue(PyObject* module, PyObject* args)
   return NULL;
   TRACE_OUT;
 }
+*/
 

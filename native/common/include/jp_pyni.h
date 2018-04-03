@@ -116,13 +116,12 @@ namespace JPPyni
 	JPyObject getCallableFrom(PyObject* ref, string& name);
 
 	void printError();
+
+	// FIXME remove this one.
 	PyObject* newStringWrapper(jstring jstr);
 
 	/** Create a python JObject */
   PyObject* newObject(const JPValue& value);
-
-	void* prepareCallbackBegin();
-	void prepareCallbackFinish(void* state);
 
 	/** Returns a new reference to None */
 	PyObject* getNone();
@@ -160,19 +159,6 @@ class JPyBool : public JPyObjectBase
 
 		bool isTrue();		
 		bool isFalse();		
-};
-
-class JPyCapsule : public JPyObjectBase
-{
-	public :
-		JPyCapsule(PyObject* obj) : JPyObjectBase(obj) {}
-		JPyCapsule(const JPyObjectBase &self) : JPyObjectBase(self) {}
-
-		static bool check(PyObject* obj);
-		static PyObject* fromVoid(void* data, PyCapsule_Destructor destr);
-		static PyObject* fromVoidAndDesc(void* data, const char* name, PyCapsule_Destructor destr);
-		void* asVoidPtr();
-		const char* getName();
 };
 
 class JPyType : public JPyObjectBase

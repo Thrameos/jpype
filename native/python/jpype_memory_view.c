@@ -281,8 +281,7 @@ void
 jpype_memoryview_init(PyObject* module /*PyObject **typeobject*/)
 {
 	PyType_Ready(&PyMemorySimpleView_Type);
-//	*typeobject = (PyObject*)&PyMemorySimpleView_Type;
-//	return 0;
+	Py_INCREF(&PyMemorySimpleView_Type);
 	PyModule_AddObject(module, "memoryview", (PyObject*)&PyMemorySimpleView_Type);
 }
 

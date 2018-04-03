@@ -40,13 +40,13 @@ def registerArrayCustomizer(c):
 
 class _JavaArrayClass(object):
     def __init__(self, jo):
-        self.__javaobject__ = jo
+        self.__javaarray__ = jo
 
     def __str__(self):
         return str(tuple(self))
 
     def __len__(self):
-        return _jpype.getArrayLength(self.__javaobject__)
+        return self.__javaarray__.getArrayLength()
 
     def __iter__(self):
         return _JavaArrayIter(self)
@@ -57,7 +57,7 @@ class _JavaArrayClass(object):
             if step != 1:
                 raise RuntimeError("Slicing with step unimplemented")
             return self.__getslice__(start, stop)
-        return _jpype.getArrayItem(self.__javaobject__, ndx)
+        return self.__javaarray__.getArrayItem(ndx)
 
     def __setitem__(self, ndx, val):
         if isinstance(ndx, slice):
@@ -70,17 +70,17 @@ class _JavaArrayClass(object):
             else:
                 self.__setslice__(start, stop, val)
             return
-        _jpype.setArrayItem(self.__javaobject__, ndx, val)
+        self.__javaarray__.setArrayItem(ndx, val)
 
     def __getslice__(self, i, j):
         if j == sys.maxsize:
             j = _jpype.getArrayLength(self.__javaobject__)
-        return _jpype.getArraySlice(self.__javaobject__, i, j)
+        return self.__javaarray__.getArraySlice(i, j)
 
     def __setslice__(self, i, j, v):
         if j == sys.maxsize:
             j = _jpype.getArrayLength(self.__javaobject__)
-        _jpype.setArraySlice(self.__javaobject__, i, j, v)
+        self.__javaarray__.setArraySlice(i, j, v)
 
     def __setattr__(self, attr, value):
         if attr.startswith('_') \
@@ -110,7 +110,7 @@ def _jarrayInit(self, *args):
             self, _jpype.newArray(self.__class__.__javaclass__, sz))
 
         if values is not None:
-            _jpype.setArraySlice(self.__javaobject__, 0, sz, values)
+            _jpype.setArraySlice(self.__javaarray__, 0, sz, values)
 
 
 class _JavaArrayIter(object):
@@ -149,29 +149,34 @@ def _defineArrayClass(name, jt):
 
 def _getClassFor(name):
     if name not in _CLASSES:
-        jc = _jpype.findArrayClass(name)
+        jc = _jpype.PyJPClass(name)
         _CLASSES[name] = _defineArrayClass(name, jc)
 
     return _CLASSES[name]
 
 
 def JArray(t, ndims=1):
-    if issubclass(t, _jwrapper._JWrapper):
-        t = t.typeName
-
-    elif isinstance(t, _JavaArray):
-        t = t.typeName
-
-    elif issubclass(t, _jclass._JAVAOBJECT):
-        t = t.__name__
-
+    try:
+        t = t.__javaclass__
+    except:
+        pass
+#    if issubclass(t, _jwrapper._JWrapper):
+#        t = t.typeName
+#
+#    elif isinstance(t, _JavaArray):
+#        t = t.typeName
+#
+#    elif issubclass(t, _jclass._JAVAOBJECT):
+#        t = t.__name__
+#
     elif not isinstance(t, str) and not isinstance(t, unicode):
         raise TypeError("Argument must be a java class, java array class, "
                         "java wrapper or string representing a java class")
+    else:
+        t = _jpype.PyJPClass(t)
 
-    arrayTypeName = t + ('[]' * ndims)
-
-    return _getClassFor(arrayTypeName)
+    name = t.getName() + ('[]'*ndims)
+    return _getClassFor(name)
 
 def _charArrayStr(self):
     return ''.join(self)

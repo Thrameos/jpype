@@ -12,55 +12,68 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
-   
-*****************************************************************************/   
+
+*****************************************************************************/
 #include <jpype_python.h>
+
+// This class appears to be dead code.  I guess it was intended to
+// supply the concept of synchronized sections of code.  Likely this
+// would be using the with concept...
+//
+// from jpype import synchronized
+// with synchronized(javaObject):
+//    do_something that requires threading access.
+//
+// But I can't find a complete enough copy to be sure.  The
+// python pieces were not using the monitor and the
+// C++ portions did not appear to be functional.  If I can find
+// a clean way to implement the concept.
+//
 
 static PyMethodDef methods[] = {
 	{NULL},
 };
 
-static PyTypeObject monitorClassType = 
+static PyTypeObject monitorClassType =
 {
 	PyVarObject_HEAD_INIT(&PyType_Type, 0)
-	"JavaMonitor",              /*tp_name*/
-	sizeof(PyJPMonitor),      /*tp_basicsize*/
-	0,                         /*tp_itemsize*/
-	PyJPMonitor::__dealloc__,                   /*tp_dealloc*/
-	0,                         /*tp_print*/
-	0,                         /*tp_getattr*/
-	0,                         /*tp_setattr*/
-	0,                         /*tp_compare*/
-	0,                         /*tp_repr*/
-	0,                         /*tp_as_number*/
-	0,                         /*tp_as_sequence*/
-	0,                         /*tp_as_mapping*/
-	0,                         /*tp_hash */
-	0,                         /*tp_call*/
-	PyJPMonitor::__str__,                         /*tp_str*/
-	0,                         /*tp_getattro*/
-	0,                         /*tp_setattro*/
-	0,                         /*tp_as_buffer*/
-	Py_TPFLAGS_DEFAULT,        /*tp_flags*/
-	"Java Monitor",                  /*tp_doc */
-	0,		                   /* tp_traverse */
-	0,		                   /* tp_clear */
-	0,		                   /* tp_richcompare */
-	0,		                   /* tp_weaklistoffset */
-	0,		                   /* tp_iter */
-	0,		                   /* tp_iternext */
-	methods,                   /* tp_methods */
-	0,						   /* tp_members */
-	0,                         /* tp_getset */
-	0,                         /* tp_base */
-	0,                         /* tp_dict */
-	0,                         /* tp_descr_get */
-	0,                         /* tp_descr_set */
-	0,                         /* tp_dictoffset */
-	0,                         /* tp_init */
-	0,                         /* tp_alloc */
-	PyType_GenericNew          /* tp_new */
-
+	/* tp_name           */ "PyJPMonitor",
+	/* tp_basicsize      */ sizeof(PyJPMonitor),
+	/* tp_itemsize       */ 0,
+	/* tp_dealloc        */ PyJPMonitor::__dealloc__,
+	/* tp_print          */ 0,
+	/* tp_getattr        */ 0,
+	/* tp_setattr        */ 0,
+	/* tp_compare        */ 0,
+	/* tp_repr           */ 0,
+	/* tp_as_number      */ 0,
+	/* tp_as_sequence    */ 0,
+	/* tp_as_mapping     */ 0,
+	/* tp_hash           */ 0,
+	/* tp_call           */ 0,
+	/* tp_str            */ PyJPMonitor::__str__,
+	/* tp_getattro       */ 0,
+	/* tp_setattro       */ 0,
+	/* tp_as_buffer      */ 0,
+	/* tp_flags          */ Py_TPFLAGS_DEFAULT,
+	/* tp_doc            */ "Java Monitor",
+	/* tp_traverse       */ 0,		
+	/* tp_clear          */ 0,		
+	/* tp_richcompare    */ 0,		
+	/* tp_weaklistoffset */ 0,		
+	/* tp_iter           */ 0,		
+	/* tp_iternext       */ 0,		
+	/* tp_methods        */ methods,
+	/* tp_members        */ 0,				
+	/* tp_getset         */ 0,
+	/* tp_base           */ 0,
+	/* tp_dict           */ 0,
+	/* tp_descr_get      */ 0,
+	/* tp_descr_set      */ 0,
+	/* tp_dictoffset     */ 0,
+	/* tp_init           */ 0,
+	/* tp_alloc          */ 0,
+	/* tp_new            */ PyType_GenericNew
 };
 
 // Static methods
@@ -73,9 +86,7 @@ PyJPMonitor* PyJPMonitor::alloc(JPMonitor* o)
 {
 	JPLocalFrame frame;
 	PyJPMonitor* res = PyObject_New(PyJPMonitor, &monitorClassType);
-
 	res->state = o;
-	
 	return res;
 }
 

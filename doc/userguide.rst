@@ -420,6 +420,17 @@ Here is an example: ::
                   print "Caught the runtime exception : ", JavaException.message()
                   print JavaException.stackTrace()
 
+FIXME revising to simplified form: ::
+
+  import java.lang.RuntimeException
+  try :
+          # Code that throws a java.lang.RuntimeException
+  except JavaException as ex :
+          if isinstance(ex, java.lang.RuntimeException):
+                  print("Caught the runtime exception : ", JavaException.message())
+                  print(JavaException.stackTrace())
+
+
 Alternately, you can catch the REAL Java exception directly by using
 the JException wrapper. ::
 
@@ -428,6 +439,15 @@ the JException wrapper. ::
         except jpype.JException(java.lang.RuntimeException), ex :
                 print "Caught the runtime exception : ", JavaException.message()
                 print JavaException.stackTrace()
+
+FIXME revising to simplified form: ::
+
+        import java.lang.RuntimeException
+        try :
+                # Code that throws a java.lang.RuntimeException
+        except java.lang.RuntimeException as ex :
+                print("Caught the runtime exception : ", JavaException.message())
+                print(JavaException.stackTrace())
 
 
 Known limitations

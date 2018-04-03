@@ -38,12 +38,13 @@ class JPackage(object):
                return n
             if not _jpype.isThreadAttachedToJVM():
                 _jpype.attachThreadToJVM()
-            cc = _jpype.findClass(subname)
-            if cc is None:
+
+            try:
+                cc = _jpype._JavaClass(subname)
+                cc = _jclass._getClassFor(cc)
+            except _jclass.JavaException:
                 # can only assume it is a sub-package then ...
                 cc = JPackage(subname)
-            else:
-                cc = _jclass._getClassFor(cc)
 
             self.__setattr__(n, cc, True)
             return cc

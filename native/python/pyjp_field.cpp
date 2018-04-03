@@ -12,62 +12,61 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
-   
-*****************************************************************************/   
+
+*****************************************************************************/
 #include <jpype_python.h>
 
 static PyMethodDef fieldMethods[] = {
-  {"getName", &PyJPField::getName, METH_VARARGS, ""},
-  {"isFinal", &PyJPField::isFinal, METH_VARARGS, ""},
-  {"isStatic", &PyJPField::isStatic, METH_VARARGS, ""},
-  {"getStaticAttribute",       &PyJPField::getStaticAttribute, METH_VARARGS, ""},
-  {"setStaticAttribute",       &PyJPField::setStaticAttribute, METH_VARARGS, ""},
-  {"getInstanceAttribute",     &PyJPField::getInstanceAttribute, METH_VARARGS, ""},
-  {"setInstanceAttribute",     &PyJPField::setInstanceAttribute, METH_VARARGS, ""},
+  {"getName",              (PyCFunction)&PyJPField::getName, METH_VARARGS, ""},
+  {"isFinal",              (PyCFunction)&PyJPField::isFinal, METH_VARARGS, ""},
+  {"isStatic",             (PyCFunction)&PyJPField::isStatic, METH_VARARGS, ""},
+  {"getStaticAttribute",   (PyCFunction)&PyJPField::getStaticAttribute, METH_VARARGS, ""},
+  {"setStaticAttribute",   (PyCFunction)&PyJPField::setStaticAttribute, METH_VARARGS, ""},
+  {"getInstanceAttribute", (PyCFunction)&PyJPField::getInstanceAttribute, METH_VARARGS, ""},
+  {"setInstanceAttribute", (PyCFunction)&PyJPField::setInstanceAttribute, METH_VARARGS, ""},
 	{NULL},
 };
 
-static PyTypeObject fieldClassType = 
+static PyTypeObject fieldClassType =
 {
 	PyVarObject_HEAD_INIT(&PyType_Type, 0)
-	"JavaField",               /*tp_name*/
-	sizeof(PyJPField),         /*tp_basicsize*/
-	0,                         /*tp_itemsize*/
-	PyJPField::__dealloc__,    /*tp_dealloc*/
-	0,                         /*tp_print*/
-	0,                         /*tp_getattr*/
-	0,                         /*tp_setattr*/
-	0,                         /*tp_compare*/
-	0,                         /*tp_repr*/
-	0,                         /*tp_as_number*/
-	0,                         /*tp_as_sequence*/
-	0,                         /*tp_as_mapping*/
-	0,                         /*tp_hash */
-	0,                         /*tp_call*/
-	0,                         /*tp_str*/
-	0,                         /*tp_getattro*/
-	0,                         /*tp_setattro*/
-	0,                         /*tp_as_buffer*/
-	Py_TPFLAGS_DEFAULT,        /*tp_flags*/
-	"Java Field",              /*tp_doc */
-	0,		                     /* tp_traverse */
-	0,		                     /* tp_clear */
-	0,		                     /* tp_richcompare */
-	0,		                     /* tp_weaklistoffset */
-	0,		                     /* tp_iter */
-	0,		                     /* tp_iternext */
-	fieldMethods,              /* tp_methods */
-	0,						             /* tp_members */
-	0,                         /* tp_getset */
-	0,                         /* tp_base */
-	0,                         /* tp_dict */
-	0,                         /* tp_descr_get */
-	0,                         /* tp_descr_set */
-	0,                         /* tp_dictoffset */
-	0,                         /* tp_init */
-	0,                         /* tp_alloc */
-	PyType_GenericNew          /* tp_new */
-
+	/* tp_name           */ "PyJPField",
+	/* tp_basicsize      */ sizeof(PyJPField),
+	/* tp_itemsize       */ 0,
+	/* tp_dealloc        */ (destructor) PyJPField::__dealloc__,
+	/* tp_print          */ 0,
+	/* tp_getattr        */ 0,
+	/* tp_setattr        */ 0,
+	/* tp_compare        */ 0,
+	/* tp_repr           */ 0,
+	/* tp_as_number      */ 0,
+	/* tp_as_sequence    */ 0,
+	/* tp_as_mapping     */ 0,
+	/* tp_hash           */ 0,
+	/* tp_call           */ 0,
+	/* tp_str            */ 0,
+	/* tp_getattro       */ 0,
+	/* tp_setattro       */ 0,
+	/* tp_as_buffer      */ 0,
+	/* tp_flags          */ Py_TPFLAGS_DEFAULT,
+	/* tp_doc            */ "Java Field",
+	/* tp_traverse       */ 0,		
+	/* tp_clear          */ 0,		
+	/* tp_richcompare    */ 0,		
+	/* tp_weaklistoffset */ 0,		
+	/* tp_iter           */ 0,		
+	/* tp_iternext       */ 0,		
+	/* tp_methods        */ fieldMethods,
+	/* tp_members        */ 0,					
+	/* tp_getset         */ 0,
+	/* tp_base           */ 0,
+	/* tp_dict           */ 0,
+	/* tp_descr_get      */ 0,
+	/* tp_descr_set      */ 0,
+	/* tp_dictoffset     */ 0,
+	/* tp_init           */ 0,
+	/* tp_alloc          */ 0,
+	/* tp_new            */ PyType_GenericNew
 };
 
 // Static methods
@@ -75,7 +74,7 @@ void PyJPField::initType(PyObject* module)
 {
 	PyType_Ready(&fieldClassType);
 	Py_INCREF(&fieldClassType);
-	PyModule_AddObject(module, "_JavaField", (PyObject*)&fieldClassType); 
+	PyModule_AddObject(module, "PyJPField", (PyObject*)&fieldClassType);
 }
 
 PyJPField* PyJPField::alloc(JPField* m)
@@ -85,17 +84,15 @@ PyJPField* PyJPField::alloc(JPField* m)
 	return res;
 }
 
-void PyJPField::__dealloc__(PyObject* o)
+void PyJPField::__dealloc__(PyJPField* self)
 {
-	PyJPField* self = (PyJPField*)o;
 	Py_TYPE(o)->tp_free(o);
 }
 
-PyObject* PyJPField::getName(PyObject* o, PyObject* arg)
+PyObject* PyJPField::getName(PyJPField* self, PyObject* arg)
 {
   JPLocalFrame frame;
 	try {
-		PyJPField* self = (PyJPField*)o;
 		string name = self->m_Field->getName();
 		return JPyString::fromString(name);
 	}
@@ -103,23 +100,20 @@ PyObject* PyJPField::getName(PyObject* o, PyObject* arg)
 	return NULL;
 }
 
-PyObject* PyJPField::getStaticAttribute(PyObject* o, PyObject* arg)
+PyObject* PyJPField::getStaticAttribute(PyJPField* self, PyObject* arg)
 {
   JPLocalFrame frame;
 	try {
-		PyJPField* self = (PyJPField*)o;
 		return self->m_Field->getStaticAttribute();
 	}
 	PY_STANDARD_CATCH
-
 	return NULL;
 }
 
-PyObject* PyJPField::setStaticAttribute(PyObject* o, PyObject* arg)
+PyObject* PyJPField::setStaticAttribute(PyJPField* self, PyObject* arg)
 {
   JPLocalFrame frame;
 	try {
-		PyJPField* self = (PyJPField*)o;
 		PyObject* value;
 		PyArg_ParseTuple(arg, "O", &value);
 		self->m_Field->setStaticAttribute(value);
@@ -130,12 +124,10 @@ PyObject* PyJPField::setStaticAttribute(PyObject* o, PyObject* arg)
 	return NULL;
 }
 
-PyObject* PyJPField::setInstanceAttribute(PyObject* o, PyObject* arg)
+PyObject* PyJPField::setInstanceAttribute(PyJPField* self, PyObject* arg)
 {
   JPLocalFrame frame;
 	try {
-		PyJPField* self = (PyJPField*)o;
-
 		PyObject* jo;
 		PyObject* value;
 		PyArg_ParseTuple(arg, "O!O", &PyJPValue::Type, &jo, &value);
@@ -148,13 +140,11 @@ PyObject* PyJPField::setInstanceAttribute(PyObject* o, PyObject* arg)
 	return NULL;
 }
 
-PyObject* PyJPField::getInstanceAttribute(PyObject* o, PyObject* arg)
+PyObject* PyJPField::getInstanceAttribute(PyJPField* self, PyObject* arg)
 {
 	TRACE_IN("getInstanceAttribute");
   JPLocalFrame frame(8);
-
 	try {
-		PyJPField* self = (PyJPField*)o;
 		PyObject* jo;
 		if (!PyArg_ParseTuple(arg, "O!", &PyJPValue::Type, &jo))
 		{
@@ -170,26 +160,22 @@ PyObject* PyJPField::getInstanceAttribute(PyObject* o, PyObject* arg)
 	TRACE_OUT;
 }
 
-PyObject* PyJPField::isStatic(PyObject* o, PyObject* arg)
+PyObject* PyJPField::isStatic(PyJPField* self, PyObject* arg)
 {
   JPLocalFrame frame;
 	try {
-		PyJPField* self = (PyJPField*)o;
 		return PyBool_FromLong(self->m_Field->isStatic());
 	}
 	PY_STANDARD_CATCH
-
 	return NULL;
 }
 
-PyObject* PyJPField::isFinal(PyObject* o, PyObject* arg)
+PyObject* PyJPField::isFinal(PyJPField* self, PyObject* arg)
 {
   JPLocalFrame frame;
 	try {
-		PyJPField* self = (PyJPField*)o;
 		return PyBool_FromLong(self->m_Field->isFinal());
 	}
 	PY_STANDARD_CATCH
-
 	return NULL;
 }

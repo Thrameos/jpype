@@ -18,10 +18,18 @@
 #ifndef _PYJPPROXY_H_
 #define _PYJPPROXY_H_
 
-namespace PyJPProxy
+struct PyJPProxy
 {
-	PyObject* alloc(JPProxy *proxy);
-	PyObject* createProxy(PyObject*, PyObject* arg);
-}
+	PyObject_HEAD
+
+  static void initType(PyObject* module);
+  static bool check(PyObject* o);
+
+  static int __init__(PyJPProxy* self, PyObject* args, PyObject* kwargs);
+  static void __dealloc__(PyJPProxy* self);
+  static PyObject* __str__(PyJPProxy* self);
+
+	JPProxy* m_Proxy;
+};
 
 #endif // _PYJPROXY_H_

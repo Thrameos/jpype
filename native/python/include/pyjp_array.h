@@ -28,14 +28,15 @@ struct PyJPArray
 	static void        initType(PyObject* module);
 	static PyJPArray*  alloc(JPArray* cls);
 	static bool        check(PyObject* o);
-	static void        __dealloc__(PyObject* o);
+	static int         __init__(PyJPArray* self, PyObject* args, PyObject* kwargs);
+	static void        __dealloc__(PyJPArray* o);
 	
-	static PyObject* getArrayLength(PyObject* self, PyObject* arg);
-	static PyObject* getArrayItem(PyObject* self, PyObject* arg);
-	static PyObject* getArraySlice(PyObject* self, PyObject* arg);
-	static PyObject* setArraySlice(PyObject* self, PyObject* arg);
-	static PyObject* setArrayItem(PyObject* self, PyObject* arg);
-	static PyObject* setArrayValues(PyObject* self, PyObject* arg);
+	static PyObject* getArrayLength(PyJPArray* self, PyObject* arg);
+	static PyObject* getArrayItem(PyJPArray* self, PyObject* arg);
+	static PyObject* getArraySlice(PyJPArray* self, PyObject* arg);
+	static PyObject* setArraySlice(PyJPArray* self, PyObject* arg);
+	static PyObject* setArrayItem(PyJPArray* self, PyObject* arg);
+	static PyObject* setArrayValues(PyJPArray* self, PyObject* arg);
 
 	JPArray* m_Object;
 };

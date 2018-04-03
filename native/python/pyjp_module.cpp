@@ -39,12 +39,11 @@ static PyMethodDef jpype_methods[] =
   {"attachThreadAsDaemon", (PyCFunction)&PyJPModule::attachThreadAsDaemon, METH_NOARGS, ""},
 //  {"startReferenceQueue", &PyJPModule::startReferenceQueue, METH_VARARGS, ""},
 //  {"stopReferenceQueue", (PyCFunction)&PyJPModule::stopReferenceQueue, METH_NOARGS, ""},
-
-  {"findClass", &PyJPClass::findClass, METH_VARARGS, ""},
-  {"findArrayClass", &PyJPArrayClass::findArrayClass, METH_VARARGS, ""},
-  {"findPrimitiveClass", &PyJPClass::findPrimitiveClass, METH_VARARGS, ""},
-  {"createProxy", &PyJPProxy::createProxy, METH_VARARGS, ""},
-  {"convertToJValue", &PyJPValue::convertToJavaValue, METH_VARARGS, ""},
+//  {"findClass", &PyJPClass::findClass, METH_VARARGS, ""},
+//  {"findArrayClass", &PyJPArrayClass::findArrayClass, METH_VARARGS, ""},
+//  {"findPrimitiveClass", &PyJPClass::findPrimitiveClass, METH_VARARGS, ""},
+//  {"createProxy", &PyJPProxy::createProxy, METH_VARARGS, ""},
+//  {"convertToJValue", &PyJPValue::convertToJavaValue, METH_VARARGS, ""},
 
   {"convertToDirectBuffer", &PyJPModule::convertToDirectBuffer, METH_VARARGS, ""},
 
@@ -84,9 +83,9 @@ PyMODINIT_FUNC init_jpype()
 	PyJPBoundMethod::initType(module);	
 	PyJPClass::initType(module);	
 	PyJPArray::initType(module);	
-	PyJPArrayClass::initType(module);	
 	PyJPField::initType(module);	
 	PyJPValue::initType(module);	
+	PyJPProxy::initType(module);	
 
 #if (PY_VERSION_HEX < 0x02070000)
 	jpype_memoryview_init(module);

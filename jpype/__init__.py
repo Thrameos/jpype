@@ -19,7 +19,6 @@ from ._jclass import *
 from ._jarray import *
 from ._jwrapper import *
 from ._jproxy import *
-from ._jexception import *
 from ._jboxed import *
 from ._core import *
 from ._gui import *

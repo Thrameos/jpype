@@ -22,7 +22,6 @@ from . import _jclass
 from . import _jarray
 from . import _jwrapper
 from . import _jproxy
-from . import _jexception
 from . import _jcollection
 from . import _jobject
 from . import _jio
@@ -52,7 +51,6 @@ def _initialize():
     _jarray._initialize()
     _jwrapper._initialize()
     _jproxy._initialize()
-    _jexception._initialize()
     _jcollection._initialize()
     _jobject._initialize()
     nio._initialize()

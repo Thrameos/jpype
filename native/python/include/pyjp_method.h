@@ -26,13 +26,13 @@ struct PyJPMethod
 	static void         initType(PyObject* module);
 	static PyJPMethod*  alloc(JPMethod* mth);
 
-	static void        __dealloc__(PyObject* o);
-	static PyObject*   __str__(PyObject* o);
-	static PyObject*   __call__(PyObject* self, PyObject* args, PyObject* kwargs);
-	static PyObject*   isBeanMutator(PyObject* self, PyObject* arg);
-	static PyObject*   isBeanAccessor(PyObject* self, PyObject* arg);
-	static PyObject*   getName(PyObject* self, PyObject* arg);
-	static PyObject*   matchReport(PyObject* self, PyObject* arg);
+	static void        __dealloc__(PyJPMethod* o);
+	static PyObject*   __str__(PyJPMethod* o);
+	static PyObject*   __call__(PyJPMethod* self, PyObject* args, PyObject* kwargs);
+	static PyObject*   isBeanMutator(PyJPMethod* self, PyObject* arg);
+	static PyObject*   isBeanAccessor(PyJPMethod* self, PyObject* arg);
+	static PyObject*   getName(PyJPMethod* self, PyObject* arg);
+	static PyObject*   matchReport(PyJPMethod* self, PyObject* arg);
 
 	JPMethod* m_Method;
 };
@@ -45,11 +45,11 @@ struct PyJPBoundMethod
 	static PyTypeObject Type;
 	static void         initType(PyObject* module);
 
-	static int         __init__(PyObject* self, PyObject* args, PyObject* kwargs);
-	static void        __dealloc__(PyObject* o);
-	static PyObject*   __str__(PyObject* o);
-	static PyObject*   __call__(PyObject* self, PyObject* args, PyObject* kwargs);
-	static PyObject*   matchReport(PyObject* self, PyObject* arg);
+	static int         __init__(PyJPBoundMethod* self, PyObject* args, PyObject* kwargs);
+	static void        __dealloc__(PyJPBoundMethod* o);
+	static PyObject*   __str__(PyJPBoundMethod* o);
+	static PyObject*   __call__(PyJPBoundMethod* self, PyObject* args, PyObject* kwargs);
+	static PyObject*   matchReport(PyJPBoundMethod* self, PyObject* arg);
 		
 	PyObject* m_Instance;
 	PyJPMethod* m_Method;

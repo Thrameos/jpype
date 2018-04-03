@@ -35,7 +35,10 @@ struct PyJPClass
 	
 	// Python-visible methods
 	static PyTypeObject Type;
+	static PyObject* __new__(PyTypeObject* type, PyObject* args, PyObject* kwargs);
+	static int       __init__(PyJPClass* o, PyObject* args, PyObject* kwargs);
 	static void      __dealloc__(PyJPClass* o);
+	static PyObject* __str__(PyJPClass* self);
 
 	static PyObject* getName(PyJPClass* self, PyObject* arg);
 	static PyObject* getBaseClass(PyJPClass* self, PyObject* arg);
@@ -46,7 +49,7 @@ struct PyJPClass
 	static PyObject* isInterface(PyJPClass* self, PyObject* arg);
 	static PyObject* isPrimitive(PyJPClass* self, PyObject* arg);
 	static PyObject* isSubclass(PyJPClass* self, PyObject* arg);
-	static PyObject* isException(PyJPClass* self, PyObject* arg);
+	static PyObject* isThrowable(PyJPClass* self, PyObject* arg);
 	static PyObject* isArray(PyJPClass* self, PyObject* arg);
 	static PyObject* isAbstract(PyJPClass* self, PyObject* arg);
 

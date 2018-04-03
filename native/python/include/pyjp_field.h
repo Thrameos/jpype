@@ -21,19 +21,18 @@ struct PyJPField
 {
 	PyObject_HEAD
 	
+	static void       initType(PyObject* module);
+	static PyJPField* alloc(JPField* mth);
+
 	// Python-visible methods
-	static void         initType(PyObject* module);
-	static PyJPField*   alloc(JPField* mth);
-
-	static void         __dealloc__(PyObject* o);
-	static PyObject*    getName(PyObject* self, PyObject* arg);
-	static PyObject* getStaticAttribute(PyObject* self, PyObject* arg);
-	static PyObject* setStaticAttribute(PyObject* self, PyObject* arg);
-	static PyObject* setInstanceAttribute(PyObject* self, PyObject* arg);
-	static PyObject* getInstanceAttribute(PyObject* self, PyObject* arg);
-	static PyObject* isStatic(PyObject* self, PyObject* arg);
-	static PyObject* isFinal(PyObject* self, PyObject* arg);
-
+	static void       __dealloc__(PyJPField* o);
+	static PyObject*  getName(PyJPField* self, PyObject* arg);
+	static PyObject*  getStaticAttribute(PyJPField* self, PyObject* arg);
+	static PyObject*  setStaticAttribute(PyJPField* self, PyObject* arg);
+	static PyObject*  setInstanceAttribute(PyJPField* self, PyObject* arg);
+	static PyObject*  getInstanceAttribute(PyJPField* self, PyObject* arg);
+	static PyObject*  isStatic(PyJPField* self, PyObject* arg);
+	static PyObject*  isFinal(PyJPField* self, PyObject* arg);
 
 	JPField* m_Field;
 };

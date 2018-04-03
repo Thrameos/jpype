@@ -62,7 +62,7 @@ def _extract_accessor_pairs(members):
     return accessor_pairs
 
 def _is_java_method(attribute):
-    return isinstance(attribute, _jpype._JavaMethod)
+    return isinstance(attribute, _jpype.PyJPMethod)
 
 class PropertiesCustomizer(object) :
     def canCustomize(self, name, jc) :

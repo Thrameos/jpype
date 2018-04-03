@@ -33,22 +33,6 @@ typedef int Py_ssize_t;
 #endif
 
 // =================================================================
-
-#if (    (PY_VERSION_HEX <  0x02070000) \
-     || ((PY_VERSION_HEX >= 0x03000000) \
-      && (PY_VERSION_HEX <  0x03010000)) )
-
-    #include "capsulethunk.h"
-    #define USE_CAPSULE 1
-    typedef void* CAPSULE_DESTRUCTOR_ARG_TYPE;
-    typedef void (*PyCapsule_Destructor)(void*);
-    #define CAPSULE_EXTRACT(obj) (obj)
-#else
-    typedef PyObject* CAPSULE_DESTRUCTOR_ARG_TYPE;
-    #define CAPSULE_EXTRACT(obj) (PyCapsule_GetPointer(obj, PyCapsule_GetName(obj)))
-#endif
-
-// =================================================================
 #define ASSERT_JAVA_INITIALIZED JPPyni::assertInitialized();
 
 #define PY_CHECK(op) op; { if (PyErr_Occurred()) throw PythonException();  };
