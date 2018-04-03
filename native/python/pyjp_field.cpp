@@ -86,7 +86,7 @@ PyJPField* PyJPField::alloc(JPField* m)
 
 void PyJPField::__dealloc__(PyJPField* self)
 {
-	Py_TYPE(o)->tp_free(o);
+	Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
 PyObject* PyJPField::getName(PyJPField* self, PyObject* arg)

@@ -44,7 +44,6 @@ typedef int Py_ssize_t;
 #include "pyjp_monitor.h"
 #include "pyjp_method.h"
 #include "pyjp_array.h"
-#include "pyjp_arrayclass.h"
 #include "pyjp_class.h"
 #include "pyjp_field.h"
 #include "pyjp_proxy.h"

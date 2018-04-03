@@ -14,7 +14,7 @@
    limitations under the License.
    
 *****************************************************************************/   
-#include <jp_primitive_util.h>
+#include <jp_primitive_utils.h>
 
 PyObject* JPIntType::asHostObject(jvalue val) 
 {

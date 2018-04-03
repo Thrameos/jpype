@@ -694,7 +694,7 @@ const JPValue& JPyObject::asJavaValue()
 		{
 			stringstream sstr;
 			sstr << "invalid __javavalue__ expected PyJPValue, got " << 
-				Py_TYPE(javaObject)->tp_name;
+				Py_TYPE(obj)->tp_name;
 			JPyErr::setRuntimeError(sstr.str().c_str());
 			JPyErr::raise("asJavaValue");
 		}
@@ -717,7 +717,7 @@ JPClass* JPyObject::asJavaClass()
 		{
 			stringstream sstr;
 			sstr << "invalid __javaclass__ expected PyJPClass, got " << 
-				Py_TYPE(javaObject)->tp_name;
+				Py_TYPE(obj)->tp_name;
 			JPyErr::setRuntimeError(sstr.str().c_str());
 			JPyErr::raise("asJavaClass");
 		}
@@ -740,7 +740,7 @@ JPProxy* JPyObject::asProxy()
 		{
 			stringstream sstr;
 			sstr << "invalid __javaproxy__ expected PyJPProxy, got " << 
-				Py_TYPE(javaObject)->tp_name;
+				Py_TYPE(obj)->tp_name;
 			JPyErr::setRuntimeError(sstr.str().c_str());
 			JPyErr::raise("asJavaProxy");
 		}
@@ -763,7 +763,7 @@ JPArray* JPyObject::asArray()
 		{
 			stringstream sstr;
 			sstr << "invalid __javaarray__ expected PyJPArray, got " << 
-				Py_TYPE(javaObject)->tp_name;
+				Py_TYPE(obj)->tp_name;
 			JPyErr::setRuntimeError(sstr.str().c_str());
 			JPyErr::raise("asJavaClass");
 		}
@@ -915,7 +915,7 @@ void* JPPyni::gotoExternal()
 
 void JPPyni::returnExternal(void* state)
 {
-  PyEval_RestoreThread((PyThreadState*)_save);
+  PyEval_RestoreThread((PyThreadState*)state);
 }
 
 // =====================================================

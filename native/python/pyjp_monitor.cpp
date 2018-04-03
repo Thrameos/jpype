@@ -122,20 +122,10 @@ PyObject* PyJPMonitor::synchronized(PyObject* obj, PyObject* args)
 			if (val.getClass()->isObjectType())
 				obj = val.getObject();
 		}
-		else if (PyJPClass::check(o))
-		{
-			JPClass* jpo = ((PyJPClass*)o)->m_Class;
-			obj = jpo->getNativeClass();
-		}
 		else if (PyJPArray::check(o))
 		{
 			JPArray* jpo = ((PyJPArray*)o)->m_Object;
 			obj = jpo->getObject();
-		}
-		else if (PyJPArrayClass::check(o))
-		{
-			JPArrayClass* jpo = ((PyJPArrayClass*)o)->m_Class;
-			obj = jpo->getNativeClass();
 		}
 	
 		// TODO proxy		

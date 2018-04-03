@@ -22,6 +22,7 @@ struct PyJPProxy
 {
 	PyObject_HEAD
 
+	static PyTypeObject Type;
   static void initType(PyObject* module);
   static bool check(PyObject* o);
 

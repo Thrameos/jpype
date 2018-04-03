@@ -78,6 +78,11 @@ void PyJPArray::initType(PyObject* module)
   PyModule_AddObject(module, "PyJPArray", (PyObject*)&arrayClassType);
 }
 
+bool PyJPArray::check(PyObject* o)
+{
+	return PyObject_IsInstance(o, (PyObject*)&arrayClassType);
+}
+
 PyJPArray* PyJPArray::alloc(JPArray* obj)
 {
   PyJPArray* res = PyObject_New(PyJPArray, &arrayClassType);
@@ -92,7 +97,7 @@ int PyJPArray::__init__(PyJPArray* self, PyObject* arg, PyObject* kwargs)
 		// Parse arguments
     int sz;
 		PyJPClass* pycls;
-    if (!PyArg_ParseTuple(arg, "O!i", &PyJPClass, &pycls, &sz))
+    if (!PyArg_ParseTuple(arg, "O!i", &PyJPClass::Type, &pycls, &sz))
 		{
 			return -1;
 		}
@@ -109,21 +114,15 @@ int PyJPArray::__init__(PyJPArray* self, PyObject* arg, PyObject* kwargs)
 		return 0;
   }
   PY_STANDARD_CATCH
-  return NULL;
+  return -1;
 }
 
-void PyJPArray::__dealloc__(PyObject* o)
+void PyJPArray::__dealloc__(PyJPArray* self)
 {
   TRACE_IN("PyJPArray::__dealloc__");
-  PyJPArray* self = (PyJPArray*)o;
   delete self->m_Object;	
-	Py_TYPE(o)->tp_free(o);
+	Py_TYPE(self)->tp_free((PyObject*)self);
   TRACE_OUT;
-}
-
-bool PyJPArray::check(PyObject* o)
-{
-	return PyObject_IsInstance(o, (PyObject*)&arrayClassType);
 }
 
 PyObject* PyJPArray::getArrayLength(PyJPArray* self, PyObject* arg)

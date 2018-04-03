@@ -134,7 +134,7 @@ PyObject* PyJPMethod::isBeanAccessor(PyJPMethod* self, PyObject* arg)
 	return NULL;
 }
 
-PyObject* PyJPMethod::isBeanMutator(PyJPMethod* o, PyObject* arg)
+PyObject* PyJPMethod::isBeanMutator(PyJPMethod* self, PyObject* arg)
 {
 	JPLocalFrame frame;
 	try {
