@@ -681,6 +681,7 @@ bool JPyObject::isJavaValue() const
 
 const JPValue& JPyObject::asJavaValue()
 {
+	TRACE_IN("JPyObject::asJavaValue");
   JPyCleaner cleaner;
 	PyObject* obj = NULL;
  	if (PyJPValue::check(pyobj))
@@ -700,10 +701,12 @@ const JPValue& JPyObject::asJavaValue()
 		}
 	}
   return ((PyJPValue*)obj)->m_Value;
+	TRACE_OUT;
 }
 
 JPClass* JPyObject::asJavaClass()
 {
+	TRACE_IN("JPyObject::asJavaClass");
   JPyCleaner cleaner;
 	PyObject* obj = NULL;
 	if (PyJPClass::check(pyobj))
@@ -723,10 +726,12 @@ JPClass* JPyObject::asJavaClass()
 		}
 	}
   return ((PyJPClass*)obj)->m_Class;
+	TRACE_OUT;
 }
 
 JPProxy* JPyObject::asProxy()
 {
+	TRACE_IN("JPyObject::asProxy");
   JPyCleaner cleaner;
  	PyObject* obj = NULL;
 	if (PyJPProxy::check(pyobj))
@@ -746,10 +751,12 @@ JPProxy* JPyObject::asProxy()
 		}
 	}
   return ((PyJPProxy*)obj)->m_Proxy;
+	TRACE_OUT;
 }
 
 JPArray* JPyObject::asArray()
 {
+	TRACE_IN("JPyObject::asArray");
   JPyCleaner cleaner;
 	PyObject* obj = NULL;
 	if (PyJPArray::check(pyobj))
@@ -769,6 +776,7 @@ JPArray* JPyObject::asArray()
 		}
 	}
   return ((PyJPArray*)obj)->m_Object;
+	TRACE_OUT;
 }
 
 //========================================================
@@ -800,15 +808,22 @@ void JPPyni::assertInitialized()
 
 JPyObject JPPyni::newArrayClass(JPArrayClass* m)
 {
+	TRACE_IN("JPPyni::newArrayClass");
   JPyCleaner cleaner;
   JPyTuple args = cleaner.add(JPyTuple::newTuple(1));
-  PyObject* cname = cleaner.add(JPyString::fromString(m->getSimpleName()));
+	string name = m->getSimpleName();
+	TRACE2("name", name);
+  PyObject* cname = cleaner.add(JPyString::fromString(name));
   args.setItem(0, cname);
+	if (m_GetArrayClassMethod == 0)
+		RAISE(JPypeException, "GetArrayClassMethod resource is not set");
   return JPyObject(m_GetArrayClassMethod).call(args, NULL);
+	TRACE_OUT;
 }
 
 JPyObject JPPyni::newArray(JPArray* m)
 {
+	TRACE_IN("JPPyni::newArray");
   JPyCleaner cleaner;
   JPArrayClass* jc = m->getClass();
 
@@ -821,16 +836,21 @@ JPyObject JPPyni::newArray(JPArray* m)
   args = cleaner.add(JPyTuple::newTuple(2));
   args.setItem(0, m_SpecialConstructorKey);
   args.setItem(1, joHolder);
+
+	TRACE1("call");
   return pyClass.call(args, NULL);
+	TRACE_OUT;
 }
 
 JPyObject JPPyni::getCallableFrom(PyObject* ref, string& name)
 {
+	TRACE_IN("JPPyni::getCallableFrom");
   JPyCleaner cleaner;
   PyObject* pname = cleaner.add(JPyString::fromString(name));
   PyObject* mname = cleaner.add(JPyString::fromString("getCallable"));
   PY_CHECK( PyObject* callable = PyObject_CallMethodObjArgs(ref, mname, pname, NULL); )
   return callable;
+	TRACE_OUT;
 }
 
 void JPPyni::printError()
@@ -881,6 +901,8 @@ JPyObject JPPyni::newClass(JPObjectClass* m)
   // call jpype._jclass._getClassFor()
   JPyTuple args = cleaner.add(JPyTuple::newTuple(1));
   args.setItem(0, co);
+	if (m_GetClassMethod == 0)
+		RAISE(JPypeException, "GetClassMethod resource is not set");
   return JPyObject(m_GetClassMethod).call(args, NULL);
 }
 

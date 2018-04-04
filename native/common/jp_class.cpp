@@ -56,10 +56,8 @@ PyObject* convertObjectToHost(jobject obj)
 {
 	if (obj == NULL)
 		return JPPyni::getNone();
-
 	jvalue v;
 	v.l = obj;
-	
 	jclass cls = JPJni::getClass(v.l);
 	JPClass* type = JPTypeManager::findClass(cls);
 	return type->asHostObject(v);
