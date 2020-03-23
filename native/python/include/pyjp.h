@@ -185,4 +185,9 @@ inline JPContext* PyJPModule_getContext()
 	return context;
 }
 
+#if defined(PYPY_VERSION)
+#define PyUnicode_ReadChar(X,Y) PyUnicode_READ_CHAR(X,Y)
+#endif
+
+
 #endif /* PYJP_H */

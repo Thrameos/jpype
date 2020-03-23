@@ -21,8 +21,10 @@
 #include "pyjp.h"
 #include "jp_reference_queue.h"
 
+#if !defined(PYPY_VERSION)
 PyObject* PyTrace_FromJPStackTrace(JPStackTrace& trace);
 PyObject *PyTrace_FromJavaException(JPJavaFrame& frame, jthrowable th);
+#endif
 
 JPypeException::JPypeException(JPJavaFrame &frame, jthrowable th, const JPStackInfo& stackInfo)
 : m_Throwable(frame, th)
@@ -206,12 +208,14 @@ void JPypeException::convertJavaToPython()
 	PyObject *type = (PyObject*) Py_TYPE(pyvalue.get());
 	Py_INCREF(type);
 
+#if !defined(PYPY_VERSION)
 	// Add cause to the exception
 	JPPyObject args(JPPyRef::_call, Py_BuildValue("(s)", "Java Exception"));
 	JPPyObject cause(JPPyRef::_call, PyObject_Call(PyExc_Exception, args.get(), NULL));
 	JPPyObject trace(JPPyRef::_call, PyTrace_FromJavaException(frame, th));
 	PyException_SetTraceback(cause.get(), trace.get());
 	PyException_SetCause(pyvalue.get(), cause.keep());
+#endif
 
 	// Transfer to Python
 	PyErr_SetObject(type, pyvalue.get());
@@ -332,6 +336,7 @@ void JPypeException::toPython()
 		}
 
 		// Attach our info as the cause
+#if !defined(PYPY_VERSION)
 		if (_jp_cpp_exceptions)
 		{
 			JPPyErrFrame eframe;
@@ -345,6 +350,7 @@ void JPypeException::toPython()
 				PyException_SetCause(eframe.exceptionValue.get(), cause.keep());
 			}
 		}
+#endif
 	}// GCOVR_EXCL_START
 	catch (JPypeException& ex)
 	{
@@ -441,6 +447,7 @@ void JPypeException::toJava(JPContext *context)
 	JP_TRACE_OUT; // GCOVR_EXCL_LINE
 }
 
+#if !defined(PYPY_VERSION)
 PyTracebackObject *tb_create(
 		PyTracebackObject *last_traceback,
 		PyObject *dict,
@@ -498,6 +505,7 @@ PyObject* PyTrace_FromJPStackTrace(JPStackTrace& trace)
 		Py_RETURN_NONE;
 	return (PyObject*) last_traceback;
 }
+#endif
 
 namespace
 {
@@ -522,6 +530,7 @@ void JPException_init(JPJavaFrame &frame)
 	JP_TRACE_OUT; // GCOVR_EXCL_LINE
 }
 
+#if !defined(PYPY_VERSION)
 PyObject *PyTrace_FromJavaException(JPJavaFrame& frame, jthrowable th)
 {
 	PyTracebackObject *last_traceback = NULL;
@@ -554,3 +563,4 @@ PyObject *PyTrace_FromJavaException(JPJavaFrame& frame, jthrowable th)
 		Py_RETURN_NONE;
 	return (PyObject*) last_traceback;
 }
+#endif
