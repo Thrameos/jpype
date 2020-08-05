@@ -740,7 +740,7 @@ static PyObject *handleGeneric(JPJavaFrame &frame, PyJPClass *self, PyObject *it
 	Py_ssize_t dims = PyTuple_Size(item);
 	Py_ssize_t i = 0;
 
-	stringstream name;
+	std::stringstream name;
 	for (; i < dims; ++i)
 	{
 		PyObject* t = PyTuple_GetItem(item, i);
@@ -763,7 +763,7 @@ static PyObject *handleGeneric(JPJavaFrame &frame, PyJPClass *self, PyObject *it
 			((PyTypeObject*) self)->tp_name,
 			name.str().c_str()));
 	PyObject *cache = PyDict_GetItem(PyJClass_Generics, key.get());
-	if (cache != NULL)
+	if (cache != nullptr)
 	{
 		Py_INCREF(cache);
 		return cache;
@@ -773,7 +773,7 @@ static PyObject *handleGeneric(JPJavaFrame &frame, PyJPClass *self, PyObject *it
 	JPPyObject bases = JPPyObject::call(PyTuple_Pack(1, self));
 	JPPyObject members = JPPyObject::call(PyDict_New());
 	JPPyObject args = JPPyObject::call(PyTuple_Pack(3, key.get(), bases.get(), members.get()));
-	JPPyObject generic = JPPyObject::call(PyObject_Call((PyObject*) PyJPClass_Type, args.get(), classMagic));
+	JPPyObject generic = JPPyObject::call(PyObject_Call((PyObject*) PyJPClass_Type, args.get(), PyJPClassMagic));
 	PyObject_SetAttrString(generic.get(), "_generics", item);
 	PyDict_SetItem(PyJClass_Generics, key.get(), generic.get());
 	PyJPClass *cls2 = (PyJPClass*) generic.get();
