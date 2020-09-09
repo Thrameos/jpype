@@ -3,6 +3,7 @@
 
    <configurations defaultconf="deps">
        <conf name="deps" description="binary jars"/>
+       <conf name="scala" description="binary jars"/>
    </configurations>
    
    <!-- https://www.baeldung.com/java-in-memory-databases -->
@@ -13,5 +14,6 @@
        <dependency org="org.jacoco" name="org.jacoco.agent" rev="0.8.5" conf="deps->default">
            <artifact name="org.jacoco.agent" type="jar" m:classifier="runtime"/>
        </dependency>
+       <dependency org="org.scala-lang" name="scala-library" rev="2.10.3" conf="scala->default"/>
    </dependencies>
 </ivy-module>
