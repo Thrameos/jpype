@@ -463,34 +463,6 @@ public class JPypeContext
    */
   public static void clearInterrupt(boolean x) throws InterruptedException
   {
-    try
-    {
-      Thread th = Thread.currentThread();
-
-      // Only relevant if this is the main thread for signal handling
-      if (th != JPypeSignal.main)
-        return;
-
-      // Unconditionally clear the interrupt flag if we are called from 
-      // C++.  This happens when a field get() or method call() is 
-      // invoked.
-      if (!x)
-        JPypeSignal.acknowledgePy();
-
-      // Check if this thread is interrupted
-      if (th.isInterrupted())
-      {
-        // Clear the flag in C++
-        JPypeSignal.acknowledgePy();
-        
-        // Clear the flag in Java
-        Thread.sleep(1);
-      }
-    } catch (InterruptedException ex)
-    {
-      if (x)
-        throw ex;
-    }
   }
 
   public long getExcClass(Throwable th)

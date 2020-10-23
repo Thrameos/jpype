@@ -216,7 +216,6 @@ int Py_IsInstanceSingle(PyObject* obj, PyTypeObject* type)
 }
 
 #ifndef ANDROID
-extern JNIEnv *Android_JNI_GetEnv();
 
 static PyObject* PyJPModule_startup(PyObject* module, PyObject* pyargs)
 {
@@ -636,14 +635,17 @@ static PyObject* PyJPModule_fault(PyObject *module, PyObject *args)
 
 #ifdef ANDROID
 
+extern JNIEnv *Android_JNI_GetEnv();
 static PyObject *PyJPModule_bootstrap(PyObject *module)
 {
+	JP_PY_TRY("bootstrap");
 	// After all the internals are created we can connect the API with the internal module
 	JNIEnv * env = Android_JNI_GetEnv();
 	JPContext_global->attachJVM(env);
 	PyJPModule_installGC(module);
 	PyJPModule_loadResources(module);
 	Py_RETURN_NONE;
+	JP_PY_CATCH(NULL);
 }
 #endif
 

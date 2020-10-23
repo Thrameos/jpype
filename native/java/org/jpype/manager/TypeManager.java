@@ -33,7 +33,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.TreeSet;
 import org.jpype.JPypeContext;
-import org.jpype.JPypeSignal;
 import org.jpype.proxy.JPypeProxy;
 
 /**

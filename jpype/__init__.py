@@ -38,6 +38,7 @@ from . import _jio          # lgtm [py/import-own-module]
 from . import protocol      # lgtm [py/import-own-module]
 from . import _jthread      # lgtm [py/import-own-module]
 
+__all__ = []
 __all__.extend(_jinit.__all__)
 __all__.extend(_core.__all__)
 __all__.extend(types.__all__)

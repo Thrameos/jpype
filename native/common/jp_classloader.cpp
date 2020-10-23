@@ -55,6 +55,7 @@ JPClassLoader::JPClassLoader(JPJavaFrame& frame)
 	m_SystemClassLoader = JPObjectRef(frame,
 			frame.CallStaticObjectMethodA(classLoaderClass, getSystemClassLoader, 0));
 
+#ifndef ANDROID
 	jclass dynamicLoaderClass = frame.getEnv()->FindClass("org/jpype/classloader/DynamicClassLoader");
 	if (dynamicLoaderClass != NULL)
 	{
@@ -105,6 +106,9 @@ JPClassLoader::JPClassLoader(JPJavaFrame& frame)
 	jmethodID newDyLoader = frame.GetMethodID(dyClass, "<init>", "(Ljava/lang/ClassLoader;)V");
 	v[0].l = cl;
 	m_BootLoader = JPObjectRef(frame, frame.NewObjectA(dyClass, newDyLoader, v));
+#else
+	m_BootLoader = m_SystemClassLoader;
+#endif
 
 	JP_TRACE_OUT;  // GCOVR_EXCL_LINE
 }
