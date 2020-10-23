@@ -15,16 +15,9 @@
 **************************************************************************** */
 package org.jpype.pkg;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
-import java.nio.Buffer;
-import java.nio.ByteBuffer;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Map;
-import org.jpype.JPypeKeywords;
 
 /**
  * Representation of a JPackage in Java.
@@ -69,33 +62,14 @@ public class JPypePackage
    */
   public Object getObject(String name)
   {
-    URI uri = contents.get(name);
-    if (uri == null)
-      return null;
-    Path p = JPypePackageManager.getPath(uri);
-
-    // Directories are packages.  We will just pass them as strings.
-    if (Files.isDirectory(p))
-      return p.toString().replace("/", ".");
-
-    // Class files need to be probed to make sure they are public.  This
-    // pattern may have problems with non-exported classes in modules.  But
-    // thus far we have not seen any cases of that.
-    if (p.toString().endsWith(".class"))
+    String entity = pkg + "." + name;
+    try
     {
-      try
-      {
-        // Make sure it is public
-        if (isPublic(p))
-        {
-          // Load the class and return a class type object
-          return Class.forName(pkg + "." + JPypeKeywords.unwrap(name));
-        }
-      } catch (ClassNotFoundException ex)
-      {
-      }
+      return Class.forName(entity);
+    } catch (ClassNotFoundException ex)
+    {
+      return entity;
     }
-    return null;
   }
 
   /**
@@ -107,28 +81,7 @@ public class JPypePackage
    */
   public String[] getContents()
   {
-    ArrayList<String> out = new ArrayList<>();
-    for (String key : contents.keySet())
-    {
-      URI uri = contents.get(key);
-      // If there is anything null, then skip it.
-      if (uri == null)
-        continue;
-      Path p = JPypePackageManager.getPath(uri);
-
-      // package are acceptable
-      if (Files.isDirectory(p))
-        out.add(key);
-
-      // classes must be public
-      else if (uri.toString().endsWith(".class"))
-      {
-        // Make sure it is public
-        if (isPublic(p))
-          out.add(key);
-      }
-    }
-    return out.toArray(new String[out.size()]);
+    return new String[0];
   }
 
   /**
@@ -149,76 +102,7 @@ public class JPypePackage
    */
   static boolean isPublic(Path p)
   {
-    try (InputStream is = Files.newInputStream(p))
-    {
-      // Allocate a three byte buffer for traversing the constant pool.
-      // The minumum entry is a byte for the type and 2 data bytes.  We
-      // will read these three bytes and then based on the type advance
-      // the read pointer to the next entry.
-      ByteBuffer buffer3 = ByteBuffer.allocate(3);
-
-      // Check the magic
-      ByteBuffer header = ByteBuffer.allocate(4 + 2 + 2 + 2);
-      is.read(header.array());
-      ((Buffer) header).rewind();
-      int magic = header.getInt();
-      if (magic != (int) 0xcafebabe)
-        return false;
-      header.getShort(); // skip major
-      header.getShort(); // skip minor
-      short cpitems = header.getShort(); // get the number of items
-
-      // Traverse the cp pool
-      for (int i = 0; i < cpitems - 1; ++i)
-      {
-        is.read(buffer3.array());
-        ((Buffer) buffer3).rewind();
-        byte type = buffer3.get(); // First byte is the type
-
-        // Now based on the entry type we will advance the pointer
-        switch (type)
-        {
-          case 1:  // Strings are variable length
-            is.skip(buffer3.getShort());
-            break;
-          case 7:
-          case 8:
-          case 16:
-          case 19:
-          case 20:
-            break;
-          case 15:
-            is.skip(1);
-            break;
-          case 3:
-          case 4:
-          case 9:
-          case 10:
-          case 11:
-          case 12:
-          case 17:
-          case 18:
-            is.skip(2);
-            break;
-          case 5:
-          case 6:
-            is.skip(6); // double and long are special as they are double entries
-            i++; // long and double take two slots
-            break;
-          default:
-            return false;
-        }
-      }
-
-      // Get the flags
-      is.read(buffer3.array());
-      ((Buffer) buffer3).rewind();
-      short flags = buffer3.getShort();
-      return (flags & 1) == 1; // it is public if bit zero is set
-    } catch (IOException ex)
-    {
-      return false; // If anything goes wrong then it won't be considered a public class.
-    }
+    return true;
   }
 
 }

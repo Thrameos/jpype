@@ -26,7 +26,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.jpype.classloader.DynamicClassLoader;
 import org.jpype.manager.TypeFactory;
 import org.jpype.manager.TypeFactoryNative;
 import org.jpype.manager.TypeManager;
@@ -76,7 +75,6 @@ public class JPypeContext
   private long context;
   private TypeFactory typeFactory;
   private TypeManager typeManager;
-  private DynamicClassLoader classLoader;
   private final AtomicInteger shutdownFlag = new AtomicInteger();
   private final List<Thread> shutdownHooks = new ArrayList<>();
   private final List<Runnable> postHooks = new ArrayList<>();
@@ -100,7 +98,6 @@ public class JPypeContext
       System.load(nativeLib);
     }
     INSTANCE.context = context;
-    INSTANCE.classLoader = (DynamicClassLoader) bootLoader;
     INSTANCE.typeFactory = new TypeFactoryNative();
     INSTANCE.typeManager = new TypeManager(context, INSTANCE.typeFactory);
     INSTANCE.initialize(interrupt);
@@ -116,8 +113,6 @@ public class JPypeContext
     // Okay everything is setup so lets give it a go.
     this.typeManager.init();
     JPypeReferenceQueue.getInstance().start();
-    if (!interrupt)
-      JPypeSignal.installHandlers();
 
     // Install a shutdown hook to clean up Python resources.
     Runtime.getRuntime().addShutdownHook(new Thread(new Runnable()
@@ -288,7 +283,7 @@ public class JPypeContext
 
   public ClassLoader getClassLoader()
   {
-    return this.classLoader;
+    return null;
   }
 
   public TypeFactory getTypeFactory()
@@ -538,15 +533,12 @@ public class JPypeContext
 
   public boolean isPackage(String s)
   {
-    s = JPypeKeywords.safepkg(s);
-    return JPypePackageManager.isPackage(s);
+    return true; // FIXME consult the hash here.
   }
 
   public JPypePackage getPackage(String s)
   {
     s = JPypeKeywords.safepkg(s);
-    if (!JPypePackageManager.isPackage(s))
-      return null;
     return new JPypePackage(s, JPypePackageManager.getContentMap(s));
   }
 
