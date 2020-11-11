@@ -69,11 +69,13 @@ class TestJavaCommand(distutils.cmd.Command):
     """A custom command to create jar file during test."""
 
     description = 'run javac to make test harness'
-    user_options = []
+    user_options = [
+        ('force', None, 'ignore existing file'),
+    ]
 
     def initialize_options(self):
         """Set default values for options."""
-        pass
+        self.force = False
 
     def finalize_options(self):
         """Post-process options."""
@@ -81,7 +83,7 @@ class TestJavaCommand(distutils.cmd.Command):
 
     def run(self):
         """Run command."""
-        if os.path.exists(os.path.join("test", "classes")):
+        if not self.force and os.path.exists(os.path.join("test", "classes")):
             distutils.log.info("Skip building Java testbench")
             return
         cmdStr = compileJava()
