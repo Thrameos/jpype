@@ -34,6 +34,12 @@ import java.util.List;
 import java.util.TreeSet;
 import org.jpype.JPypeContext;
 import org.jpype.proxy.JPypeProxy;
+import org.jpype.python.internal.PyBaseObject;
+import python.lang.PyFloat;
+import python.lang.PyLong;
+import python.lang.PyObject;
+import python.lang.PyString;
+import python.lang.exc.PyBaseException;
 
 /**
  *
@@ -45,7 +51,7 @@ public class TypeManager
   public boolean isStarted = false;
   public boolean isShutdown = false;
   public HashMap<Class, ClassDescriptor> classMap = new HashMap<>();
-  public TypeFactory typeFactory = null;
+  private TypeFactory typeFactory = null;
   public TypeAudit audit = null;
   private ClassDescriptor java_lang_Object;
   public Class<? extends Annotation> functionalAnnotation = null;
@@ -95,7 +101,8 @@ public class TypeManager
         Void.class, Boolean.class, Byte.class, Character.class,
         Short.class, Integer.class, Long.class, Float.class, Double.class,
         String.class, JPypeProxy.class,
-        Method.class, Field.class
+        Method.class, Field.class, PyBaseObject.class, PyBaseException.class,
+        PyString.class, PyLong.class, PyFloat.class
       };
       for (Class c : cls)
       {
@@ -392,6 +399,9 @@ public class TypeManager
     if (cls.isArray())
       return this.createArrayClass(cls);
 
+    if (PyObject.class.isAssignableFrom(cls))
+      return this.createPyClass(cls);
+
     return createOrdinaryClass(cls, special, true);
   }
 
@@ -456,7 +466,6 @@ public class TypeManager
     // Cache the wrapper.
     ClassDescriptor out = new ClassDescriptor(cls, classPtr);
     this.classMap.put(cls, out);
-
     return out;
   }
 
@@ -492,6 +501,35 @@ public class TypeManager
                     modifiers);
 
     ClassDescriptor out = new ClassDescriptor(cls, classPtr);
+    this.classMap.put(cls, out);
+    return out;
+  }
+
+  ClassDescriptor createPyClass(Class cls)
+  {
+    ClassDescriptor out = null;
+    Class base = null;
+    if (PyBaseObject.class.isAssignableFrom(cls))
+      base = PyBaseObject.class;
+    else if (PyBaseException.class.isAssignableFrom(cls))
+      base = PyBaseException.class;
+    else if (PyString.class.isAssignableFrom(cls))
+      base = PyString.class;
+    else if (PyLong.class.isAssignableFrom(cls))
+      base = PyLong.class;
+    else if (PyFloat.class.isAssignableFrom(cls))
+      base = PyFloat.class;
+    else
+      throw new RuntimeException("No known base for " + cls.getName() + " " + cls.getSuperclass());
+
+    out = this.classMap.get(base);
+    if (out != null)
+    {
+      // This class will shared the same object wrapper.
+      this.classMap.put(cls, out);
+      return out;
+    }
+    out = this.createOrdinaryClass(base, true, false);
     this.classMap.put(cls, out);
     return out;
   }

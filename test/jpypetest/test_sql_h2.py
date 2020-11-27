@@ -27,7 +27,7 @@ class ConnectTestCase(common.JPypeTestCase):
         common.JPypeTestCase.setUp(self)
         if common.fast:
             raise common.unittest.SkipTest("fast")
- 
+
     def testConnect(self):
         cx = dbapi2.connect(db_name)
         self.assertIsInstance(cx, dbapi2.Connection)

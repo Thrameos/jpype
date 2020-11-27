@@ -18,6 +18,7 @@
 #include "jpype.h"
 #include "jp_exception.h"
 #include "pyjp.h"
+#include "epypj.h"
 #include "jp_reference_queue.h"
 
 PyObject* PyTrace_FromJPStackTrace(JPStackTrace& trace);
@@ -157,6 +158,7 @@ void JPypeException::convertJavaToPython()
 		return;
 	}
 	// GCOVR_EXCL_STOP
+
 	jlong pycls = frame.CallLongMethodA(m_Context->getJavaContext(), m_Context->m_Context_GetExcClassID, &v);
 	if (pycls != 0)
 	{
@@ -372,6 +374,9 @@ void JPypeException::toPython()
 			{
 				PyException_SetTraceback(cause.get(), trace.get());
 				PyException_SetCause(eframe.m_ExceptionValue.get(), cause.keep());
+			} else
+			{
+				PyErr_Clear();
 			}
 		}
 	}// GCOVR_EXCL_START

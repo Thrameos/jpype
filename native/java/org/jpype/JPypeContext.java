@@ -32,6 +32,7 @@ import org.jpype.manager.TypeFactoryNative;
 import org.jpype.manager.TypeManager;
 import org.jpype.pkg.JPypePackage;
 import org.jpype.pkg.JPypePackageManager;
+import org.jpype.python.PyTypeManager;
 import org.jpype.ref.JPypeReferenceQueue;
 
 /**
@@ -129,6 +130,7 @@ public class JPypeContext
       }
     }));
 
+    PyTypeManager.getInstance().initialize();
   }
 
   /**
@@ -208,15 +210,6 @@ public class JPypeContext
 
       // Wait for any unregistered proxies to finish so that we don't yank
       // the rug out from under them result in a segfault.
-//      while (this.proxyCount.get() > 0)
-//      {
-//        try
-//        {
-//          Thread.sleep(10);
-//        } catch (InterruptedException ex)
-//        {
-//        }
-//      }
 //      // Check to see if who is alive
 //      threads = Thread.getAllStackTraces();
 //      System.out.println("Check for remaining");

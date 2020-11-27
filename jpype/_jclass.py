@@ -239,6 +239,12 @@ def _jclassDoc(cls):
 
     return "\n".join(out)
 
+# Future hook for Extension types
+
+
+def _JExtension(name, bases, members):
+    raise TypeError("Java classes cannot be extended in Python")
+
 
 # Install module hooks
 _jpype.JClass = JClass
@@ -246,3 +252,4 @@ _jpype.JInterface = JInterface
 _jpype._jclassDoc = _jclassDoc
 _jpype._jclassPre = _jclassPre
 _jpype._jclassPost = _jclassPost
+_jpype._JExtension = _JExtension
