@@ -34,12 +34,17 @@ public class PyTuple<E> extends PyBaseObject implements PySequence<E>
 
   public PyTuple(Collection<? extends E> c)
   {
-    super(PyConstructor.CONSTRUCTOR, _ctor(c.toArray()));
+    super(PyConstructor.CONSTRUCTOR, _ctor(c.toArray(), 0, c.size()));
   }
 
-  static <E> PyTuple<E> of(E... values)
+  public static <E> PyTuple<E> of(E... values)
   {
-    return new PyTuple(PyConstructor.CONSTRUCTOR, _ctor(values));
+    return new PyTuple(PyConstructor.CONSTRUCTOR, _ctor(values, 0, values.length));
+  }
+
+  public static <E> PyTuple<E> ofRange(E[] values, int start, int end)
+  {
+    return new PyTuple(PyConstructor.CONSTRUCTOR, _ctor(values, start, end));
   }
 
   /**
@@ -95,6 +100,6 @@ public class PyTuple<E> extends PyBaseObject implements PySequence<E>
     return new PyTuple(PyConstructor.ALLOCATOR, instance);
   }
 
-  private native static long _ctor(Object... o);
+  private native static long _ctor(Object[] o, int start, int end);
 
 }

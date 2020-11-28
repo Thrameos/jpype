@@ -5,6 +5,9 @@ import org.jpype.python.PyInvoker;
 
 /**
  * Enums for dispatching to Python.
+ *
+ * This is an FFI interface for accessing Python methods from Java.
+ *
  */
 public enum PyInvocation
 {

@@ -1,6 +1,5 @@
 package python.lang.protocol;
 
-import java.util.Iterator;
 import org.jpype.python.annotation.PyTypeInfo;
 import org.jpype.python.internal.PyBuiltinStatic;
 

@@ -94,6 +94,7 @@ public interface PyBuiltinStatic
   /**
    * Equivalent to the Python expression 'dir(o)'.
    *
+   * @param o
    * @return a (possibly empty) list of strings appropriate for the object
    * argument, or throw if there was an error.
    */
@@ -103,6 +104,7 @@ public interface PyBuiltinStatic
   /**
    * Equivalent to the Python expression `not o`.
    *
+   * @param o
    * @return
    */
   @PyMethodInfo(name = "PyObject_Not", invoke = PyInvocation.AsBoolean, method = false)
@@ -111,6 +113,7 @@ public interface PyBuiltinStatic
   /**
    * Equivalent to the Python expression `not not o`.
    *
+   * @param o
    * @return
    */
   @PyMethodInfo(name = "PyObject_IsTrue", invoke = PyInvocation.AsBoolean, method = false)
@@ -186,47 +189,47 @@ public interface PyBuiltinStatic
   PyMemoryView newMemoryView(Object obj);
 
   @PyMethodInfo(name = "PyUnicode_FromOrdinal", invoke = PyInvocation.FromInt, method = false)
-  public Object chr(int obj);
+  Object chr(int obj);
 
   @PyMethodInfo(name = "PyObject_Format", invoke = PyInvocation.Binary, method = false)
-  public Object format(Object value, Object spec);
+  Object format(Object value, Object spec);
 
   @PyMethodInfo(name = "PyNumber_Divmod", invoke = PyInvocation.Binary, method = false)
-  public Object divmod(Object a, Object b);
+  Object divmod(Object a, Object b);
 
   @PyMethodInfo(name = "PyLong_FromVoidPtr", invoke = PyInvocation.Unary, method = false)
-  public PyLong id(Object o);
+  PyLong id(Object o);
 
   @PyMethodInfo(name = "PyNumber_ToBase", invoke = PyInvocation.BinaryInt, method = false)
-  public Object toBase(Object o, int i);
+  Object toBase(Object o, int i);
 
   @PyMethodInfo(name = "PyCallable_Check", invoke = PyInvocation.AsInt, method = false)
-  public boolean callable(Object o);
+  boolean callable(Object o);
 
   @PyMethodInfo(name = "PyEval_GetLocalsB", invoke = PyInvocation.NoArgs, method = false)
-  public PyDict locals();
+  PyDict locals();
 
   @PyMethodInfo(name = "PyEval_GetGlobalsB", invoke = PyInvocation.NoArgs, method = false)
-  public PyDict globals();
+  PyDict globals();
 
   @PyMethodInfo(name = "PyEval_GetBuiltinsB", invoke = PyInvocation.NoArgs, method = false)
-  public PyDict builtins();
+  PyDict builtins();
 
   @PyMethodInfo(name = "PyNumber_Power", invoke = PyInvocation.Ternary, method = false)
-  public Object pow(Object a, Object b, Object object);
+  Object pow(Object a, Object b, Object object);
 
   @PyMethodInfo(name = "PyObject_IsInstance", invoke = PyInvocation.BinaryToInt, method = false)
-  public boolean isinstance(Object o, Object t);
+  boolean isinstance(Object o, Object t);
 
   @PyMethodInfo(name = "PyObject_IsSubclass", invoke = PyInvocation.BinaryToInt, method = false)
-  public boolean issubclass(Object o, Object t);
+  boolean issubclass(Object o, Object t);
 
   @PyMethodInfo(name = "PyMethod_New", invoke = PyInvocation.Binary, method = false)
-  public PyMethod newMethod(Object func, Object self);
+  PyMethod newMethod(Object func, Object self);
 
   @PyMethodInfo(name = "PyObject_Call", invoke = PyInvocation.Ternary, method = false)
-  public Object call(Object self, PyTuple args, PyDict kwargs);
+  Object call(Object self, PyTuple args, PyDict kwargs);
 
   @PyMethodInfo(name = "PyIter_Next", invoke = PyInvocation.Unary, method = false)
-  public Object next(Object self);
+  Object next(Object self);
 }

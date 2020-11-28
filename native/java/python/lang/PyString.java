@@ -19,9 +19,18 @@ public class PyString extends PyBaseObject implements CharSequence, PySequence<O
     super(key, instance);
   }
 
-  public PyString(String s)
+  /**
+   * Convert to a Python String representation.
+   *
+   * The actions taken depend on the type of the incoming argument. Existing
+   * Python strings are simply referenced again. All other types are converted
+   * to a new concrete Python string representation.
+   *
+   * @param s
+   */
+  public PyString(CharSequence s)
   {
-    super(PyConstructor.CONSTRUCTOR, _ctor(s));
+    super(PyConstructor.CONSTRUCTOR, _fromType(s));
   }
 
   @Override
@@ -51,6 +60,32 @@ public class PyString extends PyBaseObject implements CharSequence, PySequence<O
   static Object _allocate(long instance)
   {
     return new PyString(PyConstructor.ALLOCATOR, instance);
+  }
+
+  /**
+   * Delegator based on the incoming type.
+   *
+   * @param s
+   * @return
+   */
+  private static final long _fromType(CharSequence s)
+  {
+    if (s == null)
+      throw new NullPointerException("PyString instances may not null");
+
+    // Give back the reference to the existing object.
+    if (s instanceof PyString)
+    {
+      return PyBaseObject._getSelf((PyBaseObject) s);
+    }
+
+    if (s instanceof String)
+    {
+      return _ctor((String) s);
+    }
+
+    // Otherwise convert to String first
+    return _ctor(s.toString());
   }
 
   private native static long _ctor(String s);

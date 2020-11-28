@@ -22,5 +22,11 @@ public class PyTypeError extends PyException
     return new PyTypeError(ALLOCATOR, inst);
   }
 
+  public PyTypeError(String value)
+  {
+    // FIXME this needs to go to the PyException ctor
+    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+  }
+
 
 }

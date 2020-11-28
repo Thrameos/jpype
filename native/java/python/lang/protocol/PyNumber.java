@@ -1,6 +1,5 @@
 package python.lang.protocol;
 
-import org.jpype.python.PyTypeManager;
 import org.jpype.python.annotation.PyTypeInfo;
 import org.jpype.python.internal.PyNumberStatic;
 import python.lang.PyObject;

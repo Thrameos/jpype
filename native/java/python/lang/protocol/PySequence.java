@@ -304,13 +304,19 @@ public interface PySequence<E> extends PyCollection<E>, List<E>, RandomAccess
   @Override
   default boolean add(E e)
   {
-    throw new UnsupportedOperationException("Not supported");
+    int size = this.size();
+    SEQUENCE_STATIC.setSlice(this, size, size, PyTuple.of(e));
+    return true;
   }
-
+  
   @Override
   default boolean remove(Object o)
   {
-    throw new UnsupportedOperationException("Not supported");
+    int i = this.indexOf(o);
+    if (i==-1)
+      return false;
+    SEQUENCE_STATIC.delItem(o, i);
+    return true;
   }
 
   @Override
@@ -327,16 +333,22 @@ public interface PySequence<E> extends PyCollection<E>, List<E>, RandomAccess
   @Override
   default boolean addAll(Collection<? extends E> c)
   {
-    throw new UnsupportedOperationException("Not supported");
+    SEQUENCE_STATIC.assignConcat(this, c);
+    return true;
   }
 
   @Override
   default boolean addAll(int index, Collection<? extends E> c)
   {
-    throw new UnsupportedOperationException("Not supported");
+    if (c.isEmpty())
+      return false;
+    int size = this.size();
+    SEQUENCE_STATIC.setSlice(this, size, size, new PyTuple(c));
+    return true;
   }
 
   @Override
+  @SuppressWarnings("element-type-mismatch")
   default boolean removeAll(Collection<?> c)
   {
     throw new UnsupportedOperationException("Not supported");
@@ -351,43 +363,47 @@ public interface PySequence<E> extends PyCollection<E>, List<E>, RandomAccess
   @Override
   default void clear()
   {
-    throw new UnsupportedOperationException("Not supported");
+    SEQUENCE_STATIC.delSlice(this, 0, this.size());
   }
 
   @Override
   default void add(int index, E element)
   {
-    throw new UnsupportedOperationException("Not supported");
+    SEQUENCE_STATIC.setSlice(this, index, index, PyTuple.of(element));
   }
 
   @Override
   default E remove(int index)
   {
-    throw new UnsupportedOperationException("Not supported");
+    Object out = SEQUENCE_STATIC.get(this, index);
+    SEQUENCE_STATIC.delItem(this, index);
+    return (E) out;
   }
 
   @Override
   default int lastIndexOf(Object o)
   {
-    throw new UnsupportedOperationException("Not supported");
+    return SEQUENCE_STATIC.indexOf(this, o);
   }
 
   @Override
   default ListIterator<E> listIterator()
   {
-    throw new UnsupportedOperationException("Not supported");
+    return new PySequenceListIterator<>(this, 0);
   }
 
   @Override
   default ListIterator<E> listIterator(int index)
   {
-    throw new UnsupportedOperationException("Not supported");
+    return new PySequenceListIterator<>(this, index);
   }
 
   @Override
   default List<E> subList(int fromIndex, int toIndex)
   {
-    throw new UnsupportedOperationException("Not supported");
+    // It is not clear if this will actually work because the slice may
+    // be a view or copy.  We may have to reimplement in Java. 
+    return (PySequence<E>) SEQUENCE_STATIC.getSlice(this, fromIndex, toIndex);
   }
 
 }

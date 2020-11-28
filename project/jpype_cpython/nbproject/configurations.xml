@@ -275,6 +275,12 @@
       <compileType>
         <cTool>
           <developmentMode>5</developmentMode>
+          <incDir>
+            <pElem>../../native/jni_include</pElem>
+            <pElem>../../native/python/include</pElem>
+            <pElem>../../native/common/include</pElem>
+            <pElem>../../native/embedded/include</pElem>
+          </incDir>
         </cTool>
         <ccTool>
           <developmentMode>5</developmentMode>

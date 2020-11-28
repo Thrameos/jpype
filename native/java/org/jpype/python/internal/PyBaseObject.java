@@ -46,5 +46,16 @@ public class PyBaseObject implements PyObject
   {
     return new PyBaseObject(ALLOCATOR, inst);
   }
+  
+  /** 
+   * Get the internal pointer to PyObject.
+   * 
+   * @param o
+   * @return 
+   */
+  public static long _getSelf(PyBaseObject o)
+  {
+    return o._self;
+  }
 
 }
