@@ -33,7 +33,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeNone
 (JNIEnv *env, jclass invoker, jlong entry, jint flags)
 {
 	EJP_TRACE_JAVA_IN("invoke::none");
-	if (flags&~1 != 0)
+	if ((flags&~1) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -49,7 +49,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeFromInt
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jint i)
 {
 	EJP_TRACE_JAVA_IN("invoke::fromInt");
-	if (flags&~1 != 0)
+	if ((flags&~1) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -65,7 +65,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeFromLong
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jlong i)
 {
 	EJP_TRACE_JAVA_IN("invoke::fromLong");
-	if (flags&~1 != 0)
+	if ((flags&~1) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -81,7 +81,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeFromDouble
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jdouble i)
 {
 	EJP_TRACE_JAVA_IN("invoke::fromDouble");
-	if (flags&~1 != 0)
+	if ((flags&~1) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -97,7 +97,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeFromJObject
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject i)
 {
 	EJP_TRACE_JAVA_IN("invoke::fromJObject");
-	if (flags&~1 != 0)
+	if ((flags&~1) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -118,7 +118,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeUnary
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1)
 {
 	EJP_TRACE_JAVA_IN("invoke::unary");
-	if (flags&~1 != 0)
+	if ((flags&~1) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -255,7 +255,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeBinary
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jobject jparam2)
 {
 	EJP_TRACE_JAVA_IN("invoke::binary");
-	if (flags&~1 != 0)
+	if ((flags&~1) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -278,7 +278,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeBinaryInt
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jint jparam2)
 {
 	EJP_TRACE_JAVA_IN("invoke::binaryInt");
-	if (flags&~1 != 0)
+	if ((flags&~1) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -350,7 +350,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeTernary
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jobject jparam2, jobject jparam3)
 {
 	EJP_TRACE_JAVA_IN("invoke::ternary");
-	if (flags&~1 != 0)
+	if ((flags&~1) != 0)
 	{
 		NotImplemented(frame);
 		return 0;

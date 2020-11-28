@@ -451,7 +451,6 @@ void EJP_RegisterCalls(JPJavaFrame &frame)
 	REGISTER_CALL("PyTuple_Size", PyTuple_Size); // PyInvocation.AsInt
 	REGISTER_CALL("PyType_Name", PyType_Name); // PyInvocation.Unary
 	REGISTER_CALL("PyUnicode_FromOrdinal", PyUnicode_FromOrdinal); // PyInvocation.FromInt
-	REGISTER_CALL("PyModule_GetDefR", PyModule_GetDefR);
 	
 	// Register with Java
 	jclass PyTypeBuilder = frame.getContext()->getClassLoader()->findClass(frame, "org.jpype.python.PyTypeBuilder");
