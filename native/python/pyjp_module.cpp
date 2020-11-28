@@ -669,6 +669,19 @@ static PyObject *PyJPModule_bootstrap(PyObject *module)
 }
 #endif
 
+PyObject* test()
+{
+	PyObject *builtins = PyImport_AddModule("builtins");
+	PyModuleDef *moduleDef = PyModule_GetDef(builtins);
+	PyMethodDef *methods = moduleDef->m_methods;
+	while (methods->ml_name != NULL)
+	{
+		printf("%s\n", methods->ml_name);
+		methods++;
+	}
+	Py_RETURN_NONE;
+}
+
 static PyMethodDef moduleMethods[] = {
 	// Startup and initialization
 	{"isStarted", (PyCFunction) PyJPModule_isStarted, METH_NOARGS, ""},
@@ -705,6 +718,8 @@ static PyMethodDef moduleMethods[] = {
 #ifdef JP_INSTRUMENTATION
 	{"fault", (PyCFunction) PyJPModule_fault, METH_O, ""},
 #endif
+	
+	{"test", (PyCFunction) test, METH_O, ""},
 
 	// sentinel
 	{NULL}

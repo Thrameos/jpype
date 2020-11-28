@@ -294,6 +294,7 @@ void EJP_RegisterCalls(JPJavaFrame &frame)
 	jobject ret;
 	jvalue v[2];
 
+	// Register the FFI entry points that are required
 	REGISTER_CALL("PyByteArray_FromObject", PyByteArray_FromObject); // PyInvocation.Unary
 	REGISTER_CALL("PyBytes_FromStringAndSizeE", PyBytes_FromStringAndSizeE); // PyInvocation.FromJObject
 	REGISTER_CALL("PyCallable_Check", PyCallable_Check); // PyInvocation.AsInt
@@ -450,7 +451,8 @@ void EJP_RegisterCalls(JPJavaFrame &frame)
 	REGISTER_CALL("PyTuple_Size", PyTuple_Size); // PyInvocation.AsInt
 	REGISTER_CALL("PyType_Name", PyType_Name); // PyInvocation.Unary
 	REGISTER_CALL("PyUnicode_FromOrdinal", PyUnicode_FromOrdinal); // PyInvocation.FromInt
-
+	REGISTER_CALL("PyModule_GetDefR", PyModule_GetDefR);
+	
 	// Register with Java
 	jclass PyTypeBuilder = frame.getContext()->getClassLoader()->findClass(frame, "org.jpype.python.PyTypeBuilder");
 	jmethodID addMethods = frame.GetStaticMethodID(PyTypeBuilder, "addMethods", "(Ljava/util/Map;)V");

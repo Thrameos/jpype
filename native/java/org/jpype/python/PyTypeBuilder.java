@@ -92,7 +92,7 @@ class PyTypeBuilder
     byte[] out = generateClass(name, concrete, internal, interfaces, methods, entries);
 
     // Write the class to disk for inspection with javap -c
-    try (OutputStream os = Files.newOutputStream(Paths.get(name + ".class")))
+    try ( OutputStream os = Files.newOutputStream(Paths.get(name + ".class")))
     {
       os.write(out);
     } catch (IOException ex)
@@ -228,10 +228,7 @@ class PyTypeBuilder
     mv.visitLdcInsn(entry);
 
     // If there are special flags they go next
-    int flags = 0;
-    if (info.accept())
-      flags |= 1;
-    mv.visitLdcInsn(flags);
+    mv.visitLdcInsn(info.flags());
 
     // Pass the parameters
     Class[] params = imethod.getParameterTypes();
@@ -352,7 +349,7 @@ class PyTypeBuilder
 
   void copyClass(ClassSpecification target, Class source)
   {
-    try (InputStream is = source.getClassLoader().getResourceAsStream(Type.getInternalName(source) + ".class"))
+    try ( InputStream is = source.getClassLoader().getResourceAsStream(Type.getInternalName(source) + ".class"))
     {
       ClassReader cr = new ClassReader(is);
       ClassCopy cc = new ClassCopy(target, source, source.getSuperclass());

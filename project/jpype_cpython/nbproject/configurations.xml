@@ -226,6 +226,7 @@
         <itemPath>../../native/embedded/ejp_ctor.cpp</itemPath>
         <itemPath>../../native/embedded/ejp_engine.cpp</itemPath>
         <itemPath>../../native/embedded/ejp_invoker.cpp</itemPath>
+        <itemPath>../../native/common/ejp_module.cpp</itemPath>
         <itemPath>../../native/embedded/ejp_typemanager.cpp</itemPath>
       </logicalFolder>
       <logicalFolder name="python" displayName="python" projectFiles="true">
@@ -349,6 +350,8 @@
       <item path="../../jpype/protocol.py" ex="false" tool="3" flavor2="0">
       </item>
       <item path="../../jpype/types.py" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="../../native/common/ejp_module.cpp" ex="false" tool="1" flavor2="0">
       </item>
       <item path="../../native/common/include/jp_array.h"
             ex="false"

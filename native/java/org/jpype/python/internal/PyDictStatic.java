@@ -22,11 +22,11 @@ public interface PyDictStatic
   public void setItem(Object self, Object key, Object value);
 
   @PyMethodInfo(name = "PyDict_GetItemB", invoke = PyInvocation.Binary,
-          method = false, accept = true)
+          method = false, flags = PyMethodInfo.ACCEPT)
   Object getItem(Object self, Object key);
 
   @PyMethodInfo(name = "PyDict_GetItemStringB", invoke = PyInvocation.GetStr,
-          method = false, accept = true)
+          method = false, flags = PyMethodInfo.ACCEPT)
   Object getItemString(Object self, String key);
 
   @PyMethodInfo(name = "PyDict_DelItem", invoke = PyInvocation.BinaryToInt, method = false)

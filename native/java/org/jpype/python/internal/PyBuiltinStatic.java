@@ -9,6 +9,7 @@ import python.lang.PyDict;
 import python.lang.PyLong;
 import python.lang.PyMemoryView;
 import python.lang.PyMethod;
+import python.lang.PyModule;
 import python.lang.PyObject;
 import python.lang.PySet;
 import python.lang.PySlice;

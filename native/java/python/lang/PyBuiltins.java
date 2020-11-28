@@ -23,7 +23,7 @@ public class PyBuiltins
   public static PyNone None = null;
 
 //<editor-fold desc="attr" defaultstate="collapsed">
-  static boolean hasattr(Object o, CharSequence attr)
+  public static boolean hasattr(Object o, CharSequence attr)
   {
     if (attr == null)
       return false;
@@ -32,7 +32,7 @@ public class PyBuiltins
     return BUILTIN_STATIC.hasAttrString(o, attr.toString());
   }
 
-  static void delattr(Object o, CharSequence attr)
+  public static void delattr(Object o, CharSequence attr)
   {
     if (attr == null)
       return;
@@ -41,7 +41,7 @@ public class PyBuiltins
     BUILTIN_STATIC.delAttrString(o, attr.toString());
   }
 
-  static Object getattr(Object o, CharSequence attr)
+  public static Object getattr(Object o, CharSequence attr)
   {
     if (attr == null)
       return null;
@@ -50,8 +50,10 @@ public class PyBuiltins
     return BUILTIN_STATIC.getAttrString(o, attr.toString());
   }
 
-  static void setattr(Object o, CharSequence attr, Object value)
+  public static void setattr(Object o, CharSequence attr, Object value)
   {
+    if (attr == null)
+      throw new NullPointerException("attr may not be null");
     if (attr instanceof PyString)
       BUILTIN_STATIC.setAttrObject(o, (String) attr, value);
     BUILTIN_STATIC.setAttrString(o, attr.toString(), value);
@@ -177,11 +179,6 @@ public class PyBuiltins
     throw new UnsupportedOperationException();
   }
 
-//
-//static boolean min()
-//{
-//  throw new UnsupportedOperationException();
-//}
   public static Object divmod(Object a, Object b)
   {
     return BUILTIN_STATIC.divmod(a, b);

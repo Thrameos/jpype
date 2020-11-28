@@ -12,6 +12,8 @@ import org.jpype.python.enums.PyInvocation;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface PyMethodInfo
 {
+  
+  public static final int ACCEPT = 1;
 
   /**
    * Name of the Python method.
@@ -46,5 +48,5 @@ public @interface PyMethodInfo
    *
    * @return
    */
-  boolean accept() default false;
+  int flags() default 0;
 }
