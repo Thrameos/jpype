@@ -581,6 +581,24 @@ static PyObject* PyJPModule_getJavaType(PyObject *module, PyTypeObject *type)
 	JP_PY_CATCH(NULL);
 }
 
+static PyObject* PyJPModule_toJavaHandle(PyObject *module, PyTypeObject *type)
+{
+	JP_PY_TRY("getJavaType");
+	if (EJP_HasPyType(type))
+		Py_RETURN_NONE;
+
+	if (!PyType_Check((PyObject*) type))
+	{
+		PyErr_SetString(PyExc_TypeError, "Bad type");
+		return NULL;
+	}
+
+	JPContext *context = PyJPModule_getContext();
+	JPJavaFrame frame = JPJavaFrame::outer(context);
+	EJP_GetClass(frame, type);
+	Py_RETURN_NONE;
+	JP_PY_CATCH(NULL);
+}
 
 // GCOVR_EXCL_START
 
@@ -713,7 +731,10 @@ static PyMethodDef moduleMethods[] = {
 	{"arrayFromBuffer", (PyCFunction) PyJPModule_arrayFromBuffer, METH_VARARGS, ""},
 	{"enableStacktraces", (PyCFunction) PyJPModule_enableStacktraces, METH_O, ""},
 	{"isPackage", (PyCFunction) PyJPModule_isPackage, METH_O, ""},
+	
 	{"getJavaType", (PyCFunction) PyJPModule_getJavaType, METH_O, ""},
+	{"toJavaHandle", (PyCFunction) PyJPModule_toJavaHandle, METH_O, ""},
+	
 	{"trace", (PyCFunction) PyJPModule_trace, METH_O, ""},
 #ifdef JP_INSTRUMENTATION
 	{"fault", (PyCFunction) PyJPModule_fault, METH_O, ""},

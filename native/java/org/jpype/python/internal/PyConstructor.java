@@ -9,7 +9,6 @@ public class PyConstructor
   public static PyConstructor ALLOCATOR = new PyConstructor(true);
   public static PyConstructor CONSTRUCTOR = new PyConstructor(false);
 
-//  static JPypeContext context = JPypeContext.getInstance();
   static long cleanup = 0;
   private final boolean shouldReference;
 
@@ -25,18 +24,18 @@ public class PyConstructor
    * This command is dangerous because it will increment the memory pointed to
    * by the long.
    *
-   * @param o
-   * @param l
+   * @param javaObject
+   * @param pyObject
    */
-  public void link(Object o, long l)
+  public void link(Object javaObject, long pyObject)
   {
-    if (l == 0)
+    if (pyObject == 0)
       return;
     if (shouldReference)
-      incref(l);
+      incref(pyObject);
     if (cleanup == 0)
       cleanup = init();
-    referenceQueue.registerRef(o, l, cleanup);
+    referenceQueue.registerRef(javaObject, pyObject, cleanup);
   }
 
   /**
