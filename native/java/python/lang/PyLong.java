@@ -63,6 +63,10 @@ public class PyLong extends Number implements PyNumber, PyObject
   @Override
   public boolean equals(Object obj)
   {
+    if (!(obj instanceof PyObject))
+    {
+      return false;
+    }
     if (this == obj)
       return true;
     return PyBuiltins.eq(this, obj);

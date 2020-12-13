@@ -1,13 +1,11 @@
 package python.lang;
 
 import java.util.Collection;
-import org.jpype.JPypeContext;
 import python.lang.protocol.PySequence;
 import org.jpype.python.PyTypeManager;
 import org.jpype.python.annotation.PyTypeInfo;
 import org.jpype.python.internal.PyBaseObject;
 import org.jpype.python.internal.PyConstructor;
-import static org.jpype.python.internal.PyConstructor.CONSTRUCTOR;
 import org.jpype.python.internal.PyTupleStatic;
 import python.lang.exc.PyException;
 import python.lang.exc.PyIndexError;

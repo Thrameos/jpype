@@ -6,5 +6,5 @@ import python.lang.PyObject;
 @PyTypeInfo(name = "protocol.buffer", exact = true)
 public interface PyBuffer extends PyObject
 {
-
+  // FIXME allow conversion to direct byte buffer
 }

@@ -33,9 +33,9 @@ JNIEXPORT jlong JNICALL Java_org_jpype_python_internal_PyModuleDef__1find
 {
 	EJP_TRACE_JAVA_IN("moduleDef::find");
 	JPPyObject param1 = EJP_ToPython(frame, pymodule);
-	struct PyModuleDef* def = PyModule_GetDef();
-	return (jlong) def;
-	EJP_TRACE_JAVA_OUT(NULL);	
+	struct PyModuleDef* def = PyModule_GetDef(param1.get()); 
+	return (jlong) def;  // This is a reference, so no need to worry
+	EJP_TRACE_JAVA_OUT(0);
 }
 
 /*
@@ -66,37 +66,37 @@ JNIEXPORT jobjectArray JNICALL Java_org_jpype_python_internal_PyModuleDef__1getM
 	struct PyModuleDef* def = (struct PyModuleDef*) jdef;
 	
 	// Count the number of methods
-	int i = 0;
-	PyMethodDef *methods = def->m_methods;
-	while( methods->ml_name!=NULL)
+	int methodCount = 0;
+	PyMethodDef *methodDef = def->m_methods;
+	while( methodDef->ml_name!=NULL)
 	{
-		i++;
-		methods++;
+		methodCount++;
+		methodDef++;
 	}
 	
 	jobjectArray out = frame.NewObjectArray(3, 
 			context->_java_lang_Object->getJavaClass(), NULL);
-	jobjectArray names = frame.NewObjectArray(methods, 
+	jobjectArray names = frame.NewObjectArray(methodCount, 
 			context->_java_lang_Object->getJavaClass(), NULL);
-	jobjectArray ptr = frame.NewLongArray(methods);
-	jobjectArray flags = frame.NewLongArray(methods);
-	frame.SetObjectArrayElement(out, names, 0);
-	frame.SetObjectArrayElement(out, ptr, 1);
-	frame.SetObjectArrayElement(out, flags, 2);
+	jlongArray ptr = frame.NewLongArray(methodCount);
+	jlongArray flags = frame.NewLongArray(methodCount);
+	frame.SetObjectArrayElement(out, 0, names);
+	frame.SetObjectArrayElement(out, 1, ptr);
+	frame.SetObjectArrayElement(out, 2, flags);
 	jboolean copy;
 	jlong* p1 = frame.GetLongArrayElements(ptr, &copy);
 	jlong* p2 = frame.GetLongArrayElements(flags, &copy);
 	
-	i = 0;
-	methods = def->m_methods;
-	while( methods->ml_name!=NULL)
+	methodCount = 0;
+	methodDef = def->m_methods;
+	while( methodDef->ml_name!=NULL)
 	{
-		jstring name = frame.fromStringUTF8(methods->ml_name);
-		frame.SetObjectArrayElement(names, i, name);
-		p1[i] = (jlong) (methods->ml_meth);
-		p2[2] = methods->ml_flags;
-		i++;
-		methods++;
+		jstring name = frame.fromStringUTF8(methodDef->ml_name);
+		frame.SetObjectArrayElement(names, methodCount, name);
+		p1[methodCount] = (jlong) (methodDef->ml_meth);
+		p2[2] = methodDef->ml_flags;
+		methodCount++;
+		methodDef++;
 		frame.DeleteLocalRef(name);
 	}
 	frame.ReleaseLongArrayElements(ptr, p1, JNI_COMMIT);

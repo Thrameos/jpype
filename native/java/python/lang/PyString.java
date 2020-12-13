@@ -68,7 +68,7 @@ public class PyString extends PyBaseObject implements CharSequence, PySequence<O
    * @param s
    * @return
    */
-  private static final long _fromType(CharSequence s)
+  private static long _fromType(CharSequence s)
   {
     if (s == null)
       throw new NullPointerException("PyString instances may not null");

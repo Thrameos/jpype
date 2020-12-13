@@ -49,7 +49,7 @@ public class PyKeywords
    */
   public static PyKeywords use(PyDict dict)
   {
-    return new PyKeywords(dict); // FIXME should this clone
+    return new PyKeywords(dict);
   }
 
   /**

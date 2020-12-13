@@ -522,7 +522,6 @@ public class PyBuiltins
 //    throw new UnsupportedOperationException();
 //  }
 //
-//
 //  static Object input()
 //  {
 //    throw new UnsupportedOperationException();
