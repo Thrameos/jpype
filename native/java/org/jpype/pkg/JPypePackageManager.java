@@ -149,6 +149,7 @@ public class JPypePackageManager
    */
   static
   {
+    System.out.println("Package manager init");
     env.put("create", "true");
 
     ClassLoader cl = ClassLoader.getSystemClassLoader();

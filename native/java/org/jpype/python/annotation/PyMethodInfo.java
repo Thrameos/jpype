@@ -14,6 +14,7 @@ public @interface PyMethodInfo
 {
   
   public static final int ACCEPT = 1;
+  public static final int BORROWED = 2;
 
   /**
    * Name of the Python method.

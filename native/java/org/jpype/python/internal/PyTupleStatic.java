@@ -17,13 +17,20 @@ import python.lang.exc.PyIndexError;
 public interface PyTupleStatic
 {
 
-  @PyMethodInfo(name = "PyTuple_Size", invoke = PyInvocation.AsInt, method = false)
+  @PyMethodInfo(name = "PyTuple_Size", 
+          invoke = PyInvocation.AsInt, 
+          method = false)
   int size(Object self);
 
-  @PyMethodInfo(name = "PyTuple_GetItemB", invoke = PyInvocation.BinaryInt, method = false)
+  @PyMethodInfo(name = "PyTuple_GetItem", 
+          invoke = PyInvocation.BinaryInt, 
+          method = false, 
+          flags = PyMethodInfo.BORROWED)
   Object get(Object self, int i) throws PyIndexError;
 
-  @PyMethodInfo(name = "PyTuple_GetSlice", invoke = PyInvocation.GetSlice, method = false)
+  @PyMethodInfo(name = "PyTuple_GetSlice", 
+          invoke = PyInvocation.GetSlice, 
+          method = false)
   Object getSlice(Object self, int i1, int i2) throws PyException;
 
 }

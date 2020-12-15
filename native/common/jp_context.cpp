@@ -277,10 +277,6 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 	JPPyObject jpype = JPPyObject::call(PyObject_CallMethod(import.get(), "find_spec", "s", "_jpype"));
 	JPPyObject origin = JPPyObject::call(PyObject_GetAttrString(jpype.get(), "origin"));
 
-	// This needs to happen early in the process as we need all hooks registered
-	// before Java can create the first Python wrapper class.
-	EJP_RegisterCalls(frame);
-
 	// Launch
 	jvalue val[4];
 	val[0].j = (jlong) this;

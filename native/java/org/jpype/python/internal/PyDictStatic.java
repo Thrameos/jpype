@@ -21,12 +21,12 @@ public interface PyDictStatic
   @PyMethodInfo(name = "PyDict_SetItem", invoke = PyInvocation.SetObj, method = false)
   public void setItem(Object self, Object key, Object value);
 
-  @PyMethodInfo(name = "PyDict_GetItemB", invoke = PyInvocation.Binary,
-          method = false, flags = PyMethodInfo.ACCEPT)
+  @PyMethodInfo(name = "PyDict_GetItem", invoke = PyInvocation.Binary,
+          method = false, flags = PyMethodInfo.ACCEPT|PyMethodInfo.BORROWED)
   Object getItem(Object self, Object key);
 
-  @PyMethodInfo(name = "PyDict_GetItemStringB", invoke = PyInvocation.GetStr,
-          method = false, flags = PyMethodInfo.ACCEPT)
+  @PyMethodInfo(name = "PyDict_GetItemString", invoke = PyInvocation.GetStr,
+          method = false, flags = PyMethodInfo.ACCEPT|PyMethodInfo.BORROWED)
   Object getItemString(Object self, String key);
 
   @PyMethodInfo(name = "PyDict_DelItem", invoke = PyInvocation.BinaryToInt, method = false)
@@ -47,7 +47,7 @@ public interface PyDictStatic
   @PyMethodInfo(name = "PyDict_Copy", invoke = PyInvocation.Unary, method = false)
   PyDict clone(Object self);
 
-  @PyMethodInfo(name = "PyDict_GetItemWithErrorB", invoke = PyInvocation.Binary, method = false)
+  @PyMethodInfo(name = "PyDict_GetItemWithError", invoke = PyInvocation.Binary, method = false, flags = PyMethodInfo.BORROWED)
   Object getItemWithError(Object self, Object key) throws PyException;
 
   @PyMethodInfo(name = "PyDict_SetDefault", invoke = PyInvocation.Ternary, method = false)

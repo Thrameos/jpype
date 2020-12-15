@@ -26,7 +26,7 @@ public interface PyMethod extends PyObject
    *
    * @return
    */
-  @PyMethodInfo(name = "PyMethod_FunctionB", invoke = PyInvocation.Unary, method = true)
+  @PyMethodInfo(name = "PyMethod_Function", invoke = PyInvocation.Unary, method = true,  flags = PyMethodInfo.BORROWED)
   Object getFunction();
 
   /**
@@ -34,7 +34,7 @@ public interface PyMethod extends PyObject
    *
    * @return
    */
-  @PyMethodInfo(name = "PyMethod_SelfB", invoke = PyInvocation.Unary, method = true)
+  @PyMethodInfo(name = "PyMethod_Self", invoke = PyInvocation.Unary, method = true, flags = PyMethodInfo.BORROWED)
   Object getSelf();
 
 }

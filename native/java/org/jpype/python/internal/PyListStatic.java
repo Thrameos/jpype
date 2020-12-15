@@ -9,7 +9,7 @@ import python.lang.exc.PyIndexError;
 public interface PyListStatic
 {
 
-  @PyMethodInfo(name = "PyList_GetItemB", invoke = PyInvocation.BinaryInt, method = false)
+  @PyMethodInfo(name = "PyList_GetItem", invoke = PyInvocation.BinaryInt, method = false, flags = PyMethodInfo.BORROWED)
   Object getItem(Object o, int index) throws PyIndexError;
 
   @PyMethodInfo(name = "PyList_SetItemS", invoke = PyInvocation.SetInt, method = false)

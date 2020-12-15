@@ -3,6 +3,7 @@ package python.lang;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.file.Paths;
 import static python.lang.PyBuiltins.*;
 
 /**
@@ -17,6 +18,9 @@ public class PyEngine
 {
 
   static PyEngine INSTANCE = null;
+  static String pythonExec = "python";
+  static String jpypeLib = null;
+  static String pythonLibrary = null;
 
   public static PyEngine getInstance()
   {
@@ -35,9 +39,22 @@ public class PyEngine
     {
       throw new RuntimeException("Unable to find _jpype module");
     }
+    System.load(pythonLibrary);
     System.load(library);
+    this.addLibrary(pythonLibrary);
+    this.addLibrary(library);
     System.out.println("=============");
-    start_();
+    //start_();
+    System.out.println("1");
+    System.out.println("2");
+    System.out.println(this.getSymbol("PyDict_GetItem"));
+    System.out.println(this.getSymbol("PyDict_GetItem"));
+    System.out.println(this.getSymbol("PyDict_GetItem"));
+    System.out.println(this.getSymbol("PyDict_GetItem"));
+    System.out.println(this.getSymbol("PyDict_GetItem"));
+    System.out.println(this.getSymbol("PyDict_GetItem"));
+    System.out.println(this.getSymbol("PyDict_GetItem"));
+    System.out.println(this.getSymbol("PyDict_GetItemB"));
     System.out.println("=============");
   }
 
@@ -63,9 +80,11 @@ public class PyEngine
    */
   public static String getLibrary()
   {
+    if (jpypeLib != null)
+      return jpypeLib;
     try
     {
-      String python = System.getProperty("python", "python");
+      String python = System.getProperty("python", pythonExec);
       String[] cmd =
       {
         python, "-c",
@@ -104,6 +123,29 @@ public class PyEngine
     }
   }
 
-  native void start_();
+  public void setProperty(String key, Object value)
+  {
+    if (key.equals("python.exec"))
+    {
+      pythonExec = (String) value;
+      return;
+    }
+    if (key.equals("python.lib"))
+    {
+      pythonLibrary = Paths.get((String) value).toAbsolutePath().toString();
+      return;
+    }
+    if (key.equals("jpype.lib"))
+    {
+      jpypeLib = Paths.get((String) value).toAbsolutePath().toString();
+      return;
+    }
+    throw new UnsupportedOperationException("Unknown property " + key);
+  }
 
+  native void start_();
+  
+  public native long getSymbol(String str);
+
+  public native void addLibrary(String str);
 }

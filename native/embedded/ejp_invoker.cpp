@@ -29,11 +29,14 @@ void NotImplemented(JPJavaFrame& frame)
 	frame.ThrowNew(frame.getContext()->m_RuntimeException.get(), "Flag not implemented");
 }
 
+#define FLAGS_ACCEPT 1
+#define FLAGS_BORROWED 2
+
 JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeNone
 (JNIEnv *env, jclass invoker, jlong entry, jint flags)
 {
 	EJP_TRACE_JAVA_IN("invoke::none");
-	if ((flags&~1) != 0)
+	if ((flags&~(FLAGS_ACCEPT|FLAGS_BORROWED)) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -49,7 +52,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeFromInt
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jint i)
 {
 	EJP_TRACE_JAVA_IN("invoke::fromInt");
-	if ((flags&~1) != 0)
+	if ((flags&~(FLAGS_ACCEPT|FLAGS_BORROWED)) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -65,7 +68,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeFromLong
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jlong i)
 {
 	EJP_TRACE_JAVA_IN("invoke::fromLong");
-	if ((flags&~1) != 0)
+	if ((flags&~(FLAGS_ACCEPT|FLAGS_BORROWED)) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -81,7 +84,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeFromDouble
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jdouble i)
 {
 	EJP_TRACE_JAVA_IN("invoke::fromDouble");
-	if ((flags&~1) != 0)
+	if ((flags&~(FLAGS_ACCEPT|FLAGS_BORROWED)) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -97,7 +100,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeFromJObject
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject i)
 {
 	EJP_TRACE_JAVA_IN("invoke::fromJObject");
-	if ((flags&~1) != 0)
+	if ((flags&~(FLAGS_ACCEPT|FLAGS_BORROWED)) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -118,7 +121,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeUnary
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1)
 {
 	EJP_TRACE_JAVA_IN("invoke::unary");
-	if ((flags&~1) != 0)
+	if ((flags&~(FLAGS_ACCEPT|FLAGS_BORROWED)) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -255,7 +258,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeBinary
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jobject jparam2)
 {
 	EJP_TRACE_JAVA_IN("invoke::binary");
-	if ((flags&~1) != 0)
+	if ((flags&~(FLAGS_ACCEPT|FLAGS_BORROWED)) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -278,7 +281,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeBinaryInt
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jint jparam2)
 {
 	EJP_TRACE_JAVA_IN("invoke::binaryInt");
-	if ((flags&~1) != 0)
+	if ((flags&~(FLAGS_ACCEPT|FLAGS_BORROWED)) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -350,7 +353,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeTernary
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jobject jparam2, jobject jparam3)
 {
 	EJP_TRACE_JAVA_IN("invoke::ternary");
-	if ((flags&~1) != 0)
+	if ((flags&~(FLAGS_ACCEPT|FLAGS_BORROWED)) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -399,7 +402,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeGetSlice
 {
 	EJP_TRACE_JAVA_IN("invoke::binary");
 	typedef PyObject * (*func)(PyObject*, Py_ssize_t, Py_ssize_t);
-	if (flags != 0)
+	if ((flags&~(FLAGS_ACCEPT|FLAGS_BORROWED)) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -471,7 +474,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeGetStr
 {
 	EJP_TRACE_JAVA_IN("invoke::getStr");
 	typedef PyObject * (*func)(PyObject*, const char*);
-	if (flags != 0)
+	if ((flags&~(FLAGS_ACCEPT|FLAGS_BORROWED)) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -572,7 +575,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeSetIntToObj
 {
 	EJP_TRACE_JAVA_IN("invoke::ternary");
 	typedef PyObject * (*func)(PyObject*, jint, PyObject*);
-	if (flags != 0)
+	if ((flags&~(FLAGS_ACCEPT|FLAGS_BORROWED)) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
@@ -644,13 +647,16 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeArray
 {
 	EJP_TRACE_JAVA_IN("invoke::unary");
 	typedef PyObject * (*func)(jobjectArray a);
-	if (flags != 0)
+	if ((flags&~2) != 0)
 	{
 		NotImplemented(frame);
 		return 0;
 	}
 	func f = (func) entry;
-	JPPyObject out = JPPyObject::accept(f(jparam1));
+	PyObject *ret = f(jparam1);
+	if (flags&2)
+		Py_XINCREF(ret);
+	JPPyObject out = JPPyObject::accept(ret);
 	return EJP_ToJava(frame, out.get(), flags);
 	EJP_TRACE_JAVA_OUT(NULL);
 }

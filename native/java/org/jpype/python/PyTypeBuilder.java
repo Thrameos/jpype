@@ -26,6 +26,7 @@ import org.jpype.python.enums.PyInvocation;
 import org.jpype.python.internal.PyBaseObject;
 import org.jpype.python.internal.PyBaseExtension;
 import org.jpype.python.internal.PyBaseStatic;
+import python.lang.PyEngine;
 
 /**
  * Builder to create dynamic classes for use with Python.
@@ -36,7 +37,6 @@ import org.jpype.python.internal.PyBaseStatic;
 class PyTypeBuilder
 {
 
-  static Map<String, Long> entityCache = new HashMap<>();
   String invoker = Type.getInternalName(PyInvoker.class);
 
   public byte[] newClass(String name, Class concrete, Class... interfaces)
@@ -132,17 +132,12 @@ class PyTypeBuilder
 
   static public long getMethod(String signature) throws NoSuchMethodException
   {
-    Long l = entityCache.get(signature);
+    Long l = PyEngine.getInstance().getSymbol(signature);
     if (l == null)
     {
       throw new NoSuchMethodException(signature);
     }
     return l;
-  }
-
-  static public void addMethods(Map<String, Long> methods)
-  {
-    entityCache.putAll(methods);
   }
 
 //<editor-fold desc="asm" defaultstate="collapsed">

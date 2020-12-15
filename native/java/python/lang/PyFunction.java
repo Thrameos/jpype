@@ -15,7 +15,7 @@ public interface PyFunction extends PyObject
    *
    * @return
    */
-  @PyMethodInfo(name = "PyFunction_GetCodeB", invoke = PyInvocation.Unary, method = true)
+  @PyMethodInfo(name = "PyFunction_GetCode", invoke = PyInvocation.Unary, method = true, flags = PyMethodInfo.BORROWED)
   Object getCode();
 
   /**
@@ -23,7 +23,7 @@ public interface PyFunction extends PyObject
    *
    * @return
    */
-  @PyMethodInfo(name = "PyFunction_GetGlobalsB", invoke = PyInvocation.Unary, method = true)
+  @PyMethodInfo(name = "PyFunction_GetGlobals", invoke = PyInvocation.Unary, method = true, flags = PyMethodInfo.BORROWED)
   Object getGlobals();
 
   /**
@@ -34,7 +34,7 @@ public interface PyFunction extends PyObject
    *
    * @return
    */
-  @PyMethodInfo(name = "PyFunction_GetModuleB", invoke = PyInvocation.Unary, method = true)
+  @PyMethodInfo(name = "PyFunction_GetModule", invoke = PyInvocation.Unary, method = true, flags = PyMethodInfo.BORROWED)
   Object getModule();
 
   /**
@@ -44,7 +44,7 @@ public interface PyFunction extends PyObject
    *
    * @return
    */
-  @PyMethodInfo(name = "PyFunction_GetDefaultsB", invoke = PyInvocation.Unary, method = true)
+  @PyMethodInfo(name = "PyFunction_GetDefaults", invoke = PyInvocation.Unary, method = true, flags = PyMethodInfo.BORROWED)
   Object getDefaults();
 
   /**
@@ -53,7 +53,7 @@ public interface PyFunction extends PyObject
    * @param defaults must be Py_None or a tuple.
    * @throws PySystemError on failure.
    */
-  @PyMethodInfo(name = "PyFunction_GetClosureB", invoke = PyInvocation.BinaryToInt, method = true)
+  @PyMethodInfo(name = "PyFunction_SetDefaults", invoke = PyInvocation.BinaryToInt, method = true)
   void setDefaults(Object defaults) throws PySystemError;
 
   /**
@@ -61,7 +61,7 @@ public interface PyFunction extends PyObject
    * <p>
    * @return null or a tuple of cell objects.
    */
-  @PyMethodInfo(name = "PyFunction_GetClosureB", invoke = PyInvocation.Unary, method = true)
+  @PyMethodInfo(name = "PyFunction_GetClosure", invoke = PyInvocation.Unary, method = true, flags = PyMethodInfo.BORROWED)
   Object getClosure();
 
   /**
@@ -80,7 +80,7 @@ public interface PyFunction extends PyObject
    *
    * @return
    */
-  @PyMethodInfo(name = "PyFunction_GetAnnotationsB", invoke = PyInvocation.Unary, method = true)
+  @PyMethodInfo(name = "PyFunction_GetAnnotations", invoke = PyInvocation.Unary, method = true, flags = PyMethodInfo.BORROWED)
   Object getAnnotations();
 
   /**

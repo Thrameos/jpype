@@ -23,10 +23,10 @@ public interface PyMappingStatic
   @PyMethodInfo(name = "PyMapping_GetItemString", invoke = PyInvocation.Binary, method = false)
   Object getItem(Object self, Object key);
 
-  @PyMethodInfo(name = "PyMapping_DelItemE", invoke = PyInvocation.BinaryToInt, method = false)
+  @PyMethodInfo(name = "PyObject_DelItem", invoke = PyInvocation.BinaryToInt, method = false)
   void delItem(Object self, Object key) throws PyException;
 
-  @PyMethodInfo(name = "PyMapping_DelItemStringE", invoke = PyInvocation.BinaryToInt, method = false)
+  @PyMethodInfo(name = "PyObject_DelItemString", invoke = PyInvocation.BinaryToInt, method = false)
   void delItemString(Object self, String key) throws PyException;
 
   @PyMethodInfo(name = "PyMapping_HasKey", invoke = PyInvocation.BinaryToInt, method = false)

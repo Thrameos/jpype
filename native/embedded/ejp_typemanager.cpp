@@ -202,8 +202,11 @@ EJPClass *EJP_GetClass(JPJavaFrame &frame, PyTypeObject *type)
 	// Return it to Python
 	return cls;
 }
+
 /**
  *
+ * We are getting a new reference here. 
+ * 
  * @param frame
  * @param obj
  * @return
@@ -216,18 +219,22 @@ jobject EJP_ToJava(JPJavaFrame& frame, PyObject *obj, int flags)
 			return (jobject) 0;
 		JP_RAISE_PYTHON();
 	}
+	
+	if (flags & 2)
+		Py_INCREF(obj);
 
 	JPValue *value = PyJPValue_getJavaSlot(obj);
 	if (value != NULL)
 	{
 		JPClass *cls = value->getClass();
+		jvalue v = value->getValue();
 		if (cls->isPrimitive())
 		{
 			JPBoxedType *boxed =  (JPBoxedType *) ((JPPrimitiveType*) cls)
 					->getBoxedClass(frame.getContext());
-			return boxed->box(frame, value->getValue());
+			return boxed->box(frame, v);
 		}
-		return value->getValue().l;
+		return v.l;
 	}
 
 	// Create a wrapper for Python object.

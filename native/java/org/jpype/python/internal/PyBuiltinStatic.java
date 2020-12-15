@@ -207,13 +207,13 @@ public interface PyBuiltinStatic
   @PyMethodInfo(name = "PyCallable_Check", invoke = PyInvocation.AsInt, method = false)
   boolean callable(Object o);
 
-  @PyMethodInfo(name = "PyEval_GetLocalsB", invoke = PyInvocation.NoArgs, method = false)
+  @PyMethodInfo(name = "PyEval_GetLocals", invoke = PyInvocation.NoArgs, method = false, flags = PyMethodInfo.BORROWED)
   PyDict locals();
 
-  @PyMethodInfo(name = "PyEval_GetGlobalsB", invoke = PyInvocation.NoArgs, method = false)
+  @PyMethodInfo(name = "PyEval_GetGlobals", invoke = PyInvocation.NoArgs, method = false, flags = PyMethodInfo.BORROWED)
   PyDict globals();
 
-  @PyMethodInfo(name = "PyEval_GetBuiltinsB", invoke = PyInvocation.NoArgs, method = false)
+  @PyMethodInfo(name = "PyEval_GetBuiltins", invoke = PyInvocation.NoArgs, method = false, flags = PyMethodInfo.BORROWED)
   PyDict builtins();
 
   @PyMethodInfo(name = "PyNumber_Power", invoke = PyInvocation.Ternary, method = false)
