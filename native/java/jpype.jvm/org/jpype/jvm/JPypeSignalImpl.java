@@ -1,3 +1,5 @@
+package org.jpype.jvm;
+
 /* ****************************************************************************
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -13,8 +15,9 @@
 
   See NOTICE file for details.
 **************************************************************************** */
-package org.jpype;
 
+
+import org.jpype.JPypeSignal;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -26,18 +29,18 @@ import java.lang.reflect.Proxy;
  * Thus the have warnings against it that cannot be disabled. So we will skin
  * this cat another way.
  */
-public class JPypeSignal
+public class JPypeSignalImpl implements JPypeSignal
 {
 
   static Thread main;
 
-  static void installHandlers()
+  @Override
+  public void installHandlers()
   {
     try
     {
       Class Signal = Class.forName("sun.misc.Signal");
       Class SignalHandler = Class.forName("sun.misc.SignalHandler");
-      main = Thread.currentThread();
       Method method = Signal.getMethod("handle", Signal, SignalHandler);
 
       Object handler = Proxy.newProxyInstance(ClassLoader.getSystemClassLoader(), new Class[]
@@ -60,7 +63,19 @@ public class JPypeSignal
       // If we don't get the signal handler run without it.  (ANDROID)
     }
   }
+  
+  @Override
+  public void interruptPy()
+  {
+    _interruptPy();
+  }
+  
+  @Override
+  public void acknowledgePy()
+  {
+    _acknowledgePy();
+  }
 
-  native static void interruptPy();
-  native static void acknowledgePy();
+  native static void _interruptPy();
+  native static void _acknowledgePy();
 }

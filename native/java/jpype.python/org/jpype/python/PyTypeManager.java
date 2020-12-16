@@ -6,13 +6,21 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import org.jpype.JPypeContext;
+import org.jpype.manager.ClassDescriptor;
+import org.jpype.manager.TypeManager;
+import org.jpype.manager.TypeManagerExtension;
 import org.jpype.python.annotation.PyTypeInfo;
-import org.jpype.python.internal.PyConstructor;
+import org.jpype.python.internal.PyBaseObject;
+import python.lang.PyFloat;
+import python.lang.PyLong;
+import python.lang.PyObject;
+import python.lang.PyString;
+import python.lang.exc.PyBaseException;
 
 /**
  * TypeManager holds all of the wrapper classes that have been created.
  */
-public class PyTypeManager
+public class PyTypeManager implements TypeManagerExtension
 {
 
   static final private PyTypeManager instance = new PyTypeManager();
@@ -25,9 +33,9 @@ public class PyTypeManager
     return instance;
   }
 
-  public void initialize()
+  private PyTypeManager()
   {
-
+      
     // Make sure that all native entry points are loaded.
     // This happens during the bootup sequence and we don't yet have the
     // ability to print stacktraces in Python, so we have to do it here.
@@ -44,13 +52,26 @@ public class PyTypeManager
       throw ex;
     }
 
-  }
-
-  private PyTypeManager()
-  {
-    // Check for asm library here.
     PyTypeBuilder builder = new PyTypeBuilder();
     loader = new PyTypeLoader(builder);
+    
+
+    // Install wrappers in C++ layer
+    TypeManager typeManager = JPypeContext.getInstance().getTypeManager();
+      // Note that order is very important when creating these initial wrapper
+      // types. If something inherits from another type then the super class
+      // will be created without the special flag and the type system won't
+      // be able to handle the duplicate type properly.
+      Class[] cls =
+      {
+        PyBaseObject.class, PyBaseException.class,
+        PyString.class, PyLong.class, PyFloat.class
+      };
+      for (Class c : cls)
+      {
+        createClass(typeManager, c);
+      }
+
   }
 
   private void collectBases(ArrayList<Class> interfaces, Class cls)
@@ -164,6 +185,12 @@ public class PyTypeManager
     }
   }
 
+  /**
+   * 
+   * @param <T>
+   * @param cls
+   * @return 
+   */
   public <T> T createStaticInstance(Class<T> cls)
   {
     try
@@ -182,4 +209,43 @@ public class PyTypeManager
       throw new RuntimeException(ex);
     }
   }
+
+//<editor-fold desc="extension">  
+    @Override
+  public ClassDescriptor createClass(TypeManager typeManager, Class<?> cls)
+  {
+    // Figure out the base class to apply
+    ClassDescriptor out = null;
+    Class base = null;
+    if (PyBaseObject.class.isAssignableFrom(cls))
+      base = PyBaseObject.class;
+    else if (PyBaseException.class.isAssignableFrom(cls))
+      base = PyBaseException.class;
+    else if (PyString.class.isAssignableFrom(cls))
+      base = PyString.class;
+    else if (PyLong.class.isAssignableFrom(cls))
+      base = PyLong.class;
+    else if (PyFloat.class.isAssignableFrom(cls))
+      base = PyFloat.class;
+    else
+      throw new RuntimeException("No known base for " + cls.getName() + " " + cls.getSuperclass());
+
+    out = typeManager.classMap.get(base);
+    if (out != null)
+    {
+      // This class will shared the same object wrapper.
+      typeManager.classMap.put(cls, out);
+      return out;
+    }
+    out = typeManager.createOrdinaryClass(base, true, false);
+    typeManager.classMap.put(cls, out);
+    return out;
+  }
+
+  @Override
+  public Class getManagedClass()
+  {
+    return PyObject.class;
+  }
+//</editor-fold>
 }

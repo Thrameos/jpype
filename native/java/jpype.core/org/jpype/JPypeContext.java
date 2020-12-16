@@ -15,6 +15,7 @@
 **************************************************************************** */
 package org.jpype;
 
+import org.jpype.jvm.JPypeSignalImpl;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -32,7 +33,6 @@ import org.jpype.manager.TypeFactoryNative;
 import org.jpype.manager.TypeManager;
 import org.jpype.pkg.JPypePackage;
 import org.jpype.pkg.JPypePackageManager;
-import org.jpype.python.PyTypeManager;
 import org.jpype.ref.JPypeReferenceQueue;
 
 /**
@@ -81,6 +81,8 @@ public class JPypeContext
   private final AtomicInteger shutdownFlag = new AtomicInteger();
   private final List<Thread> shutdownHooks = new ArrayList<>();
   private final List<Runnable> postHooks = new ArrayList<>();
+  private static final JPypeSignal signal = JPypeSignal.newInstance();
+  private static Thread main;
 
   static public JPypeContext getInstance()
   {
@@ -100,6 +102,7 @@ public class JPypeContext
     {
       System.load(nativeLib);
     }
+    INSTANCE.main = Thread.currentThread();
     INSTANCE.context = context;
     INSTANCE.classLoader = (DynamicClassLoader) bootLoader;
     INSTANCE.typeFactory = new TypeFactoryNative();
@@ -117,8 +120,10 @@ public class JPypeContext
     // Okay everything is setup so lets give it a go.
     this.typeManager.init();
     JPypeReferenceQueue.getInstance().start();
-    if (!interrupt)
-      JPypeSignal.installHandlers();
+    if (!interrupt && signal != null)
+    {
+      signal.installHandlers();
+    }
 
     // Install a shutdown hook to clean up Python resources.
     Runtime.getRuntime().addShutdownHook(new Thread(new Runnable()
@@ -129,8 +134,6 @@ public class JPypeContext
         INSTANCE.shutdown();
       }
     }));
-
-    PyTypeManager.getInstance().initialize();
   }
 
   /**
@@ -200,7 +203,9 @@ public class JPypeContext
       for (Thread t : threads.keySet())
       {
         if (t1 == t || t.isDaemon())
+        {
           continue;
+        }
         t.interrupt();
       }
 
@@ -266,7 +271,9 @@ public class JPypeContext
       this.shutdownHooks.remove(th);
       return true;
     } else
+    {
       return Runtime.getRuntime().removeShutdownHook(th);
+    }
   }
 
   /**
@@ -337,7 +344,9 @@ public class JPypeContext
   private static boolean collect(List l, Object o, int q, int[] shape, int d)
   {
     if (Array.getLength(o) != shape[q])
+    {
       return false;
+    }
     if (q + 1 == d)
     {
       l.add(o);
@@ -346,7 +355,9 @@ public class JPypeContext
     for (int i = 0; i < shape[q]; ++i)
     {
       if (!collect(l, Array.get(o, i), q + 1, shape, d))
+      {
         return false;
+      }
     }
     return true;
   }
@@ -368,7 +379,9 @@ public class JPypeContext
   public Object[] collectRectangular(Object o)
   {
     if (o == null || !o.getClass().isArray())
+    {
       return null;
+    }
     int[] shape = new int[5];
     int d = 0;
     ArrayList<Object> out = new ArrayList<>();
@@ -378,28 +391,42 @@ public class JPypeContext
     {
       int l = Array.getLength(o1);
       if (l == 0)
+      {
         return null;
+      }
       shape[d++] = l;
       o1 = Array.get(o1, 0);
       if (o1 == null)
+      {
         return null;
+      }
       c1 = c1.getComponentType();
       if (!c1.isArray())
+      {
         break;
+      }
     }
     if (!c1.isPrimitive())
+    {
       return null;
+    }
     out.add(c1);
     shape = Arrays.copyOfRange(shape, 0, d);
     out.add(shape);
     int total = 1;
     for (int i = 0; i < d - 1; i++)
+    {
       total *= shape[i];
+    }
     out.ensureCapacity(total + 2);
     if (d == 5)
+    {
       return null;
+    }
     if (!collect(out, o, 0, shape, d))
+    {
       return null;
+    }
     return out.toArray();
   }
 
@@ -420,7 +447,9 @@ public class JPypeContext
       }
       Array.set(a1, i, a2);
       if (i < segments - 1)
+      {
         a2 = Array.newInstance(c, size);
+      }
     }
     return a1;
   }
@@ -429,9 +458,13 @@ public class JPypeContext
   {
     int n = dims.length;
     if (n == 1)
+    {
       return Array.get(parts, 0);
+    }
     if (n == 2)
+    {
       return Array.get(unpack(dims[0], parts), 0);
+    }
     for (int i = 0; i < n - 2; ++i)
     {
       parts = unpack(dims[n - i - 2], parts);
@@ -466,42 +499,52 @@ public class JPypeContext
       Thread th = Thread.currentThread();
 
       // Only relevant if this is the main thread for signal handling
-      if (th != JPypeSignal.main)
+      if (th != main)
+      {
         return;
+      }
 
       // Unconditionally clear the interrupt flag if we are called from 
       // C++.  This happens when a field get() or method call() is 
       // invoked.
-      if (!x)
-        JPypeSignal.acknowledgePy();
+      if (!x && signal != null)
+      {
+        signal.acknowledgePy();
+      }
 
       // Check if this thread is interrupted
-      if (th.isInterrupted())
+      if (th.isInterrupted() && signal != null)
       {
         // Clear the flag in C++
-        JPypeSignal.acknowledgePy();
-        
+        signal.acknowledgePy();
+
         // Clear the flag in Java
         Thread.sleep(1);
       }
     } catch (InterruptedException ex)
     {
       if (x)
+      {
         throw ex;
+      }
     }
   }
 
   public long getExcClass(Throwable th)
   {
     if (th instanceof PyExceptionProxy)
+    {
       return ((PyExceptionProxy) th).cls;
+    }
     return 0;
   }
 
   public long getExcValue(Throwable th)
   {
     if (th instanceof PyExceptionProxy)
+    {
       return ((PyExceptionProxy) th).value;
+    }
     return 0;
   }
 
@@ -513,19 +556,33 @@ public class JPypeContext
   public boolean order(Buffer b)
   {
     if (b instanceof java.nio.ByteBuffer)
+    {
       return ((java.nio.ByteBuffer) b).order() == ByteOrder.LITTLE_ENDIAN;
+    }
     if (b instanceof java.nio.ShortBuffer)
+    {
       return ((java.nio.ShortBuffer) b).order() == ByteOrder.LITTLE_ENDIAN;
+    }
     if (b instanceof java.nio.CharBuffer)
+    {
       return ((java.nio.CharBuffer) b).order() == ByteOrder.LITTLE_ENDIAN;
+    }
     if (b instanceof java.nio.IntBuffer)
+    {
       return ((java.nio.IntBuffer) b).order() == ByteOrder.LITTLE_ENDIAN;
+    }
     if (b instanceof java.nio.LongBuffer)
+    {
       return ((java.nio.LongBuffer) b).order() == ByteOrder.LITTLE_ENDIAN;
+    }
     if (b instanceof java.nio.FloatBuffer)
+    {
       return ((java.nio.FloatBuffer) b).order() == ByteOrder.LITTLE_ENDIAN;
+    }
     if (b instanceof java.nio.DoubleBuffer)
+    {
       return ((java.nio.DoubleBuffer) b).order() == ByteOrder.LITTLE_ENDIAN;
+    }
     return true;
   }
 
@@ -539,7 +596,9 @@ public class JPypeContext
   {
     s = JPypeKeywords.safepkg(s);
     if (!JPypePackageManager.isPackage(s))
+    {
       return null;
+    }
     return new JPypePackage(s);
   }
 
@@ -554,7 +613,9 @@ public class JPypeContext
     // If we don't find it to be a functional interface, then we won't return
     // the SAM.
     if (cls.getDeclaredAnnotation(FunctionalInterface.class) == null)
+    {
       return null;
+    }
     for (Method m : cls.getMethods())
     {
       if (Modifier.isAbstract(m.getModifiers()))
@@ -590,10 +651,14 @@ public class JPypeContext
   {
     StackTraceElement[] trace = th.getStackTrace();
     if (trace == null || enclosing == null)
+    {
       return toFrames(trace);
+    }
     StackTraceElement[] te = enclosing.getStackTrace();
     if (te == null)
+    {
       return toFrames(trace);
+    }
     for (int i = 0; i < trace.length; ++i)
     {
       if (trace[i].equals(te[0]))
@@ -607,7 +672,9 @@ public class JPypeContext
   private Object[] toFrames(StackTraceElement[] stackTrace)
   {
     if (stackTrace == null)
+    {
       return null;
+    }
     Object[] out = new Object[4 * stackTrace.length];
     int i = 0;
     for (StackTraceElement fr : stackTrace)
