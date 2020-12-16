@@ -46,8 +46,7 @@ jpypeLib = Extension(name='_jpype', **setupext.platform.Platform(
 ))
 jpypeJar = Extension(name="org.jpype",
                      sources=glob.glob(str(Path("native", "java", "**", "*.java")), recursive=True),
-                     language="java",
-                     libraries=["lib/asm-8.0.1.jar"]
+                     language="java"
                      )
 
 setup(
