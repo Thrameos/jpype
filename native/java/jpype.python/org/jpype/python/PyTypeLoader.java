@@ -41,11 +41,8 @@ class PyTypeLoader extends ClassLoader
     if (cls == null)
     {
       String className = String.format("%s$%08x", name, hash);
-      System.out.println("Build class " + className);
       byte[] byteCode = builder.newClass(className, concrete, interfaces);
-      System.out.println("Define class " + className);
       cls = defineClass(className, byteCode, 0, byteCode.length);
-      System.out.println("Complete " + className);
       cache.put(hash, cls);
     }
     return cls;

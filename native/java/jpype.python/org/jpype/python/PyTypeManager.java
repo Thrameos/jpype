@@ -30,12 +30,13 @@ public class PyTypeManager implements TypeManagerExtension
   {
     if (JPypeContext.getInstance() == null)
       throw new RuntimeException("Python environment is not started");
+    if (instance == null)
+      throw new RuntimeException("Initialization error");
     return instance;
   }
 
   private PyTypeManager()
   {
-      
     // Make sure that all native entry points are loaded.
     // This happens during the bootup sequence and we don't yet have the
     // ability to print stacktraces in Python, so we have to do it here.
@@ -44,33 +45,31 @@ public class PyTypeManager implements TypeManagerExtension
       Class.forName("org.jpype.python.enums.PyInvocation", true, JPypeContext.getInstance().getClassLoader());
     } catch (ClassNotFoundException ex)
     {
-      ex.printStackTrace();
       throw new RuntimeException(ex);
-    } catch (RuntimeException | Error ex)
-    {
-      ex.printStackTrace();
-      throw ex;
     }
-
-    PyTypeBuilder builder = new PyTypeBuilder();
-    loader = new PyTypeLoader(builder);
     
-
+    PyTypeBuilder builder = new PyTypeBuilder();
+    loader = new PyTypeLoader(builder);   
+  }
+  
+  void initialize()
+  {
+ 
     // Install wrappers in C++ layer
     TypeManager typeManager = JPypeContext.getInstance().getTypeManager();
-      // Note that order is very important when creating these initial wrapper
-      // types. If something inherits from another type then the super class
-      // will be created without the special flag and the type system won't
-      // be able to handle the duplicate type properly.
-      Class[] cls =
-      {
-        PyBaseObject.class, PyBaseException.class,
-        PyString.class, PyLong.class, PyFloat.class
-      };
-      for (Class c : cls)
-      {
-        createClass(typeManager, c);
-      }
+    // Note that order is very important when creating these initial wrapper
+    // types. If something inherits from another type then the super class
+    // will be created without the special flag and the type system won't
+    // be able to handle the duplicate type properly.
+    Class[] cls =
+    {
+      PyBaseObject.class, PyBaseException.class,
+      PyString.class, PyLong.class, PyFloat.class
+    };
+    for (Class c : cls)
+    {
+      createClass(typeManager, c);
+    }
 
   }
 
@@ -105,7 +104,6 @@ public class PyTypeManager implements TypeManagerExtension
    */
   public Class getWrapper(String moduleName, String className, Class[] bases)
   {
-    System.out.println("get wrapper " + className);
     try
     {
       ArrayList<Class> interfaces = new ArrayList<>();
@@ -155,7 +153,6 @@ public class PyTypeManager implements TypeManagerExtension
           if (concrete != null && concrete != base && !base.isAssignableFrom(concrete))
           {
 
-            System.out.println("concrete " + concrete + " " + base.isAssignableFrom(concrete));
             throw new RuntimeException(String.format("Base conflict between '%s' and '%s' while creating wrapper for %s",
                     concrete.getName(), base.getName(), className));
           }
@@ -186,16 +183,15 @@ public class PyTypeManager implements TypeManagerExtension
   }
 
   /**
-   * 
+   *
    * @param <T>
    * @param cls
-   * @return 
+   * @return
    */
   public <T> T createStaticInstance(Class<T> cls)
   {
     try
     {
-      System.out.println("Create static instance " + cls);
       Class<T> c = loader.findClass(cls.getSimpleName(), null, new Class[]
       {
         cls
@@ -211,12 +207,14 @@ public class PyTypeManager implements TypeManagerExtension
   }
 
 //<editor-fold desc="extension">  
-    @Override
+  @Override
   public ClassDescriptor createClass(TypeManager typeManager, Class<?> cls)
   {
     // Figure out the base class to apply
     ClassDescriptor out = null;
     Class base = null;
+    
+    // These are the concrete base classes for Java.
     if (PyBaseObject.class.isAssignableFrom(cls))
       base = PyBaseObject.class;
     else if (PyBaseException.class.isAssignableFrom(cls))
@@ -230,6 +228,7 @@ public class PyTypeManager implements TypeManagerExtension
     else
       throw new RuntimeException("No known base for " + cls.getName() + " " + cls.getSuperclass());
 
+    // Check if the same wrapper already exists
     out = typeManager.classMap.get(base);
     if (out != null)
     {
@@ -237,7 +236,10 @@ public class PyTypeManager implements TypeManagerExtension
       typeManager.classMap.put(cls, out);
       return out;
     }
-    out = typeManager.createOrdinaryClass(base, true, false);
+    
+    // Python classes created as special classes so they unwrap back to 
+    // Python when passed from Java.
+    out = typeManager.defineClass(base, true, false);
     typeManager.classMap.put(cls, out);
     return out;
   }

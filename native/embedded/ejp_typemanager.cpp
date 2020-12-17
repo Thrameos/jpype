@@ -60,6 +60,8 @@ void EJP_Init(JPJavaFrame &frame)
 	ejp_managerClass = (jclass) frame.NewGlobalRef((jobject) ejp_managerClass);
 	jmethodID get = frame.GetStaticMethodID(ejp_managerClass, "getInstance", "()Lorg/jpype/python/PyTypeManager;");
 	ejp_manager = frame.CallStaticObjectMethodA(ejp_managerClass, get, NULL);
+	jmethodID init = frame.GetMethodID(ejp_managerClass, "initialize", "()V");
+	frame.CallVoidMethodA(ejp_manager, init, NULL);
 	ejp_manager = frame.NewGlobalRef( ejp_manager);
 	ejp_getWrapper = frame.GetMethodID(ejp_managerClass, "getWrapper",
 			"(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/Class;");
@@ -87,7 +89,7 @@ void EJP_Init(JPJavaFrame &frame)
 	JPPyObject args = JPPyObject::call(PyTuple_New(0));
 	ejp_typedict = PyObject_Call(dict.get(), args.get(), NULL);
 
-	// Push singletons over to Java
+	// Push singletons over to Java (these will be cached on the first call)
 	EJP_ToJava(frame, Py_None, 0);
 	EJP_ToJava(frame, Py_True, 0);
 	EJP_ToJava(frame, Py_False, 0);
@@ -110,7 +112,6 @@ bool EJP_HasPyType(PyTypeObject *type)
 
 EJPClass *EJP_GetClass(JPJavaFrame &frame, PyTypeObject *type)
 {
-	printf("EJP_GetClass %s\n", type->tp_name);
 	// Check for an existing wrapper using the cache.
 	PyObject *capsule = PyObject_GetItem(ejp_typedict, (PyObject*) type);
 	if (capsule != NULL)

@@ -129,6 +129,7 @@ void PyJPModule_loadResources(PyObject* module)
 
 	}	catch (JPypeException&)  // GCOVR_EXCL_LINE
 	{
+		printf("Resource not found\n");
 		// GCOVR_EXCL_START
 		Py_SetStringWithCause(PyExc_RuntimeError, "JPype resource is missing");
 		JP_RAISE_PYTHON();

@@ -43,19 +43,7 @@ public class PyEngine
     System.load(library);
     this.addLibrary(pythonLibrary);
     this.addLibrary(library);
-    System.out.println("=============");
-    //start_();
-    System.out.println("1");
-    System.out.println("2");
-    System.out.println(this.getSymbol("PyDict_GetItem"));
-    System.out.println(this.getSymbol("PyDict_GetItem"));
-    System.out.println(this.getSymbol("PyDict_GetItem"));
-    System.out.println(this.getSymbol("PyDict_GetItem"));
-    System.out.println(this.getSymbol("PyDict_GetItem"));
-    System.out.println(this.getSymbol("PyDict_GetItem"));
-    System.out.println(this.getSymbol("PyDict_GetItem"));
-    System.out.println(this.getSymbol("PyDict_GetItemB"));
-    System.out.println("=============");
+    start_();
   }
 
   public PyExecutionFrame newFrame()

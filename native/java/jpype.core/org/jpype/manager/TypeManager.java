@@ -85,7 +85,7 @@ public class TypeManager
       }
 
       // Create the required minimum classes
-      this.java_lang_Object = createClass(Object.class, true);
+      this.java_lang_Object = defineClass(Object.class, true, true);
 
       // Note that order is very important when creating these initial wrapper
       // types. If something inherits from another type then the super class
@@ -101,7 +101,7 @@ public class TypeManager
       };
       for (Class c : cls)
       {
-        createClass(c, true);
+        defineClass(c, true, true);
       }
 
       // Create the primitive types
@@ -376,21 +376,6 @@ public class TypeManager
     if (ptr != null)
       return ptr;
 
-    // If we can't find it create a new class
-    return createClass(cls, false);
-  }
-
-  /**
-   * Allocate a new wrapper for a java class.
-   * <p>
-   * Boxed types require special handlers, as does java.lang.String
-   *
-   * @param cls is the Java class to wrap.
-   * @param special marks class as requiring a specialized C++ wrapper.
-   * @return a C++ wrapper handle for a jp_classtype
-   */
-  private ClassDescriptor createClass(Class<?> cls, boolean special)
-  {
     if (cls.isArray())
       return this.createArrayClass(cls);
 
@@ -400,10 +385,18 @@ public class TypeManager
         return extension.createClass(this, cls);
     }
 
-    return createOrdinaryClass(cls, special, true);
+    return defineClass(cls, false, true);
   }
 
-  public ClassDescriptor createOrdinaryClass(Class<?> cls, boolean special, boolean bases)
+  /**
+   * Creates a C++ resource for a class.
+   * 
+   * @param cls is the class wrapper to be created.
+   * @param special is true if C++ has a special wrapper for this type.
+   * @param bases is true if the bases should be included in the C++ wrapper.
+   * @return 
+   */
+  public ClassDescriptor defineClass(Class<?> cls, boolean special, boolean bases)
   {
     // Object classes are more work as we need the super information as well.
     // Make sure all base classes are loaded

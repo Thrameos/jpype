@@ -7,10 +7,8 @@ import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.jpype.asm.ClassReader;
@@ -58,12 +56,11 @@ class PyTypeBuilder
       }
     }
 
-    System.out.println("Build class " + name);
-    if (concrete != null)
-      System.out.println("    concrete " + concrete);
-    // DEBUG
-    for (Class b : interfaces)
-      System.out.println("    " + b);
+//    System.out.println("Build class " + name);
+//    if (concrete != null)
+//      System.out.println("    concrete " + concrete);
+//    for (Class b : interfaces)
+//      System.out.println("    " + b);
 
     // Find a unique set of methods
     HashSet<String> set = new HashSet<>();
@@ -400,7 +397,6 @@ class PyTypeBuilder
       String superName = null;
       if (superClass != null)
         superName = Type.getInternalName(superClass);
-      System.out.println("SuperName " + superName);
 
       return new MethodCopy(target.cw.visitMethod(access, name, descriptor, signature, exceptions),
               name, target, sourceName, superName);

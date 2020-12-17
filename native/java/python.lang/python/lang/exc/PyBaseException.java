@@ -5,7 +5,6 @@ import org.jpype.python.internal.PyConstructor;
 import static org.jpype.python.internal.PyConstructor.ALLOCATOR;
 import python.lang.PyBuiltins;
 import python.lang.PyObject;
-import python.lang.PyString;
 
 /**
  * A container for holding Python exceptions.

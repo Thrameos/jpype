@@ -132,7 +132,6 @@ public class PyDict<K, V> extends PyBaseObject implements Map<K, V>, PyMapping<K
   @Override
   public void setItem(K key, V value) throws PyTypeError
   {
-    System.out.println("Set item " + key);
     if (key instanceof String)
       DICT_STATIC.setItemString(this, (String) key, value);
     else
