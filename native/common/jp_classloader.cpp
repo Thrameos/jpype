@@ -79,15 +79,11 @@ JPClassLoader::JPClassLoader(JPJavaFrame& frame)
 		JP_RAISE(PyExc_RuntimeError, "Can't find jar path");
 	path = path.substr(0, i + 1);
 	jobject url1 = toURL(frame, path + "org.jpype.jar");
-	//	jobject url2 = toURL(frame, path + "lib/asm-8.0.1.jar");
 
-	// urlArray = new URL[]{url};
 	jclass urlClass = frame.GetObjectClass(url1);
 	jobjectArray urlArray = frame.NewObjectArray(1, urlClass, NULL);
 	frame.SetObjectArrayElement(urlArray, 0, url1);
-	//	frame.SetObjectArrayElement(urlArray, 1, url2);
 
-	// cl = new URLClassLoader(urlArray);
 	jclass urlLoaderClass = frame.FindClass("java/net/URLClassLoader");
 	jmethodID newURLClassLoader = frame.GetMethodID(urlLoaderClass, "<init>", "([Ljava/net/URL;Ljava/lang/ClassLoader;)V");
 	jvalue v[3];

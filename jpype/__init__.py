@@ -65,5 +65,5 @@ JMethod = _jpype._JMethod
 JField = _jpype._JField
 
 if hasattr(_jpype, 'bootstrap'):
-   _jpype.bootstrap()
-   _core.initializeResources()
+    _jpype.bootstrap()
+    _core.initializeResources()

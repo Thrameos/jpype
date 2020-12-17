@@ -283,6 +283,7 @@ class FaultTestCase(common.JPypeTestCase):
 # pyjp_module.cpp:	JP_PY_TRY("examine");
 # pyjp_module.cpp:	JP_PY_TRY("PyInit__jpype");
 
+
     @common.requireInstrumentation
     def testJPMonitor_init(self):
         jo = JClass("java.lang.Object")()
@@ -421,6 +422,7 @@ class FaultTestCase(common.JPypeTestCase):
     @common.requireInstrumentation
     def testJPProxy_box_return(self):
         q = None
+
         @JImplements("java.util.function.Supplier")
         class f(object):
             @JOverride

@@ -11,6 +11,7 @@
             <make-dep-projects/>
             <sourceRootList>
                 <sourceRootElem>../../native/common</sourceRootElem>
+                <sourceRootElem>../../native/embedded</sourceRootElem>
                 <sourceRootElem>../../native/python</sourceRootElem>
                 <sourceRootElem>../../jpype</sourceRootElem>
                 <sourceRootElem>../../test/jpypetest</sourceRootElem>
