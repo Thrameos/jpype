@@ -155,6 +155,20 @@ JNIEXPORT jlong JNICALL Java_python_lang_PyString__1ctor
 }
 
 /*
+ * Class:     python_lang_PyString
+ * Method:    _toString
+ * Signature: (Ljava/lang/Object;)Ljava/lang/String;
+ */
+JNIEXPORT jstring JNICALL Java_python_lang_PyString__1toString
+  (JNIEnv *env, jclass cls, jobject obj)
+{
+	EJP_TRACE_JAVA_IN("str::toString");
+	string out = JPPyString::asStringUTF8(EJP_ToPython(frame, obj).get());
+	return (jstring) frame.keep(frame.fromStringUTF8(out));
+	EJP_TRACE_JAVA_OUT(0);
+}
+
+/*
  * Class:     python_lang_PyTuple
  * Method:    _ctor
  * Signature: ([Ljava/lang/Object;)J

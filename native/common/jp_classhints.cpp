@@ -197,7 +197,7 @@ public:
 	virtual JPMatch::Type matches(JPClass *cls, JPMatch &match) override
 	{
 		JP_TRACE_IN("JPAttributeConversion::matches");
-		JPPyObject attr = JPPyObject::accept(PyObject_GetAttrString(match.object, attribute_.c_str()));
+		JPPyObject attr = JPPyObject::acceptClear(PyObject_GetAttrString(match.object, attribute_.c_str()));
 		if (attr.isNull())
 			return JPMatch::_none;
 		match.conversion = this;

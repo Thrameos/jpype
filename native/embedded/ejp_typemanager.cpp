@@ -218,6 +218,15 @@ jobject EJP_ToJava(JPJavaFrame& frame, PyObject *obj, int flags)
 	{
 		if (flags & 1)
 			return (jobject) 0;
+
+		// This is a sanity check.  It usually means that we forgot to 
+		// add PyMethodInfo.ACCEPT on the flags to a method which can produce
+		// NULL as part of normal operations.
+		if (!PyErr_Occurred())
+		{
+			JP_RAISE(PyExc_RuntimeError, "Null without exception");
+			return (jobject) 0;
+		}
 		JP_RAISE_PYTHON();
 	}
 	

@@ -181,7 +181,7 @@ PyObject* PyJPValue_str(PyObject* self)
 	if (cls == context->_java_lang_String)
 	{
 		PyObject *cache;
-		JPPyObject dict = JPPyObject::accept(PyObject_GenericGetDict(self, NULL));
+		JPPyObject dict = JPPyObject::acceptClear(PyObject_GenericGetDict(self, NULL));
 		if (!dict.isNull())
 		{
 			cache = PyDict_GetItemString(dict.get(), "_jstr");
@@ -219,7 +219,7 @@ PyObject *PyJPValue_getattro(PyObject *obj, PyObject *name)
 	PyObject* pyattr = PyBaseObject_Type.tp_getattro(obj, name);
 	if (pyattr == NULL)
 		return NULL;
-	JPPyObject attr = JPPyObject::accept(pyattr);
+	JPPyObject attr = JPPyObject::acceptClear(pyattr);
 
 	// Private members go regardless
 	if (PyUnicode_GetLength(name) && PyUnicode_ReadChar(name, 0) == '_')
@@ -245,7 +245,7 @@ int PyJPValue_setattro(PyObject *self, PyObject *name, PyObject *value)
 	// Private members are accessed directly
 	if (PyUnicode_GetLength(name) && PyUnicode_ReadChar(name, 0) == '_')
 		return PyObject_GenericSetAttr(self, name, value);
-	JPPyObject f = JPPyObject::accept(Py_GetAttrDescriptor(Py_TYPE(self), name));
+	JPPyObject f = JPPyObject::acceptClear(Py_GetAttrDescriptor(Py_TYPE(self), name));
 	if (f.isNull())
 	{
 		PyErr_Format(PyExc_AttributeError, "Field '%U' is not found", name);

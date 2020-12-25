@@ -446,7 +446,7 @@ int PyJPClass_setattro(PyObject *self, PyObject *attr_name, PyObject *v)
 	if (PyUnicode_GetLength(attr_name) && PyUnicode_ReadChar(attr_name, 0) == '_')
 		return PyType_Type.tp_setattro(self, attr_name, v);
 
-	JPPyObject f = JPPyObject::accept(Py_GetAttrDescriptor((PyTypeObject*) self, attr_name));
+	JPPyObject f = JPPyObject::acceptClear(Py_GetAttrDescriptor((PyTypeObject*) self, attr_name));
 	if (f.isNull())
 	{
 		const char *name_str = PyUnicode_AsUTF8(attr_name);

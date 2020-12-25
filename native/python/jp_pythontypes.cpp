@@ -57,9 +57,21 @@ JPPyObject JPPyObject::use(PyObject* obj)
  * This policy is used when we are given a new reference that we must
  * destroy.  This will steal a reference.
  *
- * claim reference, and decremented when done.
+ * claim reference, clear error, and decremented when done.
  */
 JPPyObject JPPyObject::accept(PyObject* obj)
+{
+	JP_TRACE_PY("pyref new(accept)", obj);
+	return JPPyObject(obj, 1);
+}
+
+/**
+ * This policy is used when we are given a new reference that we must
+ * destroy.  This will steal a reference.
+ *
+ * claim reference, clear error, and decremented when done.
+ */
+JPPyObject JPPyObject::acceptClear(PyObject* obj)
 {
 	JP_TRACE_PY("pyref new(accept)", obj);
 	if (obj == NULL)
@@ -375,9 +387,9 @@ bool JPPyErr::fetch(JPPyObject& exceptionClass, JPPyObject& exceptionValue, JPPy
 	PyErr_Fetch(&v1, &v2, &v3);
 	if (v1 == NULL && v2 == NULL && v3 == NULL)
 		return false;
-	exceptionClass = JPPyObject::accept(v1);
-	exceptionValue = JPPyObject::accept(v2);
-	exceptionTrace = JPPyObject::accept(v3);
+	exceptionClass = JPPyObject::acceptClear(v1);
+	exceptionValue = JPPyObject::acceptClear(v2);
+	exceptionTrace = JPPyObject::acceptClear(v3);
 	return true;
 }
 

@@ -87,6 +87,12 @@ public class PyString extends PyBaseObject implements CharSequence, PySequence<O
     // Otherwise convert to String first
     return _ctor(s.toString());
   }
+  
+  public String toString()
+  {
+    return _toString(this);
+  }
 
+  private native static String _toString(Object self);
   private native static long _ctor(String s);
 }

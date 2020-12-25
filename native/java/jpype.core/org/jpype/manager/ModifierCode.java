@@ -21,7 +21,7 @@ import java.util.EnumSet;
 /**
  * Definitions for JPype modifiers.
  * <p>
- * These pretty much match Java plus a few codes we need.
+ * These match Java plus a few codes we need.
  *
  * @author nelson85
  */
@@ -49,6 +49,7 @@ public enum ModifierCode
   PRIMITIVE_ARRAY(0x00400000),
   COMPARABLE(0x00800000),
   BUFFER(0x01000000),
+  PYTHON(0x02010000),
   CTOR(0x10000000),
   BEAN_ACCESSOR(0x20000000),
   BEAN_MUTATOR(0x40000000);

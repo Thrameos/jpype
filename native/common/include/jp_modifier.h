@@ -180,6 +180,12 @@ inline bool isBeanMutator(jlong modifier)
 {
 	return (modifier & 0x40000000) == 0x40000000;
 }
+
+inline bool isPython(jlong modifier)
+{
+	return (modifier & 0x02000000) == 0x02000000;
+}
+
 }
 
 #ifdef __cplusplus

@@ -180,6 +180,7 @@ JNIEXPORT jlong JNICALL Java_org_jpype_manager_TypeFactoryNative_defineObjectCla
 	if (interfacePtrs != NULL)
 		convert(frame, interfacePtrs, interfaces);
 	JPClass* result = NULL;
+	printf("New Class %s %d 0x%08x\n", className.c_str(), JPModifier::isSpecial(modifiers), modifiers);
 	if (!JPModifier::isSpecial(modifiers))
 	{
 		// Create a normal class
@@ -191,7 +192,7 @@ JNIEXPORT jlong JNICALL Java_org_jpype_manager_TypeFactoryNative_defineObjectCla
 	if (JPModifier::isBuffer(modifiers))
 		return (jlong) new JPBufferType(frame, cls, className, (JPClass*) superClass, interfaces, modifiers);
 	// Certain classes require special implementations
-	if (className.rfind("python.lang.", 0) == 0 || className == "org.jpype.python.internal.PyBaseObject")
+	if (JPModifier::isPython(modifiers))
 		return (jlong) new JPPyObjectType(frame, cls, className, (JPClass*) superClass, interfaces, modifiers);
 	if (className == "java.lang.Object")
 		return (jlong) (context->_java_lang_Object

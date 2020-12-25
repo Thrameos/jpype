@@ -477,15 +477,6 @@ public class JPypeContext
     return shutdownFlag.get() > 0;
   }
 
-//  public void incrementProxy()
-//  {
-//    proxyCount.incrementAndGet();
-//  }
-//
-//  public void decrementProxy()
-//  {
-//    proxyCount.decrementAndGet();
-//  }
   /**
    * Clear the current interrupt.
    *

@@ -231,6 +231,6 @@ public interface PyBuiltinStatic
   @PyMethodInfo(name = "PyObject_Call", invoke = PyInvocation.Ternary, method = false)
   Object call(Object self, PyTuple args, PyDict kwargs);
 
-  @PyMethodInfo(name = "PyIter_Next", invoke = PyInvocation.Unary, method = false)
+  @PyMethodInfo(name = "PyIter_Next", invoke = PyInvocation.Unary, method = false, flags=PyMethodInfo.ACCEPT)
   Object next(Object self);
 }

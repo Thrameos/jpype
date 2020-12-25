@@ -95,9 +95,17 @@ public:
 	 * This policy is used when we are given a new reference that we must
 	 * destroy.  This will steal a reference.
 	 *
-	 * claim reference, and decremented when done. Clears errors if NULL.
+	 * claim reference, and decremented when done.
 	 */
 	static JPPyObject accept(PyObject* obj);
+
+	/**
+	 * This policy is used when we are given a new reference that we must
+	 * destroy.  This will steal a reference.
+	 *
+	 * claim reference, and decremented when done. Clears errors if NULL.
+	 */
+	static JPPyObject acceptClear(PyObject* obj);
 
 	/**
 	 * This policy is used when we are given a new reference that we must

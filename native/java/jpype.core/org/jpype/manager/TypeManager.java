@@ -85,7 +85,7 @@ public class TypeManager
       }
 
       // Create the required minimum classes
-      this.java_lang_Object = defineClass(Object.class, true, true);
+      this.java_lang_Object = defineClass(Object.class, true, ModifierCode.SPECIAL.value);
 
       // Note that order is very important when creating these initial wrapper
       // types. If something inherits from another type then the super class
@@ -101,7 +101,7 @@ public class TypeManager
       };
       for (Class c : cls)
       {
-        defineClass(c, true, true);
+        defineClass(c, true, ModifierCode.SPECIAL.value);
       }
 
       // Create the primitive types
@@ -385,18 +385,17 @@ public class TypeManager
         return extension.createClass(this, cls);
     }
 
-    return defineClass(cls, false, true);
+    return defineClass(cls, true, 0);
   }
 
   /**
    * Creates a C++ resource for a class.
    * 
    * @param cls is the class wrapper to be created.
-   * @param special is true if C++ has a special wrapper for this type.
    * @param bases is true if the bases should be included in the C++ wrapper.
    * @return 
    */
-  public ClassDescriptor defineClass(Class<?> cls, boolean special, boolean bases)
+  public ClassDescriptor defineClass(Class<?> cls, boolean bases, int modifier)
   {
     // Object classes are more work as we need the super information as well.
     // Make sure all base classes are loaded
@@ -429,8 +428,7 @@ public class TypeManager
 
     // Set up the modifiers
     int modifiers = cls.getModifiers() & 0xffff;
-    if (special)
-      modifiers |= ModifierCode.SPECIAL.value;
+    modifiers |= modifier;
     if (Throwable.class.isAssignableFrom(cls))
       modifiers |= ModifierCode.THROWABLE.value;
     if (Serializable.class.isAssignableFrom(cls))

@@ -75,10 +75,21 @@ JNIEXPORT void JNICALL Java_python_lang_PyEngine_start_1
 		}
 		PyJPModule_loadResources(jpypep);
 		Py_DECREF(jpypep);
-
+		
 		// Then attach the private module to the JVM
 		JPContext* context = JPContext_global;
 		context->attachJVM(env);
+		
+		// Initialize the resources in the jpype module
+		PyObject *obj = PyObject_GetAttrString(jpype, "_core");
+		PyObject *obj2 = PyObject_GetAttrString(obj, "initializeResources");
+		PyObject *obj3 = PyTuple_New(0);
+		PyObject_Call(obj2, obj3, NULL);
+		Py_DECREF(obj);
+		Py_DECREF(obj2);
+		Py_DECREF(obj3);
+		
+		// Everything is up and ready
 
 		// Next, we need to release the state so we can return to Java.
 		m_State1 = PyEval_SaveThread();

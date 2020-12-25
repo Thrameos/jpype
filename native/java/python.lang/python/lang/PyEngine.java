@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.Paths;
+import java.util.List;
 import static python.lang.PyBuiltins.*;
 
 /**
@@ -49,11 +50,14 @@ public class PyEngine
   public PyExecutionFrame newFrame()
   {
     PyDict globals = new PyDict();
-    globals.merge(PyBuiltins.BUILTIN_STATIC.builtins(), true);
+    // Set up the minimum global dictionary required to function
     globals.put("__spec__", None);
     globals.put("__dict__", None);
     globals.put("__package__", None);
     globals.put("__name__", new PyString("__main__"));
+    globals.put("__builtins__", PyBuiltins.BUILTIN_STATIC.builtins());
+
+    // We will add JPype module and types so the environment is usable
     PyExecutionFrame frame = new PyExecutionFrame(globals, globals);
     frame.importModule("jpype");
     frame.importFrom("jpype.types", "*");
@@ -94,22 +98,22 @@ public class PyEngine
   }
 
 //</editor-fold>
-  public static void main(String[] args)
-  {
-    try
-    {
-      PyEngine main = getInstance();
-      System.out.println("Start");
-      main.start();
-      System.out.println("Run");
-      PyExecutionFrame frame = main.newFrame();
-      frame.interactive();
-      frame.run("print('hello world')");
-    } catch (Exception ex)
-    {
-      ex.printStackTrace();
-    }
-  }
+//  public static void main(String[] args)
+//  {
+//    try
+//    {
+//      PyEngine main = getInstance();
+//      System.out.println("Start");
+//      main.start();
+//      System.out.println("Run");
+//      PyExecutionFrame frame = main.newFrame();
+//      frame.interactive();
+//      frame.run("print('hello world')");
+//    } catch (Exception ex)
+//    {
+//      ex.printStackTrace();
+//    }
+//  }
 
   public void setProperty(String key, Object value)
   {

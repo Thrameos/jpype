@@ -63,7 +63,7 @@ public class PyExecutionFrame
 
   public Object importModule(String module)
   {
-    return importModule(module, module);
+    return FRAME_STATIC.runString("import " + module, globals, locals);
   }
 
   public Object importModule(String module, String as)
@@ -73,7 +73,7 @@ public class PyExecutionFrame
 
   public Object importFrom(String module, String symbol)
   {
-    return FRAME_STATIC.runString("from " + module + " from " + symbol, globals, locals);
+    return FRAME_STATIC.runString("from " + module + " import " + symbol, globals, locals);
   }
 
 }

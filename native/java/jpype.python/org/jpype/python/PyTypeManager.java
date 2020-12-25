@@ -7,14 +7,17 @@ import java.util.Arrays;
 import java.util.Iterator;
 import org.jpype.JPypeContext;
 import org.jpype.manager.ClassDescriptor;
+import org.jpype.manager.ModifierCode;
 import org.jpype.manager.TypeManager;
 import org.jpype.manager.TypeManagerExtension;
 import org.jpype.python.annotation.PyTypeInfo;
 import org.jpype.python.internal.PyBaseObject;
+import python.lang.PyDict;
 import python.lang.PyFloat;
 import python.lang.PyLong;
 import python.lang.PyObject;
 import python.lang.PyString;
+import python.lang.PyTuple;
 import python.lang.exc.PyBaseException;
 
 /**
@@ -47,14 +50,14 @@ public class PyTypeManager implements TypeManagerExtension
     {
       throw new RuntimeException(ex);
     }
-    
+
     PyTypeBuilder builder = new PyTypeBuilder();
-    loader = new PyTypeLoader(builder);   
+    loader = new PyTypeLoader(builder);
   }
-  
+
   void initialize()
   {
- 
+
     // Install wrappers in C++ layer
     TypeManager typeManager = JPypeContext.getInstance().getTypeManager();
     // Note that order is very important when creating these initial wrapper
@@ -64,7 +67,8 @@ public class PyTypeManager implements TypeManagerExtension
     Class[] cls =
     {
       PyBaseObject.class, PyBaseException.class,
-      PyString.class, PyLong.class, PyFloat.class
+      PyString.class, PyLong.class, PyFloat.class,
+      PyDict.class, PyTuple.class
     };
     for (Class c : cls)
     {
@@ -174,7 +178,10 @@ public class PyTypeManager implements TypeManagerExtension
       }
 
       // Construct the class using the loader
-      return loader.findClass(className, concrete, interfaces.toArray(Class[]::new));
+      Class out = loader.findClass(className, concrete, interfaces.toArray(Class[]::new));
+      TypeManager typeManager = JPypeContext.getInstance().getTypeManager();
+      createClass(typeManager, out);
+      return out;
     } catch (Exception ex)
     {
       ex.printStackTrace();
@@ -213,7 +220,7 @@ public class PyTypeManager implements TypeManagerExtension
     // Figure out the base class to apply
     ClassDescriptor out = null;
     Class base = null;
-    
+
     // These are the concrete base classes for Java.
     if (PyBaseObject.class.isAssignableFrom(cls))
       base = PyBaseObject.class;
@@ -236,10 +243,10 @@ public class PyTypeManager implements TypeManagerExtension
       typeManager.classMap.put(cls, out);
       return out;
     }
-    
+
     // Python classes created as special classes so they unwrap back to 
     // Python when passed from Java.
-    out = typeManager.defineClass(base, true, false);
+    out = typeManager.defineClass(base, false, ModifierCode.PYTHON.value);
     typeManager.classMap.put(cls, out);
     return out;
   }

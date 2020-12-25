@@ -270,7 +270,7 @@ JPProxyDirect::~JPProxyDirect()
 
 JPPyObject JPProxyDirect::getCallable(const string& cname)
 {
-	return JPPyObject::accept(PyObject_GetAttrString((PyObject*) m_Instance, cname.c_str()));
+	return JPPyObject::acceptClear(PyObject_GetAttrString((PyObject*) m_Instance, cname.c_str()));
 }
 
 JPProxyIndirect::JPProxyIndirect(JPContext* context, PyJPProxy* inst, JPClassList& intf)
@@ -284,10 +284,10 @@ JPProxyIndirect::~JPProxyIndirect()
 
 JPPyObject JPProxyIndirect::getCallable(const string& cname)
 {
-	JPPyObject out = JPPyObject::accept(PyObject_GetAttrString(m_Instance->m_Target, cname.c_str()));
+	JPPyObject out = JPPyObject::acceptClear(PyObject_GetAttrString(m_Instance->m_Target, cname.c_str()));
 	if (!out.isNull())
 		return out;
-	return JPPyObject::accept(PyObject_GetAttrString((PyObject*) m_Instance, cname.c_str()));
+	return JPPyObject::acceptClear(PyObject_GetAttrString((PyObject*) m_Instance, cname.c_str()));
 }
 
 JPProxyFunctional::JPProxyFunctional(JPContext* context, PyJPProxy* inst, JPClassList& intf)
@@ -303,6 +303,6 @@ JPProxyFunctional::~JPProxyFunctional()
 JPPyObject JPProxyFunctional::getCallable(const string& cname)
 {
 	if (cname == m_Functional->getMethod())
-		return JPPyObject::accept(PyObject_GetAttrString(m_Instance->m_Target, "__call__"));
-	return JPPyObject::accept(PyObject_GetAttrString((PyObject*) m_Instance, cname.c_str()));
+		return JPPyObject::acceptClear(PyObject_GetAttrString(m_Instance->m_Target, "__call__"));
+	return JPPyObject::acceptClear(PyObject_GetAttrString((PyObject*) m_Instance, cname.c_str()));
 }

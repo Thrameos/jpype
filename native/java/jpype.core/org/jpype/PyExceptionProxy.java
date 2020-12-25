@@ -16,4 +16,12 @@ public class PyExceptionProxy extends RuntimeException
     value = l1;
   }
 
+  @Override
+  public String getMessage()
+  {
+    return _getMessage(this.cls, this.value);
+  }
+  
+  private native static String _getMessage(long cls, long value);
+
 }

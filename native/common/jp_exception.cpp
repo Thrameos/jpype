@@ -55,7 +55,7 @@ JPypeException::JPypeException(int type, void* errType, const string& msn, const
 // GCOVR_EXCL_START
 // This is only used during startup for OSError
 
-JPypeException::JPypeException(int type,  const string& msn, int errType, const JPStackInfo& stackInfo)
+JPypeException::JPypeException(int type, const string& msn, int errType, const JPStackInfo& stackInfo)
 {
 	JP_TRACE("EXCEPTION THROWN", errType, msn);
 	m_Type = type;
@@ -72,7 +72,7 @@ JPypeException::JPypeException(const JPypeException& ex)
 	m_Message = ex.m_Message;
 }
 
-JPypeException& JPypeException::operator = (const JPypeException& ex)
+JPypeException& JPypeException::operator=(const JPypeException& ex)
 {
 	m_Context = ex.m_Context;
 	m_Type = ex.m_Type;
@@ -226,7 +226,7 @@ void JPypeException::convertJavaToPython()
 		}
 		PyException_SetTraceback(cause.get(), trace.get());
 		PyException_SetCause(pyvalue.get(), cause.keep());
-	}	catch (JPypeException& ex)
+	} catch (JPypeException& ex)
 	{
 		JP_TRACE("FAILURE IN CAUSE");
 		// Any failures in this optional action should be ignored.
@@ -266,6 +266,12 @@ void JPypeException::convertPythonToJava(JPContext* context)
 
 	// Otherwise
 	jvalue v[2];
+	// We need to normalize the exception for transport
+	eframe.normalize();
+	
+//	th = (jthrowable) EJP_ToJava(frame, eframe.m_ExceptionValue.get(), 0);
+
+	// This needs to follow the ToPython path
 	v[0].j = (jlong) eframe.m_ExceptionClass.get();
 	v[1].j = (jlong) eframe.m_ExceptionValue.get();
 	th = (jthrowable) frame.CallObjectMethodA(context->getJavaContext(),
@@ -293,7 +299,7 @@ void JPypeException::toPython()
 		// Check the signals before processing the exception
 		// It may be a signal when interrupted Java in which case
 		// the signal takes precedence.
-		if (PyErr_CheckSignals()!=0)
+		if (PyErr_CheckSignals() != 0)
 			return;
 
 		mesg = getMessage();
@@ -369,7 +375,7 @@ void JPypeException::toPython()
 			eframe.normalize();
 			JPPyObject args = JPPyObject::call(Py_BuildValue("(s)", "C++ Exception"));
 			JPPyObject trace = JPPyObject::call(PyTrace_FromJPStackTrace(m_Trace));
-			JPPyObject cause = JPPyObject::accept(PyObject_Call(PyExc_Exception, args.get(), NULL));
+			JPPyObject cause = JPPyObject::acceptClear(PyObject_Call(PyExc_Exception, args.get(), NULL));
 			if (!cause.isNull())
 			{
 				PyException_SetTraceback(cause.get(), trace.get());
@@ -390,7 +396,7 @@ void JPypeException::toPython()
 		{
 			JPPyErrFrame eframe;
 			JPTracer::trace("Inner Python:", ((PyTypeObject*) eframe.m_ExceptionClass.get())->tp_name);
-			return;  // Let these go to Python so we can see the error
+			return; // Let these go to Python so we can see the error
 		} else if (ex.m_Type == JPError::_java_error)
 			JPTracer::trace("Inner Java:", ex.getMessage());
 		else
@@ -463,8 +469,8 @@ void JPypeException::toJava(JPContext *context)
 		JP_TRACE("String exception");
 		frame.ThrowNew(context->m_RuntimeException.get(), mesg.c_str());
 		return;
-	}	catch (JPypeException& ex)  // GCOVR_EXCL_LINE
-	{	// GCOVR_EXCL_START
+	} catch (JPypeException& ex) // GCOVR_EXCL_LINE
+	{ // GCOVR_EXCL_START
 		// Print our parting words.
 		JPTracer::trace("Fatal error in exception handling");
 		JPStackInfo info = ex.m_Trace.front();
@@ -541,7 +547,7 @@ PyObject* PyTrace_FromJPStackTrace(JPStackTrace& trace)
 	PyObject *dict = PyModule_GetDict(PyJPModule);
 	for (JPStackTrace::iterator iter = trace.begin(); iter != trace.end(); ++iter)
 	{
-		last_traceback = tb_create(last_traceback, dict,  iter->getFile(),
+		last_traceback = tb_create(last_traceback, dict, iter->getFile(),
 				iter->getFunction(), iter->getLine());
 	}
 	if (last_traceback == NULL)
@@ -586,7 +592,7 @@ JPPyObject PyTrace_FromJavaException(JPJavaFrame& frame, jthrowable th, jthrowab
 		jint lineNum =
 				frame.CallIntMethodA(frame.GetObjectArrayElement(obj, i + 3), context->_java_lang_Integer->m_IntValueID, 0);
 
-		last_traceback = tb_create(last_traceback, dict,  filename.c_str(),
+		last_traceback = tb_create(last_traceback, dict, filename.c_str(),
 				method.c_str(), lineNum);
 		frame.DeleteLocalRef(jclassname);
 		frame.DeleteLocalRef(jmethodname);
@@ -595,4 +601,20 @@ JPPyObject PyTrace_FromJavaException(JPJavaFrame& frame, jthrowable th, jthrowab
 	if (last_traceback == NULL)
 		return JPPyObject();
 	return JPPyObject::call((PyObject*) last_traceback);
+}
+
+/* 
+ * Class:     org_jpype_PyExceptionProxy
+ * Method:    _getMessage                                                                                                                                                    * Signature: (Ljava/lang/Object;)Ljava/lang/String;
+ */
+extern "C" JNIEXPORT jstring JNICALL Java_org_jpype_PyExceptionProxy__1getMessage
+(JNIEnv *env, jclass, jlong jcls, jlong jval)
+{
+	JPJavaFrame frame = JPJavaFrame::external(JPContext_global, env);
+	JPPyCallAcquire callback;
+	PyObject* value = (PyObject*) jval;
+	PyObject* str = PyObject_Str(value);
+	string cvalue = JPPyString::asStringUTF8(str);
+	Py_DECREF(str);
+	return (jstring) frame.keep(frame.fromStringUTF8(cvalue));
 }

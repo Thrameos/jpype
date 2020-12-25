@@ -155,7 +155,7 @@ static PyObject *PyJPPackage_getattro(PyObject *self, PyObject *attr)
 		obj = frame.getPackageObject(pkg, attrName);
 	}		catch (JPypeException& ex)
 	{
-		JPPyObject h = JPPyObject::accept(PyObject_GetAttrString(self, "_handler"));
+		JPPyObject h = JPPyObject::acceptClear(PyObject_GetAttrString(self, "_handler"));
 		// If something fails, we need to go to a handler
 		if (!h.isNull())
 		{

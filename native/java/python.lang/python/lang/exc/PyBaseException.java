@@ -1,5 +1,6 @@
 package python.lang.exc;
 
+import org.jpype.manager.TypeInfo;
 import org.jpype.python.annotation.PyTypeInfo;
 import org.jpype.python.internal.PyConstructor;
 import static org.jpype.python.internal.PyConstructor.ALLOCATOR;

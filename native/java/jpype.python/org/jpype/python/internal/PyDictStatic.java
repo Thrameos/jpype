@@ -3,8 +3,6 @@ package org.jpype.python.internal;
 import org.jpype.python.annotation.PyMethodInfo;
 import org.jpype.python.enums.PyInvocation;
 import python.lang.PyDict;
-import python.lang.PyDict;
-import python.lang.PyList;
 import python.lang.PyList;
 import python.lang.exc.PyException;
 
