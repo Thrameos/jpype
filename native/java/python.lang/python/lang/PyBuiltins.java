@@ -360,15 +360,15 @@ public class PyBuiltins
     return (Iterator) BUILTIN_STATIC.iter(o);
   }
 
-  static Object map(Object func, Object o)
-  {
-    return BUILTIN_STATIC.map(func, o);
-  }
-
-  static Object filter(Object func, Object iterable)
-  {
-    return BUILTIN_STATIC.filter(func, iterable);
-  }
+//  static Object map(Object func, Object o)
+//  {
+//    return BUILTIN_STATIC.map(func, o);
+//  }
+//
+//  static Object filter(Object func, Object iterable)
+//  {
+//    return BUILTIN_STATIC.filter(func, iterable);
+//  }
 
   static Object next(Object o)
   {

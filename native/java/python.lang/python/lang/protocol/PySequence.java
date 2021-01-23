@@ -20,7 +20,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.RandomAccess;
-import org.jpype.python.PyTypeManager;
+import org.jpype.python.Types;
 import org.jpype.python.annotation.PyMethodInfo;
 import org.jpype.python.annotation.PyTypeInfo;
 import org.jpype.python.enums.PyInvocation;
@@ -34,8 +34,7 @@ import python.lang.exc.PyException;
 public interface PySequence<E> extends PyCollection<E>, List<E>, RandomAccess
 {
 
-  final static PySequenceStatic SEQUENCE_STATIC = PyTypeManager.getInstance()
-          .createStaticInstance(PySequenceStatic.class);
+  final static PySequenceStatic SEQUENCE_STATIC = Types.newInstance(PySequenceStatic.class);
 
   /**
    * Get the length of the sequence.

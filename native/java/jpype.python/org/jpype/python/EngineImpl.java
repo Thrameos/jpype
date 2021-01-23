@@ -15,7 +15,6 @@
 **************************************************************************** */
 package org.jpype.python;
 
-import org.jpype.python.Engine;
 import python.lang.PyBuiltins;
 import python.lang.PyDict;
 import python.lang.PyString;

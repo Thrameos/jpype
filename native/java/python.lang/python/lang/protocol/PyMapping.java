@@ -15,7 +15,7 @@
 **************************************************************************** */
 package python.lang.protocol;
 
-import org.jpype.python.PyTypeManager;
+import org.jpype.python.Types;
 import org.jpype.python.annotation.PyTypeInfo;
 import org.jpype.python.internal.PyMappingStatic;
 import python.lang.PyObject;
@@ -33,8 +33,7 @@ import python.lang.exc.PyTypeError;
 @PyTypeInfo(name = "protocol.mapping", exact = true)
 public interface PyMapping<K, V> extends PySized, PyObject
 {
-  final static PyMappingStatic MAPPING_STATIC = PyTypeManager.getInstance()
-          .createStaticInstance(PyMappingStatic.class);
+  final static PyMappingStatic MAPPING_STATIC = Types.newInstance(PyMappingStatic.class);
 
   @Override
   default int size()

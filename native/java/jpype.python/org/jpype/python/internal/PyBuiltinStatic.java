@@ -244,6 +244,6 @@ public interface PyBuiltinStatic
   @PyMethodInfo(name = "PyComplex_FromDoubles", invoke = PyInvocation.FromDouble2, method = false)
   Object newComplex(double doubleValue, double doubleValue0);
 
-  @PyMethodInfo()
-  Object map(Object func, Object o);
+//  @PyMethodInfo()
+//  Object map(Object func, Object o);
 }

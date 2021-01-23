@@ -32,7 +32,7 @@ void NotImplemented(JPJavaFrame& frame)
 #define FLAGS_ACCEPT 1
 #define FLAGS_BORROWED 2
 
-JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeNone
+JNIEXPORT jobject JNICALL Java_org_jpype_python_internal_PyInvoker_invokeNone
 (JNIEnv *env, jclass invoker, jlong entry, jint flags)
 {
 	EJP_TRACE_JAVA_IN("invoke::none");
@@ -48,7 +48,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeNone
 	EJP_TRACE_JAVA_OUT(NULL);
 }
 
-JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeFromInt
+JNIEXPORT jobject JNICALL Java_org_jpype_python_internal_PyInvoker_invokeFromInt
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jint i)
 {
 	EJP_TRACE_JAVA_IN("invoke::fromInt");
@@ -64,7 +64,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeFromInt
 	EJP_TRACE_JAVA_OUT(NULL);
 }
 
-JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeFromLong
+JNIEXPORT jobject JNICALL Java_org_jpype_python_internal_PyInvoker_invokeFromLong
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jlong i)
 {
 	EJP_TRACE_JAVA_IN("invoke::fromLong");
@@ -80,7 +80,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeFromLong
 	EJP_TRACE_JAVA_OUT(NULL);
 }
 
-JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeFromDouble
+JNIEXPORT jobject JNICALL Java_org_jpype_python_internal_PyInvoker_invokeFromDouble
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jdouble i)
 {
 	EJP_TRACE_JAVA_IN("invoke::fromDouble");
@@ -96,7 +96,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeFromDouble
 	EJP_TRACE_JAVA_OUT(NULL);
 }
 
-JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeFromJObject
+JNIEXPORT jobject JNICALL Java_org_jpype_python_internal_PyInvoker_invokeFromJObject
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject i)
 {
 	EJP_TRACE_JAVA_IN("invoke::fromJObject");
@@ -113,11 +113,11 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeFromJObject
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeUnary
  * Signature: (JLjava/lang/Object;)Ljava/lang/Object;
  */
-JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeUnary
+JNIEXPORT jobject JNICALL Java_org_jpype_python_internal_PyInvoker_invokeUnary
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1)
 {
 	EJP_TRACE_JAVA_IN("invoke::unary");
@@ -135,11 +135,11 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeUnary
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeAsBoolean
  * Signature: (JLjava/lang/Object;)Z
  */
-JNIEXPORT jboolean JNICALL Java_org_jpype_python_PyInvoker_invokeAsBoolean
+JNIEXPORT jboolean JNICALL Java_org_jpype_python_internal_PyInvoker_invokeAsBoolean
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1)
 {
 	EJP_TRACE_JAVA_IN("invoke::asBoolean");
@@ -158,11 +158,11 @@ JNIEXPORT jboolean JNICALL Java_org_jpype_python_PyInvoker_invokeAsBoolean
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeAsInt
  * Signature: (JLjava/lang/Object;)I
  */
-JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeAsInt
+JNIEXPORT jint JNICALL Java_org_jpype_python_internal_PyInvoker_invokeAsInt
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1)
 {
 	EJP_TRACE_JAVA_IN("invoke::asInt");
@@ -181,11 +181,11 @@ JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeAsInt
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeAsLong
  * Signature: (JLjava/lang/Object;)J
  */
-JNIEXPORT jlong JNICALL Java_org_jpype_python_PyInvoker_invokeAsLong
+JNIEXPORT jlong JNICALL Java_org_jpype_python_internal_PyInvoker_invokeAsLong
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1)
 {
 	EJP_TRACE_JAVA_IN("invoke::asLong");
@@ -204,11 +204,11 @@ JNIEXPORT jlong JNICALL Java_org_jpype_python_PyInvoker_invokeAsLong
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeAsFloat
  * Signature: (JLjava/lang/Object;)F
  */
-JNIEXPORT jfloat JNICALL Java_org_jpype_python_PyInvoker_invokeAsFloat
+JNIEXPORT jfloat JNICALL Java_org_jpype_python_internal_PyInvoker_invokeAsFloat
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1)
 {
 	EJP_TRACE_JAVA_IN("invoke::asFloat");
@@ -227,11 +227,11 @@ JNIEXPORT jfloat JNICALL Java_org_jpype_python_PyInvoker_invokeAsFloat
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeAsDouble
  * Signature: (JLjava/lang/Object;)D
  */
-JNIEXPORT jdouble JNICALL Java_org_jpype_python_PyInvoker_invokeAsDouble
+JNIEXPORT jdouble JNICALL Java_org_jpype_python_internal_PyInvoker_invokeAsDouble
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1)
 {
 	EJP_TRACE_JAVA_IN("invoke::asDouble");
@@ -250,11 +250,11 @@ JNIEXPORT jdouble JNICALL Java_org_jpype_python_PyInvoker_invokeAsDouble
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeBinary
  * Signature: (JLjava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
  */
-JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeBinary
+JNIEXPORT jobject JNICALL Java_org_jpype_python_internal_PyInvoker_invokeBinary
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jobject jparam2)
 {
 	EJP_TRACE_JAVA_IN("invoke::binary");
@@ -273,11 +273,11 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeBinary
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeBinaryInt
  * Signature: (JLjava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
  */
-JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeBinaryInt
+JNIEXPORT jobject JNICALL Java_org_jpype_python_internal_PyInvoker_invokeBinaryInt
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jint jparam2)
 {
 	EJP_TRACE_JAVA_IN("invoke::binaryInt");
@@ -295,11 +295,11 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeBinaryInt
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeBinaryToInt
  * Signature: (JLjava/lang/Object;Ljava/lang/Object;)I
  */
-JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeBinaryToInt
+JNIEXPORT jint JNICALL Java_org_jpype_python_internal_PyInvoker_invokeBinaryToInt
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jobject jparam2)
 {
 	EJP_TRACE_JAVA_IN("invoke::binaryToInt");
@@ -320,11 +320,11 @@ JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeBinaryToInt
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeBinaryToLong
  * Signature: (JLjava/lang/Object;Ljava/lang/Object;)J
  */
-JNIEXPORT jlong JNICALL Java_org_jpype_python_PyInvoker_invokeBinaryToLong
+JNIEXPORT jlong JNICALL Java_org_jpype_python_internal_PyInvoker_invokeBinaryToLong
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jobject jparam2)
 {
 	EJP_TRACE_JAVA_IN("invoke::binaryToLong");
@@ -345,11 +345,11 @@ JNIEXPORT jlong JNICALL Java_org_jpype_python_PyInvoker_invokeBinaryToLong
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeTernary
  * Signature: (JLjava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
  */
-JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeTernary
+JNIEXPORT jobject JNICALL Java_org_jpype_python_internal_PyInvoker_invokeTernary
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jobject jparam2, jobject jparam3)
 {
 	EJP_TRACE_JAVA_IN("invoke::ternary");
@@ -369,11 +369,11 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeTernary
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeDelSlice
  * Signature: (JLjava/lang/Object;II)Ljava/lang/Object;
  */
-JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeDelSlice
+JNIEXPORT jint JNICALL Java_org_jpype_python_internal_PyInvoker_invokeDelSlice
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jint param2, jint param3)
 {
 	EJP_TRACE_JAVA_IN("invoke::delSlice");
@@ -393,11 +393,11 @@ JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeDelSlice
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeGetSlice
  * Signature: (JLjava/lang/Object;II)Ljava/lang/Object;
  */
-JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeGetSlice
+JNIEXPORT jobject JNICALL Java_org_jpype_python_internal_PyInvoker_invokeGetSlice
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jint param2, jint param3)
 {
 	EJP_TRACE_JAVA_IN("invoke::binary");
@@ -415,11 +415,11 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeGetSlice
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeSetSlice
  * Signature: (JLjava/lang/Object;IILjava/lang/Object;)I
  */
-JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeSetSlice
+JNIEXPORT jint JNICALL Java_org_jpype_python_internal_PyInvoker_invokeSetSlice
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jint i1, jint i2, jobject jparam2)
 {
 	EJP_TRACE_JAVA_IN("invoke::setSlice");
@@ -440,11 +440,11 @@ JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeSetSlice
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeDelStr
  * Signature: (JLjava/lang/Object;Ljava/lang/String;)I
  */
-JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeDelStr
+JNIEXPORT jint JNICALL Java_org_jpype_python_internal_PyInvoker_invokeDelStr
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jstring jname)
 {
 	EJP_TRACE_JAVA_IN("invoke::delStr");
@@ -465,11 +465,11 @@ JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeDelStr
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeDelStr
  * Signature: (JLjava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
  */
-JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeGetStr
+JNIEXPORT jobject JNICALL Java_org_jpype_python_internal_PyInvoker_invokeGetStr
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jstring jname)
 {
 	EJP_TRACE_JAVA_IN("invoke::getStr");
@@ -488,11 +488,11 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeGetStr
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeSetObj
  * Signature: (JLjava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)I
  */
-JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeSetObj
+JNIEXPORT jint JNICALL Java_org_jpype_python_internal_PyInvoker_invokeSetObj
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jobject jparam2, jobject jparam3)
 {
 	EJP_TRACE_JAVA_IN("invoke::ternary");
@@ -514,11 +514,11 @@ JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeSetObj
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeSetStr
  * Signature: (JLjava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)I
  */
-JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeSetStr
+JNIEXPORT jint JNICALL Java_org_jpype_python_internal_PyInvoker_invokeSetStr
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1,
 		jstring jparam2, jobject jparam3)
 {
@@ -541,11 +541,11 @@ JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeSetStr
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeSetInt
  * Signature: (JLjava/lang/Object;ILjava/lang/Object;)I
  */
-JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeSetInt
+JNIEXPORT jint JNICALL Java_org_jpype_python_internal_PyInvoker_invokeSetInt
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jint jparam2, jobject jparam3)
 {
 	EJP_TRACE_JAVA_IN("invoke::ternary");
@@ -566,11 +566,11 @@ JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeSetInt
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeSetIntToObj
  * Signature: (JLjava/lang/Object;ILjava/lang/Object;)Ljava/lang/Object;
  */
-JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeSetIntToObj
+JNIEXPORT jobject JNICALL Java_org_jpype_python_internal_PyInvoker_invokeSetIntToObj
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jint jparam2, jobject jparam3)
 {
 	EJP_TRACE_JAVA_IN("invoke::ternary");
@@ -589,11 +589,11 @@ JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeSetIntToObj
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeRichCompare
  * Signature: (JLjava/lang/Object;Ljava/lang/Object;I)I
  */
-JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeIntOperator1
+JNIEXPORT jint JNICALL Java_org_jpype_python_internal_PyInvoker_invokeIntOperator1
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jint op)
 {
 	EJP_TRACE_JAVA_IN("invoke::intoperator1");
@@ -613,11 +613,11 @@ JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeIntOperator1
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeRichCompare
  * Signature: (JLjava/lang/Object;Ljava/lang/Object;I)I
  */
-JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeIntOperator2
+JNIEXPORT jint JNICALL Java_org_jpype_python_internal_PyInvoker_invokeIntOperator2
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobject jparam1, jobject jparam2, jint op)
 {
 	EJP_TRACE_JAVA_IN("invoke::intoperator2");
@@ -638,11 +638,11 @@ JNIEXPORT jint JNICALL Java_org_jpype_python_PyInvoker_invokeIntOperator2
 }
 
 /*
- * Class:     org_jpype_python_PyInvoker
+ * Class:     org_jpype_python_internal_PyInvoker
  * Method:    invokeUnary
  * Signature: (J[Ljava/lang/Object;)Ljava/lang/Object;
  */
-JNIEXPORT jobject JNICALL Java_org_jpype_python_PyInvoker_invokeArray
+JNIEXPORT jobject JNICALL Java_org_jpype_python_internal_PyInvoker_invokeArray
 (JNIEnv *env, jclass invoker, jlong entry, jint flags, jobjectArray jparam1)
 {
 	EJP_TRACE_JAVA_IN("invoke::unary");

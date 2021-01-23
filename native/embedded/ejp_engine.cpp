@@ -43,7 +43,7 @@ static void convertException(JNIEnv *env, JPypeException& ex)
 	}
 }
 
-JNIEXPORT void JNICALL Java_python_lang_PyEngine_start_1
+JNIEXPORT void JNICALL Java_org_jpype_python_internal_Native_start
 (JNIEnv *env, jobject engine)
 {
 	try
@@ -114,7 +114,7 @@ static list<void*> libraries;
  * Method:    getSymbol
  * Signature: (Ljava/lang/String;)J
  */
-JNIEXPORT jlong JNICALL Java_python_lang_PyEngine_getSymbol
+JNIEXPORT jlong JNICALL Java_org_jpype_python_internal_Native_getSymbol
 (JNIEnv *env, jobject, jstring str)
 {
 	try
@@ -150,7 +150,7 @@ JNIEXPORT jlong JNICALL Java_python_lang_PyEngine_getSymbol
  * Method:    addLibrary
  * Signature: (Ljava/lang/String;)V
  */
-JNIEXPORT void JNICALL Java_python_lang_PyEngine_addLibrary
+JNIEXPORT void JNICALL Java_org_jpype_python_internal_Native_addLibrary
 (JNIEnv *env, jobject, jstring str)
 {
 	try

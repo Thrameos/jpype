@@ -26,10 +26,11 @@ import org.jpype.python.internal.PyFrameStatic;
  *
  * @author nelson85
  */
-public class EngineFactoryImpl implements EngineFactory
+class EngineFactoryImpl implements EngineFactory
 {
+
   String pythonExec = "python";
-  String jpypeLib = null;
+  String jpypeLibrary = null;
   String pythonLibrary = null;
 
   boolean started = false;
@@ -52,7 +53,7 @@ public class EngineFactoryImpl implements EngineFactory
     }
     if (key.equals("jpype.lib"))
     {
-      jpypeLib = Paths.get((String) value).toAbsolutePath().toString();
+      jpypeLibrary = Paths.get((String) value).toAbsolutePath().toString();
       return;
     }
     throw new UnsupportedOperationException("Unknown property " + key);
@@ -64,26 +65,32 @@ public class EngineFactoryImpl implements EngineFactory
     // We can only create one engine as all have shared instances
     if (started)
       throw new IllegalStateException();
-    
+
     // Get the _jpype extension library
-    String library = getLibrary();
-    if (library == null)
+    resolveLibraries();
+    if (jpypeLibrary == null || pythonLibrary == null)
     {
       throw new RuntimeException("Unable to find _jpype module");
     }
-    
+
+    System.out.println("Load " + pythonLibrary);
+    System.out.println("Load " + jpypeLibrary);
+
     // Load libraries in Java so they are available for native calls.
-    System.load(pythonLibrary);
-    System.load(library);
-    
+    if (Paths.get(pythonLibrary).isAbsolute())
+      System.load(pythonLibrary);
+    else
+      System.loadLibrary(pythonLibrary);
+    System.load(jpypeLibrary);
+
     // Add to FFI name lookup table
     Native.addLibrary(pythonLibrary);
-    Native.addLibrary(library);
-    
+    Native.addLibrary(jpypeLibrary);
+
     // Start the Python
     Native.start();
     started = true;
-    
+
     // Connect up the natives
     Statics.FRAME_STATIC = PyTypeManager.getInstance().createStaticInstance(PyFrameStatic.class);
     return new EngineImpl();
@@ -95,33 +102,47 @@ public class EngineFactoryImpl implements EngineFactory
    *
    * @return
    */
-  public String getLibrary()
+  public void resolveLibraries()
   {
-    if (jpypeLib != null)
-      return jpypeLib;
+    // System properties dub compiled in paths
+    this.jpypeLibrary = System.getProperty("jpype.lib", jpypeLibrary);
+    this.pythonLibrary = System.getProperty("python.lib", pythonLibrary);
+
+    // No need to do a probe
+    if (this.jpypeLibrary != null && this.pythonLibrary != null)
+      return;
+
     try
     {
-      String python = System.getProperty("python", pythonExec);
+      System.out.println("Probe");
+      String python = pythonExec;
       String[] cmd =
       {
         python, "-c",
         "import importlib\n"
         + "import sysconfig\n"
+        + "import os\n"
+        + "gcv = sysconfig.get_config_var\n"
         + "print(importlib.util.find_spec('_jpype').origin)\n"
+        + "print(os.path.join(gcv('LIBDIR')+gcv('multiarchsubdir'),gcv('LDLIBRARY')))"
       };
       ProcessBuilder pb = new ProcessBuilder(cmd);
       pb.redirectOutput(ProcessBuilder.Redirect.PIPE);
       Process process = pb.start();
       BufferedReader out = new BufferedReader(new InputStreamReader(process.getInputStream()));
       process.waitFor();
-      return out.readLine();
+      String a = out.readLine();
+      String b = out.readLine();
+      if (jpypeLibrary == null)
+        jpypeLibrary = a;
+      if (pythonLibrary == null)
+        pythonLibrary = b;
+
     } catch (IOException | InterruptedException ex)
     {
       ex.printStackTrace();
     }
-    return null;
   }
 
 //</editor-fold>
-  
 }
