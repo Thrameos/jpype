@@ -15,7 +15,6 @@
 **************************************************************************** */
 package org.jpype;
 
-import org.jpype.jvm.JPypeSignalImpl;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;

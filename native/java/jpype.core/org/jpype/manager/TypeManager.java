@@ -379,9 +379,10 @@ public class TypeManager
     if (cls.isArray())
       return this.createArrayClass(cls);
 
+    // Check if this is managed by a different extension.
     for (TypeManagerExtension extension:extensions)
     {
-      if (extension.getManagedClass().isAssignableFrom(cls))
+      if (extension.handles(cls))
         return extension.createClass(this, cls);
     }
 

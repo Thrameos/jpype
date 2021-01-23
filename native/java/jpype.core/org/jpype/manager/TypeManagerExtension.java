@@ -21,8 +21,21 @@ package org.jpype.manager;
  */
 public interface TypeManagerExtension
 {
-  public Class getManagedClass();
-  
-  public ClassDescriptor createClass(TypeManager typeManager, Class<?> cls);
+  /** 
+   * Create a class descriptor for this class.
+   * 
+   * @param typeManager
+   * @param cls
+   * @return 
+   */
+  ClassDescriptor createClass(TypeManager typeManager, Class<?> cls);
+
+  /** 
+   * Returns true if this typemanager extension handles this type.
+   * 
+   * @param cls
+   * @return 
+   */
+  boolean handles(Class cls);
 
 }

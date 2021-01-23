@@ -1,8 +1,24 @@
+/* ****************************************************************************
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  See NOTICE file for details.
+**************************************************************************** */
 package python.lang;
 
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Iterator;
 import python.lang.exc.PyTypeError;
 import org.jpype.python.internal.PyBuiltinStatic;
@@ -252,17 +268,6 @@ public class PyBuiltins
 
 //</editor-fold>
 //<editor-fold desc="scope">
-//================================
-//  These will need to be attached to a scope to make sense
-  public static PyDict locals()
-  {
-    return BUILTIN_STATIC.locals();
-  }
-
-  public static PyDict globals()
-  {
-    return BUILTIN_STATIC.globals();
-  }
 
   public static PyDict builtins()
   {
@@ -357,12 +362,12 @@ public class PyBuiltins
 
   static Object map(Object func, Object o)
   {
-    throw new UnsupportedOperationException();
+    return BUILTIN_STATIC.map(func, o);
   }
 
   static Object filter(Object func, Object iterable)
   {
-    throw new UnsupportedOperationException();
+    return BUILTIN_STATIC.filter(func, iterable);
   }
 
   static Object next(Object o)
@@ -421,7 +426,7 @@ public class PyBuiltins
 
   public static Object complex(Number real, Number img)
   {
-    throw new UnsupportedOperationException();
+    return PyBuiltins.BUILTIN_STATIC.newComplex(real.doubleValue(), img.doubleValue());
   }
 
   public static <K, E> PyDict<K, E> dict()
@@ -429,24 +434,14 @@ public class PyBuiltins
     return PyBuiltins.BUILTIN_STATIC.newDict();
   }
 
-  public static Object float_(double d)
-  {
-    throw new UnsupportedOperationException();
-  }
-
   public static <K> PySet<K> frozenset(Iterable<K> s)
   {
     return PyBuiltins.BUILTIN_STATIC.newFrozenSet(s);
   }
 
-  public static Object int_(long o)
+  public static <E> PyList<E> list(Collection<E> e)
   {
-    throw new UnsupportedOperationException();
-  }
-
-  public static <E> PyList<E> list(Iterable<E> e)
-  {
-    throw new UnsupportedOperationException();
+    return PyList.of(e.toArray());
   }
 
   public static PyMemoryView memoryview(Object o)
@@ -476,8 +471,7 @@ public class PyBuiltins
 
   public static PySlice slice(Object start, Object end)
   {
-//    return PyBuiltins.BUILTIN_STATIC.newSlice(start, end, None);
-    return null;
+    return PyBuiltins.BUILTIN_STATIC.newSlice(start, end, None);
   }
 
   public static PySlice slice(Object start, Object end, Object step)
@@ -487,7 +481,7 @@ public class PyBuiltins
 
   public static <E> PyTuple<E> tuple(E... e)
   {
-    throw new UnsupportedOperationException();
+    return PyTuple.of(e);
   }
 
   public static Object object()
@@ -499,43 +493,13 @@ public class PyBuiltins
 //<editor-fold desc="unused">
 // Likely never used
 //  classmethod()
-//  {
-//    throw new UnsupportedOperationException();
-//  }
-//
-//  static Object property()
-//  {
-//    throw new UnsupportedOperationException();
-//  }
-//
-//  static Object super_()
-//  {
-//    throw new UnsupportedOperationException();
-//  }
-//    breakpoint()
-//  {
-//    throw new UnsupportedOperationException();
-//  }
-//
-//  static void print()
-//  {
-//    throw new UnsupportedOperationException();
-//  }
-//
-//  static Object input()
-//  {
-//    throw new UnsupportedOperationException();
-//  }
-//
-//  static Object staticmethod(Object o)
-//  {
-//    throw new UnsupportedOperationException();
-//  }
-//
-//  static Object open(Object o, Object o)
-//  {
-//    throw new UnsupportedOperationException();
-//  }
+//  property()
+//  super_()
+//  breakpoint()
+//  print()
+//  input()
+//  staticmethod(Object o)
+//  open(Object o, Object o)
 //</editor-fold>
   static Object format(Object value, Object spec)
   {

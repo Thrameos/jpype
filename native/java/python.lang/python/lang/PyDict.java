@@ -1,3 +1,18 @@
+/* ****************************************************************************
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  See NOTICE file for details.
+**************************************************************************** */
 package python.lang;
 
 import python.lang.protocol.PyMapping;
@@ -7,7 +22,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
-import org.jpype.python.PyTypeManager;
+import org.jpype.python.Types;
 import org.jpype.python.annotation.PyTypeInfo;
 import org.jpype.python.internal.PyBaseObject;
 import org.jpype.python.internal.PyConstructor;
@@ -19,8 +34,7 @@ import python.lang.exc.PyTypeError;
 public class PyDict<K, V> extends PyBaseObject implements Map<K, V>, PyMapping<K, V>
 {
 
-  final static PyDictStatic DICT_STATIC = PyTypeManager.getInstance()
-          .createStaticInstance(PyDictStatic.class);
+  final static PyDictStatic DICT_STATIC = Types.newInstance(PyDictStatic.class);
 
   protected PyDict(PyConstructor key, long instance)
   {

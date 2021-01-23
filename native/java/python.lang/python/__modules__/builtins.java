@@ -2,7 +2,7 @@ package python.__modules__;
 
 import java.util.HashMap;
 import java.util.Map;
-import org.jpype.python.PyModuleIndex;
+import org.jpype.python.internal.PyModuleIndex;
 
 /**
  * Index for Python builtins module.

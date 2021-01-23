@@ -1,3 +1,18 @@
+/* ****************************************************************************
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  See NOTICE file for details.
+**************************************************************************** */
 package org.jpype.python;
 
 import java.lang.reflect.InvocationTargetException;
@@ -12,6 +27,7 @@ import org.jpype.manager.TypeManager;
 import org.jpype.manager.TypeManagerExtension;
 import org.jpype.python.annotation.PyTypeInfo;
 import org.jpype.python.internal.PyBaseObject;
+import org.jpype.python.internal.PyModuleIndex;
 import python.lang.PyDict;
 import python.lang.PyFloat;
 import python.lang.PyLong;
@@ -23,7 +39,7 @@ import python.lang.exc.PyBaseException;
 /**
  * TypeManager holds all of the wrapper classes that have been created.
  */
-public class PyTypeManager implements TypeManagerExtension
+class PyTypeManager implements TypeManagerExtension
 {
 
   static final private PyTypeManager instance = new PyTypeManager();
@@ -45,7 +61,8 @@ public class PyTypeManager implements TypeManagerExtension
     // ability to print stacktraces in Python, so we have to do it here.
     try
     {
-      Class.forName("org.jpype.python.enums.PyInvocation", true, JPypeContext.getInstance().getClassLoader());
+      Class.forName("org.jpype.python.enums.PyInvocation", true, 
+              JPypeContext.getInstance().getClassLoader());
     } catch (ClassNotFoundException ex)
     {
       throw new RuntimeException(ex);
@@ -214,6 +231,13 @@ public class PyTypeManager implements TypeManagerExtension
   }
 
 //<editor-fold desc="extension">  
+  /** 
+   * Extension to TypeManager to handle Python class instances.
+   * 
+   * @param typeManager
+   * @param cls
+   * @return 
+   */
   @Override
   public ClassDescriptor createClass(TypeManager typeManager, Class<?> cls)
   {
@@ -252,9 +276,9 @@ public class PyTypeManager implements TypeManagerExtension
   }
 
   @Override
-  public Class getManagedClass()
+  public boolean handles(Class cls)
   {
-    return PyObject.class;
+    return PyObject.class.isAssignableFrom(cls);
   }
 //</editor-fold>
 }
