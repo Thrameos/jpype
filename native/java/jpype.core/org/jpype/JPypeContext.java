@@ -15,12 +15,14 @@
 **************************************************************************** */
 package org.jpype;
 
+import java.io.File;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.nio.Buffer;
 import java.nio.ByteOrder;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -69,7 +71,7 @@ import org.jpype.ref.JPypeReferenceQueue;
 public class JPypeContext
 {
 
-  public final String VERSION = "1.2.1_dev0";
+  public final String VERSION = "1.2.2_dev0";
 
   private static JPypeContext INSTANCE = new JPypeContext();
   // This is the C++ portion of the context.
@@ -107,6 +109,8 @@ public class JPypeContext
     INSTANCE.typeFactory = new TypeFactoryNative();
     INSTANCE.typeManager = new TypeManager(context, INSTANCE.typeFactory);
     INSTANCE.initialize(interrupt);
+
+    scanExistingJars();
     return INSTANCE;
   }
 
@@ -684,6 +688,16 @@ public class JPypeContext
     synchronized (this.typeFactory)
     {
       this.typeFactory.newWrapper(context, l);
+    }
+  }
+
+  private static void scanExistingJars()
+  {
+    // Scan existing jars for missing directory entries
+    String[] paths = System.getProperty("java.class.path").split(File.pathSeparator);
+    for (String path : paths)
+    {
+      INSTANCE.classLoader.scanJar(Paths.get(path));
     }
   }
 
