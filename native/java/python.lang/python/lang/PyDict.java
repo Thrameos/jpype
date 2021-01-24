@@ -314,6 +314,8 @@ public class PyDict<K, V> extends PyBaseObject implements Map<K, V>, PyMapping<K
   }
 
   /**
+   * Update a dict.
+   *
    * This is the same as PyDict_Merge(a, b, 1) in C, and is similar to
    * a.update(b) in Python except that PyDict_Update() doesn’t fall back to the
    * iterating over a sequence of key value pairs if the second argument has no
