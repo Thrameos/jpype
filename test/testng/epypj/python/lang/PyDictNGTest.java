@@ -15,6 +15,7 @@
 **************************************************************************** */
 package python.lang;
 
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -34,8 +35,6 @@ import org.testng.annotations.Test;
 public class PyDictNGTest
 {
 
-  private static Scope scope;
-
   public PyDictNGTest()
   {
   }
@@ -44,7 +43,6 @@ public class PyDictNGTest
   public static void setUpClass() throws Exception
   {
     Engine engine = PythonTest.getEngine();
-    scope = engine.newScope();
   }
 
   @AfterClass
@@ -89,7 +87,7 @@ public class PyDictNGTest
     instance.put("A", 1);
     instance.put("B", 2);
     assertEquals(instance.size(), 2);
-    instance.clear();
+   // instance.clear();
     assertEquals(instance.size(), 0);
   }
 

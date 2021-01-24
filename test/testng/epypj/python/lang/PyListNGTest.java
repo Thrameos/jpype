@@ -15,6 +15,7 @@
 **************************************************************************** */
 package python.lang;
 
+import org.jpype.python.Engine;
 import static org.testng.Assert.*;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
@@ -28,7 +29,7 @@ import org.testng.annotations.Test;
  */
 public class PyListNGTest
 {
-  
+
   public PyListNGTest()
   {
   }
@@ -36,6 +37,7 @@ public class PyListNGTest
   @BeforeClass
   public static void setUpClass() throws Exception
   {
+    Engine engine = PythonTest.getEngine();
   }
 
   @AfterClass
@@ -186,5 +188,5 @@ public class PyListNGTest
     // TODO review the generated test code and remove the default call to fail.
     fail("The test case is a prototype.");
   }
-  
+
 }

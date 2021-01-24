@@ -15,7 +15,10 @@
 **************************************************************************** */
 package python.lang;
 
+import java.nio.file.Paths;
 import org.jpype.python.Engine;
+import org.jpype.python.EngineFactory;
+import org.jpype.python.Scope;
 
 /**
  *
@@ -24,10 +27,32 @@ import org.jpype.python.Engine;
 public class PythonTest
 {
 
+  static Engine engine;
+  static Scope scope;
+
   static Engine getEngine()
   {
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    if (engine != null)
+      return engine;
+
+    System.out.println(Paths.get(".").toAbsolutePath());
+
+    EngineFactory main = EngineFactory.getInstance();
+    main.setProperty("python.exec", "python3");
+    //main.setProperty("jpype.lib","_jpype.cpython-36m-x86_64-linux-gnu.so");
+    //main.setProperty("python.lib","/usr/lib/x86_64-linux-gnu/libpython3.6m.so");
+    System.out.println("Start");
+    engine = main.create();
+    System.out.println("Run");
+    scope = engine.newScope();
+    return engine;
   }
-  
-  
+
+  Scope getScope()
+  {
+    if (scope == null)
+      getEngine();
+    return scope;
+  }
+
 }

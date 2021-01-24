@@ -22,6 +22,11 @@ package org.jpype.python;
 public interface EngineFactory
 {
 
+  /** 
+   * Get the instance of the EngineFactory.
+   * 
+   * @return 
+   */
   static EngineFactory getInstance()
   {
     return Statics.getEngineFactory();
@@ -35,8 +40,17 @@ public interface EngineFactory
    *
    * @param key
    * @param value
+   * @throws IllegalStateException if the engine is already started.
    */
-  void setProperty(String key, Object value);
+  void setProperty(String key, Object value) throws IllegalStateException;
 
-  Engine create();
+  /** 
+   * Create a Python instance.
+   * 
+   * This can be only used once.
+   * 
+   * @return 
+   * @throws IllegalStateException if the Python engine has already been started.
+   */
+  Engine create() throws IllegalStateException;
 }
