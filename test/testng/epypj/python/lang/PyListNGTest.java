@@ -37,7 +37,7 @@ public class PyListNGTest
   @BeforeClass
   public static void setUpClass() throws Exception
   {
-    Engine engine = PythonTest.getEngine();
+    PythonTest.getEngine();
   }
 
   @AfterClass
@@ -62,13 +62,11 @@ public class PyListNGTest
   public void testGet()
   {
     System.out.println("get");
-    int index = 0;
     PyList instance = new PyList();
-    Object expResult = null;
-    Object result = instance.get(index);
-    assertEquals(result, expResult);
-    // TODO review the generated test code and remove the default call to fail.
-    fail("The test case is a prototype.");
+    instance.add("A");
+    instance.add("B");
+    assertEquals(instance.get(0), "A");
+    assertEquals(instance.get(1), "B");
   }
 
   /**
@@ -78,12 +76,13 @@ public class PyListNGTest
   public void testSetItem()
   {
     System.out.println("setItem");
-    int index = 0;
-    Object item = null;
     PyList instance = new PyList();
-    instance.setItem(index, item);
-    // TODO review the generated test code and remove the default call to fail.
-    fail("The test case is a prototype.");
+    instance.add("A");
+    instance.add("B");
+    assertEquals(instance.get(0), "A");
+    assertEquals(instance.get(1), "B");
+    instance.setItem(0, "C");
+    assertEquals(instance.get(0), "C");
   }
 
   /**
@@ -93,12 +92,14 @@ public class PyListNGTest
   public void testInsert()
   {
     System.out.println("insert");
-    int index = 0;
-    Object item = null;
     PyList instance = new PyList();
-    instance.insert(index, item);
-    // TODO review the generated test code and remove the default call to fail.
-    fail("The test case is a prototype.");
+    instance.add("A");
+    instance.add("B");
+    assertEquals(instance.get(0), "A");
+    assertEquals(instance.get(1), "B");
+    instance.insert(0, "C");
+    assertEquals(instance.get(0), "C");
+    assertEquals(instance.get(1), "A");
   }
 
   /**
@@ -108,11 +109,11 @@ public class PyListNGTest
   public void testAppend()
   {
     System.out.println("append");
-    Object item = null;
     PyList instance = new PyList();
-    instance.append(item);
-    // TODO review the generated test code and remove the default call to fail.
-    fail("The test case is a prototype.");
+    instance.append("A");
+    instance.append("B");
+    assertEquals(instance.get(0), "A");
+    assertEquals(instance.get(1), "B");
   }
 
   /**
@@ -122,14 +123,10 @@ public class PyListNGTest
   public void testGetSlice()
   {
     System.out.println("getSlice");
-    int low = 0;
-    int high = 0;
     PyList instance = new PyList();
-    Object expResult = null;
-    Object result = instance.getSlice(low, high);
-    assertEquals(result, expResult);
-    // TODO review the generated test code and remove the default call to fail.
-    fail("The test case is a prototype.");
+    instance.append("A");
+    instance.append("B");
+    instance.getSlice(0, 1);
   }
 
   /**

@@ -88,3 +88,4 @@ vc*.pdb
 headers/
 /project/epypj_java/nbproject/private/
 /project/epype_java/nbproject/private/
+test-output/

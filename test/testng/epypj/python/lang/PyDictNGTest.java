@@ -87,7 +87,7 @@ public class PyDictNGTest
     instance.put("A", 1);
     instance.put("B", 2);
     assertEquals(instance.size(), 2);
-   // instance.clear();
+    // instance.clear();
     assertEquals(instance.size(), 0);
   }
 
@@ -343,7 +343,7 @@ public class PyDictNGTest
     System.out.println("merge");
     boolean override = false;
     PyDict instance = new PyDict();
-        PyDict dict = new PyDict();
+    PyDict dict = new PyDict();
     dict.put("A", 1);
     dict.put("B", 2);
     instance.merge(dict, override);

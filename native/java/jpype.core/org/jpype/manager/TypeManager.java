@@ -366,6 +366,11 @@ public class TypeManager
 //</editor-fold>
 //<editor-fold desc="classes" defaultstate="defaultstate">
 
+  public void registerExtension(TypeManagerExtension arg0)
+  {
+    this.extensions.add(arg0);
+  }
+  
   private ClassDescriptor getClass(Class cls)
   {
     if (cls == null)

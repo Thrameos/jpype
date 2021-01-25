@@ -73,9 +73,6 @@ class EngineFactoryImpl implements EngineFactory
       throw new RuntimeException("Unable to find _jpype module");
     }
 
-    System.out.println("Load " + pythonLibrary);
-    System.out.println("Load " + jpypeLibrary);
-
     // Load libraries in Java so they are available for native calls.
     if (Paths.get(pythonLibrary).isAbsolute())
       System.load(pythonLibrary);
@@ -114,7 +111,6 @@ class EngineFactoryImpl implements EngineFactory
 
     try
     {
-      System.out.println("Probe");
       String python = pythonExec;
       String[] cmd =
       {

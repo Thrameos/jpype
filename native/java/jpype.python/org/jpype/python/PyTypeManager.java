@@ -91,7 +91,9 @@ class PyTypeManager implements TypeManagerExtension
     {
       createClass(typeManager, c);
     }
-
+    
+    // Register this as part of the typemanager
+    typeManager.registerExtension(this);
   }
 
   private void collectBases(ArrayList<Class> interfaces, Class cls)
@@ -278,6 +280,7 @@ class PyTypeManager implements TypeManagerExtension
   @Override
   public boolean handles(Class cls)
   {
+    System.out.println("Test "+cls +" " +PyObject.class.isAssignableFrom(cls));
     return PyObject.class.isAssignableFrom(cls);
   }
 //</editor-fold>

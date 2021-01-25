@@ -54,6 +54,15 @@ public class PyTuple<E> extends PyBaseObject implements PySequence<E>
     return new PyTuple(PyConstructor.CONSTRUCTOR, _ctor(values, 0, values.length));
   }
 
+  /** 
+   * Construct a tuple from a range of an array.
+   * 
+   * @param <E>
+   * @param values
+   * @param start
+   * @param end
+   * @return 
+   */
   public static <E> PyTuple<E> ofRange(E[] values, int start, int end)
   {
     return new PyTuple(PyConstructor.CONSTRUCTOR, _ctor(values, start, end));

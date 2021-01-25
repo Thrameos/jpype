@@ -197,6 +197,7 @@ JNIEXPORT jlong JNICALL Java_org_jpype_python_internal_PyInvoker_invokeAsLong
 	typedef jlong(*func)(PyObject*);
 	func f = (func) entry;
 	JPPyObject param1 = EJP_ToPython(frame, jparam1);
+	printf("Object 0x%p %s\n", param1.get(), Py_TYPE(param1.get())->tp_name);
 	jlong ret = f(param1.get());
 	JP_PY_CHECK();
 	return ret;
