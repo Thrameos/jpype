@@ -277,9 +277,9 @@ JNIEXPORT jlong JNICALL Java_org_jpype_manager_TypeFactoryNative_defineObjectCla
 				(JPClass*) superClass, interfaces, modifiers, context->_double));
 	}
 	if (className == "org.jpype.proxy.JPypeProxy")
-		return (jlong)
+		return (jlong) (context->_jpype_Proxy = 
 		new JPProxyType(frame, cls, className,
-			(JPClass*) superClass, interfaces, modifiers);
+			(JPClass*) superClass, interfaces, modifiers));
 
 	// Register reflection types for later use
 	if (className == "java.lang.reflect.Method")

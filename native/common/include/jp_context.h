@@ -198,6 +198,8 @@ public:
 	JPStringType* _java_lang_String;
 	JPClass* _java_nio_ByteBuffer;
 
+	JPProxyType* _jpype_Proxy;
+
 private:
 
 	void loadEntryPoints(const string& path);

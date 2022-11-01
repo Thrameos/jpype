@@ -92,7 +92,6 @@ public:
 public: // JPClass implementation
 	virtual JPPyObject convertToPythonObject(JPJavaFrame& frame, jvalue val, bool cast) override;
 
-private:
 	JPClassRef m_ProxyClass;
 	jmethodID  m_GetInvocationHandlerID;
 	jfieldID   m_InstanceID;
