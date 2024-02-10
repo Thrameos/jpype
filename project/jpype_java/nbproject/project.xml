@@ -5,7 +5,10 @@
         <data xmlns="http://www.netbeans.org/ns/j2se-project/3">
             <name>jpype_java</name>
             <source-roots>
-                <root id="src.java.dir" name="Source Packages"/>
+                <root id="src.jpype.core.dir" name="jpype.core Package"/>
+                <root id="src.jpype.doc.dir" name="jpype.doc Package"/>
+                <root id="src.jpype.jvm.dir" name="jpype.jvm Package"/>
+                <root id="src.jpype.jvm.asm.dir" name="jpype.jvm.asm Package"/>
             </source-roots>
             <test-roots>
                 <root id="test.src.dir"/>

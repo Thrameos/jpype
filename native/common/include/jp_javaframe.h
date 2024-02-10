@@ -391,7 +391,6 @@ public:
 	void newWrapper(JPClass* cls);
 	void registerRef(jobject obj, PyObject* hostRef);
 	void registerRef(jobject obj, void* ref, JCleanupHook cleanup);
-
 	void clearInterrupt(bool throws);
 
 } ;

@@ -39,6 +39,7 @@
 #include "jp_doubletype.h"
 #include "jp_functional.h"
 #include "jp_proxy.h"
+#include "jp_pyobjecttype.h"
 
 void JPTypeFactory_rethrow(JPJavaFrame& frame)
 {
@@ -189,6 +190,8 @@ JNIEXPORT jlong JNICALL Java_org_jpype_manager_TypeFactoryNative_defineObjectCla
 	if (JPModifier::isBuffer(modifiers))
 		return (jlong) new JPBufferType(frame, cls, className, (JPClass*) superClass, interfaces, modifiers);
 	// Certain classes require special implementations
+	if (JPModifier::isPython(modifiers))
+		return (jlong) new JPPyObjectType(frame, cls, className, (JPClass*) superClass, interfaces, modifiers);
 	if (className == "java.lang.Object")
 		return (jlong) (context->_java_lang_Object
 			= new JPObjectType(frame, cls, className, (JPClass*) superClass, interfaces, modifiers));

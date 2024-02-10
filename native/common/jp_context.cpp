@@ -21,6 +21,7 @@
 #include "jp_proxy.h"
 #include "jp_platform.h"
 #include "jp_gc.h"
+#include "epypj.h"
 
 JPResource::~JPResource() = default;
 
@@ -152,9 +153,7 @@ void JPContext::startJVM(const string& vmPath, const StringVector& args,
 void JPContext::attachJVM(JNIEnv* env)
 {
 	env->GetJavaVM(&m_JavaVM);
-#ifndef ANDROID
 	m_Embedded = true;
-#endif
 	initializeResources(env, false);
 }
 
@@ -227,6 +226,9 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 			"(Ljava/lang/Class;)Ljava/lang/String;");
 
 	m_JavaContext = JPObjectRef(frame, frame.CallStaticObjectMethodA(contextClass, startMethod, val));
+
+	// Set up Java wrappers for Python
+	EJP_Init(frame);
 
 	// Post launch
 	JP_TRACE("Connect resources");
@@ -309,8 +311,8 @@ void JPContext::shutdownJVM(bool destroyJVM, bool freeJVM)
 	JP_TRACE_IN("JPContext::shutdown");
 	if (m_JavaVM == nullptr)
 		JP_RAISE(PyExc_RuntimeError, "Attempt to shutdown without a live JVM");
-	//	if (m_Embedded)
-	//		JP_RAISE(PyExc_RuntimeError, "Cannot shutdown from embedded Python");
+	if (m_Embedded)
+		JP_RAISE(PyExc_RuntimeError, "Cannot shutdown from embedded Python");
 
 	// Wait for all non-demon threads to terminate
 	if (destroyJVM)

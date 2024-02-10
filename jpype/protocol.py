@@ -70,8 +70,6 @@ def _JFileConvert(jcls, obj):
     return jcls(obj.__fspath__())
 
 # To be added in 1.1.x
-
-
 @_jcustomizer.JConversion("java.lang.Iterable", instanceof=Sequence, excludes=str)
 @_jcustomizer.JConversion("java.util.Collection", instanceof=Sequence, excludes=str)
 def _JSequenceConvert(jcls, obj):

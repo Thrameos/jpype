@@ -15,6 +15,7 @@
  *****************************************************************************/
 #include "jpype.h"
 #include "pyjp.h"
+#include "epypj.h"
 #include "jp_arrayclass.h"
 #include "jp_primitive_accessor.h"
 #include "jp_gc.h"
@@ -120,11 +121,14 @@ void PyJPModule_loadResources(PyObject* module)
 		_JMethodCode = PyObject_GetAttrString(module, "getMethodCode");
 		JP_PY_CHECK();
 		Py_INCREF(_JMethodCode);
-
+		_JExtension = PyObject_GetAttrString(module, "_JExtension");
+		JP_PY_CHECK();
+		Py_INCREF(_JExtension);
 		_JObjectKey = PyCapsule_New(module, "constructor key", nullptr);
 
 	}	catch (JPypeException&)  // GCOVR_EXCL_LINE
 	{
+		printf("Resource not found\n");
 		// GCOVR_EXCL_START
 		PyJP_SetStringWithCause(PyExc_RuntimeError, "JPype resource is missing");
 		JP_RAISE_PYTHON();
@@ -133,8 +137,7 @@ void PyJPModule_loadResources(PyObject* module)
 }
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 
@@ -575,6 +578,43 @@ static PyObject* PyJPModule_isPackage(PyObject *module, PyObject *pkg)
 	JP_PY_CATCH(nullptr); // GCOVR_EXCL_LINE
 }
 
+static PyObject* PyJPModule_getJavaType(PyObject *module, PyTypeObject *type)
+{
+	JP_PY_TRY("getJavaType");
+	if (EJP_HasPyType(type))
+		Py_RETURN_NONE;
+
+	if (!PyType_Check((PyObject*) type))
+	{
+		PyErr_SetString(PyExc_TypeError, "Bad type");
+		return NULL;
+	}
+
+	JPContext *context = PyJPModule_getContext();
+	JPJavaFrame frame = JPJavaFrame::outer(context);
+	EJP_GetClass(frame, type);
+	Py_RETURN_NONE;
+	JP_PY_CATCH(NULL);
+}
+
+static PyObject* PyJPModule_toJavaHandle(PyObject *module, PyTypeObject *type)
+{
+	JP_PY_TRY("getJavaType");
+	if (EJP_HasPyType(type))
+		Py_RETURN_NONE;
+
+	if (!PyType_Check((PyObject*) type))
+	{
+		PyErr_SetString(PyExc_TypeError, "Bad type");
+		return NULL;
+	}
+
+	JPContext *context = PyJPModule_getContext();
+	JPJavaFrame frame = JPJavaFrame::outer(context);
+	EJP_GetClass(frame, type);
+	Py_RETURN_NONE;
+	JP_PY_CATCH(NULL);
+}
 
 #if 1
 // GCOVR_EXCL_START
@@ -668,6 +708,19 @@ static PyObject *PyJPModule_bootstrap(PyObject *module)
 }
 #endif
 
+PyObject* test()
+{
+	PyObject *builtins = PyImport_AddModule("builtins");
+	PyModuleDef *moduleDef = PyModule_GetDef(builtins);
+	PyMethodDef *methods = moduleDef->m_methods;
+	while (methods->ml_name != NULL)
+	{
+		printf("%s\n", methods->ml_name);
+		methods++;
+	}
+	Py_RETURN_NONE;
+}
+
 static PyMethodDef moduleMethods[] = {
 	// Startup and initialization
 	{"isStarted", (PyCFunction) PyJPModule_isStarted, METH_NOARGS, ""},
@@ -698,10 +751,15 @@ static PyMethodDef moduleMethods[] = {
 	{"arrayFromBuffer", (PyCFunction) PyJPModule_arrayFromBuffer, METH_VARARGS, ""},
 	{"enableStacktraces", (PyCFunction) PyJPModule_enableStacktraces, METH_O, ""},
 	{"isPackage", (PyCFunction) PyJPModule_isPackage, METH_O, ""},
+	
+	{"getJavaType", (PyCFunction) PyJPModule_getJavaType, METH_O, ""},
+	{"toJavaHandle", (PyCFunction) PyJPModule_toJavaHandle, METH_O, ""},
+	
 	{"trace", (PyCFunction) PyJPModule_trace, METH_O, ""},
 #ifdef JP_INSTRUMENTATION
 	{"fault", (PyCFunction) PyJPModule_fault, METH_O, ""},
 #endif
+	{"test", (PyCFunction) test, METH_O, ""},
 	{"examine", (PyCFunction) examine, METH_O, ""},
 
 	// sentinel

@@ -32,13 +32,12 @@ struct PyJPClass
 	PyHeapTypeObject ht_type;
 	JPClass *m_Class;
 	PyObject *m_Doc;
-} ;
+};
 
 PyObject* PyJPClassMagic = nullptr;
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 int PyJPClass_Check(PyObject* obj)
@@ -89,8 +88,8 @@ PyObject *PyJPClass_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 	}
 	if (magic == 0)
 	{
-		PyErr_Format(PyExc_TypeError, "Java classes cannot be extended in Python");
-		return nullptr;
+		// Redirect to the class builder
+		return PyObject_Call(_JExtension, args, kwargs);
 	}
 
 	auto *typenew = (PyTypeObject*) PyType_Type.tp_new(type, args, kwargs);
@@ -466,7 +465,7 @@ int PyJPClass_setattro(PyObject *self, PyObject *attr_name, PyObject *v)
 	if (PyUnicode_GetLength(attr_name) && PyUnicode_ReadChar(attr_name, 0) == '_')
 		return PyType_Type.tp_setattro(self, attr_name, v);
 
-	JPPyObject f = JPPyObject::accept(PyJP_GetAttrDescriptor((PyTypeObject*) self, attr_name));
+	JPPyObject f = JPPyObject::acceptClear(PyJP_GetAttrDescriptor((PyTypeObject*) self, attr_name));
 	if (f.isNull())
 	{
 		const char *name_str = PyUnicode_AsUTF8(attr_name);

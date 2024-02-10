@@ -40,6 +40,7 @@
           <itemPath>../../native/common/include/jp_primitive_accessor.h</itemPath>
           <itemPath>../../native/common/include/jp_primitivetype.h</itemPath>
           <itemPath>../../native/common/include/jp_proxy.h</itemPath>
+          <itemPath>../../native/common/include/jp_pyobjecttype.h</itemPath>
           <itemPath>../../native/common/include/jp_reference_queue.h</itemPath>
           <itemPath>../../native/common/include/jp_shorttype.h</itemPath>
           <itemPath>../../native/common/include/jp_stringtype.h</itemPath>
@@ -50,6 +51,9 @@
           <itemPath>../../native/common/include/jpype.h</itemPath>
         </logicalFolder>
       </logicalFolder>
+      <logicalFolder name="f3" displayName="embedded" projectFiles="true">
+        <itemPath>../../native/embedded/include/epypj.h</itemPath>
+      </logicalFolder>
       <logicalFolder name="f1" displayName="Python" projectFiles="true">
         <logicalFolder name="include" displayName="include" projectFiles="true">
           <itemPath>../../native/python/include/jp_pythontypes.h</itemPath>
@@ -57,10 +61,7 @@
         </logicalFolder>
       </logicalFolder>
     </logicalFolder>
-    <logicalFolder name="f1"
-                   displayName="Python Files"
-                   projectFiles="true"
-                   kind="ROOT">
+    <logicalFolder name="f1" displayName="Python Files" projectFiles="true">
       <logicalFolder name="jpype" displayName="jpype" projectFiles="true">
         <itemPath>../../jpype/__init__.py</itemPath>
         <itemPath>../../jpype/_classpath.py</itemPath>
@@ -172,10 +173,6 @@
         <itemPath>../../test/jpypetest/test_zzz.py</itemPath>
       </logicalFolder>
     </logicalFolder>
-    <logicalFolder name="ResourceFiles"
-                   displayName="Resource Files"
-                   projectFiles="true">
-    </logicalFolder>
     <logicalFolder name="SourceFiles"
                    displayName="Source Files"
                    projectFiles="true">
@@ -197,6 +194,7 @@
         <itemPath>../../native/common/jp_doubletype.cpp</itemPath>
         <itemPath>../../native/common/jp_encoding.cpp</itemPath>
         <itemPath>../../native/common/jp_exception.cpp</itemPath>
+        <itemPath>../../native/common/jp_extension.cpp</itemPath>
         <itemPath>../../native/common/jp_field.cpp</itemPath>
         <itemPath>../../native/common/jp_floattype.cpp</itemPath>
         <itemPath>../../native/common/jp_functional.cpp</itemPath>
@@ -212,6 +210,7 @@
         <itemPath>../../native/common/jp_platform.cpp</itemPath>
         <itemPath>../../native/common/jp_primitivetype.cpp</itemPath>
         <itemPath>../../native/common/jp_proxy.cpp</itemPath>
+        <itemPath>../../native/common/jp_pyobjecttype.cpp</itemPath>
         <itemPath>../../native/common/jp_reference_queue.cpp</itemPath>
         <itemPath>../../native/common/jp_shorttype.cpp</itemPath>
         <itemPath>../../native/common/jp_stringtype.cpp</itemPath>
@@ -220,6 +219,15 @@
         <itemPath>../../native/common/jp_typemanager.cpp</itemPath>
         <itemPath>../../native/common/jp_value.cpp</itemPath>
         <itemPath>../../native/common/jp_voidtype.cpp</itemPath>
+      </logicalFolder>
+      <logicalFolder name="embedded" displayName="embedded" projectFiles="true">
+        <itemPath>../../native/embedded/ejp_call.cpp</itemPath>
+        <itemPath>../../native/embedded/ejp_context.cpp</itemPath>
+        <itemPath>../../native/embedded/ejp_ctor.cpp</itemPath>
+        <itemPath>../../native/embedded/ejp_engine.cpp</itemPath>
+        <itemPath>../../native/embedded/ejp_invoker.cpp</itemPath>
+        <itemPath>../../native/common/ejp_module.cpp</itemPath>
+        <itemPath>../../native/embedded/ejp_typemanager.cpp</itemPath>
       </logicalFolder>
       <logicalFolder name="python" displayName="python" projectFiles="true">
         <itemPath>../../native/python/jp_pythontypes.cpp</itemPath>
@@ -252,6 +260,7 @@
   </logicalFolder>
   <sourceRootList>
     <Elem>../../native/common</Elem>
+    <Elem>../../native/embedded</Elem>
     <Elem>../../native/python</Elem>
     <Elem>../../jpype</Elem>
     <Elem>../../test/jpypetest</Elem>
@@ -267,6 +276,12 @@
       <compileType>
         <cTool>
           <developmentMode>5</developmentMode>
+          <incDir>
+            <pElem>../../native/jni_include</pElem>
+            <pElem>../../native/python/include</pElem>
+            <pElem>../../native/common/include</pElem>
+            <pElem>../../native/embedded/include</pElem>
+          </incDir>
         </cTool>
         <ccTool>
           <developmentMode>5</developmentMode>
@@ -274,6 +289,7 @@
             <pElem>../../native/jni_include</pElem>
             <pElem>../../native/python/include</pElem>
             <pElem>../../native/common/include</pElem>
+            <pElem>../../native/embedded/include</pElem>
           </incDir>
         </ccTool>
         <fortranCompilerTool>
@@ -334,6 +350,8 @@
       <item path="../../jpype/protocol.py" ex="false" tool="3" flavor2="0">
       </item>
       <item path="../../jpype/types.py" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="../../native/common/ejp_module.cpp" ex="false" tool="1" flavor2="0">
       </item>
       <item path="../../native/common/include/jp_array.h"
             ex="false"
@@ -505,6 +523,11 @@
             tool="3"
             flavor2="0">
       </item>
+      <item path="../../native/common/include/jp_pyobjecttype.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
       <item path="../../native/common/include/jp_reference_queue.h"
             ex="false"
             tool="3"
@@ -615,6 +638,11 @@
             tool="1"
             flavor2="0">
       </item>
+      <item path="../../native/common/jp_extension.cpp"
+            ex="false"
+            tool="1"
+            flavor2="0">
+      </item>
       <item path="../../native/common/jp_field.cpp" ex="false" tool="1" flavor2="0">
       </item>
       <item path="../../native/common/jp_floattype.cpp"
@@ -672,6 +700,11 @@
       </item>
       <item path="../../native/common/jp_proxy.cpp" ex="false" tool="1" flavor2="0">
       </item>
+      <item path="../../native/common/jp_pyobjecttype.cpp"
+            ex="false"
+            tool="1"
+            flavor2="0">
+      </item>
       <item path="../../native/common/jp_reference_queue.cpp"
             ex="false"
             tool="1"
@@ -704,6 +737,35 @@
       <item path="../../native/common/jp_voidtype.cpp"
             ex="false"
             tool="1"
+            flavor2="0">
+      </item>
+      <item path="../../native/embedded/ejp_call.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="../../native/embedded/ejp_context.cpp"
+            ex="false"
+            tool="1"
+            flavor2="0">
+      </item>
+      <item path="../../native/embedded/ejp_ctor.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="../../native/embedded/ejp_engine.cpp"
+            ex="false"
+            tool="1"
+            flavor2="0">
+      </item>
+      <item path="../../native/embedded/ejp_invoker.cpp"
+            ex="false"
+            tool="1"
+            flavor2="0">
+      </item>
+      <item path="../../native/embedded/ejp_typemanager.cpp"
+            ex="false"
+            tool="1"
+            flavor2="0">
+      </item>
+      <item path="../../native/embedded/include/epypj.h"
+            ex="false"
+            tool="3"
             flavor2="0">
       </item>
       <item path="../../native/python/include/jp_pythontypes.h"

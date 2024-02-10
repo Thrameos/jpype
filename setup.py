@@ -46,7 +46,6 @@ jpypeJar = Extension(name="org.jpype",
                      libraries=["lib/asm-8.0.1.jar"]
                      )
 
-
 setup(
     name='JPype1',
     version='1.5.0_dev0',

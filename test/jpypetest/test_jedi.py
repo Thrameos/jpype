@@ -33,6 +33,7 @@ except:
 # FIXME: some jedi version is causing an issue jpype-project/jpype#920 so we pretend not to have jedi, until it is resolved.
 have_jedi = False
 
+
 class JediTestCase(common.JPypeTestCase):
     """Test tab completion on JPype objects
     """

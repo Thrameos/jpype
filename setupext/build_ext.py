@@ -175,6 +175,7 @@ class BuildExtCommand(build_ext):
         ('android', None, 'configure for android'),
         ('makefile', None, 'Build a makefile for extensions'),
         ('jar', None, 'Build the jar only'),
+        ('headers', None, 'Build the jar headers'),
     ]
 
     def initialize_options(self, *args):
@@ -182,6 +183,7 @@ class BuildExtCommand(build_ext):
         self.android = False
         self.makefile = False
         self.jar = False
+        self.headers = False
         import distutils.sysconfig
         cfg_vars = distutils.sysconfig.get_config_vars()
 
@@ -306,8 +308,12 @@ class BuildExtCommand(build_ext):
             build_dir = os.path.join(self.build_temp, ext.name, "classes")
             os.makedirs(build_dir, exist_ok=True)
             os.makedirs(dirname, exist_ok=True)
-            cmd1 = shlex.split('%s -cp "%s" -d "%s" -g:none -source %s -target %s -encoding UTF-8' %
-                               (javac, classpath, build_dir, target_version, target_version))
+
+            headers = ""
+            if self.headers:
+                headers = "-h headers"
+            cmd1 = shlex.split('%s -cp "%s" -d "%s" -g:none -source %s -target %s %s -encoding UTF-8' %
+                               (javac, classpath, build_dir, target_version, target_version, headers))
             cmd1.extend(ext.sources)
             debug = "-g:none"
             if coverage:
