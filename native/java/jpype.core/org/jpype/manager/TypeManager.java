@@ -34,6 +34,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.TreeSet;
 import org.jpype.JPypeContext;
+import org.jpype.JPypeUtilities;
 import org.jpype.proxy.JPypeProxy;
 
 /**
@@ -49,7 +50,6 @@ public class TypeManager
   TypeFactory typeFactory = null;
   public TypeAudit audit = null;
   private ClassDescriptor java_lang_Object;
-  public Class<? extends Annotation> functionalAnnotation = null;
   // For reasons that are less than clear, this object cannot be created
   // during shutdown
   private Destroyer destroyer = new Destroyer();
@@ -74,15 +74,6 @@ public class TypeManager
         throw new RuntimeException("Cannot be restarted");
       isStarted = true;
       isShutdown = false;
-
-      try
-      {
-        this.functionalAnnotation = Class.forName("java.lang.FunctionalInterface")
-                .asSubclass(Annotation.class);
-      } catch (ClassNotFoundException ex)
-      {
-        // It is okay if we don't find this
-      }
 
       // Create the required minimum classes
       this.java_lang_Object = defineClass(Object.class, true, ModifierCode.SPECIAL.value);
@@ -182,7 +173,7 @@ public class TypeManager
   public Class<?> lookupByName(String name)
   {
     ClassLoader classLoader = JPypeContext.getInstance().getClassLoader();
-    
+
     // Handle arrays
     if (name.endsWith("[]"))
     {
@@ -303,6 +294,18 @@ public class TypeManager
   }
 
   /**
+   * Returns the number of arguments an interface only unimplemented method accept.
+   *
+   * @param interfaceClass The class of the interface
+   * @return the number of arguments the only unimplemented method of the interface accept.
+   */
+  public int interfaceParameterCount(Class<?> interfaceClass)
+  {
+    ClassDescriptor classDescriptor = classMap.get(interfaceClass);
+    return classDescriptor.functional_interface_parameter_count;
+  }
+
+  /**
    * Get a class for an object.
    *
    * @param object is the object to interrogate.
@@ -403,6 +406,12 @@ public class TypeManager
    */
   public ClassDescriptor defineClass(Class<?> cls, boolean bases, int modifier)
   {
+    // Verify the class will be loadable prior to creating the class.
+    // If we fail to do this then the class may end up crashing later when the
+    // members get populated which could leave us in a bad state.
+    cls.getMethods();
+    cls.getFields();
+
     // Object classes are more work as we need the super information as well.
     // Make sure all base classes are loaded
     Class<?> superClass = cls.getSuperclass();
@@ -443,8 +452,10 @@ public class TypeManager
       modifiers |= ModifierCode.COMPARABLE.value;
     if (Buffer.class.isAssignableFrom(cls))
       modifiers |= ModifierCode.BUFFER.value | ModifierCode.SPECIAL.value;
-    if (this.functionalAnnotation != null
-            && cls.getAnnotation(this.functionalAnnotation) != null)
+
+    // Check if is Functional class
+    Method method = JPypeUtilities.getFunctionalInterfaceMethod(cls);
+    if (method != null)
       modifiers |= ModifierCode.FUNCTIONAL.value | ModifierCode.SPECIAL.value;
 
     // FIXME watch out for anonyous and lambda here.
@@ -459,7 +470,7 @@ public class TypeManager
             modifiers);
 
     // Cache the wrapper.
-    ClassDescriptor out = new ClassDescriptor(cls, classPtr);
+    ClassDescriptor out = new ClassDescriptor(cls, classPtr, method);
     this.classMap.put(cls, out);
     return out;
   }
@@ -495,7 +506,7 @@ public class TypeManager
                     componentTypePtr,
                     modifiers);
 
-    ClassDescriptor out = new ClassDescriptor(cls, classPtr);
+    ClassDescriptor out = new ClassDescriptor(cls, classPtr, null);
     this.classMap.put(cls, out);
     return out;
   }
@@ -514,7 +525,7 @@ public class TypeManager
             cls,
             this.getClass(boxed).classPtr,
             cls.getModifiers() & 0xffff);
-    this.classMap.put(cls, new ClassDescriptor(cls, classPtr));
+    this.classMap.put(cls, new ClassDescriptor(cls, classPtr, null));
   }
 
 //</editor-fold>

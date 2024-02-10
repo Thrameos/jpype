@@ -99,7 +99,7 @@ class JClass(_jpype._JClass, metaclass=JClassMeta):
         return _jpype._getClass(jc)
 
 
-class JInterface(_jpype._JObject, internal=True):
+class JInterface(_jpype._JObject, internal=True):  # type: ignore[call-arg]
     """A meta class for all Java Interfaces.
 
     ``JInterface`` is serves as the base class for any Java class that is
@@ -124,7 +124,9 @@ def _jclassPre(name, bases, members):
         k2 = pysafe(k)
         if k2 != k:
             del members[k]
-            members[k2] = v
+            # Remove unmappable functions
+            if k2:
+                members[k2] = v
 
     # Apply customizers
     hints = _jcustomizer.getClassHints(name)

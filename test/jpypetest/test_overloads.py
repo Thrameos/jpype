@@ -24,6 +24,50 @@ import common
 java = jpype.java
 
 
+class MyClass:
+    def fun1(self):
+        pass
+
+    def fun2(self, *a):
+        pass
+
+    def fun3(self, a=1):
+        pass
+
+    def fun4(self, a):
+        pass
+
+
+def fun1():
+    pass
+
+
+def fun2(*a):
+    pass
+
+
+def fun3(a=1):
+    pass
+
+
+def fun4(a):
+    pass
+
+
+if __name__ == '__main__':
+    jpype.startJVM()
+    from java.lang import Runnable
+    mc = MyClass()
+    cb = Runnable @ fun1
+    cb = Runnable @ fun2
+    cb = Runnable @ fun3
+    #cb = Runnable @ fun4
+    cb = Runnable @ mc.fun1
+    cb = Runnable @ mc.fun2
+    cb = Runnable @ mc.fun3
+    cb = Runnable @ mc.fun4
+
+
 class OverloadTestCase(common.JPypeTestCase):
     def setUp(self):
         common.JPypeTestCase.setUp(self)
@@ -84,7 +128,7 @@ class OverloadTestCase(common.JPypeTestCase):
 
     def testPrimitive(self):
         test1 = self.__jp.Test1()
-        intexpectation = 'int' if not sys.version_info[0] > 2 and sys.maxint == 2**31 - 1 else 'long'
+        intexpectation = 'long'
         # FIXME it is not possible to determine if this is bool/char/byte currently
         #self.assertEqual(intexpectation, test1.testPrimitive(5))
         #self.assertEqual('long', test1.testPrimitive(2**31))
@@ -190,3 +234,99 @@ class OverloadTestCase(common.JPypeTestCase):
             pass
         else:
             self.assertEqual('B', testdefault.defaultMethod())
+
+    def testFunctionalInterfacesWithDifferentSignatures(self):
+        test2 = self.__jp.Test2()
+        self.assertEqual('NoArgs', test2.testFunctionalInterfaces(lambda: 'NoArgs'))
+        self.assertEqual('SingleArg', test2.testFunctionalInterfaces(lambda a: 'SingleArg'))
+        self.assertEqual('TwoArg', test2.testFunctionalInterfaces(lambda a, b: 'TwoArg'))
+
+    def testFunctionalInterfacesWithDefaults(self):
+        def my_fun(x, y=None):
+            return 'my_fun'
+
+        def my_fun_vargs(x, *vargs):
+            return 'my_fun_vargs'
+
+        def my_fun_kwargs(x, **kwargs):
+            return 'my_fun_kwargs'
+
+        def my_fun_kw(*, keyword_arg=None):
+            return 'my_fun_kw'
+
+        class my_fun_class:
+            def __call__(self):
+                return 'my_fun_class'
+
+        test2 = self.__jp.Test2()
+        self.assertRaisesRegex(
+            TypeError, 'Ambiguous overloads found', test2.testFunctionalInterfaces, my_fun)
+        self.assertRaisesRegex(
+            TypeError, 'Ambiguous overloads found', test2.testFunctionalInterfaces, my_fun_vargs)
+        self.assertRaisesRegex(
+            TypeError, 'Ambiguous overloads found', test2.testFunctionalInterfaces, my_fun_class)
+        self.assertEqual('SingleArg', test2.testFunctionalInterfaces(my_fun_kwargs))
+        self.assertEqual('NoArgs', test2.testFunctionalInterfaces(my_fun_kw))
+
+    def testRunnable(self):
+        Runnable = jpype.JClass("java.lang.Runnable")
+        mc = MyClass()
+        # These should work
+        cb = Runnable @ fun1
+        cb = Runnable @ fun2
+        cb = Runnable @ fun3
+        cb = Runnable @ mc.fun1
+        cb = Runnable @ mc.fun2
+        cb = Runnable @ mc.fun3
+        # These should fail
+        with self.assertRaises(TypeError):
+            cb = Runnable @ fun4
+        with self.assertRaises(TypeError):
+            cb = Runnable @ mc.fun4
+
+    def testDerivedStatic(self):
+        Boolean = jpype.JClass("java.lang.Boolean")
+        Object = jpype.JClass("java.lang.Object")
+        DerivedTest = JClass("jpype.overloads.DerivedTest")
+        Base = DerivedTest.Base()
+        Derived = DerivedTest.Derived()
+        self.assertEqual(DerivedTest.testStatic(True, Base), 1)
+        self.assertEqual(DerivedTest.testStatic("that", Base), 2)
+        self.assertEqual(DerivedTest.testStatic(True, Derived), 1)
+        self.assertEqual(DerivedTest.testStatic("that", Derived), 2)
+        self.assertEqual(DerivedTest.testStatic(jpype.JBoolean(True), Base), 1)
+        self.assertEqual(DerivedTest.testStatic(jpype.JBoolean(True), Derived), 1)
+        self.assertEqual(DerivedTest.testStatic(jpype.JObject(True, Boolean), Derived), 2)
+        self.assertEqual(DerivedTest.testStatic(jpype.JObject(True, Object), Derived), 2)
+
+    def testDerivedMember(self):
+        Boolean = jpype.JClass("java.lang.Boolean")
+        Object = jpype.JClass("java.lang.Object")
+        DerivedTest = JClass("jpype.overloads.DerivedTest")
+        Base = DerivedTest.Base()
+        Derived = DerivedTest.Derived()
+        obj = DerivedTest()
+        self.assertEqual(obj.testMember(True, Base), 3)
+        self.assertEqual(obj.testMember("that", Base), 4)
+        self.assertEqual(obj.testMember(True, Derived), 3)
+        self.assertEqual(obj.testMember("that", Derived), 4)
+        self.assertEqual(obj.testMember(jpype.JBoolean(True), Base), 3)
+        self.assertEqual(obj.testMember(jpype.JBoolean(True), Derived), 3)
+        self.assertEqual(obj.testMember(jpype.JObject(True, Boolean), Derived), 4)
+        self.assertEqual(obj.testMember(jpype.JObject(True, Object), Derived), 4)
+
+    def testDerivedSub(self):
+        Boolean = jpype.JClass("java.lang.Boolean")
+        Object = jpype.JClass("java.lang.Object")
+        DerivedTest = JClass("jpype.overloads.DerivedTest")
+        Base = DerivedTest.Base()
+        Derived = DerivedTest.Derived()
+        obj = DerivedTest.Sub()
+        self.assertEqual(obj.testMember(True, Base), 3)
+        self.assertEqual(obj.testMember("that", Base), 4)
+        self.assertEqual(obj.testMember(True, Derived), 3)
+        self.assertEqual(obj.testMember("that", Derived), 4)
+        self.assertEqual(obj.testMember(jpype.JBoolean(True), Base), 3)
+        self.assertEqual(obj.testMember(jpype.JBoolean(True), Derived), 3)
+        self.assertEqual(obj.testMember(jpype.JObject(True, Boolean), Derived), 4)
+        self.assertEqual(obj.testMember(jpype.JObject(True, Object), Derived), 4)

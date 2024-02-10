@@ -24,8 +24,6 @@ the Python scope. These TLDs are ``java``, ``com``, ``org``, ``gov``, ``mil``,
 ``net`` and ``edu``. Java symbols from these domains can be imported using the
 standard Python syntax.
 
-Import customizers are supported in Python 3.6 or greater.
-
 Forms supported:
    - **import <java_pkg> [ as <name> ]**
    - **import <java_pkg>.<java_class> [ as <name> ]**
@@ -35,9 +33,6 @@ Forms supported:
    - **from <java_pkg>.<java_class> import <java_inner> [ as <name> ]**
 
 For further information please read the :doc:`imports` guide.
-
-Requires:
-    Python 3.6 or later
 
 Example:
 
@@ -197,7 +192,11 @@ class _JImportLoader:
             # so we produce a meaningful diagnositic.
             try:
                 # Use forname because it give better diagnostics
-                _jpype._java_lang_Class.forName(name, True, _jpype.JPypeClassLoader)
+                cls = _jpype._java_lang_Class.forName(name, True, _jpype.JPypeClassLoader)
+
+                # This code only is hit if an error was not thrown
+                if cls.getModifiers() & 1 == 0:
+                    raise ImportError("Class `%s` is not public" % name)
                 raise ImportError("Class `%s` was found but was not expected" % name)
             # Not found is acceptable
             except Exception as ex:

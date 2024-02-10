@@ -17,11 +17,27 @@
 # *****************************************************************************
 import jpype
 import common
+import sys
 
 
 class MyImpl(object):
     def blah(self):
         pass
+
+
+class ClassProxy:
+    def __init__(self, proxy):
+        self.proxy = proxy
+
+
+class ArrayProxy:
+    def __init__(self, proxy):
+        self.proxy = proxy
+
+
+class StringProxy:
+    def __init__(self, proxy):
+        self.proxy = proxy
 
 
 class ClassHintsTestCase(common.JPypeTestCase):
@@ -44,7 +60,10 @@ class ClassHintsTestCase(common.JPypeTestCase):
 
     def testInstant(self):
         import datetime
-        now = datetime.datetime.utcnow()
+        if sys.version_info.major == 3 and sys.version_info.minor < 12:
+            now = datetime.datetime.utcnow()
+        else:
+            now = datetime.datetime.now(datetime.UTC)
         Instant = jpype.JClass("java.time.Instant")
         self.assertIsInstance(jpype.JObject(now, Instant), Instant)
 
@@ -85,3 +104,30 @@ class ClassHintsTestCase(common.JPypeTestCase):
         cht.call(MyImpl())
         self.assertIsInstance(cht.input, self.MyCustom)
         self.assertIsInstance(cht.input.arg, MyImpl)
+
+    def testClassCustomizer(self):
+
+        @jpype.JConversion("java.lang.Class", instanceof=ClassProxy)
+        def ClassCustomizer(jcls, obj):
+            return obj.proxy
+
+        hints = jpype.JClass('java.lang.Class')._hints
+        self.assertTrue(ClassProxy in hints.implicit)
+
+    def testArrayCustomizer(self):
+
+        @jpype.JConversion(jpype.JInt[:], instanceof=ArrayProxy)
+        def ArrayCustomizer(jcls, obj):
+            return obj.proxy
+
+        hints = jpype.JClass(jpype.JInt[:])._hints
+        self.assertTrue(ArrayProxy in hints.implicit)
+
+    def testStringCustomizer(self):
+
+        @jpype.JConversion("java.lang.String", instanceof=StringProxy)
+        def STringCustomizer(jcls, obj):
+            return obj.proxy
+
+        hints = jpype.JClass("java.lang.String")._hints
+        self.assertTrue(StringProxy in hints.implicit)

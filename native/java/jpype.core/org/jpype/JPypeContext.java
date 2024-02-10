@@ -71,7 +71,7 @@ import org.jpype.ref.JPypeReferenceQueue;
 public class JPypeContext
 {
 
-  public final String VERSION = "1.2.2_dev0";
+  public final String VERSION = "1.5.0_dev0";
 
   private static JPypeContext INSTANCE = new JPypeContext();
   // This is the C++ portion of the context.
@@ -84,6 +84,7 @@ public class JPypeContext
   private final List<Runnable> postHooks = new ArrayList<>();
   private static final JPypeSignal signal = JPypeSignal.newInstance();
   private static Thread main;
+  public static boolean freeResources = true;
 
   static public JPypeContext getInstance()
   {
@@ -236,20 +237,23 @@ public class JPypeContext
     {
     }
 
-    // Release all Python references
-    try
+    if (freeResources)
     {
-      JPypeReferenceQueue.getInstance().stop();
-    } catch (Throwable th)
-    {
-    }
+       // Release all Python references
+       try
+       {
+         JPypeReferenceQueue.getInstance().stop();
+       } catch (Throwable th)
+       {
+       }
 
-    // Release any C++ resources
-    try
-    {
-      this.typeManager.shutdown();
-    } catch (Throwable th)
-    {
+       // Release any C++ resources
+       try
+       {
+         this.typeManager.shutdown();
+       } catch (Throwable th)
+       {
+       }
     }
 
     // Execute post hooks
@@ -602,32 +606,10 @@ public class JPypeContext
    * @param cls
    * @return
    */
-  public String getFunctional(Class cls)
+  public static String getFunctional(Class cls)
   {
-    // If we don't find it to be a functional interface, then we won't return
-    // the SAM.
-    if (cls.getDeclaredAnnotation(FunctionalInterface.class) == null)
-    {
-      return null;
-    }
-    for (Method m : cls.getMethods())
-    {
-      if (Modifier.isAbstract(m.getModifiers()))
-      {
-        // This is a very odd construct.  Java allows for java.lang.Object
-        // methods to declared in FunctionalInterfaces and they don't count
-        // towards the single abstract method. So we have to probe the class
-        // until we find something that fails.
-        try
-        {
-          Object.class.getMethod(m.getName(), m.getParameterTypes());
-        } catch (NoSuchMethodException | SecurityException ex)
-        {
-          return m.getName();
-        }
-      }
-    }
-    return null;
+    Method m = JPypeUtilities.getFunctionalInterfaceMethod(cls);
+    return m != null ? m.getName() : null;
   }
 
   /**

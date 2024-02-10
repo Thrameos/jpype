@@ -31,8 +31,7 @@ JPArrayClass::JPArrayClass(JPJavaFrame& frame,
 }
 
 JPArrayClass::~JPArrayClass()
-{
-}
+= default;
 
 JPMatch::Type JPArrayClass::findJavaConversion(JPMatch &match)
 {
@@ -43,6 +42,7 @@ JPMatch::Type JPArrayClass::findJavaConversion(JPMatch &match)
 			|| charArrayConversion->matches(this, match)
 			|| byteArrayConversion->matches(this, match)
 			|| sequenceConversion->matches(this, match)
+			|| hintsConversion->matches(this, match)
 			)
 		return match.type;
 	JP_TRACE("None");
@@ -57,6 +57,7 @@ void JPArrayClass::getConversionInfo(JPConversionInfo &info)
 	charArrayConversion->getInfo(this, info);
 	byteArrayConversion->getInfo(this, info);
 	sequenceConversion->getInfo(this, info);
+	hintsConversion->getInfo(this, info);
 	PyList_Append(info.ret, PyJPClass_create(frame, this).get());
 }
 
@@ -65,7 +66,7 @@ JPPyObject JPArrayClass::convertToPythonObject(JPJavaFrame& frame, jvalue value,
 	JP_TRACE_IN("JPArrayClass::convertToPythonObject");
 	if (!cast)
 	{
-		if (value.l == NULL)
+		if (value.l == nullptr)
 			return JPPyObject::getNone();
 	}
 	JPPyObject wrapper = PyJPClass_create(frame, this);
@@ -77,7 +78,7 @@ JPPyObject JPArrayClass::convertToPythonObject(JPJavaFrame& frame, jvalue value,
 jvalue JPArrayClass::convertToJavaVector(JPJavaFrame& frame, JPPyObjectVector& refs, jsize start, jsize end)
 {
 	JP_TRACE_IN("JPArrayClass::convertToJavaVector");
-	jsize length = (jsize) (end - start);
+	auto length = (jsize) (end - start);
 
 	jarray array = m_ComponentType->newArrayOf(frame, length);
 	jvalue res;

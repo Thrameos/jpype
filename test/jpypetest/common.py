@@ -22,8 +22,7 @@ import jpype
 import logging
 from os import path
 import sys
-import unittest
-import platform
+import unittest  # Extensively used as common.unittest.
 
 CLASSPATH = None
 fast = False
@@ -34,7 +33,9 @@ def version(v):
 
 
 def requirePythonAfter(required):
-    pversion = tuple([int(i) for i in platform.python_version_tuple()])
+    import re
+    import platform
+    pversion = tuple([int(re.search(r'\d+',i).group()) for i in platform.python_version_tuple()])
 
     def g(func):
         def f(self):
@@ -126,8 +127,6 @@ class JPypeTestCase(unittest.TestCase):
             jpype.startJVM(jvm_path, *args,
                            convertStrings=self._convertStrings)
         self.jpype = jpype.JPackage('jpype')
-        if sys.version < '3':
-            self.assertCountEqual = self.assertItemsEqual
 
     def tearDown(self):
         pass

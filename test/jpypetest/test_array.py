@@ -387,7 +387,7 @@ class ArrayTestCase(common.JPypeTestCase):
         self.assertTrue(np.all(a[:, :, 4:-2] == JArray.of(a[:, :, 4:-2])))
 
     def checkArrayOfCast(self, jtype, dtype):
-        a = np.random.randint(0, 1, size=100, dtype=np.bool)
+        a = np.random.randint(0, 1, size=100, dtype=np.bool_)
         ja = JArray.of(a, dtype=jtype)
         self.assertIsInstance(ja, JArray(jtype))
         self.assertTrue(np.all(a.astype(dtype) == ja))
@@ -434,7 +434,7 @@ class ArrayTestCase(common.JPypeTestCase):
 
     @common.requireNumpy
     def testArrayOfBoolean(self):
-        self.checkArrayOf(JBoolean, np.bool, 0, 1)
+        self.checkArrayOf(JBoolean, np.bool_, 0, 1)
 
     @common.requireNumpy
     def testArrayOfByte(self):
@@ -462,7 +462,7 @@ class ArrayTestCase(common.JPypeTestCase):
 
     @common.requireNumpy
     def testArrayOfBooleanCast(self):
-        self.checkArrayOfCast(JBoolean, np.bool)
+        self.checkArrayOfCast(JBoolean, np.bool_)
 
     @common.requireNumpy
     def testArrayOfByteCast(self):
@@ -575,3 +575,29 @@ class ArrayTestCase(common.JPypeTestCase):
     def testLengthProperty(self):
         ja = JArray(JInt)([1, 2, 3])
         self.assertEqual(ja.length, len(ja))
+
+    def testShortcut(self):
+        # Test for odd bug introduced in 1.0.0
+        # This is unlikely to be reintroduced, but we can check anyway.
+        # The class of when created using the shortcut should always match the type created using the old method
+
+        # Check primitives
+        self.assertEqual(JBoolean[5].getClass(), JArray(JBoolean)(5).getClass())
+        self.assertEqual(JChar[5].getClass(), JArray(JChar)(5).getClass())
+        self.assertEqual(JByte[5].getClass(), JArray(JByte)(5).getClass())
+        self.assertEqual(JShort[5].getClass(), JArray(JShort)(5).getClass())
+        self.assertEqual(JInt[5].getClass(), JArray(JInt)(5).getClass())
+        self.assertEqual(JFloat[5].getClass(), JArray(JFloat)(5).getClass())
+        self.assertEqual(JDouble[5].getClass(), JArray(JDouble)(5).getClass())
+
+        # Check Objects
+        self.assertEqual(JString[5].getClass(), JArray(JString)(5).getClass())
+        self.assertEqual(JObject[5].getClass(), JArray(JObject)(5).getClass())
+
+        # Test multidimensional
+        self.assertEqual(JDouble[5, 5].getClass(), JArray(JDouble, 2)(5).getClass())
+        self.assertEqual(JObject[5, 5].getClass(), JArray(JObject, 2)(5).getClass())
+
+    def testJArrayIndex(self):
+        with self.assertRaises(TypeError):
+            jpype.JArray[10]

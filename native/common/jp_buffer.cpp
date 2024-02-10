@@ -22,7 +22,7 @@
 JPBuffer::JPBuffer(const JPValue &value)
 : m_Object(value.getClass()->getContext(), value.getValue().l)
 {
-	m_Class = (JPBufferType*) value.getClass();
+	m_Class = dynamic_cast<JPBufferType*>( value.getClass());
 	JPJavaFrame frame = JPJavaFrame::outer(m_Class->getContext());
 	JP_TRACE_IN("JPBuffer::JPBuffer");
 	m_Address = frame.GetDirectBufferAddress(m_Object.get());
@@ -38,14 +38,14 @@ JPBuffer::JPBuffer(const JPValue &value)
 	m_Buffer.shape = &m_Capacity;
 	m_Buffer.strides = &m_Buffer.itemsize;
 	m_Buffer.suboffsets = 0;
+	m_Buffer.len = m_Buffer.itemsize * m_Capacity;
 	JP_TRACE_OUT;  // GCOVR_EXCL_LINE
 }
 
 JPBuffer::~JPBuffer()
-{
-}
+= default;
 
-bool JPBuffer::isReadOnly()
+bool JPBuffer::isReadOnly() const
 {
 	return m_Buffer.readonly != 0;
 }
@@ -55,7 +55,7 @@ Py_buffer& JPBuffer::getView()
 	return m_Buffer;
 }
 
-bool JPBuffer::isValid()
+bool JPBuffer::isValid() const
 {
 	return m_Capacity != -1;
 }

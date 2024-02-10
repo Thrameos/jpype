@@ -27,9 +27,9 @@ to be dangerous.
 
     package org.pkg;
 
-    publc class BaseClass
+    public class BaseClass
     {
-       public callMember(int i)
+       public void callMember(int i)
        {}
     }
 
@@ -49,11 +49,11 @@ to be dangerous.
        // Python name conflict
        public void pass() {}
 
-       public void throwsException throws java.lang.Exception {}
+       public void throwsException() throws java.lang.Exception {}
 
        // Overloaded methods
-       public call(int i) {}
-       public call(double d) {}
+       public void call(int i) {}
+       public void call(double d) {}
     }
 
 Starting JPype
@@ -248,7 +248,7 @@ module, loaded using ``JPackage`` or loaded with the ``JClass`` factory.
 |                           |                                                         |                                                         |
 +---------------------------+---------------------------------------------------------+---------------------------------------------------------+
 |                           |                                                         |                                                         |
-| Casting to a specific     | .. code-block:: java                                    | .. code-block::                                         |
+| Casting to a specific     | .. code-block:: java                                    | .. code-block:: python                                  |
 | type [11]_                |                                                         |                                                         |
 |                           |     BaseClass b = (BaseClass)myObject;                  |     b = (BaseClass) @ myObject                          |
 |                           |                                                         |                                                         |
@@ -706,7 +706,7 @@ with an interface for each methods that are to be accessed from Python.
 | Extending classes [23]_   |                                                         |                                                         |
 +---------------------------+---------------------------------------------------------+---------------------------------------------------------+
 |                           |                                                         |                                                         |
-| Lambdas [24]_             | .. code-block:: java                                    | .. code-block::                                         |
+| Lambdas [24]_             | .. code-block:: java                                    | .. code-block:: python                                  |
 |                           |                                                         |                                                         |
 |                           |     DoubleUnaryOperator u = (p->p*2);                   |     u=DoubleUnaryOperator@(lambda x: x*2)               |
 |                           |                                                         |                                                         |

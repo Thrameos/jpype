@@ -232,11 +232,11 @@ _default_map = {ARRAY: OBJECT, OBJECT: OBJECT, NULL: OBJECT,
                 LONGNVARCHAR: STRING, DOUBLE: DOUBLE, OTHER: OBJECT
                 }
 
-_default_setters = {}
+_default_setters = {}  # type: ignore[var-annotated]
 
-_default_converters = {}
+_default_converters = {}  # type: ignore[var-annotated]
 
-_default_adapters = {}
+_default_adapters = {}  # type: ignore[var-annotated]
 
 
 # Setters take (connection, meta, col, type) -> JDBCTYPE
@@ -251,7 +251,7 @@ def SETTERS_BY_META(cx, meta, col, ptype):
     return _default_map[_registry[meta.getParameterType(col + 1)]]
 
 
-SETTERS_BY_META._cachable = True
+SETTERS_BY_META._cachable = True  # type: ignore[attr-defined]
 
 
 def SETTERS_BY_TYPE(cx, meta, col, ptype):
@@ -452,7 +452,13 @@ class Connection(object):
         self._jcx = jconnection
         # Required by PEP 249
         # https://www.python.org/dev/peps/pep-0249/#commit
-        self._jcx.setAutoCommit(False)
+        try:
+            # Some driver do not support this feature.
+            # https://github.com/jpype-project/jpype/issues/1003
+            self._jcx.setAutoCommit(False)
+        except Exception as ex:
+            if ex.getClass().getSimpleName() != 'SQLFeatureNotSupportedException':
+                raise ex
 
         # Handle defaults
         if adapters is _default:

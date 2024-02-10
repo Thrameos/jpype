@@ -37,7 +37,7 @@ _JBuffer = _jpype._JBuffer
 
 if sys.version_info < (3, 8):  # pragma: no cover
     from typing_extensions import Protocol, runtime_checkable
-    from typing import Sequence, Mapping  # lgtm [py/unused-import]
+    from typing import Sequence, Mapping, Set  # lgtm [py/unused-import]
     from typing import SupportsFloat, Callable  # lgtm [py/unused-import]
 
     @runtime_checkable
@@ -49,7 +49,7 @@ else:
     # 3.8 onward
     from typing import Protocol, runtime_checkable
     from typing import SupportsIndex, SupportsFloat  # lgtm [py/unused-import]
-    from typing import Sequence, Mapping, Callable  # lgtm [py/unused-import]
+    from typing import Sequence, Mapping, Set, Callable  # lgtm [py/unused-import]
 
 # Types we need
 
@@ -70,12 +70,19 @@ def _JFileConvert(jcls, obj):
     return jcls(obj.__fspath__())
 
 # To be added in 1.1.x
-# @_jcustomizer.JConversion("java.util.Iterable", instanceof=Sequence, excludes=str)
-
-
+@_jcustomizer.JConversion("java.lang.Iterable", instanceof=Sequence, excludes=str)
 @_jcustomizer.JConversion("java.util.Collection", instanceof=Sequence, excludes=str)
 def _JSequenceConvert(jcls, obj):
     return _jclass.JClass('java.util.Arrays').asList(obj)
+
+
+@_jcustomizer.JConversion("java.lang.Iterable", instanceof=Set)
+@_jcustomizer.JConversion("java.util.Collection", instanceof=Set)
+def _JSetConvert(jcls, obj):
+    # set does not satisfy PySequence_Check and collection is too broad as it
+    # would let dict be converted, so we are going to have to convert twice
+    # for now
+    return _jclass.JClass('java.util.Arrays').asList(list(obj))
 
 
 @_jcustomizer.JConversion("java.util.Map", instanceof=Mapping)
@@ -95,18 +102,6 @@ def _JInstantConversion(jcls, obj):
     nsec = int((utc - sec) * 1e9)
     return jcls.ofEpochSecond(sec, nsec)
 
-
-if sys.version_info < (3, 6):  # pragma: no cover
-    import pathlib
-
-    @_jcustomizer.JConversion("java.nio.file.Path", instanceof=pathlib.PurePath)
-    def _JPathConvert(jcls, obj):
-        Paths = _jpype.JClass("java.nio.file.Paths")
-        return Paths.get(str(obj))
-
-    @_jcustomizer.JConversion("java.io.File", instanceof=pathlib.PurePath)
-    def _JFileConvert(jcls, obj):
-        return jcls(str(obj))
 
 # Types needed for SQL
 

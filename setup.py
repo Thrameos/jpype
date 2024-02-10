@@ -19,15 +19,11 @@
 # *****************************************************************************
 import sys
 from pathlib import Path
-from setuptools import setup
-from setuptools import Extension
-import glob
 
-if sys.version_info[0] < 3 and sys.version_info[1] < 5:
-    raise RuntimeError("JPype requires Python 3.5 or later")
+from setuptools import Extension
+from setuptools import setup
 
 import setupext
-
 
 if '--android' in sys.argv:
     platform = 'android'
@@ -40,18 +36,19 @@ jpypeLib = Extension(name='_jpype', **setupext.platform.Platform(
     include_dirs=[Path('native', 'common', 'include'),
                   Path('native', 'python', 'include'),
                   Path('native', 'embedded', 'include')],
-    sources=[Path('native', 'common', '*.cpp'),
-             Path('native', 'python', '*.cpp'),
-             Path('native', 'embedded', '*.cpp')], platform=platform,
+    sources=sorted(map(str, list(Path('native', 'common').glob('*.cpp')) +
+             list(Path('native', 'python').glob('*.cpp')) +
+             list(Path('native', 'embedded').glob('*.cpp')))), platform=platform,
 ))
 jpypeJar = Extension(name="org.jpype",
-                     sources=glob.glob(str(Path("native", "java", "**", "*.java")), recursive=True),
-                     language="java"
+                     sources=sorted(map(str, Path("native", "java").glob("**/*.java"))),
+                     language="java",
+                     libraries=["lib/asm-8.0.1.jar"]
                      )
 
 setup(
     name='JPype1',
-    version='1.2.2_dev0',
+    version='1.5.0_dev0',
     description='A Python to Java bridge.',
     long_description=open('README.rst').read(),
     license='License :: OSI Approved :: Apache Software License',
@@ -59,6 +56,7 @@ setup(
     author_email='devilwolf@users.sourceforge.net',
     maintainer='Luis Nell',
     maintainer_email='cooperate@originell.org',
+    python_requires=">=3.7",
     url='https://github.com/jpype-project/jpype',
     platforms=[
         'Operating System :: Microsoft :: Windows',
@@ -68,18 +66,29 @@ setup(
     ],
     classifiers=[
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
         'Topic :: Software Development',
         'Topic :: Scientific/Engineering',
     ],
     packages=['jpype', 'jpype._pyinstaller'],
     package_dir={'jpype': 'jpype', },
     package_data={'jpype': ['*.pyi']},
-    install_requires=['typing_extensions ; python_version< "3.8"'],
+    install_requires=['typing_extensions ; python_version< "3.8"',
+        'packaging'],
     tests_require=['pytest'],
+    extras_require={
+        'tests': [
+            'pytest',
+        ],
+        'docs': [
+            'readthedocs-sphinx-ext',
+            'sphinx',
+            'sphinx-rtd-theme',
+        ],
+    },
     cmdclass={
         'build_ext': setupext.build_ext.BuildExtCommand,
         'test_java': setupext.test_java.TestJavaCommand,

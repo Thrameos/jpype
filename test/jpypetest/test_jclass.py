@@ -85,12 +85,12 @@ class JClassTestCase(common.JPypeTestCase):
         with self.assertRaises(AttributeError):
             cls.args = 1
 
-    def testGetAttrStaticField(self):
+    def testGetAttrStaticField_2(self):
         cls = JClass('jpype.common.Fixture')
         cls.static_object_field = "fred"
         self.assertEqual(cls.static_object_field, "fred")
 
-    def testSetAttrStaticField(self):
+    def testSetAttrStaticField_3(self):
         cls = JClass('jpype.common.Fixture')
         cls.static_object_field = "fred"
 
@@ -272,3 +272,9 @@ class JClassTestCase(common.JPypeTestCase):
         String = JClass("java.lang.String")
         self.assertFalse(String._canCast(1))
         self.assertTrue(String._canCast("foo"))
+
+    def testUnsatisfied(self):
+        # This is testing what happens if a class fails to load properly due to
+        # failures.  A partial loaded class can lead to crashes.
+        with self.assertRaises(JClass("java.lang.NoClassDefFoundError")):
+            JClass("org.jpype.unsatisfied.TestClass")

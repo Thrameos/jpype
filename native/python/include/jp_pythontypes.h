@@ -77,9 +77,8 @@ class JPPyObject
 	/** Create a new reference to a Python object.
 	 *
 	 * @param obj is the python object.
-	 * @param i is a dummy to make sure this ctor was not called accidentally.
 	 */
-	JPPyObject(PyObject* obj, int i);
+	explicit JPPyObject(PyObject* obj);
 
 public:
 
@@ -125,7 +124,7 @@ public:
 	 */
 	static JPPyObject call(PyObject* obj);
 
-	JPPyObject() : m_PyObject(NULL)
+	JPPyObject() : m_PyObject(nullptr)
 	{
 	}
 
@@ -150,7 +149,7 @@ public:
 	PyObject* keepNull()
 	{
 		PyObject *out = m_PyObject;
-		m_PyObject = NULL;
+		m_PyObject = nullptr;
 		return out;
 	}
 
@@ -168,7 +167,7 @@ public:
 	 */
 	bool isNull() const
 	{
-		return m_PyObject == NULL;
+		return m_PyObject == nullptr;
 	}
 
 	/**
@@ -180,7 +179,7 @@ public:
 	void decref();
 
 protected:
-	PyObject* m_PyObject;
+	PyObject* m_PyObject{nullptr};
 } ;
 
 /****************************************************************************
@@ -217,7 +216,7 @@ public:
 	 */
 	static string asStringUTF8(PyObject* obj);
 
-	static JPPyObject fromCharUTF16(const jchar c);
+	static JPPyObject fromCharUTF16(jchar c);
 	static bool checkCharUTF16(PyObject* obj);
 	static jchar asCharUTF16(PyObject* obj);
 
@@ -236,7 +235,7 @@ class JPPySequence
 {
 	JPPyObject m_Sequence;
 
-	JPPySequence(PyObject* obj)
+	explicit JPPySequence(PyObject* obj)
 	{
 		m_Sequence = JPPyObject::use(obj);
 	}
@@ -245,10 +244,7 @@ public:
 
 	/** Needed for named constructor.
 	 */
-	JPPySequence(const JPPySequence& seq)
-	: m_Sequence(seq.m_Sequence)
-	{
-	}
+	JPPySequence(const JPPySequence& seq) = default;
 
 	/** Use an existing Python sequence in C++.
 	 */
@@ -261,8 +257,7 @@ public:
 
 	jlong size();
 
-private:
-	JPPySequence& operator= (const JPPySequence& ) ;
+	JPPySequence& operator= (const JPPySequence&) = delete;
 
 } ;
 
@@ -277,7 +272,7 @@ public:
 
 	/** Use an existing sequence members as a vector.
 	 */
-	JPPyObjectVector(PyObject* sequence);
+	explicit JPPyObjectVector(PyObject* sequence);
 
 	/** Use an existing sequence members as a vector plus the
 	 * object instance.
@@ -289,7 +284,7 @@ public:
 		return m_Contents.size();
 	}
 
-	PyObject* operator[](ssize_t i)
+	PyObject* operator[](Py_ssize_t i)
 	{
 		return m_Contents[i].get();
 	}
@@ -299,9 +294,9 @@ public:
 		return m_Instance;
 	}
 
-private:
-	JPPyObjectVector& operator= (const JPPyObjectVector& ) ;
-	JPPyObjectVector(const JPPyObjectVector& );
+    // disallow copying
+	JPPyObjectVector& operator= (const JPPyObjectVector& ) = delete;
+	JPPyObjectVector(const JPPyObjectVector& ) = delete;
 
 private:
 	JPPyObject m_Instance;
@@ -366,7 +361,7 @@ public:
 	/** Reacquire the lock. */
 	~JPPyCallRelease();
 private:
-	void* m_State1;
+    PyThreadState* m_State1;
 } ;
 
 class JPPyBuffer
@@ -385,20 +380,20 @@ public:
 	JPPyBuffer(PyObject* obj, int flags);
 	~JPPyBuffer();
 
-	char *getBufferPtr(std::vector<Py_ssize_t>& indices);
+	char *getBufferPtr(std::vector<Py_ssize_t>& indices) const;
 
 	Py_buffer& getView()
 	{
 		return m_View;
 	}
 
-	bool valid()
+	bool valid() const
 	{
 		return m_Valid;
 	}
 
 private:
-	Py_buffer m_View;
+	Py_buffer m_View{};
 	bool m_Valid;
 } ;
 

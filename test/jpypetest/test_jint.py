@@ -153,7 +153,7 @@ class JIntTestCase(common.JPypeTestCase):
         self.assertEqual(JInt(JInt(12345678)), 12345678)
         self.assertEqual(JInt(JLong(12345678)), 12345678)
 
-    def testFromJIntWiden(self):
+    def testFromJIntWiden_2(self):
         self.assertEqual(JInt(JDouble(12345678)), 12345678)
 
     def testFromNone(self):
@@ -166,6 +166,7 @@ class JIntTestCase(common.JPypeTestCase):
 
     def testFromFloat(self):
         self.assertEqual(JInt._canConvertToJava(1.2345), "explicit")
+
         @jpype.JImplements("java.util.function.IntSupplier")
         class q(object):
             @jpype.JOverride
@@ -357,7 +358,7 @@ class JIntTestCase(common.JPypeTestCase):
 
     @common.requireNumpy
     def testArrayInitFromNPInt(self):
-        a = np.random.randint(-2**31, 2**31 - 1, size=100, dtype=np.int)
+        a = np.random.randint(-2**31, 2**31 - 1, size=100, dtype=np.int_)
         self.checkArrayType(a, a)
 
     @common.requireNumpy

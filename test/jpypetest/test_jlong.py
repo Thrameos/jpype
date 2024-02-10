@@ -147,13 +147,13 @@ class JLongTestCase(common.JPypeTestCase):
         with self.assertRaisesRegex(SystemError, "fault"):
             ja[1:3] = [0, 0]
 
-    def testFromJLongWiden(self):
+    def testFromJLongWiden_2(self):
         self.assertEqual(JLong(JByte(123)), 123)
         self.assertEqual(JLong(JShort(12345)), 12345)
         self.assertEqual(JLong(JInt(12345678)), 12345678)
         self.assertEqual(JLong(JLong(12345678)), 12345678)
 
-    def testFromJLongWiden(self):
+    def testFromJLongWiden_3(self):
         self.assertEqual(JLong(JDouble(12345678)), 12345678)
 
     def testFromNone(self):
@@ -166,6 +166,7 @@ class JLongTestCase(common.JPypeTestCase):
 
     def testFromFloat(self):
         self.assertEqual(JLong._canConvertToJava(1.2345), "explicit")
+
         @jpype.JImplements("java.util.function.LongSupplier")
         class q(object):
             @jpype.JOverride
@@ -277,7 +278,7 @@ class JLongTestCase(common.JPypeTestCase):
         self.checkType(JLong(-2**31 + 1))
         self.checkType(JLong(2**31 - 1))
 
-    def testCheckJLong(self):
+    def testCheckJLong_2(self):
         self.checkType(JLong(-2**63 + 1))
         self.checkType(JLong(2**63 - 1))
 
@@ -357,7 +358,7 @@ class JLongTestCase(common.JPypeTestCase):
 
     @common.requireNumpy
     def testArrayInitFromNPInt(self):
-        a = np.random.randint(-2**31, 2**31 - 1, size=100, dtype=np.int)
+        a = np.random.randint(-2**31, 2**31 - 1, size=100, dtype=np.int_)
         self.checkArrayType(a, a)
 
     @common.requireNumpy

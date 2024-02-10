@@ -20,11 +20,11 @@
 class JPPrimitiveType : public JPClass
 {
 protected:
-	JPPrimitiveType(const string& name);
-	virtual ~JPPrimitiveType();
+	explicit JPPrimitiveType(const string& name);
+	~JPPrimitiveType() override;
 
 public:
-	virtual bool isPrimitive() const override;
+	bool isPrimitive() const override;
 
 	virtual JPClass* getBoxedClass(JPContext *context) const = 0;
 
@@ -41,7 +41,7 @@ public:
 	virtual void getView(JPArrayView& view) = 0;
 	virtual void releaseView(JPArrayView& view) = 0;
 	virtual const char* getBufferFormat() = 0;
-	virtual ssize_t getItemSize() = 0;
+	virtual Py_ssize_t getItemSize() = 0;
 	virtual void copyElements(JPJavaFrame &frame,
 			jarray a, jsize start, jsize len,
 			void* memory, int offset) = 0;

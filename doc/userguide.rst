@@ -36,11 +36,11 @@ hard at work on your latest project but you just need to pip in the database
 driver for your customers database and you can call it a night.  Unfortunately,
 it appears that your customers database will not connect to the Python database
 API.  The whole thing is custom and the customer isn't going to supply you with
-a Python version.  They did sent you a Java driver for the database but fat
+a Python version.  They did send you a Java driver for the database but fat
 lot of good that will do for you.
 
 Stumbling through the internet you find a module that says it can natively
-load Java packages as Python modules.  Well, it worth a shot...
+load Java packages as Python modules.  Well, it's worth a shot...
 
 So first thing the guide says is that you need to install Java and set up
 a ``JAVA_HOME`` environment variable pointing to the JRE.  Then start the
@@ -92,11 +92,11 @@ set the class path, start the JVM, remove all the type declarations, and you are
 
    # Copy in the patterns from the guide to replace the example code
    db = Database("our_records")
-   with  db.connect() as DatabaseConnection:
-      c.runQuery()
-      while c.hasRecords():
-          record = db.nextRecord()
-          ...
+   with db.connect() as c:
+       c.runQuery()
+       while c.hasRecords():
+           record = db.nextRecord()
+           ...
 
 Launch it in the interactive window.  You can get back to programming in Python
 once you get a good night sleep.
@@ -136,11 +136,11 @@ in your serialized object.
    from java.nio.file import Files, Paths
    from java.io import ObjectInputStream
 
-   with Files.newInputStream(Paths.get("myobject.ser") as stream:
-      ois = new ObjectInputStream(stream)
-      obj = ois.readObject()
+   with Files.newInputStream(Paths.get("myobject.ser")) as stream:
+       ois = ObjectInputStream(stream)
+       obj = ois.readObject()
 
-   print(obj) # prints org.bigstuff.MyObject@7382f612
+   print(obj)  # prints org.bigstuff.MyObject@7382f612
 
 It appears that the structure is loaded.  The problematic structure requires you
 call the getData method with the correct index.
@@ -172,7 +172,7 @@ example and watch what happens.
 
 .. code-block:: python
 
-   import matplot.pyplot as plt
+   import matplotlib.pyplot as plt
    plt.plot(d)
    plt.show()
 
@@ -227,13 +227,13 @@ Based on the previous examples, you start by defining a monitor class
 
   @JImplements(Monitor)
   class HeartMonitor:
-     def __init__(self):
-        self.readings = []
-     @JOverride
-     def onMeasurement(self, measurement):
-        self.readings.append([measurement.getTime(), measurement.getHeartRate()])
-     def getResults(self):
-        return np.array(self.readings)
+      def __init__(self):
+          self.readings = []
+      @JOverride
+      def onMeasurement(self, measurement):
+          self.readings.append([measurement.getTime(), measurement.getHeartRate()])
+      def getResults(self):
+          return np.array(self.readings)
 
 There is a bit to unpack here.  You have implemented a Java class from within Python.
 The Java implementation is simply an ordinary Python class which has be
@@ -305,9 +305,9 @@ design goals.
 - Favor clarity over performance.  This doesn't mean not trying to optimize
   paths, but just as premature optimization is the bane of programmers,
   requiring writing to maximize speed is a poor long term choice, especially
-  in a language such as Python were weak typing can promote bit rot.
+  in a language such as Python where weak typing can promote bit rot.
 
-- If a new method has to be introduced, make look familiar.
+- If a new method has to be introduced, make it look familiar.
   Java programmers look to a method named "of" to convert to a type on
   factories such as a Stream, thus ``JArray.of`` converts a Python NumPy array
   to Java.  Python programmers expect that memory backed objects can be converted
@@ -546,7 +546,7 @@ JPype Concepts
 ***************
 
 At its heart, JPype is about providing a bridge to use Java within Python.
-Depending on your prospective that can either be a means of accessing Java
+Depending on your perspective that can either be a means of accessing Java
 libraries from within Python or a way to use Java using Python syntax for
 interactivity and visualization.  This mean not only exposing a limited API but
 instead trying to provide the entirety of the Java language with Python.
@@ -708,8 +708,8 @@ Java conversions
 ----------------
 
 A conversion is a permitted change from an object of one type to another.
-Conversions have three different degrees.  These are: exact, implicit, and
-explicit.
+Conversions have three different degrees.  These are: exact, derived, implicit,
+and explicit.
 
 Exact conversions are those in which the type of an object is identical.  In
 Java each class has only one definition thus there is no need for an exact
@@ -718,21 +718,30 @@ identical for which exact conversion rules apply.  For example, a Java string
 and a Python string both bind equally well to a method which requires a string,
 thus this is an exact conversion for the purposes of bind types.
 
+The next level of conversion is derived.  A derived class is one which is a
+descends from a required type.  It is better that implicit but worse than
+exact.  If all of the types in a method match are exact or derived then it will
+override a method in which one argument is implicit.
+
 The next level of conversion is implicit.  An implicit conversion is one that
-Java would perform automatically.  For example converting a derived class to is
-base class when setting a field would be an implicit conversion.  Java defines
-a number of other conversions such as converting a primitive to a boxed type
-or from a boxed type back to a primitive as implicit conversions..
+Java would perform automatically.  Java defines a number of other conversions
+such as converting a primitive to a boxed type or from a boxed type back to a
+primitive as implicit conversions.  Python conversions defined by the user are
+also considered to be implicit.
 
 Of course not every cast is safe to perform.  For example, converting an object
 whose type is currently viewed as a base type to a derived type is not
 performed automatically nor is converting from one boxed type to another.  For
 those operations the conversion must be explicitly requested, hence these are
-explicit conversions.  To request an explicit conversion an object must be
-"cast" using a cast operator.  In Java, a cast is requested by placing the type
-name in parentheses in front of the object to be cast.  Unfortunately, the same
-syntax is not allowed in Python.  Not every conversion is possible between Java
-types.  Types that cannot be converted are considerer to be conversion type "none".
+explicit conversions.   In Java, a cast is requested by placing the type name
+in parentheses in front of the object to be cast.  Python does not directly
+support Java casting syntax. To request an explicit conversion an object must
+be "cast" using a cast operator @.   Overloaded methods with an explicit
+argument will not be matched.  After applying an explicit cast, the match
+quality can improve to exact or derived depending on the cast type. 
+
+Not every conversion is possible between Java types.  Types that cannot be
+converted are considerer to be conversion type "none".
 
 Details on the standard conversions provided by JPype are given in the section
 `Type Matching`_.
@@ -742,8 +751,9 @@ Details on the standard conversions provided by JPype are given in the section
 Java casting
 ------------
 
-To access a casting operation we use the casting ``JObject`` wrapper.
-JObject accepts two arguments.  The first argument is the object to convert and
+To access a casting operation we use the casting ``JObject`` wrapper.  
+For example, ``JObject(object, Type)`` would produce a copy with specificed type.
+The first argument is the object to convert and
 the second is the type to cast to.  The second argument should always be a Java
 type specified using a class wrapper, a Java class instance, or a string.
 Casting will also add a hidden class argument to the resulting object such that
@@ -757,6 +767,24 @@ Java list that contains the elements of the original Python sequence.  In
 general JPype constructors only provide access the Java constructor methods
 that are defined in the Java documentation.  Casting on the other hand is
 entirely the domain of whatever JPype has defined including user defined casts.
+
+As ``JObject`` syntax is long and does not look much like Java syntax, the
+Python matmul operator is overloaded on JPype types such that one can use the
+``@`` operator to cast to a specific Java type.   In Java, one would write
+``(Type)object`` to cast the variable ``object`` to ``Type``.  In Python, this
+would be written as ``Type@object``.   This can also be applied to array types
+``JLong[:]@[1,2,3]``, collection types ``Iterable@[1,2,3]`` or Java functors
+``DoubleUnaryOperator@(lambda x:x*2)``.  The result of the casting operator
+will be a Java object with the desired type or raise a ``TypeError`` if the
+cast or conversion is not possible.   For Python objects, the Java object will
+generally be a copy as it is not possible to reflect changes in an array back
+to Python.  If one needs to retrieve the resulting changes keep a copy of the
+converted array before passing it.  For an existing Java object, casting
+changes the resolution type for the object.  This can be very useful when
+trying to call a specific method overload.   For example, if we have a Java
+``a=String("hello")`` and there were an overload of the method ``foo`` between
+``String`` and ``Object`` we would need to select the overload with
+``foo(java.lang.Object@a)``.  
 
 .. _JObject:
 
@@ -778,11 +806,18 @@ indicate that the object is not available.  The equivalent concept in Python is
 ``None``.  Thus all methods that accept any object type that permit a null will
 accept None as an augment with implicit conversion.  However, sometime it is
 necessary to pass an explicit type to the method resolution.  To achieve this
-in JPype use ``JObject(None, type)`` which will create a null pointer with the
+in JPype use ``Type@None`` which will create a null pointer with the
 desired type.  To test if something is null we have to compare the handle to
 None.  This unfortunately trips up some code quality checkers.  The idiom in
 Python is ``obj is None``, but as this only matches things that Python
 considers identical, we must instead use ``obj==None``.
+
+Casting ``None`` is use to specify types when calling between overloads
+with variadic arguments such as ``foo(Object a)`` and ``foo(Object... many)``.
+If we want to call ``foo(None)`` is is ambiguous whether we intend to call the
+first with a null object or the second with a null array.  We can resolve the
+ambiguity with ``foo(java.lang.Object@None)`` or
+``foo(java.lang.Object[:]@None)``
 
 Type enforcement appears in three different places within JPype.  These are
 whenever a Java method is called, whenever a Java field is set, and whenever
@@ -1080,6 +1115,17 @@ sequence which hold the elements of the array.  If the members of the
 initializer sequence are not Java members then each will be converted.  If
 any element cannot be converted a ``TypeError`` will be raised.
 
+As a shortcut the ``[]`` operator can be used to specify an array type or
+an array instance.   For example, ``JInt[5]`` will allocate an array instance
+of Java ints with length 5.  ``JInt[:]`` will create a type instance with 
+an unspecific length which can be used for the casting operator.  To create
+an array instance with multiple dimensions we would use ``JInt[5,10]`` 
+which would create a rectangular array which was 5 by 10.   To create a
+jagged array we would substitute ``:`` for the final dimensions.  So
+``JInt[5,:]`` is a length 5 array of an array of ``int[]``.  Multidimensional
+array types are specificed like ``JInt[:,:,:]`` would be a Java type
+``int[][][]``.  This applied to both primitive and object types.
+
 JArray is an abstract base class for all Java classes that are produced.
 Thus, one can test if something is an array class using ``issubclass``
 and if Java object is an array using ``isinstance``.
@@ -1145,6 +1191,30 @@ Java arrays are currently missing some of the requirements to act as a
 to use the Java array utilities class ``java.util.Arrays`` as it has many
 methods that provide additional functionality.  Java arrays do not support any
 additional mathematical operations at this time.
+
+Creating a Java array is also required when pass by reference syntax is required.
+For example, if a Java function takes an array, modifies it and we want to
+retrieve those values.  In Java, all parameters are pass by value, but the contents
+of a container like an array can be modified which gives the appearance of 
+pass by reference.  For example.
+
+.. code-block:: java
+
+     public void modifies(int[] v) {
+         for (int i=0; i<v.length; ++i)
+              v[i]*=2;
+     }
+
+.. code-block:: python
+
+     orig = [1,2,3]
+     obj = jpype.JInt[:](orig)
+     a.modifies(obj)   #  modifies the array by multiply all by 2
+     orig[:] = obj     #  copy all the values back from Java to Python
+
+If we were to call modifies on the original Python list directly, the temporary copy
+would have been modified so the results would have been lost.
+
 
 Buffer classes
 --------------
@@ -1595,28 +1665,28 @@ Here is an example:
 .. code-block:: python
 
   try :
-        # Code that throws a java.lang.RuntimeException
+      # Code that throws a java.lang.RuntimeException
   except java.lang.RuntimeException as ex:
-        print("Caught the runtime exception : ", str(ex))
-        print(ex.stacktrace())
+      print("Caught the runtime exception : ", str(ex))
+      print(ex.stacktrace())
 
 Multiple java exceptions can be caught together or separately:
 
 .. code-block:: python
 
   try:
-        # ...
+      # ...
   except (java.lang.ClassCastException, java.lang.NullPointerException) as ex:
-        print("Caught multiple exceptions : ", str(ex))
-        print(ex.stacktrace())
+      print("Caught multiple exceptions : ", str(ex))
+      print(ex.stacktrace())
   except java.lang.RuntimeException as ex:
-        print("Caught runtime exception : ", str(ex))
-        print(ex.stacktrace())
-  except jpype.JException:
-        print("Caught base exception : ", str(ex))
-        print(ex.stacktrace())
+      print("Caught runtime exception : ", str(ex))
+      print(ex.stacktrace())
+  except jpype.JException as ex:
+      print("Caught base exception : ", str(ex))
+      print(ex.stacktrace())
   except Exception as ex:
-        print("Caught python exception :", str(ex))
+      print("Caught python exception :", str(ex))
 
 Exceptions can be raised in proxies to throw an exception back to Java.
 
@@ -1842,7 +1912,7 @@ should be attached to the Java Runtime object.  The following pattern is used:
     class MyShutdownHook:
         @JOverride
         def run(self):
-           # perform any required shutdown activities
+            # perform any required shutdown activities
 
     java.lang.Runtime.getRuntime().addShutdownHook(Thread(MyShutdownHook()))
 
@@ -1914,16 +1984,16 @@ Example taken from JPype ``java.util.Map`` customizer:
   @_jcustomizer.JImplementationFor('java.util.Map')
   class _JMap:
       def __jclass_init__(self):
-         Mapping.register(self)
+          Mapping.register(self)
 
       def __len__(self):
-         return self.size()
+          return self.size()
 
       def __iter__(self):
-         return self.keySet().iterator()
+          return self.keySet().iterator()
 
       def __delitem__(self, i):
-         return self.remove(i)
+          return self.remove(i)
 
 
 The name of the class does not matter for the purposes of customizer though it
@@ -2109,7 +2179,7 @@ NumPy arrays, and conversion of NumPy integer types to Java boxed types.
 Transfers to Java
 =================
 
-Memory from a NumPy array can be transferred Java in bulk.  The transfer of
+Memory from a NumPy array can be transferred to Java in bulk.  The transfer of
 a one dimensional NumPy array to Java can either be done at initialization
 or by use of the Python slice operator.
 
@@ -2201,7 +2271,7 @@ all buffers become invalid and any access to NumPy arrays backed by Java
 risk crashing.  To avoid this fate, either create the memory for the buffer from
 within Python and pass it to Java.  Or use the Java ``java.lang.Runtime.exit``
 which will terminate both the Java and Python process without leaving any
-opertunity to access a dangling buffer.
+opportunity to access a dangling buffer.
 
 Buffer backed memory is not limited to use with NumPy.  Buffer transfers are
 supported to provide shared memory between processes or memory mapped files.
@@ -2212,7 +2282,7 @@ NumPy Primitives
 ================
 
 When converting a Python type to a boxed Java type, there is the difficulty
-that Java has no way to known the size of a Python numerical value.  But when
+that Java has no way to know the size of a Python numerical value.  But when
 converting NumPy numerical types, this is not an issue.  The following
 conversions apply to NumPy primitive types.
 
@@ -2294,19 +2364,19 @@ dispatch:
 
     @JImplements(JavaInterface)
     class MyImpl:
-       @JOverride
-       def callOverloaded(self, *args):
-         # always use the wild card args when implementing a dispatch
-         if len(args)==2:
-            return self.callMethod1(*args)
-         if len(args)==1 and isinstance(args[0], JString):
-            return self.callMethod2(*args)
-         raise RuntimeError("Incorrect arguments")
+        @JOverride
+        def callOverloaded(self, *args):
+            # always use the wild card args when implementing a dispatch
+            if len(args)==2:
+                return self.callMethod1(*args)
+            if len(args)==1 and isinstance(args[0], JString):
+                return self.callMethod2(*args)
+            raise RuntimeError("Incorrect arguments")
 
        def callMethod1(self, a1, a2):
-         # ...
+            # ...
        def callMethod2(self, jstr):
-         # ...
+            # ...
 
 Multiple interfaces
 -------------------
@@ -2327,7 +2397,7 @@ achieve this, specify the interface using a string and add the keyword argument
 
     @JImplements("org.foo.JavaInterface", deferred=True)
     class MyImpl:
-       # ...
+        # ...
 
 
 Deferred proxies are not checked at declaration time, but instead at the time
@@ -2383,27 +2453,27 @@ First, with an object:
 
 .. code-block:: python
 
-  class C :
-          def testMethod(self) :
-                  return 42
+  class C:
+      def testMethod(self):
+          return 42
 
-          def testMethod2(self) :
-                  return "Bar"
+      def testMethod2(self):
+          return "Bar"
 
   c = C()  # create an instance
-  proxy = JProxy("ITestInterface2", inst=c) # Convert it into a proxy
+  proxy = JProxy("ITestInterface2", inst=c)  # Convert it into a proxy
 
 or you can use a dictionary.
 
 .. code-block:: python
 
-    def _testMethod() :
-       return 32
+    def _testMethod():
+        return 32
 
-    def _testMethod2() :
-       return "Fooo!"
+    def _testMethod2():
+        return "Fooo!"
 
-    d = { 'testMethod' : _testMethod, 'testMethod2' : _testMethod2, }
+    d = { 'testMethod': _testMethod, 'testMethod2': _testMethod2, }
     proxy = JProxy("ITestInterface2", dict=d)
 
 
@@ -2487,19 +2557,19 @@ launches it from within Python.
     from javax.swing import *
 
     def createAndShowGUI():
-	frame = JFrame("HelloWorldSwing")
-	frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
-	label = JLabel("Hello World")
-	frame.getContentPane().add(label)
-	frame.pack()
-	frame.setVisible(True)
+        frame = JFrame("HelloWorldSwing")
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
+        label = JLabel("Hello World")
+        frame.getContentPane().add(label)
+        frame.pack()
+        frame.setVisible(True)
 
     # Start an event loop thread to handling gui events
     @jpype.JImplements(java.lang.Runnable)
     class Launch:
-	@jpype.JOverride
-	def run(self):
-	    createAndShowGUI()
+        @jpype.JOverride
+        def run(self):
+            createAndShowGUI()
     javax.swing.SwingUtilities.invokeLater(Launch())
 
 
@@ -2597,12 +2667,12 @@ keep the synchronization on as long as the object is kept alive.  For example,
     mySharedList = java.util.ArrayList()
 
     # Give the list to another thread that will be adding items
-    otherThread,setList(mySharedList)
+    otherThread.setList(mySharedList)
 
     # Lock the list so that we can access it without interference
     with synchronized(mySharedList):
-       if not mySharedList.isEmpty():
-         ... # process elements
+        if not mySharedList.isEmpty():
+            ...  # process elements
     # Resource is unlocked once we leave the block
 
 The Python ``with`` statement is used to control the scope.  Do not
@@ -2634,26 +2704,26 @@ results.  For example:
 
 .. code-block:: python
 
-  def limit(method, timeout):
-  """ Convert a Java method to asynchronous call with a specified timeout. """
-      def f(*args):
-           @jpype.JImplements(java.util.concurrent.Callable)
-           class g:
-               @jpype.JOverride
-               def call(self):
-                   return method(*args)
-           future = java.util.concurrent.FutureTask(g())
-           java.lang.Thread(future).start()
-           try:
-               timeunit = java.util.concurrent.TimeUnit.MILLISECONDS
-               return future.get(int(timeout*1000), timeunit)
-           except java.util.concurrent.TimeoutException as ex:
-               future.cancel(True)
-           raise RuntimeError("canceled", ex)
-      return f
+    def limit(method, timeout):
+        """ Convert a Java method to asynchronous call with a specified timeout. """
+        def f(*args):
+            @jpype.JImplements(java.util.concurrent.Callable)
+            class g:
+                @jpype.JOverride
+                def call(self):
+                    return method(*args)
+            future = java.util.concurrent.FutureTask(g())
+            java.lang.Thread(future).start()
+            try:
+                timeunit = java.util.concurrent.TimeUnit.MILLISECONDS
+                return future.get(int(timeout*1000), timeunit)
+            except java.util.concurrent.TimeoutException as ex:
+                future.cancel(True)
+            raise RuntimeError("canceled", ex)
+        return f
 
-      print(limit(java.lang.Thread.sleep, timeout=1)(200))
-      print(limit(java.lang.Thread.sleep, timeout=1)(20000))
+    print(limit(java.lang.Thread.sleep, timeout=1)(200))
+    print(limit(java.lang.Thread.sleep, timeout=1)(20000))
 
 Here we have limited the execution time of a Java call.
 
@@ -3111,6 +3181,36 @@ JPype Known limitations
 This section lists those limitations that are unlikely to change, as they come
 from external sources.
 
+Annotations
+-----------
+
+Some frameworks such as Spring use Java annotations to indicate specific
+actions.  These may be either runtime annotations or compile time annotations.
+Occasionally while using JPype someone would like to add a Java annotation to a
+JProxy method so that a framework like Spring can pick up that annotation.
+
+JPype uses the Java supplied ``Proxy`` to implement an interface.  That API
+does not support addition of a runtime annotation to a method or class.  Thus,
+all methods and classes when probed with reflection that are implemented in
+Python will come back with no annotations.   
+
+Further, the majority of annotation magic within Java is actually performed at
+compile time.  This is accomplished using an annotation processor.  When a
+class or method is annotated, the compiler checks to see if there is an
+annotation processor which then can produce new code or modify the class
+annotations.  As this is a compile time process, even if annotations were added
+by Python to a class they would still not be active as the corresponding
+compilation phase would not have been executed.   
+
+This is a limitation of the implementation of annotations by the Java virtual
+machine.  It is technically possible though the use of specialized code
+generation with the ASM library or other code generation to add a runtime
+annotation.  Or through exploits of the Java virtual machine annotation
+implementation one can add annotation to existing Java classes.  But these
+annotations are unlikely to be useful. As such JPype will not be able to
+support class or method annotations.
+
+
 Restarting the JVM
 -------------------
 
@@ -3177,7 +3277,7 @@ this block as a fixture at the start of the test suite.
         faulthandler.enable()
         faulthandler.disable()
     except:
-       pass
+        pass
 
 This code enables fault handling and then returns the default handlers which
 will point back to those set by Java.

@@ -28,8 +28,7 @@ JPStringType::JPStringType(JPJavaFrame& frame,
 }
 
 JPStringType::~JPStringType()
-{
-}
+= default;
 
 JPPyObject JPStringType::convertToPythonObject(JPJavaFrame& frame, jvalue val, bool cast)
 {
@@ -39,7 +38,7 @@ JPPyObject JPStringType::convertToPythonObject(JPJavaFrame& frame, jvalue val, b
 	if (!cast)
 	{
 		// This loses type
-		if (val.l == NULL)
+		if (val.l == nullptr)
 		{
 			return JPPyObject::getNone();
 		}
@@ -47,7 +46,7 @@ JPPyObject JPStringType::convertToPythonObject(JPJavaFrame& frame, jvalue val, b
 		if (context->getConvertStrings())
 		{
 			string str = frame.toStringUTF8((jstring) (val.l));
-			return JPPyObject::call(PyUnicode_FromString(str.c_str()));
+			return JPPyObject::call(PyUnicode_FromStringAndSize(str.c_str(), str.length()));
 		}
 	}
 

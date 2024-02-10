@@ -50,60 +50,62 @@ def Platform(include_dirs=None, sources=None, platform=sys.platform):
                 found_jni = True
                 break
 
-            if not found_jni:
-                distutils.log.warn('Falling back to provided JNI headers, since your provided'
-                                   ' JAVA_HOME "%s" does not provide jni.h', java_home)
+        if not found_jni:
+            distutils.log.warn('Falling back to provided JNI headers, since your provided'
+                               ' JAVA_HOME "%s" does not provide jni.h', java_home)
 
     if not found_jni:
         platform_specific['include_dirs'] += [fallback_jni]
 
     platform_specific['extra_link_args'] = []
     distutils.log.info("Configure platform to", platform)
+    cpp_std = "c++11"
+    gcc_like_cflags = ['-g0', f'-std={cpp_std}', '-O2']
 
-    static = True
     if platform == 'win32':
         distutils.log.info("Add windows settings")
-   #     platform_specific['libraries'] = ['Advapi32']
         platform_specific['define_macros'] = [('WIN32', 1)]
         if sys.version > '3':
             platform_specific['extra_compile_args'] = [
-                '/Zi', '/EHsc', '/std:c++14']
+                '/Zi', '/EHsc', f'/std:c++14']
         else:
             platform_specific['extra_compile_args'] = ['/Zi', '/EHsc']
-   #     platform_specific['extra_link_args'] = ['/DEBUG']
         jni_md_platform = 'win32'
 
     elif platform == 'darwin':
         distutils.log.info("Add darwin settings")
         platform_specific['libraries'] = ['dl']
         platform_specific['define_macros'] = [('MACOSX', 1)]
-        platform_specific['extra_compile_args'] = ['-g0', '-std=c++11', '-O2']
+        platform_specific['extra_compile_args'] = gcc_like_cflags
         jni_md_platform = 'darwin'
 
     elif platform.startswith('linux'):
         distutils.log.info("Add linux settings")
         platform_specific['libraries'] = ['dl']
-        platform_specific['extra_compile_args'] = ['-g0', '-std=c++11', '-O2']
+        platform_specific['extra_compile_args'] = gcc_like_cflags
         jni_md_platform = 'linux'
 
     elif platform.startswith('aix7'):
         distutils.log.info("Add aix settings")
         platform_specific['libraries'] = ['dl']
-        platform_specific['extra_compile_args'] = ['-g3', '-std=c++11', '-O2']
+        platform_specific['extra_compile_args'] = gcc_like_cflags
         jni_md_platform = 'aix7'
 
     elif platform.startswith('freebsd'):
         distutils.log.info("Add freebsd settings")
         jni_md_platform = 'freebsd'
+     
+    elif platform.startswith('openbsd'):
+        distutils.log.info("Add openbsd settings")
+        jni_md_platform = 'openbsd'
 
     elif platform.startswith('android'):
         distutils.log.info("Add android settings")
         platform_specific['libraries'] = ['dl', 'c++_shared', 'SDL2']
-        platform_specific['extra_compile_args'] = ['-g0', '-std=c++11', '-fexceptions', '-frtti', '-O2']
+        platform_specific['extra_compile_args'] = gcc_like_cflags + ['-fexceptions', '-frtti']
 
         print("PLATFORM_SPECIFIC:", platform_specific)
         jni_md_platform = 'linux'
-        static = False
 
     elif platform == 'zos':
         distutils.log.info("Add zos settings")
@@ -137,6 +139,7 @@ ${JAVA_INCLUDE_PATH}
 ${JAVA_INCLUDE_PATH}/win32
 ${JAVA_INCLUDE_PATH}/linux
 ${JAVA_INCLUDE_PATH}/freebsd
+${JAVA_INCLUDE_PATH}/openbsd
 ${JAVA_INCLUDE_PATH}/solaris
 ${JAVA_INCLUDE_PATH}/hp-ux
 ${JAVA_INCLUDE_PATH}/alpha
