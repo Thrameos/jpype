@@ -55,7 +55,14 @@ def start_test_jvm(checkjni=False, classpath=None, convertStrings=False, jacoco=
         pass
     root = Path(__file__).parent.parent
     test_java_classes = root / "classes"
-    assert test_java_classes.exists()
+    if not test_java_classes.exists():
+        pytest.exit("Java harness classes are not built", returncode=3)
+    jpype_jar = root.parent / "org.jpype.jar"
+    if not jpype_jar.exists():
+        pytest.exit("JPype support library org.jpype.jar is missing from jpype home", returncode=3)
+    deps_lib = root.parent / "lib"
+    if not deps_lib.exists():
+        pytest.exit("Dependencies lib is missing.  Run resolve.sh", returncode=3)
     jpype.addClassPath(test_java_classes.absolute())
     jvm_path = jpype.getDefaultJVMPath()
 
