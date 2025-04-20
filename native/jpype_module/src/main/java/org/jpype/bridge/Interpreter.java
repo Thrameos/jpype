@@ -52,6 +52,8 @@ public class Interpreter
   private boolean active = false;
   private final List<String> modulePaths = new ArrayList<>();
 
+  // Probe pattern for windows which will retrieve the Python library location,
+  // _jpype module location, and the version number.
   static final String WINDOWS_PROBE = ""
           + "import sysconfig\n"
           + "import os\n"
@@ -61,6 +63,8 @@ public class Interpreter
           + "print(_jpype.__file__)\n"
           + "print(_jpype.__version__)\n";
 
+  // Probe pattern for unix which will retrieve the Python library location,
+  // _jpype module location, and the version number.
   static final String UNIX_PROBE = ""
           + "import sysconfig\n"
           + "import os\n"
@@ -128,7 +132,13 @@ public class Interpreter
 
     if (!isWindows)
     {
-      // We need our preload hooks to get starte.
+      // We need our preload hooks to get started.
+      // On linux System.load() loads all symbols with RLTD_LOCAL which 
+      // means they are not available for librarys to link against.  That
+      // breaks the Python module loading system.  Thus on Linux or any
+      // system that is similar we will need to load a bootstrap class which 
+      // forces loading Python with global linkage prior to loading the 
+      // first Python module.
       String jpypeBootstrapLibrary = jpypeLibrary.replace("jpype.c", "jpypeb.c");
 
       // First, load the preload hooks
@@ -137,7 +147,10 @@ public class Interpreter
       // Next, load libpython as a global library
       BootstrapLoader.loadLibrary(pythonLibrary);
     } else
+    {
+      // If no bootstrap is required we will simply preload the Python library.
       System.load(pythonLibrary);
+    }
 
     // Finally, load the Python module
     System.load(jpypeLibrary);
