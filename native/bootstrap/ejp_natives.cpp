@@ -17,6 +17,11 @@ This is a fake module which is installed with the _jpype module to hold the prel
 extern "C" {
 #endif
 
+void* PyInit__jpypeb()
+{	
+	return nullptr;
+}
+
 /* Stock System.loadLibrary() does not work for us because they load the
    shared library with local flags.  We need a load which supports shared
    used with all Python modules.
