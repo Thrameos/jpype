@@ -25,11 +25,9 @@ JNIEXPORT jlong JNICALL Java_org_jpype_bridge_BootstrapLoader_loadLibrary
 (JNIEnv *env, jclass clazz, jstring lib)
 {
     const char *path = env->GetStringUTFChars(lib, nullptr);
-	void *handle;
+	void *handle = nullptr;
 #ifdef WIN32
-	wchar_t *wpath = Py_DecodeLocale(path, NULL);
-	handle = LoadLibraryW(wpath);
-	PyMem_RawFree(wpath);
+	// it is not clear if Windows needs a bootstrap load
 #else
 #if defined(_HPUX) && !defined(_IA64)
 	handle = shl_load(path, BIND_DEFERRED | BIND_VERBOSE, 0L);

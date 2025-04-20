@@ -126,14 +126,18 @@ public class Interpreter
             || (version[0] == required[0] && version[1] < required[1]))
       throw new RuntimeException("JPype version is too old.  Found " + this.jpypeLibrary);
 
-    // We need our preload hooks to get starte.
-    String jpypeBootstrapLibrary = jpypeLibrary.replace("jpype.c", "jpypeb.c");
+    if (!isWindows)
+    {
+      // We need our preload hooks to get starte.
+      String jpypeBootstrapLibrary = jpypeLibrary.replace("jpype.c", "jpypeb.c");
 
-    // First, load the preload hooks
-    System.load(jpypeBootstrapLibrary);
+      // First, load the preload hooks
+      System.load(jpypeBootstrapLibrary);
 
-    // Next, load libpython as a global library
-    BootstrapLoader.loadLibrary(pythonLibrary);
+      // Next, load libpython as a global library
+      BootstrapLoader.loadLibrary(pythonLibrary);
+    } else
+      System.load(pythonLibrary);
 
     // Finally, load the Python module
     System.load(jpypeLibrary);
