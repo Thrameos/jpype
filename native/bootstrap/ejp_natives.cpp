@@ -4,7 +4,11 @@ This is a fake module which is installed with the _jpype module to hold the prel
 #ifdef WIN32
 #include <Windows.h>
 #else
+#if defined(_HPUX) && !defined(_IA64)
+#include <dl.h>
+#else
 #include <dlfcn.h>
+#endif // HPUX
 #endif
 #include <jni.h>
 #include <iostream>
@@ -20,9 +24,19 @@ extern "C" {
 JNIEXPORT jlong JNICALL Java_org_jpype_bridge_BootstrapLoader_loadLibrary
 (JNIEnv *env, jclass clazz, jstring lib)
 {
-    const char *cstr = env->GetStringUTFChars(lib, nullptr);
+    const char *path = env->GetStringUTFChars(lib, nullptr);
 	void *handle;
-    handle = dlopen(cstr, RTLD_GLOBAL | RTLD_LAZY); 
+#ifdef WIN32
+	wchar_t *wpath = Py_DecodeLocale(path, NULL);
+	handle = LoadLibraryW(wpath);
+	PyMem_RawFree(wpath);
+#else
+#if defined(_HPUX) && !defined(_IA64)
+	handle = shl_load(path, BIND_DEFERRED | BIND_VERBOSE, 0L);
+#else
+    handle = dlopen(path, RTLD_GLOBAL | RTLD_LAZY); 
+#endif
+#endif
 	return (jlong) handle;
 }
 

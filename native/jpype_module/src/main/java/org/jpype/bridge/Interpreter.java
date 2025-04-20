@@ -199,11 +199,16 @@ public class Interpreter
   {
     String[] parts = version.split("\\.");
     int[] out = new int[3];
-    for (int i = 0; i < parts.length; ++i)
+    try
     {
-      if (i == 3)
-        break;
-      out[i] = Integer.parseInt(parts[i]);
+      for (int i = 0; i < parts.length; ++i)
+      {
+        if (i == 3)
+          break;
+        out[i] = Integer.parseInt(parts[i]);
+      }
+    } catch (NumberFormatException ex)
+    {
     }
     return out;
   }
@@ -407,6 +412,8 @@ public class Interpreter
         System.err.println(e);
         e = err.readLine();
       }
+      out.close();
+      err.close();
 
       // Failed to run Python
       if (rc != 0)
