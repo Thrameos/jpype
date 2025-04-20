@@ -8,7 +8,6 @@
 #include "jpype.h"
 #include "pyjp.h"
 #include <list>
-#include <link.h>
 #include <iostream>
 
 #ifdef __cplusplus
@@ -277,7 +276,6 @@ JNIEXPORT void JNICALL Java_org_jpype_bridge_Natives_finish
 {
 	JPPyCallAcquire callback;
 	Py_Finalize();
-	// FIXME it is unclear if we will need to release the thread lock after this command
 }
 
 
