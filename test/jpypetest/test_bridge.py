@@ -15,13 +15,9 @@
 #   See NOTICE file for details.
 #
 # *****************************************************************************
-import sys
-import _jpype
-import jpype
 from jpype.types import *
-from jpype import JPackage, java
+from jpype import java
 import common
-import pytest
 
 class MyTest():
     def __init__(self):
@@ -151,7 +147,6 @@ class JBridgeTestCase(common.JPypeTestCase):
         self.assertIsInstance(self.PyZip@obj, self.PyZip)
 
     def testBackend(self):
-        be = self.Bridge.getBackend()
         built = JClass("org.jpype.bridge.BuiltIn")
 
         self.assertIsInstance(built.list(java.util.Arrays.asList("A","B","C")), list)
@@ -163,7 +158,7 @@ class JBridgeTestCase(common.JPypeTestCase):
         self.assertTrue(built.hasattr(o, "field"))
         self.assertEqual(built.getattr(o, "field"), "AA")
         built.setattr(o, "field", "BB")
-        self.assertTrue(o.field=="BB")
+        self.assertEqual(o.field, "BB")
         built.delattr(o, "field")
         self.assertFalse(hasattr(o, "field"))
         self.assertTrue(built.isinstance(int(), self.PyObject[:]((int, float))))

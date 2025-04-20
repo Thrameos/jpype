@@ -310,7 +310,7 @@ _PyAttributesMethods: MutableMapping[str, Callable]= {
     "asObject": _identity,
     "get": _getattr,
     "set": _setattr,
-    "del": _delattr,
+    "remove": _delattr,
     "has": _hasattr,
     "dir": dir,
     "dict": _getdict
