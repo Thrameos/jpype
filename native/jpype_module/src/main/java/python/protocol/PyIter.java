@@ -38,7 +38,9 @@ public interface PyIter extends PyObject
    */
   default Iterator<PyObject> iterator()
   {
-    return new PyIterator(Interpreter.getBackend().tee(this));
+    // It is not clear if we should tee the iterator here or not.
+    //   return new PyIterator(Interpreter.getBackend().tee(this));    
+    return new PyIterator(this);
   }
 
   /**

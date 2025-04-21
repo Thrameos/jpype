@@ -39,8 +39,6 @@ class JBridgeTestCase(common.JPypeTestCase):
         self.PyComplex = JClass("python.lang.PyComplex")
         self.PyDict = JClass("python.lang.PyDict")
         self.PyEnumerate = JClass("python.lang.PyEnumerate")
-        self.PyIterable = JClass("python.lang.PyIterable")
-        self.PyIterator = JClass("python.lang.PyIterator")
         self.PyJavaObject = JClass("python.lang.PyJavaObject")
         self.PyList = JClass("python.lang.PyList")
         self.PyMemoryView = JClass("python.lang.PyMemoryView")
@@ -54,6 +52,8 @@ class JBridgeTestCase(common.JPypeTestCase):
         self.PyZip = JClass("python.lang.PyZip")
 
         # Protocols
+        self.PyIter = JClass("python.protocol.PyIter")
+        self.PyIterable = JClass("python.protocol.PyIterable")
         self.PyAttributes = JClass("python.protocol.PyAttributes")
         self.PyMapping = JClass("python.protocol.PyMapping")
         self.PyNumber = JClass("python.protocol.PyNumber")
@@ -90,10 +90,33 @@ class JBridgeTestCase(common.JPypeTestCase):
         self.assertEqual(self.PyIterable._canConvertToJava(obj), "implicit")
         self.assertIsInstance(self.PyIterable@obj, self.PyIterable)
 
-    def testIterator(self):
-        obj = iter(list())
-        self.assertEqual(self.PyIterable._canConvertToJava(obj), "implicit")
-        self.assertIsInstance(self.PyIterator@obj, self.PyIterator)
+    def testIter(self):
+        obj = iter([1,2,3,4])
+        self.assertEqual(self.PyIter._canConvertToJava(obj), "implicit")
+        self.assertIsInstance(self.PyIter@obj, self.PyIter)
+        
+        def even(s):
+            return s%2==0
+
+        def keep(s):
+            return True
+
+        jobj = self.PyIter@iter([1,2,3,4])
+        self.assertEqual(list(jobj.filter(even)), [2,4])
+
+        jobj = self.PyIter@iter([1,2,3,4])
+        self.assertEqual(jobj.next(), 1)
+        self.assertEqual(jobj.next(), 2)
+        self.assertEqual(list(jobj.filter(keep)), [3,4])
+
+        jobj = self.PyIter@iter([1,2,3,4])
+        jiter1 = jobj.iterator()
+        l = []
+        while jiter1.hasNext():
+            jiter1.append(jiter1.next())
+        self.assertEqual(l, [1,2,3,4])
+            
+        
 
     def testList(self):
         obj = list()
