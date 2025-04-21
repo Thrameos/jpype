@@ -280,6 +280,14 @@ JNIEXPORT jlong JNICALL Java_org_jpype_manager_TypeFactoryNative_defineObjectCla
 		new JPProxyType(frame, cls, className,
 			(JPClass*) superClass, interfaces, modifiers);
 
+	if (className == "python.lang.PyExc")
+	{
+		context->_python_lang_PyExc = new JPClassType(frame, cls, className, (JPClass*) superClass, interfaces, modifiers);
+		context->m_Exc_Of = frame.GetStaticMethodID(cls, "of", "(Lpython/lang/PyExc;)Ljava/lang/Exception;");
+		context->m_Exc_Unwrap = frame.GetStaticMethodID(cls, "unwrap", "(Ljava/lang/Throwable;)Lpython/lang/PyExc;");
+		return (jlong) (context->_python_lang_PyExc);
+	}
+
 	// Register reflection types for later use
 	if (className == "java.lang.reflect.Method")
 		return (jlong) (context->_java_lang_reflect_Method

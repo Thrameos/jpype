@@ -291,12 +291,6 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 			"assemble",
 			"([ILjava/lang/Object;)Ljava/lang/Object;");
 
-	m_Context_CreateExceptionID = frame.GetMethodID(contextClass, "createException",
-			"(JJ)Ljava/lang/Exception;");
-	m_Context_GetExcClassID = frame.GetMethodID(contextClass, "getExcClass",
-			"(Ljava/lang/Throwable;)J");
-	m_Context_GetExcValueID = frame.GetMethodID(contextClass, "getExcValue",
-			"(Ljava/lang/Throwable;)J");
 	m_Context_OrderID = frame.GetMethodID(contextClass, "order", "(Ljava/nio/Buffer;)Z");
 	m_Context_IsPackageID = frame.GetMethodID(contextClass, "isPackage", "(Ljava/lang/String;)Z");
 	m_Context_GetPackageID = frame.GetMethodID(contextClass, "getPackage", "(Ljava/lang/String;)Lorg/jpype/pkg/JPypePackage;");

@@ -562,7 +562,7 @@ def initialize():
     _PyTuple = JClass("python.lang.PyTuple")
     _PyType = JClass("python.lang.PyType")
     _PyZip = JClass("python.lang.PyZip")
-    _PyExc = JClass("python.exception.PyExc")
+    _PyExc = JClass("python.lang.PyExc")
 
     # Protocols
     _PyAttributes = JClass("python.protocol.PyAttributes")

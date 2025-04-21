@@ -198,6 +198,7 @@ public:
 	JPClass* _java_lang_Throwable{};
 	JPStringType* _java_lang_String{};
 	JPClass* _java_nio_ByteBuffer{};
+	JPClass* _python_lang_PyExc{};
 
 private:
 
@@ -221,7 +222,6 @@ public:
 	JPClassRef m_ContextClass;
 	JPClassRef m_RuntimeException;
 
-private:
 	JPClassRef m_Array;
 	JPObjectRef m_Reflector;
 
@@ -234,9 +234,6 @@ private:
 	jmethodID m_Context_collectRectangularID{};
 	jmethodID m_Context_assembleID{};
 	jmethodID m_String_ToCharArrayID{};
-	jmethodID m_Context_CreateExceptionID{};
-	jmethodID m_Context_GetExcClassID{};
-	jmethodID m_Context_GetExcValueID{};
 	jmethodID m_Context_ClearInterruptID{};
 	jmethodID m_CompareToID{};
 	jmethodID m_Buffer_IsReadOnlyID{};
@@ -256,6 +253,9 @@ private:
 	jmethodID m_Package_GetObjectID{};
 	jmethodID m_Package_GetContentsID{};
 	jmethodID m_Context_NewWrapperID{};
+
+	jmethodID m_Exc_Of{};
+	jmethodID m_Exc_Unwrap{};
 public:
 	jmethodID m_Context_GetStackFrameID{};
 	void onShutdown();

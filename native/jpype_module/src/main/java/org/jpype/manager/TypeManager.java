@@ -35,6 +35,7 @@ import java.util.TreeSet;
 import org.jpype.JPypeContext;
 import org.jpype.JPypeUtilities;
 import org.jpype.proxy.JPypeProxy;
+import python.lang.PyExc;
 
 /**
  *
@@ -83,6 +84,7 @@ public class TypeManager
       Class[] cls =
       {
         Class.class, Number.class, CharSequence.class, Throwable.class,
+        PyExc.class,
         Void.class, Boolean.class, Byte.class, Character.class,
         Short.class, Integer.class, Long.class, Float.class, Double.class,
         String.class, JPypeProxy.class,

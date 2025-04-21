@@ -34,6 +34,8 @@ import org.jpype.manager.TypeManager;
 import org.jpype.pkg.JPypePackage;
 import org.jpype.pkg.JPypePackageManager;
 import org.jpype.ref.JPypeReferenceQueue;
+import python.lang.PyExc;
+import python.exception.PyException;
 
 /**
  * Context for JPype.
@@ -475,25 +477,15 @@ public class JPypeContext
     }
   }
 
-  public long getExcClass(Throwable th)
-  {
-    if (th instanceof PyExceptionProxy)
-      return ((PyExceptionProxy) th).cls;
-    return 0;
-  }
-
-  public long getExcValue(Throwable th)
-  {
-    if (th instanceof PyExceptionProxy)
-      return ((PyExceptionProxy) th).value;
-    return 0;
-  }
-
-  private Exception createException(long l0, long l1)
-  {
-    return new PyExceptionProxy(l0, l1);
-  }
-
+  /** 
+   * Determine the order of a Buffer.
+   * 
+   * This is required because Java has a poorly constructed base class in which
+   * order only appears on some classes.
+   * 
+   * @param b
+   * @return true if the order is LITTLE_ENDIAN
+   */
   private boolean order(Buffer b)
   {
     if (b instanceof java.nio.ByteBuffer)

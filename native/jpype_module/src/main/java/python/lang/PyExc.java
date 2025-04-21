@@ -13,16 +13,14 @@
  * 
  *  See NOTICE file for details.
  */
-package python.exception;
+package python.lang;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import static python.exception.PyException.LOOKUP;
-import python.lang.PyObject;
-import python.lang.PyTuple;
-import python.lang.PyType;
+import python.exception.PyException;
+import static python.lang.PyExceptionFactory.LOOKUP;
 
 /**
  * Native version of a Python exception.
@@ -34,10 +32,18 @@ import python.lang.PyType;
 public interface PyExc extends PyObject
 {
 
+  /** 
+   * Wraps a Python exception with the appropriate Java wrapper type.
+   * 
+   * @param base
+   * @return 
+   */
   static Exception of(PyExc base)
   {
+System.out.println("PyExc.of");
     PyType type = base.getType();
     String name = type.getName();
+System.out.println("PyExc.of "+name);
     Class cls = LOOKUP.get(name);
     if (cls == null)
     {
@@ -58,6 +64,19 @@ public interface PyExc extends PyObject
       Logger.getLogger(PyExc.class.getName()).log(Level.SEVERE, null, ex);
       return new RuntimeException("Unable to find Python error type " + name);
     }
+  }
+  
+  /** 
+   * Used to pass an exception through the Python stack.
+   * 
+   * @param th
+   * @return 
+   */
+  static public PyExc unwrap(Throwable th)
+  {    
+    if (th instanceof PyException)
+      return ((PyException) th).get();
+    return null;
   }
 
   String getMessage();

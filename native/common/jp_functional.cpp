@@ -112,7 +112,7 @@ public:
 		JP_PY_CHECK();
 		JPClassList cl;
 		cl.push_back(cls);
-		self->m_Proxy = new JPProxyFunctional(context, self, cl);
+		self->m_Proxy = new JPProxyFunctional(self, cl);
 		self->m_Target = match.object;
 		self->m_Dispatch = match.object;
 		self->m_Convert = true;

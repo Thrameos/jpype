@@ -18,6 +18,7 @@
 
 #include "jpype.h"
 #include "jp_exception.h"
+#include "jp_proxy.h"
 #include "pyjp.h"
 
 static_assert(std::is_nothrow_copy_constructible<JPypeException>::value,
@@ -118,17 +119,20 @@ void JPypeException::convertJavaToPython()
 	v.l = th;
 	// GCOVR_EXCL_START
 	// This is condition is only hit if something fails during the initial boot
-	if (m_Context->getJavaContext() == nullptr || m_Context->m_Context_GetExcClassID == nullptr)
+	if (m_Context->getJavaContext() == nullptr || m_Context->_python_lang_PyExc == nullptr)
 	{
 		PyErr_SetString(PyExc_SystemError, frame.toString(th).c_str());
 		return;
 	}
 	// GCOVR_EXCL_STOP
-	jlong pycls = frame.CallLongMethodA(m_Context->getJavaContext(), m_Context->m_Context_GetExcClassID, &v);
-	if (pycls != 0)
+	jobject jobj = frame.CallStaticObjectMethodA(m_Context->_python_lang_PyExc->getJavaClass(),  m_Context->m_Exc_Unwrap, &v);
+	if (jobj != nullptr)
 	{
-		jlong value = frame.CallLongMethodA(m_Context->getJavaContext(), m_Context->m_Context_GetExcValueID, &v);
-		PyErr_SetObject((PyObject*) pycls, (PyObject*) value);
+		JPClass* cls = frame.findClassForObject(jobj);
+		v.l = jobj;
+		JPPyObject orig = cls->convertToPythonObject(frame, v, false);
+		PyObject *py = orig.get();
+		PyErr_SetObject((PyObject*) Py_TYPE(py), py);
 		return;
 	}
 	JP_TRACE("Check typemanager");
@@ -205,8 +209,33 @@ void JPypeException::convertJavaToPython()
 	JP_TRACE_OUT; // GCOVR_EXCL_LINE
 }
 
+
+jobject newExcProxy(JPContext* context, PyObject* obj)
+{
+	JPJavaFrame frame = JPJavaFrame::inner(context);
+	JP_TRACE_IN("newExcProxy");
+	PyJPProxy* self = (PyJPProxy*) PyJPProxy_Type->tp_alloc(PyJPProxy_Type, 0);
+	JP_PY_CHECK();
+	JPClassList cl;
+	cl.push_back(context->_python_lang_PyExc);
+	// This will claim ownership of the self
+	self->m_Proxy = new JPProxyIndirect(self, cl);
+	self->m_Target = obj;
+	self->m_Dispatch = Py_None; // FIXME we need the PyExc dictionary? 
+	self->m_Convert = true;
+	Py_INCREF(self->m_Target);
+	Py_INCREF(self->m_Dispatch);
+printf("convert %p %p\n", self, self->m_Proxy);
+	jvalue out = self->m_Proxy->getProxy();
+	Py_DECREF(self);
+printf("done %p\n", out.l);
+	return frame.keep(out.l);
+	JP_TRACE_OUT;  // GCOVR_EXCL_LINE
+}
+
 void JPypeException::convertPythonToJava(JPContext* context)
 {
+printf("CONVERT %p\n", context);
 	JP_TRACE_IN("JPypeException::convertPythonToJava");
 	JPJavaFrame frame = JPJavaFrame::outer(context);
 	jthrowable th;
@@ -224,22 +253,26 @@ void JPypeException::convertPythonToJava(JPContext* context)
 		}
 	}
 
-	if (context->m_Context_CreateExceptionID == nullptr)
+	if (context->_python_lang_PyExc == nullptr)
 	{
 		frame.ThrowNew(frame.FindClass("java/lang/RuntimeException"), std::runtime_error::what());
 		return;
 	}
 
-
 	// Otherwise
-	jvalue v[2];
-	v[0].j = (jlong) eframe.m_ExceptionClass.get();
-	v[1].j = (jlong) eframe.m_ExceptionValue.get();
-	th = (jthrowable) frame.CallObjectMethodA(context->getJavaContext(),
-			context->m_Context_CreateExceptionID, v);
-	frame.registerRef((jobject) th, eframe.m_ExceptionClass.get());
-	frame.registerRef((jobject) th, eframe.m_ExceptionValue.get());
+	jvalue v;
+	PyObject *e = eframe.m_ExceptionValue.get();
+printf("convert %s %p\n", Py_TYPE(e)->tp_name, e);
+	v.l = newExcProxy(context, e);
+printf("got %p %p\n", v.l, context->m_Exc_Of);
+	th = (jthrowable) frame.CallStaticObjectMethodA(context->_python_lang_PyExc->getJavaClass(), context->m_Exc_Of, &v);
 	eframe.clear();
+printf("throw %p\n", th);
+	if (th == nullptr)
+	{
+		frame.ThrowNew(frame.FindClass("java/lang/RuntimeException"), "Fatal error in exception handling");
+		return;
+	}
 	frame.Throw(th);
 	JP_TRACE_OUT; // GCOVR_EXCL_LINE
 }
