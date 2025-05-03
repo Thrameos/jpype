@@ -421,8 +421,18 @@ void JPypeException::toJava()
 		JPTracer::trace("Fatal error in exception handling");
 		JPStackInfo info = ex.m_Trace.front();
 		JPTracer::trace(info.getFile(), info.getFunction(), info.getLine());
+		JPTracer::trace("Exception type: ", m_Type);
+		JPTracer::trace("Exception message: ", what());
 
 		// Take one for the team.
+
+		// This deliberate crash is used exclusively during startup in catastrophic scenarios
+		// where resources are unavailable, and all other exception handling mechanisms fail.
+		// Its purpose is to produce a gdb backtrace for debugging.
+		// DO NOT REMOVE OR MODIFY WITHOUT UNDERSTANDING THE IMPLICATIONS.
+
+		// This deliberate crash is used to produce a gdb backtrace in catastrophic scenarios.
+		// Refer to the developer guide section "Deliberate Crash for Debugging" for details.
 		int *i = nullptr;
 		*i = 0;
 		// GCOVR_EXCL_STOP
@@ -431,8 +441,18 @@ void JPypeException::toJava()
 		// GCOVR_EXCL_START
 		// urp?!
 		JPTracer::trace("Fatal error in exception handling");
+		JPTracer::trace("Exception type: ", m_Type);
+		JPTracer::trace("Exception message: ", what());
 
 		// It is pointless, I can't go on.
+
+		// This deliberate crash is used exclusively during startup in catastrophic scenarios
+		// where resources are unavailable, and all other exception handling mechanisms fail.
+		// Its purpose is to produce a gdb backtrace for debugging.
+		// DO NOT REMOVE OR MODIFY WITHOUT UNDERSTANDING THE IMPLICATIONS.
+
+		// This deliberate crash is used to produce a gdb backtrace in catastrophic scenarios.
+		// Refer to the developer guide section "Deliberate Crash for Debugging" for details.
 		int *i = nullptr;
 		*i = 0;
 		// GCOVR_EXCL_STOP
