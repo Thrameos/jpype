@@ -26,22 +26,15 @@ import org.testng.annotations.Test;
  *
  * @author nelson85
  */
-public class PyObjectNGTest
+public class PyObjectNGTest extends PyTestHarness
 {
 
-  private static Context context;
 
   public PyObjectNGTest()
   {
   }
 
-  @BeforeClass
-  public static void setUpClass() throws Exception
-  {
-    if (!Interpreter.getInstance().isStarted())
-      Interpreter.getInstance().start(new String[0]);
-    context = new Context();
-  }
+
 
   @Test
   public void testStringProtocol()

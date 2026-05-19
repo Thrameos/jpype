@@ -17,33 +17,20 @@
 package python.lang;
 
 import org.jpype.bridge.Context;
-import org.jpype.bridge.Interpreter;
 import org.testng.annotations.Test;
 import static org.testng.Assert.*;
-import org.testng.annotations.BeforeClass;
-import python.lang.PyBuiltIn;
 
 /**
  *
  * @author nelson85
  */
-public class PyTypeNGTest
+public class PyTypeNGTest extends PyTestHarness
 {
 
   static PyType objectType;
   static PyType dictType;
   static PyType rangeType;
 
-  @BeforeClass
-  public static void setUpClass() throws Exception
-  {
-    Interpreter interpreter = Interpreter.getInstance();
-    interpreter.start(new String[0]);
-    Context context = new Context();
-    objectType = (PyType) context.eval("type(object)");
-    dictType = (PyType) context.eval("type(dict)");
-    rangeType = (PyType) context.eval("type(range)");
-  }
 
   @Test
   public void testGetName()
@@ -80,8 +67,8 @@ public class PyTypeNGTest
   @Test
   public void testIsInstance()
   {
-    PyObject obj = PyString.of("test");
-    PyType type = PyBuiltIn.type(obj);
+    PyObject obj = context.str("test");
+    PyType type = context.type(obj);
     assertTrue(type.isInstance(obj));
     assertFalse(type.isInstance(dictType));
   }
@@ -96,10 +83,9 @@ public class PyTypeNGTest
   @Test
   public void testIsAbstract()
   {
-    Context context = new Context();
     context.importModule("collections");
     PyObject obj = context.eval("collections.abc.Mapping");
-    PyType type = PyBuiltIn.type(obj);
+    PyType type = context.type(obj);
     assertTrue(type.isAbstract());
     PyType concreteType = dictType;
     assertFalse(concreteType.isAbstract());

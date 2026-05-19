@@ -28,19 +28,7 @@ package python.lang;
 public interface PyType extends PyObject, PyCallable, PyCombinable
 {
 
-  /**
-   * Returns the Python type object for the "zip" built-in function.
-   *
-   * This is a static utility method to demonstrate how Python types can be
-   * evaluated and accessed from Java.
-   *
-   * @return the PyType object corresponding to the "zip" function.
-   */
-  static PyType getType()
-  {
-    return (PyType) PyBuiltIn.eval("zip", null, null);
-  }
-
+  
   /**
    * Retrieves the base class of the type.
    *

@@ -1,4 +1,3 @@
-// --- file: python/lang/PySetNGTest.java ---
 /*
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
  *  use this file except in compliance with the License. You may obtain a copy of
@@ -14,26 +13,19 @@
  * 
  *  See NOTICE file for details.
  */
-package python.lang;
+package org.jpype.bridge;
 
-import org.jpype.bridge.Interpreter;
-import org.testng.annotations.BeforeClass;
+import python.lang.PyBuiltIn;
 
 /**
  *
  * @author nelson85
  */
-public class PySetNGTest extends PyTestHarness
+class InterpreterBuiltIn extends PyBuiltIn
 {
 
-  public PySetNGTest()
+  InterpreterBuiltIn(Backend backend)
   {
+    super(backend);
   }
-
-  @BeforeClass
-  public static void setUpClass() throws Exception
-  {
-    Interpreter.getInstance().start(new String[0]);
-  }
-
 }

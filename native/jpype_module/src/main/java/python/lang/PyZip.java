@@ -16,7 +16,6 @@
  */
 package python.lang;
 
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * Java front end for concrete Python zip.
@@ -24,15 +23,6 @@ import static python.lang.PyBuiltIn.backend;
 public interface PyZip extends PyIter<PyTuple>
 {
 
-  /**
-   * Creates a new PyZip object by zipping the provided iterables.
-   *
-   * @param items are the iterables to zip together.
-   * @return a PyZip object representing the zipped iterables.
-   */
-  static PyZip of(Iterable<?>... items)
-  {
-    return backend().newZip(items);
-  }
+
 
 }

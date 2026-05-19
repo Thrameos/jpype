@@ -1,4 +1,3 @@
-// --- file: python/lang/PySetNGTest.java ---
 /*
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
  *  use this file except in compliance with the License. You may obtain a copy of
@@ -14,26 +13,20 @@
  * 
  *  See NOTICE file for details.
  */
-package python.lang;
+package org.jpype.annotation;
 
-import org.jpype.bridge.Interpreter;
-import org.testng.annotations.BeforeClass;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- *
+ * Marker to the proxy to pass the builtin.
+ * 
  * @author nelson85
  */
-public class PySetNGTest extends PyTestHarness
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+public @interface Builtin
 {
-
-  public PySetNGTest()
-  {
-  }
-
-  @BeforeClass
-  public static void setUpClass() throws Exception
-  {
-    Interpreter.getInstance().start(new String[0]);
-  }
-
 }

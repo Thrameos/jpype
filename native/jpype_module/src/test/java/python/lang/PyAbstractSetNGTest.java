@@ -13,34 +13,34 @@ public class PyAbstractSetNGTest extends PyTestHarness
   @Test
   public void testContainsMissingElement()
   {
-    PyAbstractSet<PyObject> set = PyAbstractSet.of(Arrays.asList("a", "b", "c"));
+    PyAbstractSet<PyObject> set = context.set(Arrays.asList("a", "b", "c"));
     assertFalse(set.contains("z"));
   }
 
   @Test
   public void testContainsPresentElement()
   {
-    PyAbstractSet<PyObject> set = PyAbstractSet.of(Arrays.asList("a", "b", "c"));
+    PyAbstractSet<PyObject> set = context.set(Arrays.asList("a", "b", "c"));
     assertTrue(set.contains("a"));
   }
 
   @Test
   public void testIsEmptyFalseForNonEmptySet()
   {
-    PyAbstractSet<PyObject> set = PyAbstractSet.of(Arrays.asList("x"));
+    PyAbstractSet<PyObject> set = context.set(Arrays.asList("x"));
     assertFalse(set.isEmpty());
   }
 
   @Test
   public void testIteratorOnEmptySet()
   {
-    PyAbstractSet<PyObject> set = PyAbstractSet.of(Arrays.asList());
+    PyAbstractSet<PyObject> set = context.set(Arrays.asList());
     assertFalse(set.iterator().hasNext());
   }
 
   public void testIteratorTraversesElements()
   {
-    PyAbstractSet<PyObject> set = PyAbstractSet.of(Arrays.asList("a", "b", "c"));
+    PyAbstractSet<PyObject> set = context.set(Arrays.asList("a", "b", "c"));
 
     Set<String> actual = new HashSet<>();
     for (PyObject obj : set)
@@ -55,7 +55,7 @@ public class PyAbstractSetNGTest extends PyTestHarness
   @Test
   public void testOfCreatesSet()
   {
-    PySet set = PyAbstractSet.of(Arrays.asList("a", "b", "c"));
+    PySet set = context.set(Arrays.asList("a", "b", "c"));
     assertNotNull(set);
     assertEquals(set.size(), 3);
   }
@@ -63,7 +63,7 @@ public class PyAbstractSetNGTest extends PyTestHarness
   @Test
   public void testOfEmptyIterable()
   {
-    PySet set = PyAbstractSet.of(Arrays.asList());
+    PySet set = context.set(Arrays.asList());
     assertNotNull(set);
     assertTrue(set.isEmpty());
     assertEquals(set.size(), 0);
@@ -72,7 +72,7 @@ public class PyAbstractSetNGTest extends PyTestHarness
   @Test
   public void testSizeWithDuplicates()
   {
-    PyAbstractSet<PyObject> set = PyAbstractSet.of(Arrays.asList("a", "a", "b"));
+    PyAbstractSet<PyObject> set = context.set(Arrays.asList("a", "a", "b"));
     assertEquals(set.size(), 2);
   }
 }

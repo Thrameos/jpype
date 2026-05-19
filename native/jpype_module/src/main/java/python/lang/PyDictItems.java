@@ -22,7 +22,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import org.jpype.bridge.Backend;
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * Represents a view fromMap the items in a Python dictionary ({@code PyDict})
@@ -49,7 +48,7 @@ public class PyDictItems implements Set<Map.Entry<PyObject, PyObject>>
   /**
    * Backend interface for interacting with the Python interpreter.
    */
-  private final Backend backend;
+  private final PyBuiltIn builtin;
 
   /**
    * The Python dictionary (`PyDict`) whose items are represented by this class.
@@ -70,8 +69,8 @@ public class PyDictItems implements Set<Map.Entry<PyObject, PyObject>>
   public PyDictItems(PyDict dict)
   {
     this.dict = dict;
-    this.backend = backend();
-    this.items = this.backend.items(dict);
+    this.builtin = dict.builtin();
+    this.items = this.builtin.backend.items(dict);
   }
 
   /**
@@ -125,7 +124,7 @@ public class PyDictItems implements Set<Map.Entry<PyObject, PyObject>>
   @Override
   public boolean contains(Object o)
   {
-    return this.backend.contains(this.items, o);
+    return this.builtin.backend.contains(this.items, o);
   }
 
   /**
@@ -156,7 +155,7 @@ public class PyDictItems implements Set<Map.Entry<PyObject, PyObject>>
   @Override
   public boolean isEmpty()
   {
-    return this.backend.len(items) == 0;
+    return this.builtin.len(items) == 0;
   }
 
   /**
@@ -167,7 +166,7 @@ public class PyDictItems implements Set<Map.Entry<PyObject, PyObject>>
   @Override
   public Iterator<Map.Entry<PyObject, PyObject>> iterator()
   {
-    PyIter<PyTuple> iter = backend.<PyTuple>iter(this.items);
+    PyIter<PyTuple> iter = builtin.<PyTuple>iter(this.items);
     return new PyDictItemsIterator<>(iter, dict::put);
   }
 
@@ -212,7 +211,7 @@ public class PyDictItems implements Set<Map.Entry<PyObject, PyObject>>
   @Override
   public int size()
   {
-    return this.backend.len(items);
+    return this.builtin.len(items);
   }
 
   /**
@@ -223,7 +222,7 @@ public class PyDictItems implements Set<Map.Entry<PyObject, PyObject>>
   @Override
   public Object[] toArray()
   {
-    return new ArrayList<>(PyBuiltIn.list(items)).toArray();
+    return new ArrayList<>(builtin.list(items)).toArray();
   }
 
   /**
@@ -235,6 +234,6 @@ public class PyDictItems implements Set<Map.Entry<PyObject, PyObject>>
   @Override
   public <T> T[] toArray(T[] a)
   {
-    return new ArrayList<>(PyBuiltIn.list(items)).toArray(a);
+    return new ArrayList<>(builtin.list(items)).toArray(a);
   }
 }

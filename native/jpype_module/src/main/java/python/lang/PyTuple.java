@@ -25,7 +25,6 @@ import java.util.Spliterators;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.jpype.annotation.Bypass;
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * Represents a Java front-end for a concrete Python tuple.
@@ -76,38 +75,6 @@ import static python.lang.PyBuiltIn.backend;
 public interface PyTuple extends PySequence<PyObject>
 {
 
-  /**
-   * Creates a new {@code PyTuple} from an {@link Iterable}.
-   *
-   * @param values an iterator providing the elements to include in the tuple
-   * @param <T> the getType of elements in the iterator
-   * @return a new {@code PyTuple} containing the elements from the iterator
-   */
-  public static <T> PyTuple fromItems(Iterable<T> values)
-  {
-    return PyBuiltIn.tuple(values);
-  }
-
-  /**
-   * Returns the Python getType object for tuples.
-   *
-   * @return the Python getType object representing {@code tuple}
-   */
-  static PyType getType()
-  {
-    return (PyType) PyBuiltIn.eval("tuple", null, null);
-  }
-
-  /**
-   * Creates a new {@code PyTuple} from a variable number of elements.
-   *
-   * @param values the elements to include in the tuple
-   * @return a new {@code PyTuple} containing the specified elements
-   */
-  public static PyTuple of(Object... values)
-  {
-    return PyBuiltIn.tuple(values);
-  }
 
   // --- Mutating methods (throw UnsupportedOperationException) ---
   /**
@@ -170,7 +137,7 @@ public interface PyTuple extends PySequence<PyObject>
   /**
    * Checks if the tuple contains the specified object.
    *
-   * @param o the object to check
+   * @param obj the object to check
    * @return {@code true} if the tuple contains the object, {@code false}
    * otherwise
    */
@@ -178,7 +145,7 @@ public interface PyTuple extends PySequence<PyObject>
   @Override
   default boolean contains(Object obj)
   {
-    return backend().contains(this, obj);
+    return builtin().backend.contains(this, obj);
   }
 
   /**
@@ -192,8 +159,8 @@ public interface PyTuple extends PySequence<PyObject>
   @Override
   default boolean containsAll(Collection<?> c)
   {
-    PySet s1 = PySet.of(this);
-    PySet s2 = PySet.of(c);
+    PySet s1 = builtin().set(this);
+    PySet s2 = builtin().set(c);
     return s2.isSubset(s1);
   }
 
@@ -294,7 +261,7 @@ public interface PyTuple extends PySequence<PyObject>
   @Override
   default int size()
   {
-    return backend().len(this);
+    return builtin().backend.len(this);
   }
 
   /**

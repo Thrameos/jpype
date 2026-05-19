@@ -36,17 +36,20 @@ public class Context extends PyBuiltIn
 
   public final PyDict globalsDict;
   public final PyObject localsDict;
+       
 
-  public Context()
+  Context(Backend backend)
   {
+    super(backend);
     if (!Interpreter.getInstance().isJava())
       throw new IllegalStateException("Java bridge must be active");
     this.globalsDict = Interpreter.backend.newDict();
     this.localsDict = globalsDict;
   }
 
-  public Context(PyDict globals, PyObject locals)
+  Context(Backend backend, PyDict globals, PyObject locals)
   {
+    super(backend);
     if (!Interpreter.getInstance().isJava())
       throw new IllegalStateException("Java bridge must be active");
     this.globalsDict = globals;

@@ -16,7 +16,6 @@
  */
 package python.lang;
 
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * Java front-end interface for the Python `int` type.
@@ -33,18 +32,4 @@ import static python.lang.PyBuiltIn.backend;
  */
 public interface PyInt extends PyObject, PyNumber
 {
-
-  /**
-   * Creates a new Python `int` object from the specified Java {@code long}
-   * value. The resulting {@link PyInt} object represents the Python equivalent
-   * of the given integer.
-   *
-   * @param value the {@code long} value to be converted into a Python `int`.
-   * @return a new {@link PyInt} instance representing the Python `int` object.
-   */
-  static PyInt of(long value)
-  {
-    return backend().newInt(value);
-  }
-
 }

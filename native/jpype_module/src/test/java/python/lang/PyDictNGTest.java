@@ -15,7 +15,7 @@ public class PyDictNGTest extends PyTestHarness
 
   private PyDict dictOf(Object... items)
   {
-    PyDict dict = PyBuiltIn.dict();
+    PyDict dict = context.dict();
     for (int i = 0; i < items.length; i += 2)
       dict.putAny(items[i], items[i + 1]);
     return dict;
@@ -43,10 +43,10 @@ public class PyDictNGTest extends PyTestHarness
   @Test
   public void testContainsValue()
   {
-    PyDict dict = dictOf("key1", PyString.of("value1"));
+    PyDict dict = dictOf("key1", context.str("value1"));
 
-    assertTrue(dict.containsValue(PyString.of("value1")) || dict.values().toString().contains("value1"));
-    assertFalse(dict.containsValue(PyString.of("missing")));
+    assertTrue(dict.containsValue(context.str("value1")) || dict.values().toString().contains("value1"));
+    assertFalse(dict.containsValue(context.str("missing")));
   }
 
   @Test
@@ -65,7 +65,7 @@ public class PyDictNGTest extends PyTestHarness
             new AbstractMap.SimpleEntry<>("a", 1),
             new AbstractMap.SimpleEntry<>("b", 2));
 
-    PyDict dict = PyDict.fromItems(items);
+    PyDict dict = context.dictFromItems(items);
 
     assertEquals(dict.size(), 2);
     assertEquals(dict.get("a").toString(), "1");
@@ -79,7 +79,7 @@ public class PyDictNGTest extends PyTestHarness
     map.put("a", 1);
     map.put("b", 2);
 
-    PyDict dict = PyDict.fromMap(map);
+    PyDict dict = context.dictFromMap(map);
 
     assertEquals(dict.size(), 2);
     assertEquals(dict.get("a").toString(), "1");
@@ -89,7 +89,7 @@ public class PyDictNGTest extends PyTestHarness
   @Test
   public void testGetMissingReturnsNullOrThrowsAsImplemented()
   {
-    PyDict dict = PyBuiltIn.dict();
+    PyDict dict = context.dict();
     PyObject result = dict.get("missing");
     assertNull(result);
   }
@@ -98,7 +98,7 @@ public class PyDictNGTest extends PyTestHarness
   public void testGetOrDefaultExisting()
   {
     PyDict dict = dictOf("key1", "value1");
-    PyObject fallback = PyString.of("default");
+    PyObject fallback = context.str("default");
 
     PyObject result = dict.getOrDefault("key1", fallback);
 
@@ -108,8 +108,8 @@ public class PyDictNGTest extends PyTestHarness
   @Test
   public void testGetOrDefaultMissing()
   {
-    PyDict dict = PyBuiltIn.dict();
-    PyObject fallback = PyString.of("default");
+    PyDict dict = context.dict();
+    PyObject fallback = context.str("default");
 
     PyObject result = dict.getOrDefault("missing", fallback);
 
@@ -117,6 +117,7 @@ public class PyDictNGTest extends PyTestHarness
   }
 
   @Test
+  @SuppressWarnings("element-type-mismatch")
   public void testKeySetReflectsContents()
   {
     PyDict dict = dictOf("a", 1, "b", 2);
@@ -127,6 +128,7 @@ public class PyDictNGTest extends PyTestHarness
   }
 
   @Test
+  @SuppressWarnings("element-type-mismatch")
   public void testOrUsesDictUnionSemantics()
   {
     PyDict left = dictOf("a", 1, "b", 2);
@@ -147,7 +149,7 @@ public class PyDictNGTest extends PyTestHarness
   public void testPop()
   {
     PyDict dict = dictOf("key1", "value1");
-    PyObject fallback = PyString.of("default");
+    PyObject fallback = context.str("default");
 
     assertEquals(dict.pop("key1", fallback).toString(), "value1");
     assertEquals(dict.pop("missing", fallback), fallback);
@@ -169,13 +171,13 @@ public class PyDictNGTest extends PyTestHarness
   @Test(expectedExceptions = NoSuchElementException.class)
   public void testPopItemEmptyDict()
   {
-    PyBuiltIn.dict().popItem();
+    context.dict().popItem();
   }
 
   @Test
   public void testPutAndGet()
   {
-    PyDict dict = PyBuiltIn.dict();
+    PyDict dict = context.dict();
     dict.putAny("key1", "value1");
 
     assertEquals(dict.get("key1").toString(), "value1");
@@ -199,7 +201,7 @@ public class PyDictNGTest extends PyTestHarness
   {
     PyDict dict = dictOf("key1", "value1");
 
-    boolean removed = dict.remove("key1", PyString.of("value1"));
+    boolean removed = dict.remove("key1", context.str("value1"));
 
     assertTrue(removed);
     assertFalse(dict.containsKey("key1"));
@@ -210,7 +212,7 @@ public class PyDictNGTest extends PyTestHarness
   {
     PyDict dict = dictOf("key1", "value1");
 
-    boolean removed = dict.remove("key1", PyString.of("wrong"));
+    boolean removed = dict.remove("key1", context.str("wrong"));
 
     assertFalse(removed);
     assertTrue(dict.containsKey("key1"));
@@ -221,7 +223,7 @@ public class PyDictNGTest extends PyTestHarness
   {
     PyDict dict = dictOf("key1", "value1");
 
-    PyObject result = dict.setDefault("key1", PyString.of("other"));
+    PyObject result = dict.setDefault("key1", context.str("other"));
 
     assertEquals(result.toString(), "value1");
     assertEquals(dict.get("key1").toString(), "value1");
@@ -230,9 +232,9 @@ public class PyDictNGTest extends PyTestHarness
   @Test
   public void testSetDefaultInsertsWhenMissing()
   {
-    PyDict dict = PyBuiltIn.dict();
+    PyDict dict = context.dict();
 
-    PyObject result = dict.setDefault("key1", PyString.of("value1"));
+    PyObject result = dict.setDefault("key1", context.str("value1"));
 
     assertEquals(result.toString(), "value1");
     assertEquals(dict.get("key1").toString(), "value1");
@@ -241,7 +243,7 @@ public class PyDictNGTest extends PyTestHarness
   @Test
   public void testSizeAndIsEmpty()
   {
-    PyDict dict = PyBuiltIn.dict();
+    PyDict dict = context.dict();
     assertEquals(dict.size(), 0);
     assertTrue(dict.isEmpty());
 
@@ -253,10 +255,10 @@ public class PyDictNGTest extends PyTestHarness
   @Test
   public void testUpdateWithIterable()
   {
-    PyDict dict = PyBuiltIn.dict();
+    PyDict dict = context.dict();
     List<Map.Entry<Object, PyObject>> updateList = new ArrayList<>();
-    updateList.add(new AbstractMap.SimpleEntry<>("key1", PyString.of("value1")));
-    updateList.add(new AbstractMap.SimpleEntry<>("key2", PyString.of("value2")));
+    updateList.add(new AbstractMap.SimpleEntry<>("key1", context.str("value1")));
+    updateList.add(new AbstractMap.SimpleEntry<>("key2", context.str("value2")));
 
     dict.update(updateList);
 
@@ -268,10 +270,10 @@ public class PyDictNGTest extends PyTestHarness
   @Test
   public void testUpdateWithMap()
   {
-    PyDict dict = PyBuiltIn.dict();
+    PyDict dict = context.dict();
     Map<Object, PyObject> updateMap = new HashMap<>();
-    updateMap.put("key1", PyString.of("value1"));
-    updateMap.put("key2", PyString.of("value2"));
+    updateMap.put("key1", context.str("value1"));
+    updateMap.put("key2", context.str("value2"));
 
     dict.update(updateMap);
 
@@ -283,7 +285,7 @@ public class PyDictNGTest extends PyTestHarness
   @Test
   public void testValuesReflectContents()
   {
-    PyDict dict = dictOf("a", PyString.of("x"), "b", PyString.of("y"));
+    PyDict dict = dictOf("a", context.str("x"), "b", context.str("y"));
 
     assertEquals(dict.values().size(), 2);
     assertTrue(dict.values().toString().contains("x"));

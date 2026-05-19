@@ -20,7 +20,6 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import org.jpype.annotation.Bypass;
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * Java front-end interface for the Python `dict` type.
@@ -45,27 +44,6 @@ import static python.lang.PyBuiltIn.backend;
  */
 public interface PyDict extends PyObject, PyMapping<PyObject, PyObject>, PyCombinable
 {
-
-  public static PyDict fromItems(Iterable<? extends Map.Entry<?, ?>> map)
-  {
-    return backend().newDictFromIterable(map);
-  }
-
-  /**
-   * Creates a new Python `dict` object from the specified Java {@link Map}.
-   *
-   * The keys in the provided map are converted to Python objects, and the
-   * values must already be instances of {@link PyObject}.
-   *
-   * @param map the Java {@link Map} whose entries will populate the Python
-   * `dict`. Keys are converted to Python objects, and values are expected to be
-   * {@link PyObject}.
-   * @return a new {@link PyDict} instance representing the Python dictionary.
-   */
-  public static PyDict fromMap(Map<? extends Object, ? extends Object> map)
-  {
-    return backend().newDict(map);
-  }
 
   @Override
   public void clear();
@@ -198,7 +176,7 @@ public interface PyDict extends PyObject, PyMapping<PyObject, PyObject>, PyCombi
   @Override
   default int size()
   {
-    return PyBuiltIn.len(this);
+    return builtin().len(this);
   }
 
   /**

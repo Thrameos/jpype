@@ -14,7 +14,7 @@ public class PyDictKeySetNGTest extends PyTestHarness
 
   private PyDict dictOf(Object... items)
   {
-    PyDict dict = PyBuiltIn.dict();
+    PyDict dict = context.dict();
     for (int i = 0; i < items.length; i += 2)
       dict.putAny(items[i], items[i + 1]);
     return dict;
@@ -92,7 +92,7 @@ public class PyDictKeySetNGTest extends PyTestHarness
   @Test
   public void testIsEmptyTrue()
   {
-    PyDict dict = PyBuiltIn.dict();
+    PyDict dict = context.dict();
     PyDictKeySet<?> keys = new PyDictKeySet<>(dict);
 
     assertTrue(keys.isEmpty());

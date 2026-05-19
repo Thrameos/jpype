@@ -16,8 +16,6 @@
  */
 package python.lang;
 
-import static python.lang.PyBuiltIn.backend;
-
 /**
  * Java front-end interface for the Python `enumerate` type.
  *
@@ -32,19 +30,6 @@ import static python.lang.PyBuiltIn.backend;
 public interface PyEnumerate extends PyIter<PyTuple>
 {
 
-  /**
-   * Creates a new Python `enumerate` object from the specified Java
-   * {@link Iterable}. The resulting `PyEnumerate` object will yield pairs of an
-   * index (starting from 0) and the corresponding element from the iterable,
-   * similar to Python's `enumerate` function.
-   *
-   * @param iterable the {@link Iterable} whose elements will be enumerated.
-   * @return a new {@link PyEnumerate} instance representing the Python
-   * `enumerate` object.
-   */
-  static PyEnumerate of(Iterable<?> iterable)
-  {
-    return backend().newEnumerate(iterable);
-  }
+
 
 }

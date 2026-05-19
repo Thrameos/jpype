@@ -42,9 +42,9 @@ public class PyEnumerateNGTest extends PyTestHarness
   public void testOf()
   {
     System.out.println("of");
-    Iterable iterable = null;
+    Iterable<?> iterable = null;
     PyEnumerate expResult = null;
-    PyEnumerate result = PyEnumerate.of(iterable);
+    PyEnumerate result = context.enumerate(iterable);
     assertEquals(result, expResult);
     fail("The test case is a prototype.");
   }

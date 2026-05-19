@@ -20,8 +20,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
-import org.jpype.bridge.Backend;
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * Represents a view fromMap the keys in a Python dictionary ({@code PyDict}) as
@@ -59,7 +57,7 @@ public class PyDictKeySet<T> implements Set<T>
   /**
    * Backend interface for interacting with the Python interpreter.
    */
-  private final Backend backend;
+  private final PyBuiltIn builtin;
 
   /**
    * The Python dictionary ({@code PyDict}) whose keys are represented by this
@@ -82,8 +80,8 @@ public class PyDictKeySet<T> implements Set<T>
   public PyDictKeySet(PyDict dict)
   {
     this.dict = dict;
-    this.backend = backend();
-    this.keys = this.backend.keys(dict);
+    this.builtin = dict.builtin();
+    this.keys = this.builtin.backend.keys(dict);
   }
 
   /**
@@ -128,7 +126,7 @@ public class PyDictKeySet<T> implements Set<T>
   @Override
   public boolean contains(Object o)
   {
-    return backend.contains(this.keys, o);
+    return builtin.backend.contains(this.keys, o);
   }
 
   /**
@@ -160,7 +158,7 @@ public class PyDictKeySet<T> implements Set<T>
   @Override
   public boolean isEmpty()
   {
-    return backend.len(keys) == 0;
+    return builtin.backend.len(keys) == 0;
   }
 
   /**
@@ -171,7 +169,7 @@ public class PyDictKeySet<T> implements Set<T>
   @Override
   public Iterator<T> iterator()
   {
-    PyIter<T> iter = backend.iter(keys);
+    PyIter<T> iter = builtin.backend.iter(keys);
     return new PyIterator<>(iter);
   }
 
@@ -219,7 +217,7 @@ public class PyDictKeySet<T> implements Set<T>
   @Override
   public int size()
   {
-    return backend.len(keys);
+    return builtin.len(keys);
   }
 
   /**
@@ -230,7 +228,7 @@ public class PyDictKeySet<T> implements Set<T>
   @Override
   public Object[] toArray()
   {
-    return new ArrayList<>(PyBuiltIn.list(keys)).toArray();
+    return new ArrayList<>(builtin.list(keys)).toArray();
   }
 
   /**
@@ -242,6 +240,6 @@ public class PyDictKeySet<T> implements Set<T>
   @Override
   public <T> T[] toArray(T[] a)
   {
-    return new ArrayList<>(PyBuiltIn.list(keys)).toArray(a);
+    return new ArrayList<>(builtin.list(keys)).toArray(a);
   }
 }

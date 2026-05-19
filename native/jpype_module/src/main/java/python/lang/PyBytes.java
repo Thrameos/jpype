@@ -17,7 +17,6 @@
 package python.lang;
 
 import org.jpype.annotation.Bypass;
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * Java front-end interface for the concrete Python `bytes` type.
@@ -28,62 +27,7 @@ import static python.lang.PyBuiltIn.backend;
 public interface PyBytes extends PyObject, PyBuffer, PySequence<PyInt>
 {
 
-  /**
-   * Creates a new Python `bytes` object with a fixed length. The `bytes` object
-   * will be initialized with zero bytes.
-   *
-   * @param length the length of the `bytes` object to create.
-   * @return a new {@link PyBytes} instance with the specified length.
-   */
-  static PyBytes create(int length)
-  {
-    return backend().newBytesOfSize(length);
-  }
 
-  /**
-   * Decodes the contents of the `bytes` object using the specified encoding.
-   *
-   * Optionally, specific bytes can be deleted during decoding.
-   *
-   * @param encoding the encoding to use for decoding (e.g., "utf-8").
-   * @param delete the bytes to delete during decoding, or {@code null} for no
-   * deletion.
-   * @return a {@link PyObject} representing the decoded string.
-   */
-  static PyBytes fromHex(CharSequence str)
-  {
-    return backend().bytesFromHex(str);
-  }
-
-  /**
-   * Creates a new Python `bytes` object from an iterable of Python objects.
-   *
-   * Each object in the iterable must be convertible to a byte.
-   *
-   * @param iterable the iterable containing {@link PyObject} instances to
-   * include in the `bytes` object.
-   * @return a new {@link PyBytes} instance containing the bytes derived from
-   * the iterable.
-   */
-  static PyBytes of(Iterable<PyObject> iterable)
-  {
-    return backend().newBytesFromIterator(iterable);
-  }
-
-  /**
-   * Creates a new Python `bytes` object from a {@link PyBuffer}.
-   *
-   * The buffer's contents will be used to initialize the `bytes` object.
-   *
-   * @param buffer the {@link PyBuffer} containing the data to populate the
-   * `bytes` object.
-   * @return a new {@link PyBytes} instance containing the bytes from the
-   * buffer.
-   */
-  static PyBytes of(PyBuffer buffer)
-  {
-    return backend().newBytesFromBuffer(buffer);
-  }
 
   /**
    * Decodes a bytes object into a Python string.
@@ -128,7 +72,7 @@ public interface PyBytes extends PyObject, PyBuffer, PySequence<PyInt>
   @Override
   default PyInt get(int index)
   {
-    return (PyInt) PyBuiltIn.backend().getitemSequence(this, index);
+    return (PyInt) builtin().backend.getitemSequence(this, index);
   }
 
     @Bypass
@@ -154,7 +98,7 @@ public interface PyBytes extends PyObject, PyBuffer, PySequence<PyInt>
   @Override
   default int size()
   {
-    return backend().len(this);
+    return builtin().backend.len(this);
   }
 
   /**

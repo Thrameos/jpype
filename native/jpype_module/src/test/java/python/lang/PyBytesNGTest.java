@@ -10,7 +10,7 @@ public class PyBytesNGTest extends PyTestHarness
   @Test
   public void testCreateIsZeroFilled()
   {
-    PyBytes instance = PyBytes.create(3);
+    PyBytes instance = context.bytes(3);
 
     assertEquals(instance.get(0).toNumber().intValue(), 0);
     assertEquals(instance.get(1).toNumber().intValue(), 0);
@@ -20,7 +20,7 @@ public class PyBytesNGTest extends PyTestHarness
   @Test
   public void testCreateWithLength()
   {
-    PyBytes instance = PyBytes.create(4);
+    PyBytes instance = context.bytes(4);
 
     assertNotNull(instance);
     assertEquals(instance.size(), 4);
@@ -29,7 +29,7 @@ public class PyBytesNGTest extends PyTestHarness
   @Test
   public void testCreateWithZeroLength()
   {
-    PyBytes instance = PyBytes.create(0);
+    PyBytes instance = context.bytes(0);
 
     assertNotNull(instance);
     assertEquals(instance.size(), 0);
@@ -39,7 +39,7 @@ public class PyBytesNGTest extends PyTestHarness
   @Test
   public void testDecodeAscii()
   {
-    PyBytes instance = PyBytes.fromHex("414243");
+    PyBytes instance = context.bytesFromHex("414243");
 
     PyString decoded = instance.decode("ascii", null);
 
@@ -50,7 +50,7 @@ public class PyBytesNGTest extends PyTestHarness
   @Test
   public void testDecodeUtf8()
   {
-    PyBytes instance = PyBytes.fromHex("48656c6c6f");
+    PyBytes instance = context.bytesFromHex("48656c6c6f");
 
     PyString decoded = instance.decode("utf-8", null);
 
@@ -61,7 +61,7 @@ public class PyBytesNGTest extends PyTestHarness
   @Test
   public void testFromHex()
   {
-    PyBytes instance = PyBytes.fromHex("48656c6c6f");
+    PyBytes instance = context.bytesFromHex("48656c6c6f");
 
     assertNotNull(instance);
     assertEquals(instance.size(), 5);
@@ -75,13 +75,13 @@ public class PyBytesNGTest extends PyTestHarness
   @Test(expectedExceptions = RuntimeException.class)
   public void testFromHexInvalidThrows()
   {
-    PyBytes.fromHex("not_hex");
+    context.bytesFromHex("not_hex");
   }
 
   @Test
   public void testGetByIndex()
   {
-    PyBytes instance = PyBytes.fromHex("414243");
+    PyBytes instance = context.bytesFromHex("414243");
 
     assertEquals(instance.get(0).toNumber().intValue(), 65);
     assertEquals(instance.get(1).toNumber().intValue(), 66);
@@ -91,28 +91,28 @@ public class PyBytesNGTest extends PyTestHarness
   @Test(expectedExceptions = RuntimeException.class)
   public void testGetOutOfBoundsThrows()
   {
-    PyBytes instance = PyBytes.fromHex("41");
+    PyBytes instance = context.bytesFromHex("41");
     instance.get(5);
   }
 
   @Test(expectedExceptions = UnsupportedOperationException.class)
   public void testRemoveUnsupported()
   {
-    PyBytes instance = PyBytes.fromHex("414243");
+    PyBytes instance = context.bytesFromHex("414243");
     instance.remove(1);
   }
 
   @Test(expectedExceptions = UnsupportedOperationException.class)
   public void testSetUnsupported()
   {
-    PyBytes instance = PyBytes.fromHex("414243");
-    instance.set(1, PyInt.of(90));
+    PyBytes instance = context.bytesFromHex("414243");
+    instance.set(1, context.$int(90));
   }
 
   @Test
   public void testSize()
   {
-    PyBytes instance = PyBytes.fromHex("414243");
+    PyBytes instance = context.bytesFromHex("414243");
     assertEquals(instance.size(), 3);
   }
 }

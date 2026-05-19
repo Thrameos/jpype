@@ -29,7 +29,7 @@ public class PyComplexNGTest extends PyTestHarness
   @Test
   public void testAbs()
   {
-    PyComplex a = PyComplex.of(3.0, 4.0);
+    PyComplex a = context.complex(3.0, 4.0);
 
     PyObject result = a.abs();
 
@@ -40,7 +40,7 @@ public class PyComplexNGTest extends PyTestHarness
   @Test
   public void testAddDouble()
   {
-    PyComplex a = PyComplex.of(1.0, 2.0);
+    PyComplex a = context.complex(1.0, 2.0);
 
     PyObject result = a.add(2.5);
 
@@ -53,7 +53,7 @@ public class PyComplexNGTest extends PyTestHarness
   @Test
   public void testAddLong()
   {
-    PyComplex a = PyComplex.of(1.0, 2.0);
+    PyComplex a = context.complex(1.0, 2.0);
 
     PyObject result = a.add(5L);
 
@@ -66,8 +66,8 @@ public class PyComplexNGTest extends PyTestHarness
   @Test
   public void testAddPyObject()
   {
-    PyComplex a = PyComplex.of(1.0, 2.0);
-    PyComplex b = PyComplex.of(3.0, 4.0);
+    PyComplex a = context.complex(1.0, 2.0);
+    PyComplex b = context.complex(3.0, 4.0);
 
     PyObject result = a.add(b);
 
@@ -82,7 +82,7 @@ public class PyComplexNGTest extends PyTestHarness
   {
     double real = 3.0;
     double imag = 4.0;
-    PyComplex pyComplex = PyComplex.of(real, imag);
+    PyComplex pyComplex = context.complex(real, imag);
 
     PyComplex conjugate = pyComplex.conjugate();
 
@@ -101,7 +101,7 @@ public class PyComplexNGTest extends PyTestHarness
   {
     double real = 3.0;
     double imag = 4.0;
-    PyComplex pyComplex = PyComplex.of(real, imag);
+    PyComplex pyComplex = context.complex(real, imag);
 
     // Assert that the created PyComplex object is not null
     assertNotNull(pyComplex, "PyComplex object should not be null");
@@ -114,8 +114,8 @@ public class PyComplexNGTest extends PyTestHarness
   @Test
   public void testDividePyObject()
   {
-    PyComplex a = PyComplex.of(1.0, 2.0);
-    PyComplex b = PyComplex.of(3.0, 4.0);
+    PyComplex a = context.complex(1.0, 2.0);
+    PyComplex b = context.complex(3.0, 4.0);
 
     PyObject result = a.divide(b);
 
@@ -130,7 +130,7 @@ public class PyComplexNGTest extends PyTestHarness
   {
     double real = 1.0;
     double imag = 6.0;
-    PyComplex pyComplex = PyComplex.of(real, imag);
+    PyComplex pyComplex = context.complex(real, imag);
 
     // Assert that the imaginary part matches the expected value
     assertEquals(pyComplex.imag(), imag, "Imaginary part should match the expected value");
@@ -139,8 +139,8 @@ public class PyComplexNGTest extends PyTestHarness
   @Test
   public void testMultiplyPyObject()
   {
-    PyComplex a = PyComplex.of(1.0, 2.0);
-    PyComplex b = PyComplex.of(3.0, 4.0);
+    PyComplex a = context.complex(1.0, 2.0);
+    PyComplex b = context.complex(3.0, 4.0);
 
     PyObject result = a.multiply(b);
 
@@ -153,8 +153,8 @@ public class PyComplexNGTest extends PyTestHarness
   @Test
   public void testNegate()
   {
-    PyComplex zero = PyComplex.of(0.0, 0.0);
-    PyComplex nonZero = PyComplex.of(1.0, 1.0);
+    PyComplex zero = context.complex(0.0, 0.0);
+    PyComplex nonZero = context.complex(1.0, 1.0);
 
     assertTrue(zero.negate());
     assertFalse(nonZero.negate());
@@ -163,7 +163,7 @@ public class PyComplexNGTest extends PyTestHarness
   @Test
   public void testNegateValue()
   {
-    PyComplex a = PyComplex.of(3.0, -4.0);
+    PyComplex a = context.complex(3.0, -4.0);
 
     PyObject result = a.negateValue();
 
@@ -176,7 +176,7 @@ public class PyComplexNGTest extends PyTestHarness
   @Test
   public void testPositive()
   {
-    PyComplex a = PyComplex.of(3.0, -4.0);
+    PyComplex a = context.complex(3.0, -4.0);
 
     PyObject result = a.positive();
 
@@ -191,7 +191,7 @@ public class PyComplexNGTest extends PyTestHarness
   {
     double real = 5.0;
     double imag = 2.0;
-    PyComplex pyComplex = PyComplex.of(real, imag);
+    PyComplex pyComplex = context.complex(real, imag);
 
     // Assert that the real part matches the expected value
     assertEquals(pyComplex.real(), real, "Real part should match the expected value");
@@ -200,8 +200,8 @@ public class PyComplexNGTest extends PyTestHarness
   @Test
   public void testSubtractPyObject()
   {
-    PyComplex a = PyComplex.of(5.0, 7.0);
-    PyComplex b = PyComplex.of(2.0, 3.0);
+    PyComplex a = context.complex(5.0, 7.0);
+    PyComplex b = context.complex(2.0, 3.0);
 
     PyObject result = a.subtract(b);
 
@@ -214,14 +214,14 @@ public class PyComplexNGTest extends PyTestHarness
   @Test
   public void testToBooleanFalse()
   {
-    PyComplex a = PyComplex.of(0.0, 0.0);
+    PyComplex a = context.complex(0.0, 0.0);
     assertFalse(a.toBoolean());
   }
 
   @Test
   public void testToBooleanTrue()
   {
-    PyComplex a = PyComplex.of(1.0, 0.0);
+    PyComplex a = context.complex(1.0, 0.0);
     assertTrue(a.toBoolean());
   }
 

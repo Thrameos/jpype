@@ -23,7 +23,7 @@ import org.testng.annotations.BeforeClass;
  *
  * @author nelson85
  */
-public class PySliceNGTest
+public class PySliceNGTest extends PyTestHarness
 {
 
   public PySliceNGTest()

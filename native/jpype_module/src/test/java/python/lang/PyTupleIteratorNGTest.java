@@ -17,29 +17,21 @@
 package python.lang;
 
 import java.util.NoSuchElementException;
-import org.jpype.bridge.Interpreter;
 import static org.testng.Assert.*;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
  *
  * @author nelson85
  */
-public class PyTupleIteratorNGTest
+public class PyTupleIteratorNGTest extends PyTestHarness
 {
-
-  @BeforeClass
-  public static void setUpClass() throws Exception
-  {
-    Interpreter.getInstance().start(new String[0]);
-  }
 
   @Test
   public void testForwardIteration()
   {
     // Arrange
-    PyTuple tuple = PyTuple.of("a", "b", "c");
+    PyTuple tuple = context.tuple("a", "b", "c");
     PyTupleIterator iterator = (PyTupleIterator) tuple.listIterator(0);
 
     // Act & Assert
@@ -56,7 +48,7 @@ public class PyTupleIteratorNGTest
   public void testBackwardIteration()
   {
     // Arrange
-    PyTuple tuple = PyTuple.of("a", "b", "c");
+    PyTuple tuple = context.tuple("a", "b", "c");
     PyTupleIterator iterator = new PyTupleIterator(tuple, tuple.size());
 
     // Act & Assert
@@ -73,7 +65,7 @@ public class PyTupleIteratorNGTest
   public void testNextThrowsExceptionWhenNoNextElement()
   {
     // Arrange
-    PyTuple tuple = PyTuple.of("a", "b", "c");
+    PyTuple tuple = context.tuple("a", "b", "c");
     PyTupleIterator iterator = new PyTupleIterator(tuple, tuple.size());
 
     // Act
@@ -84,7 +76,7 @@ public class PyTupleIteratorNGTest
   public void testPreviousThrowsExceptionWhenNoPreviousElement()
   {
     // Arrange
-    PyTuple tuple = PyTuple.of("a", "b", "c");
+    PyTuple tuple = context.tuple("a", "b", "c");
     PyTupleIterator iterator = (PyTupleIterator) tuple.listIterator(0);
 
     // Act
@@ -95,7 +87,7 @@ public class PyTupleIteratorNGTest
   public void testAddOperationThrowsException()
   {
     // Arrange
-    PyTuple tuple = PyTuple.of("a", "b", "c");
+    PyTuple tuple = context.tuple("a", "b", "c");
     PyTupleIterator iterator = (PyTupleIterator) tuple.listIterator(0);
 
     // Act
@@ -106,7 +98,7 @@ public class PyTupleIteratorNGTest
   public void testRemoveOperationThrowsException()
   {
     // Arrange
-    PyTuple tuple = PyTuple.of("a", "b", "c");
+    PyTuple tuple = context.tuple("a", "b", "c");
     PyTupleIterator iterator = (PyTupleIterator) tuple.listIterator(0);
 
     // Act
@@ -117,7 +109,7 @@ public class PyTupleIteratorNGTest
   public void testSetOperationThrowsException()
   {
     // Arrange
-    PyTuple tuple = PyTuple.of("a", "b", "c");
+    PyTuple tuple = context.tuple("a", "b", "c");
     PyTupleIterator iterator = (PyTupleIterator) tuple.listIterator(0);
 
     // Act
@@ -128,7 +120,7 @@ public class PyTupleIteratorNGTest
   public void testConstructorThrowsExceptionForInvalidIndex()
   {
     // Arrange
-    PyTuple tuple = PyTuple.of("a", "b", "c");
+    PyTuple tuple = context.tuple("a", "b", "c");
 
     // Act
     new PyTupleIterator(tuple, -1); // Should throw IndexOutOfBoundsException
@@ -138,7 +130,7 @@ public class PyTupleIteratorNGTest
   public void testNextIndexAndPreviousIndex()
   {
     // Arrange
-    PyTuple tuple = PyTuple.of("a", "b", "c");
+    PyTuple tuple = context.tuple("a", "b", "c");
     PyTupleIterator iterator = (PyTupleIterator) tuple.listIterator(1);
 
     // Act & Assert

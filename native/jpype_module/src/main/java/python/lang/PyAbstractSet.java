@@ -19,7 +19,6 @@ package python.lang;
 import java.util.Iterator;
 import java.util.Set;
 import org.jpype.annotation.Bypass;
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * Represents a protocol for Python classes that act as sets.
@@ -42,22 +41,6 @@ public interface PyAbstractSet<T extends PyObject> extends PyCollection<T>, Set<
 {
 
   /**
-   * Creates a new Python set from the elements of the specified
-   * {@link Iterable}.
-   * <p>
-   * This static method utilizes the Python backend to construct a new
-   * {@link PySet} instance containing the elements provided by the iterable.
-   *
-   * @param c an iterable providing elements for the set
-   * @param <T> the type of elements in the iterable
-   * @return a new {@code PySet} containing the elements from the iterable
-   */
-  static <T> PySet of(Iterable<T> c)
-  {
-    return backend().newSetFromIterable(c);
-  }
-
-  /**
    * Checks whether the specified object is contained in this set.
    * <p>
    * This method overrides the default {@link Set#contains(Object)}
@@ -71,7 +54,7 @@ public interface PyAbstractSet<T extends PyObject> extends PyCollection<T>, Set<
   @Override
   default boolean contains(Object obj)
   {
-    return backend().contains(this, obj);
+    return builtin().backend.contains(this, obj);
   }
 
   /**
@@ -119,7 +102,7 @@ public interface PyAbstractSet<T extends PyObject> extends PyCollection<T>, Set<
   @Override
   default int size()
   {
-    return PyBuiltIn.len(this);
+    return builtin().len(this);
   }
 
 }

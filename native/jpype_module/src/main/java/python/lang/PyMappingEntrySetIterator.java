@@ -59,6 +59,8 @@ import org.jpype.bridge.Interpreter;
 class PyMappingEntrySetIterator<K extends PyObject, V extends PyObject> implements Iterator<Map.Entry<K, V>>
 {
 
+  private final PyBuiltIn builtin;
+
   /**
    * The Python mapping object being iterated over.
    */
@@ -97,6 +99,7 @@ class PyMappingEntrySetIterator<K extends PyObject, V extends PyObject> implemen
    */
   public PyMappingEntrySetIterator(PyMapping<K, V> map, PyIter<K> iter)
   {
+    this.builtin = map.builtin();
     this.map = map;
     this.iter = iter;
     this.setter = this::set;
@@ -139,7 +142,7 @@ class PyMappingEntrySetIterator<K extends PyObject, V extends PyObject> implemen
       return !done;
     check = true;
     if (yield == null)
-      yield = PyBuiltIn.next(iter, Interpreter.stop);
+      yield = builtin.next(iter, Interpreter.stop);
     done = (yield == Interpreter.stop);
     return !done;
   }

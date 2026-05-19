@@ -17,7 +17,6 @@
 package python.lang;
 
 import org.jpype.annotation.Bypass;
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * Interface representing Python numeric operations.

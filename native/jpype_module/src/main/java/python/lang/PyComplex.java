@@ -16,7 +16,7 @@
  */
 package python.lang;
 
-import static python.lang.PyBuiltIn.backend;
+
 
 /**
  * Java front-end interface for the Python `complex` type.
@@ -27,18 +27,7 @@ import static python.lang.PyBuiltIn.backend;
 public interface PyComplex extends PyObject, PyNumber
 {
 
-  /**
-   * Creates a new Python `complex` number with the specified real and imaginary
-   * parts.
-   *
-   * @param real the real part of the complex number.
-   * @param imag the imaginary part of the complex number.
-   * @return a new {@link PyComplex} instance representing the complex number.
-   */
-  static PyComplex of(double real, double imag)
-  {
-    return backend().newComplex(real, imag);
-  }
+
 
   /**
    * Computes the complex conjugate of the current complex number. The conjugate

@@ -17,13 +17,7 @@
 package python.lang;
 
 import java.io.Serializable;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import python.exceptions.PyException;
-import static python.lang.PyExceptionFactory.LOOKUP;
-import static python.lang.PyBuiltIn.*;
 
 /**
  * Native version of a Python exception.
@@ -32,38 +26,6 @@ import static python.lang.PyBuiltIn.*;
  */
 public interface PyExc extends PyObject, Serializable
 {
-
-  /**
-   * Wraps a Python exception with the appropriate Java wrapper getType.
-   *
-   * @param base
-   * @return
-   */
-  static Exception of(PyExc base)
-  {
-    PyType type = type(base);
-    String name = type.getName();
-    Class<?> cls = LOOKUP.get(name);
-    if (cls == null)
-    {
-      PyTuple mro = type.mro();
-      int sz = mro.size();
-      for (int i = 0; i < sz; ++i)
-      {
-        mro.get(i); // FIXME we have the wrong wrapper getType here until we fix the probe method
-      }
-      cls = PyException.class;
-    }
-    try
-    {
-      Constructor<?> ctor = cls.getDeclaredConstructor(PyExc.class);
-      return (Exception) ctor.newInstance(base);
-    } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex)
-    {
-      Logger.getLogger(PyExc.class.getName()).log(Level.SEVERE, null, ex);
-      return new RuntimeException("Unable to find Python error type " + name);
-    }
-  }
 
   /**
    * Used to pass an exception through the Python stack.

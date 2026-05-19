@@ -25,19 +25,14 @@ import org.testng.annotations.Test;
 import static org.testng.Assert.*;
 import org.testng.annotations.BeforeClass;
 
-public class PyTupleNGTest
+public class PyTupleNGTest extends PyTestHarness
 {
 
-  @BeforeClass
-  public static void setUpClass() throws Exception
-  {
-    Interpreter.getInstance().start(new String[0]);
-  }
 
   @Test
   public void testEmpty()
   {
-    PyTuple emptyTuple = PyTuple.of();
+    PyTuple emptyTuple = context.tuple();
     assertNotNull(emptyTuple, "Empty tuple should not be null.");
     assertTrue(emptyTuple.isEmpty(), "Empty tuple should have no elements.");
     assertEquals(emptyTuple.size(), 0, "Empty tuple size should be 0.");
@@ -46,7 +41,7 @@ public class PyTupleNGTest
   @Test
   public void testOfVarArgs()
   {
-    PyTuple tuple = PyTuple.of("a", "b", "c");
+    PyTuple tuple = context.tuple("a", "b", "c");
     assertNotNull(tuple, "Tuple should not be null.");
     assertEquals(tuple.size(), 3, "Tuple size should be 3.");
     assertEquals(tuple.get(0), "a", "First element should be 'a'.");
@@ -58,7 +53,7 @@ public class PyTupleNGTest
   public void testOfIterator()
   {
     List<String> items = Arrays.asList("x", "y");
-    PyTuple tuple = PyTuple.fromItems(items);
+    PyTuple tuple = context.tupleFromItems(items);
     assertNotNull(tuple, "Tuple should not be null.");
     assertEquals(tuple.size(), 2, "Tuple size should be 2.");
     assertEquals(tuple.get(0).toString(), "x", "First element should be 'x'.");
@@ -69,7 +64,7 @@ public class PyTupleNGTest
   @SuppressWarnings("element-type-mismatch")
   public void testContains()
   {
-    PyTuple tuple = PyTuple.of("a", "b");
+    PyTuple tuple = context.tuple("a", "b");
     assertTrue(tuple.contains("a"), "Tuple should contain 'a'.");
     assertFalse(tuple.contains("z"), "Tuple should not contain 'z'.");
   }
@@ -77,24 +72,24 @@ public class PyTupleNGTest
   @Test
   public void testIsEmpty()
   {
-    PyTuple emptyTuple = PyTuple.of();
+    PyTuple emptyTuple = context.tuple();
     assertTrue(emptyTuple.isEmpty(), "Empty tuple should be empty.");
 
-    PyTuple nonEmptyTuple = PyTuple.of("a");
+    PyTuple nonEmptyTuple = context.tuple("a");
     assertFalse(nonEmptyTuple.isEmpty(), "Non-empty tuple should not be empty.");
   }
 
   @Test
   public void testSize()
   {
-    PyTuple tuple = PyTuple.of("a", "b");
+    PyTuple tuple = context.tuple("a", "b");
     assertEquals(tuple.size(), 2, "Tuple size should be 2.");
   }
 
   @Test
   public void testSubList()
   {
-    PyTuple tuple = PyTuple.of("a", "b", "c");
+    PyTuple tuple = context.tuple("a", "b", "c");
     PyTuple subTuple = tuple.subList(0, 2);
     assertEquals(subTuple.size(), 2, "Sublist size should be 2.");
     assertEquals(subTuple.get(0).toString(), "a", "First element of sublist should be 'a'.");
@@ -104,7 +99,7 @@ public class PyTupleNGTest
   @Test
   public void testStream()
   {
-    PyTuple tuple = PyTuple.of("a", "b");
+    PyTuple tuple = context.tuple("a", "b");
     Stream<PyObject> stream = tuple.stream();
     List<String> elements = stream.map(PyObject::toString).collect(Collectors.toList());
     assertEquals(elements.size(), 2, "Stream should contain 2 elements.");
@@ -115,14 +110,14 @@ public class PyTupleNGTest
   @Test(expectedExceptions = UnsupportedOperationException.class)
   public void testAddThrowsException()
   {
-    PyTuple tuple = PyTuple.of("a", "b");
-    tuple.add(PyString.of("a"));
+    PyTuple tuple = context.tuple("a", "b");
+    tuple.add(context.str("a"));
   }
 
   @Test(expectedExceptions = UnsupportedOperationException.class)
   public void testAddThrowsException2()
   {
-    PyTuple tuple = PyTuple.of("a", "b");
-    tuple.add(1, PyString.of("a"));
+    PyTuple tuple = context.tuple("a", "b");
+    tuple.add(1, context.str("a"));
   }
 }

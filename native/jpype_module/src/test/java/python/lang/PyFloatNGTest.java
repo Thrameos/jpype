@@ -16,11 +16,6 @@
  */
 package python.lang;
 
-import org.jpype.bridge.Interpreter;
-import static org.testng.Assert.*;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
-
 /**
  *
  * @author nelson85
@@ -28,24 +23,5 @@ import org.testng.annotations.Test;
 public class PyFloatNGTest extends PyTestHarness
 {
 
-  public PyFloatNGTest()
-  {
-  }
-
-  @BeforeClass
-  public static void setUpClass() throws Exception
-  {
-    Interpreter.getInstance().start(new String[0]);
-  }
-
-  @Test
-  public void testOf()
-  {
-    // Arrange
-    double value = 42.5;
-    PyFloat pyFloat = PyFloat.of(value);
-    assertNotNull(pyFloat, "The PyFloat instance should not be null");
-    assertEquals(pyFloat.toString(), "42.5", "The PyFloat instance should represent the correct value");
-  }
 
 }

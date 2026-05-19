@@ -31,6 +31,7 @@ import org.jpype.bridge.Interpreter;
 public class PyIterator<T> implements Iterator<T>
 {
 
+  private final PyBuiltIn builtin;
   private final PyIter<T> iter;
   private T yield;
   private boolean done = false;
@@ -38,6 +39,7 @@ public class PyIterator<T> implements Iterator<T>
 
   public PyIterator(PyIter<T> iter)
   {
+    this.builtin = iter.builtin();
     this.iter = iter;
   }
 
@@ -51,7 +53,7 @@ public class PyIterator<T> implements Iterator<T>
       return !done;
     check = true;
     if (yield == null)
-      yield = (T) PyBuiltIn.next(iter, Interpreter.stop);
+      yield = (T) builtin.next(iter, Interpreter.stop);
     done = (yield == Interpreter.stop);
     return !done;
   }

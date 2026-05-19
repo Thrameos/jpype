@@ -21,7 +21,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import org.jpype.annotation.Bypass;
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * Represents a protocol for classes registered as Python
@@ -65,7 +64,7 @@ public interface PyMapping<K extends PyObject, V extends PyObject> extends PyCol
   @Override
   default boolean contains(Object obj)
   {
-    return backend().contains(this, obj);
+    return builtin().backend.contains(this, obj);
   }
 
     @Bypass
@@ -83,7 +82,7 @@ public interface PyMapping<K extends PyObject, V extends PyObject> extends PyCol
   @Override
   default void clear()
   {
-    backend().mappingClear(this);
+    builtin().backend.mappingClear(this);
   }
 
   /**
@@ -120,7 +119,7 @@ public interface PyMapping<K extends PyObject, V extends PyObject> extends PyCol
   @SuppressWarnings("unchecked")
   default V get(Object key)
   {
-    return (V) backend().getitemMappingObject(this, key);
+    return (V) builtin().backend.getitemMappingObject(this, key);
   }
 
   /**
@@ -132,7 +131,7 @@ public interface PyMapping<K extends PyObject, V extends PyObject> extends PyCol
   @Override
   default Set<Entry<K, V>> entrySet()
   {
-    return new PyMappingEntrySet<>(this, backend().items(this));
+    return new PyMappingEntrySet<>(this, builtin().backend.items(this));
   }
 
   /**
@@ -177,13 +176,13 @@ public interface PyMapping<K extends PyObject, V extends PyObject> extends PyCol
   @SuppressWarnings("unchecked")
   default V put(K key, V value)
   {
-    return (V) backend().setitemFromObject(this, key, value);
+    return (V) builtin().backend.setitemFromObject(this, key, value);
   }
 
     @Bypass
   default PyObject putAny(Object key, Object value)
   {
-    return backend().setitemFromObject(this, key, value);
+    return builtin().backend.setitemFromObject(this, key, value);
   }
 
   /**
@@ -216,7 +215,7 @@ public interface PyMapping<K extends PyObject, V extends PyObject> extends PyCol
   @Override
   default int size()
   {
-    return PyBuiltIn.len(this);
+    return builtin().len(this);
   }
 
   /**

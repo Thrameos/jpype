@@ -30,6 +30,7 @@ import org.jpype.internal.Utility;
 public class PyDictItemsIterator<K, V> implements Iterator<Map.Entry<K, V>>
 {
 
+  private final PyBuiltIn builtin;
   private boolean check = false;
   private boolean done = false;
   private final PyIter<PyTuple> iter;
@@ -38,6 +39,7 @@ public class PyDictItemsIterator<K, V> implements Iterator<Map.Entry<K, V>>
 
   public PyDictItemsIterator(PyIter<PyTuple> iter, BiFunction<K, V, V> setter)
   {
+    this.builtin = iter.builtin();
     this.iter = iter;
     this.setter = setter;
   }
@@ -52,7 +54,7 @@ public class PyDictItemsIterator<K, V> implements Iterator<Map.Entry<K, V>>
       return !done;
     check = true;
     if (yield == null)
-      yield = (PyTuple) PyBuiltIn.next(iter, Interpreter.stop);
+      yield = (PyTuple) builtin.backend.next(iter, Interpreter.stop);
     done = (yield == Interpreter.stop);
     return !done;
   }

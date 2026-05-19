@@ -32,26 +32,6 @@ package python.lang;
 public interface PyString extends PyObject, CharSequence
 {
 
-  /**
-   * Creates a PyString instance from a given CharSequence.
-   *
-   * @param sequence is the input sequence to convert into a PyString.
-   * @return a PyString instance representing the given sequence.
-   */
-  public static PyString of(CharSequence sequence)
-  {
-    return PyBuiltIn.str(sequence);
-  }
-
-  /**
-   * Returns the Python getType object for strings.
-   *
-   * @return the Python getType object representing strings.
-   */
-  static PyType getType()
-  {
-    return (PyType) PyBuiltIn.eval("str", null, null);
-  }
 
   /**
    * Returns the character at the specified index.

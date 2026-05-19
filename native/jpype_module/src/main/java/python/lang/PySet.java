@@ -26,7 +26,6 @@ import java.util.Spliterators;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.jpype.annotation.Bypass;
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * Represents a Python set in the Java environment.
@@ -62,17 +61,6 @@ import static python.lang.PyBuiltIn.backend;
 public interface PySet extends PyAbstractSet<PyObject>
 {
 
-  /**
-   * Creates a new Python set from the elements of the given {@link Iterable}.
-   *
-   * @param c an iterable providing elements for the set
-   * @param <T> the getType of elements in the iterable
-   * @return a new {@code PySet} containing the elements from the iterable
-   */
-  public static <T> PySet of(Iterable<T> c)
-  {
-    return backend().newSetFromIterable(c);
-  }
 
   /**
    * Adds a single element to the set.
@@ -98,7 +86,7 @@ public interface PySet extends PyAbstractSet<PyObject>
   default boolean addAll(Collection<? extends PyObject> collection)
   {
     int l1 = this.size();
-    this.update(of(collection));
+    this.update(builtin().set(collection));
     int l2 = this.size();
     return l1 != l2;
   }
@@ -130,7 +118,7 @@ public interface PySet extends PyAbstractSet<PyObject>
   @Override
   default boolean containsAll(Collection<?> collection)
   {
-    PySet set2 = of(collection);
+    PySet set2 = builtin().set(collection);
     return set2.isSubset(this);
   }
 
@@ -245,7 +233,7 @@ public interface PySet extends PyAbstractSet<PyObject>
   @Override
   default Iterator<PyObject> iterator()
   {
-    return new PyIterator<>(backend().iterSet(this));
+    return new PyIterator<>(builtin().backend.iterSet(this));
   }
 
   /**
@@ -294,7 +282,7 @@ public interface PySet extends PyAbstractSet<PyObject>
   default boolean removeAll(Collection<?> collection)
   {
     int initialSize = this.size();
-    PySet delta = this.difference(of(collection));
+    PySet delta = this.difference(builtin().set(collection));
     this.clear();
     this.update(delta);
     return this.size() != initialSize;
@@ -313,7 +301,7 @@ public interface PySet extends PyAbstractSet<PyObject>
   default boolean retainAll(Collection<?> collection)
   {
     int initialSize = this.size();
-    PySet delta = this.intersect(of(collection));
+    PySet delta = this.intersect(builtin().set(collection));
     this.clear();
     this.update(delta);
     return this.size() != initialSize;

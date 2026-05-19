@@ -16,6 +16,7 @@
  */
 package python.lang;
 
+import org.jpype.annotation.Builtin;
 import org.jpype.annotation.Bypass;
 
 /**
@@ -34,6 +35,9 @@ import org.jpype.annotation.Bypass;
 public interface PyObject
 {
 
+  @Builtin
+  PyBuiltIn builtin();
+  
   /**
    * Apply the attributes protocol to this object.
    *
@@ -66,5 +70,15 @@ public interface PyObject
    */
   @Override
   String toString();
+  
+  /**
+   * Returns the Python getType object for tuples.
+   *
+   * @return the Python getType object representing {@code tuple}
+   */
+  default PyType getType()
+  {
+    return  builtin().type(this);
+  }
 
 }

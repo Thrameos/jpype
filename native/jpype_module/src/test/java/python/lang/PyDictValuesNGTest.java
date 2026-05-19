@@ -13,7 +13,7 @@ public class PyDictValuesNGTest extends PyTestHarness
 
   private PyDict dictOf(Object... items)
   {
-    PyDict dict = PyBuiltIn.dict();
+    PyDict dict = context.dict();
     for (int i = 0; i < items.length; i += 2)
       dict.putAny(items[i], items[i + 1]);
     return dict;
@@ -25,7 +25,7 @@ public class PyDictValuesNGTest extends PyTestHarness
     PyDict dict = dictOf("a", 1);
     PyDictValues<PyObject> values = new PyDictValues<>(dict);
 
-    values.addAll(Arrays.asList(PyInt.of(2), PyInt.of(3)));
+    values.addAll(Arrays.asList(context.$int(2), context.$int(3)));
   }
 
   @Test(expectedExceptions = UnsupportedOperationException.class)
@@ -34,7 +34,7 @@ public class PyDictValuesNGTest extends PyTestHarness
     PyDict dict = dictOf("a", 1);
     PyDictValues<PyObject> values = new PyDictValues<>(dict);
 
-    values.add(PyInt.of(2));
+    values.add(context.$int(2));
   }
 
   @Test
@@ -54,33 +54,33 @@ public class PyDictValuesNGTest extends PyTestHarness
   public void testContainsAll()
   {
     PyDict dict = dictOf(
-            "a", PyString.of("x"),
-            "b", PyString.of("y"),
-            "c", PyString.of("z"));
+            "a", context.str("x"),
+            "b", context.str("y"),
+            "c", context.str("z"));
     PyDictValues<?> values = new PyDictValues<>(dict);
 
-    assertTrue(values.containsAll(Arrays.asList(PyString.of("x"), PyString.of("y")))
+    assertTrue(values.containsAll(Arrays.asList(context.str("x"), context.str("y")))
             || values.toString().contains("x") && values.toString().contains("y"));
-    assertFalse(values.containsAll(Arrays.asList(PyString.of("x"), PyString.of("missing"))));
+    assertFalse(values.containsAll(Arrays.asList(context.str("x"), context.str("missing"))));
   }
 
   @Test
   public void testContainsExistingValue()
   {
-    PyDict dict = dictOf("a", PyString.of("x"), "b", PyString.of("y"));
+    PyDict dict = dictOf("a", context.str("x"), "b", context.str("y"));
     PyDictValues<?> values = new PyDictValues<>(dict);
 
-    assertTrue(values.contains(PyString.of("x")) || values.toString().contains("x"));
-    assertTrue(values.contains(PyString.of("y")) || values.toString().contains("y"));
+    assertTrue(values.contains(context.str("x")) || values.toString().contains("x"));
+    assertTrue(values.contains(context.str("y")) || values.toString().contains("y"));
   }
 
   @Test
   public void testContainsMissingValue()
   {
-    PyDict dict = dictOf("a", PyString.of("x"));
+    PyDict dict = dictOf("a", context.str("x"));
     PyDictValues<?> values = new PyDictValues<>(dict);
 
-    assertFalse(values.contains(PyString.of("z")));
+    assertFalse(values.contains(context.str("z")));
   }
 
   @Test
@@ -95,7 +95,7 @@ public class PyDictValuesNGTest extends PyTestHarness
   @Test
   public void testIsEmptyTrue()
   {
-    PyDict dict = PyBuiltIn.dict();
+    PyDict dict = context.dict();
     PyDictValues<?> values = new PyDictValues<>(dict);
 
     assertTrue(values.isEmpty());
@@ -123,7 +123,7 @@ public class PyDictValuesNGTest extends PyTestHarness
     PyDict dict = dictOf("a", 1);
     PyDictValues<?> values = new PyDictValues<>(dict);
 
-    values.removeAll(Arrays.asList(PyInt.of(1)));
+    values.removeAll(Arrays.asList(context.$int(1)));
   }
 
   @Test(expectedExceptions = UnsupportedOperationException.class)
@@ -132,7 +132,7 @@ public class PyDictValuesNGTest extends PyTestHarness
     PyDict dict = dictOf("a", 1);
     PyDictValues<?> values = new PyDictValues<>(dict);
 
-    values.remove(PyInt.of(1));
+    values.remove(context.$int(1));
   }
 
   @Test(expectedExceptions = UnsupportedOperationException.class)
@@ -141,7 +141,7 @@ public class PyDictValuesNGTest extends PyTestHarness
     PyDict dict = dictOf("a", 1);
     PyDictValues<?> values = new PyDictValues<>(dict);
 
-    values.retainAll(Arrays.asList(PyInt.of(1)));
+    values.retainAll(Arrays.asList(context.$int(1)));
   }
 
   @Test

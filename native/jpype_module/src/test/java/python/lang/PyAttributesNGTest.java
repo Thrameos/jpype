@@ -51,7 +51,7 @@ public class PyAttributesNGTest extends PyTestHarness
     PyList dir = attrs.dir();
 
     assertNotNull(dir);
-    assertTrue(dir.contains(PyString.of("name")) || dir.toString().contains("name"));
+    assertTrue(dir.contains(context.str("name")) || dir.toString().contains("name"));
   }
 
   @Test
@@ -81,7 +81,7 @@ public class PyAttributesNGTest extends PyTestHarness
     PyObject obj = newObjectWithAttributes();
     PyAttributes attrs = new PyAttributes(obj);
 
-    PyObject result = attrs.getOrDefault("name", PyString.of("default"));
+    PyObject result = attrs.getOrDefault("name", context.str("default"));
 
     assertEquals(result.toString(), "alice");
   }
@@ -91,7 +91,7 @@ public class PyAttributesNGTest extends PyTestHarness
   {
     PyObject obj = newObjectWithAttributes();
     PyAttributes attrs = new PyAttributes(obj);
-    PyObject defaultValue = PyString.of("default");
+    PyObject defaultValue = context.str("default");
 
     PyObject result = attrs.getOrDefault("missing", defaultValue);
 
@@ -115,8 +115,8 @@ public class PyAttributesNGTest extends PyTestHarness
     PyAttributes attrs = new PyAttributes(obj);
 
     Map<PyObject, PyObject> map = new HashMap<>();
-    map.put(PyString.of("x"), PyInt.of(1));
-    map.put(PyString.of("y"), PyInt.of(2));
+    map.put(context.str("x"), context.$int(1));
+    map.put(context.str("y"), context.$int(2));
 
     attrs.putAll(map);
 
@@ -130,7 +130,7 @@ public class PyAttributesNGTest extends PyTestHarness
     PyObject obj = newObjectWithAttributes();
     PyAttributes attrs = new PyAttributes(obj);
 
-    attrs.put(PyString.of("city"), PyString.of("Paris"));
+    attrs.put(context.str("city"), context.str("Paris"));
 
     assertTrue(attrs.contains("city"));
     assertEquals(attrs.get("city").toString(), "Paris");

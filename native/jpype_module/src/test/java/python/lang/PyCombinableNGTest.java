@@ -9,7 +9,7 @@ public class PyCombinableNGTest extends PyTestHarness
 
   private PyDict dictOf(Object... items)
   {
-    PyDict dict = PyBuiltIn.dict();
+    PyDict dict = context.dict();
     for (int i = 0; i < items.length; i += 2)
       dict.putAny(items[i], items[i + 1]);
     return dict;
@@ -18,8 +18,8 @@ public class PyCombinableNGTest extends PyTestHarness
   @Test
   public void testOrDoesNotModifyLeftOperand()
   {
-    PyDict left = dictOf("a", PyInt.of(1));
-    PyDict right = dictOf("a", PyInt.of(10), "b", PyInt.of(2));
+    PyDict left = dictOf("a", context.$int(1));
+    PyDict right = dictOf("a", context.$int(10), "b", context.$int(2));
 
     PyDict out = (PyDict) left.or(right);
 
@@ -34,8 +34,8 @@ public class PyCombinableNGTest extends PyTestHarness
   @Test
   public void testOrDoesNotModifyRightOperand()
   {
-    PyDict left = dictOf("a", PyInt.of(1));
-    PyDict right = dictOf("b", PyInt.of(2));
+    PyDict left = dictOf("a", context.$int(1));
+    PyDict right = dictOf("b", context.$int(2));
 
     PyDict out = (PyDict) left.or(right);
 
@@ -48,8 +48,8 @@ public class PyCombinableNGTest extends PyTestHarness
   @Test
   public void testOrResultIsNewObject()
   {
-    PyDict left = dictOf("a", PyInt.of(1));
-    PyDict right = dictOf("b", PyInt.of(2));
+    PyDict left = dictOf("a", context.$int(1));
+    PyDict right = dictOf("b", context.$int(2));
 
     PyDict out = (PyDict) left.or(right);
 
@@ -60,8 +60,8 @@ public class PyCombinableNGTest extends PyTestHarness
   @Test
   public void testOrWithBothEmpty()
   {
-    PyDict left = PyBuiltIn.dict();
-    PyDict right = PyBuiltIn.dict();
+    PyDict left = context.dict();
+    PyDict right = context.dict();
 
     PyDict out = (PyDict) left.or(right);
 
@@ -72,8 +72,8 @@ public class PyCombinableNGTest extends PyTestHarness
   @Test
   public void testOrWithDisjointDicts()
   {
-    PyDict left = dictOf("a", PyInt.of(1));
-    PyDict right = dictOf("b", PyInt.of(2));
+    PyDict left = dictOf("a", context.$int(1));
+    PyDict right = dictOf("b", context.$int(2));
 
     PyObject result = left.or(right);
 
@@ -89,8 +89,8 @@ public class PyCombinableNGTest extends PyTestHarness
   @Test
   public void testOrWithEmptyLeft()
   {
-    PyDict left = PyBuiltIn.dict();
-    PyDict right = dictOf("x", PyInt.of(7));
+    PyDict left = context.dict();
+    PyDict right = dictOf("x", context.$int(7));
 
     PyDict out = (PyDict) left.or(right);
 
@@ -101,8 +101,8 @@ public class PyCombinableNGTest extends PyTestHarness
   @Test
   public void testOrWithEmptyRight()
   {
-    PyDict left = dictOf("x", PyInt.of(7));
-    PyDict right = PyBuiltIn.dict();
+    PyDict left = dictOf("x", context.$int(7));
+    PyDict right = context.dict();
 
     PyDict out = (PyDict) left.or(right);
 
@@ -113,8 +113,8 @@ public class PyCombinableNGTest extends PyTestHarness
   @Test
   public void testOrWithOverlappingKeysRightWins()
   {
-    PyDict left = dictOf("a", PyInt.of(1), "b", PyInt.of(2));
-    PyDict right = dictOf("b", PyInt.of(99), "c", PyInt.of(3));
+    PyDict left = dictOf("a", context.$int(1), "b", context.$int(2));
+    PyDict right = dictOf("b", context.$int(99), "c", context.$int(3));
 
     PyDict out = (PyDict) left.or(right);
 

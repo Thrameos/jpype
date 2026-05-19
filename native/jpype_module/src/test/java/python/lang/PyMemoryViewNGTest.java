@@ -23,7 +23,7 @@ import org.testng.annotations.BeforeClass;
  *
  * @author nelson85
  */
-public class PyMemoryViewNGTest
+public class PyMemoryViewNGTest extends PyTestHarness
 {
 
   public PyMemoryViewNGTest()

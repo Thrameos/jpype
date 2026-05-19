@@ -30,6 +30,7 @@ import java.util.Iterator;
  * Note: The `reversed` method was removed due to contract conflicts with
  * {@link List}.
  *
+ * @param <T>
  */
 public interface PyIterable<T extends PyObject> extends PyObject, Iterable<T>
 {
@@ -56,7 +57,7 @@ public interface PyIterable<T extends PyObject> extends PyObject, Iterable<T>
    */
   default PyIter<T> iter()
   {
-    return PyBuiltIn.iter(this);
+    return builtin().iter(this);
   }
 
   /**

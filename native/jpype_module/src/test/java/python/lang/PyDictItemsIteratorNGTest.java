@@ -4,6 +4,7 @@ package python.lang;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.BiFunction;
+import org.jpype.bridge.Interpreter;
 import static org.testng.Assert.*;
 import org.testng.annotations.Test;
 
@@ -13,7 +14,7 @@ public class PyDictItemsIteratorNGTest extends PyTestHarness
 
   private PyDict dictOf(Object... items)
   {
-    PyDict dict = PyBuiltIn.dict();
+    PyDict dict = context.dict();
     for (int i = 0; i < items.length; i += 2)
       dict.putAny(items[i], items[i + 1]);
     return dict;
@@ -22,8 +23,8 @@ public class PyDictItemsIteratorNGTest extends PyTestHarness
   @SuppressWarnings("unchecked")
   private PyDictItemsIterator<PyObject, PyObject> newIterator(PyDict dict)
   {
-    PyObject itemsView = PyBuiltIn.backend().items(dict);
-    PyIter<PyTuple> iter = PyBuiltIn.<PyTuple>iter(itemsView);
+    PyObject itemsView = Interpreter.getInstance().getBackend().items(dict);
+    PyIter<PyTuple> iter = context.<PyTuple>iter(itemsView);
     BiFunction<PyObject, PyObject, PyObject> setter = dict::put;
     return new PyDictItemsIterator<>(iter, setter);
   }
@@ -31,7 +32,7 @@ public class PyDictItemsIteratorNGTest extends PyTestHarness
   @Test
   public void testEmptyIteratorHasNoNext()
   {
-    PyDict dict = PyBuiltIn.dict();
+    PyDict dict = context.dict();
     PyDictItemsIterator<PyObject, PyObject> iterator = newIterator(dict);
 
     assertFalse(iterator.hasNext());
@@ -40,7 +41,7 @@ public class PyDictItemsIteratorNGTest extends PyTestHarness
   @Test(expectedExceptions = NoSuchElementException.class)
   public void testEmptyIteratorNextThrows()
   {
-    PyDict dict = PyBuiltIn.dict();
+    PyDict dict = context.dict();
     PyDictItemsIterator<PyObject, PyObject> iterator = newIterator(dict);
 
     iterator.next();
@@ -53,7 +54,7 @@ public class PyDictItemsIteratorNGTest extends PyTestHarness
     PyDictItemsIterator<PyObject, PyObject> iterator = newIterator(dict);
 
     Map.Entry<PyObject, PyObject> entry = iterator.next();
-    PyObject old = entry.setValue(PyInt.of(42));
+    PyObject old = entry.setValue(context.$int(42));
 
     assertEquals(old.toString(), "1");
     assertEquals(dict.get("a").toString(), "42");

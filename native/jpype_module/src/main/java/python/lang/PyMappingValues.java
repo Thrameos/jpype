@@ -22,7 +22,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.function.Function;
 import org.jpype.bridge.Backend;
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * Provides a Java {@link Collection} interface for the values of a Python
@@ -50,7 +49,7 @@ import static python.lang.PyBuiltIn.backend;
 class PyMappingValues<K extends PyObject, V extends PyObject> implements Collection<V>
 {
 
-  private final Backend backend;
+  private final PyBuiltIn builtin;
   private final PyMapping<K, V> map;
 
   /**
@@ -59,10 +58,10 @@ class PyMappingValues<K extends PyObject, V extends PyObject> implements Collect
    * @param map the Python mapping whose values are to be exposed as a Java
    * {@link Collection}
    */
-  public PyMappingValues(PyMapping<K, V> map)
+  PyMappingValues(PyMapping<K, V> map)
   {
     this.map = map;
-    this.backend = backend();
+    this.builtin = map.builtin();
   }
 
   /**
@@ -117,7 +116,7 @@ class PyMappingValues<K extends PyObject, V extends PyObject> implements Collect
   @Override
   public boolean contains(Object value)
   {
-    return backend.mappingContainsValue(map, value);
+    return builtin.backend.mappingContainsValue(map, value);
   }
 
   /**
@@ -130,7 +129,7 @@ class PyMappingValues<K extends PyObject, V extends PyObject> implements Collect
   @Override
   public boolean containsAll(Collection<?> collection)
   {
-    return backend.mappingContainsAllValues(map, collection);
+    return builtin.backend.mappingContainsAllValues(map, collection);
   }
 
   /**
@@ -172,7 +171,7 @@ class PyMappingValues<K extends PyObject, V extends PyObject> implements Collect
   @Override
   public boolean remove(Object value)
   {
-    return backend.mappingRemoveValue(map, value);
+    return builtin.backend.mappingRemoveValue(map, value);
   }
 
   /**
@@ -185,7 +184,7 @@ class PyMappingValues<K extends PyObject, V extends PyObject> implements Collect
   @Override
   public boolean removeAll(Collection<?> collection)
   {
-    return backend.mappingRemoveAllValue(map, collection);
+    return builtin.backend.mappingRemoveAllValue(map, collection);
   }
 
   /**
@@ -198,7 +197,7 @@ class PyMappingValues<K extends PyObject, V extends PyObject> implements Collect
   @Override
   public boolean retainAll(Collection<?> collection)
   {
-    return backend.mappingRetainAllValue(map, collection);
+    return builtin.backend.mappingRetainAllValue(map, collection);
   }
 
   /**

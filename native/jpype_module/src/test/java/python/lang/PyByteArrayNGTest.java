@@ -11,7 +11,7 @@ public class PyByteArrayNGTest extends PyTestHarness
   @Test
   public void testCreateIsZeroFilled()
   {
-    PyByteArray instance = PyByteArray.create(3);
+    PyByteArray instance = context.bytearray(3);
 
     assertEquals(instance.get(0).toNumber().intValue(), 0);
     assertEquals(instance.get(1).toNumber().intValue(), 0);
@@ -21,7 +21,7 @@ public class PyByteArrayNGTest extends PyTestHarness
   @Test
   public void testCreateWithLength()
   {
-    PyByteArray instance = PyByteArray.create(10);
+    PyByteArray instance = context.bytearray(10);
 
     assertNotNull(instance);
     assertEquals(instance.size(), 10);
@@ -30,8 +30,7 @@ public class PyByteArrayNGTest extends PyTestHarness
   @Test
   public void testCreateWithZeroLength()
   {
-    PyByteArray instance = PyByteArray.create(0);
-
+    PyByteArray instance = context.bytearray(0);
     assertNotNull(instance);
     assertEquals(instance.size(), 0);
     assertTrue(instance.isEmpty());
@@ -40,9 +39,9 @@ public class PyByteArrayNGTest extends PyTestHarness
   @Test
   public void testDecodeUtf8()
   {
-    PyByteArray instance = PyByteArray.fromHex("48656c6c6f");
+    PyByteArray instance = context.bytearrayFromHex("48656c6c6f");
 
-    PyObject decoded = instance.decode(PyString.of("utf-8"), null);
+    PyObject decoded = instance.decode(context.str("utf-8"), null);
 
     assertNotNull(decoded);
     assertEquals(decoded.toString(), "Hello");
@@ -51,7 +50,7 @@ public class PyByteArrayNGTest extends PyTestHarness
   @Test
   public void testFromHex()
   {
-    PyByteArray instance = PyByteArray.fromHex("48656c6c6f");
+    PyByteArray instance = context.bytearrayFromHex("48656c6c6f");
 
     assertNotNull(instance);
     assertEquals(instance.size(), 5);
@@ -65,13 +64,13 @@ public class PyByteArrayNGTest extends PyTestHarness
   @Test(expectedExceptions = RuntimeException.class)
   public void testFromHexInvalidThrows()
   {
-    PyByteArray.fromHex("this_is_not_hex");
+    context.bytearrayFromHex("this_is_not_hex");
   }
 
   @Test
   public void testGetByIndex()
   {
-    PyByteArray instance = PyByteArray.fromHex("4142");
+    PyByteArray instance = context.bytearrayFromHex("4142");
 
     PyInt value0 = instance.get(0);
     PyInt value1 = instance.get(1);
@@ -83,22 +82,22 @@ public class PyByteArrayNGTest extends PyTestHarness
   @Test(expectedExceptions = RuntimeException.class)
   public void testGetOutOfBoundsThrows()
   {
-    PyByteArray instance = PyByteArray.fromHex("41");
+    PyByteArray instance = context.bytearrayFromHex("41");
     instance.get(5);
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testGetWithTupleSubscriptRejected()
   {
-    PyByteArray instance = PyByteArray.fromHex("414243");
-    instance.get(PyBuiltIn.slice(0, 1), PyBuiltIn.slice(1, 2));
+    PyByteArray instance = context.bytearrayFromHex("414243");
+    instance.get(context.slice(0, 1), context.slice(1, 2));
   }
 
   @Test
   public void testOfBuffer()
   {
-    PyBytes buffer = PyBytes.fromHex("414243");
-    PyByteArray instance = PyByteArray.of(buffer);
+    PyBytes buffer = context.bytesFromHex("414243");
+    PyByteArray instance = context.bytearray(buffer);
 
     assertNotNull(instance);
     assertEquals(instance.size(), 3);
@@ -110,8 +109,8 @@ public class PyByteArrayNGTest extends PyTestHarness
   @Test
   public void testOfIterable()
   {
-    PyByteArray instance = PyByteArray.of(Arrays.asList(
-            PyInt.of(65), PyInt.of(66), PyInt.of(67)));
+    PyByteArray instance = context.bytearray(Arrays.asList(
+            context.$int(65), context.$int(66), context.$int(67)));
 
     assertNotNull(instance);
     assertEquals(instance.size(), 3);
@@ -123,7 +122,7 @@ public class PyByteArrayNGTest extends PyTestHarness
   @Test
   public void testRemoveByIndex()
   {
-    PyByteArray instance = PyByteArray.fromHex("414243");
+    PyByteArray instance = context.bytearrayFromHex("414243");
 
     PyInt removed = instance.remove(1);
 
@@ -137,16 +136,16 @@ public class PyByteArrayNGTest extends PyTestHarness
   @Test(expectedExceptions = RuntimeException.class)
   public void testRemoveOutOfBoundsThrows()
   {
-    PyByteArray instance = PyByteArray.fromHex("41");
+    PyByteArray instance = context.bytearrayFromHex("41");
     instance.remove(5);
   }
 
   @Test
   public void testSetByIndex()
   {
-    PyByteArray instance = PyByteArray.fromHex("414243");
+    PyByteArray instance = context.bytearrayFromHex("414243");
 
-    PyInt previous = instance.set(1, PyInt.of(90));
+    PyInt previous = instance.set(1, context.$int(90));
 
     assertNotNull(previous);
     assertEquals(previous.toNumber().intValue(), 66);
@@ -156,7 +155,7 @@ public class PyByteArrayNGTest extends PyTestHarness
   @Test(expectedExceptions = RuntimeException.class)
   public void testSetOutOfBoundsThrows()
   {
-    PyByteArray instance = PyByteArray.fromHex("41");
-    instance.set(5, PyInt.of(1));
+    PyByteArray instance = context.bytearrayFromHex("41");
+    instance.set(5, context.$int(1));
   }
 }

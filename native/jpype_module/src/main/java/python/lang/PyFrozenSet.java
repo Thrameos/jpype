@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
 import org.jpype.annotation.Bypass;
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * Java front-end interface for the Python `frozenset` type.
@@ -52,19 +51,6 @@ import static python.lang.PyBuiltIn.backend;
 public interface PyFrozenSet extends PyObject, Set<PyObject>
 {
 
-  /**
-   * Creates a new Python `frozenset` object from the specified
-   * {@link Iterable}.
-   *
-   * @param c the {@link Iterable} whose elements will be included in the
-   * `frozenset`.
-   * @return a new {@link PyFrozenSet} instance representing the Python
-   * `frozenset` object.
-   */
-  static PyFrozenSet of(Iterable<?> c)
-  {
-    return backend().newFrozenSet(c);
-  }
 
   /**
    * Creates a shallow copy of this `frozenset`.
@@ -160,7 +146,7 @@ public interface PyFrozenSet extends PyObject, Set<PyObject>
   @Override
   default Iterator<PyObject> iterator()
   {
-    return new PyIterator<>(backend().iterSet(this));
+    return new PyIterator<>(builtin().backend.iterSet(this));
   }
 
   /**

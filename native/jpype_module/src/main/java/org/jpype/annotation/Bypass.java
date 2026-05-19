@@ -20,9 +20,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-// 1. Set the retention policy to RUNTIME
 /**
- *
+ * Marker to proxy to skip downcall.
+ * 
  * @author nelson85
  */
 @Retention(RetentionPolicy.RUNTIME)

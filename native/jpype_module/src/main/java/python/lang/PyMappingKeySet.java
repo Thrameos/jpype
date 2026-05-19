@@ -20,8 +20,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
-import org.jpype.bridge.Backend;
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * A representation of the key set of a Python mapping, implementing the
@@ -73,7 +71,7 @@ import static python.lang.PyBuiltIn.backend;
 public class PyMappingKeySet<K extends PyObject, V extends PyObject> implements Set<K>
 {
 
-  private final Backend backend;
+  private final PyBuiltIn builtin;
   /**
    * The underlying Python mapping whose keys are represented by this set.
    */
@@ -87,7 +85,7 @@ public class PyMappingKeySet<K extends PyObject, V extends PyObject> implements 
   public PyMappingKeySet(PyMapping<K, V> mapping)
   {
     this.map = mapping;
-    this.backend = backend();
+    this.builtin = mapping.builtin();
   }
 
   /**
@@ -175,7 +173,7 @@ public class PyMappingKeySet<K extends PyObject, V extends PyObject> implements 
   @SuppressWarnings("unchecked")
   public Iterator<K> iterator()
   {
-    PyIter<K> iter = backend.iterMap(map);
+    PyIter<K> iter = builtin.backend.iterMap(map);
     return new PyIterator<>(iter);
   }
 
@@ -201,7 +199,7 @@ public class PyMappingKeySet<K extends PyObject, V extends PyObject> implements 
   @Override
   public boolean removeAll(Collection<?> collection)
   {
-    return backend.mappingRemoveAllKeys(map, collection);
+    return builtin.backend.mappingRemoveAllKeys(map, collection);
   }
 
   /**
@@ -213,7 +211,7 @@ public class PyMappingKeySet<K extends PyObject, V extends PyObject> implements 
   @Override
   public boolean retainAll(Collection<?> collection)
   {
-    return backend.mappingRetainAllKeys(map, collection);
+    return builtin.backend.mappingRetainAllKeys(map, collection);
   }
 
   /**
@@ -241,6 +239,7 @@ public class PyMappingKeySet<K extends PyObject, V extends PyObject> implements 
   /**
    * Returns an array containing all keys in the mapping, using the provided
    * array type.
+   * @param <T>
    *
    * @param a the array into which the keys will be stored, if it is large
    * enough; otherwise, a new array of the same type will be allocated
@@ -251,6 +250,6 @@ public class PyMappingKeySet<K extends PyObject, V extends PyObject> implements 
   @Override
   public <T> T[] toArray(T[] a)
   {
-    return (T[]) new ArrayList<>(this).toArray(a);
+    return new ArrayList<>(this).toArray(a);
   }
 }

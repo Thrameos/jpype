@@ -27,7 +27,7 @@ public interface PySized extends PyObject
   @Bypass
   default int size()
   {
-    return PyBuiltIn.len(this);
+    return builtin().len(this);
   }
 
   @Bypass

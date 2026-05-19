@@ -22,7 +22,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import org.jpype.annotation.Bypass;
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * Java front-end interface for the Python `list` type.
@@ -70,32 +69,6 @@ import static python.lang.PyBuiltIn.backend;
  */
 public interface PyList extends PySequence<PyObject>
 {
-
-  /**
-   * Creates a new Python `list` object from the given {@link Iterable}.
-   *
-   * The elements of the provided iterable will be added to the Python list.
-   *
-   * @param c the {@link Iterable} whose elements will populate the new Python
-   * list.
-   * @return a new {@link PyList} instance containing the elements of the
-   * iterable.
-   */
-  public static PyList fromItems(Iterable<? extends Object> c)
-  {
-    return backend().newListFromIterable(c);
-  }
-
-  /**
-   * Creates a new Python `list` object from the given a list of objects.
-   *
-   * @param items is an array whose elements will populate the new Python list.
-   * @return a new {@link PyList} instance containing the elements.
-   */
-  public static PyList of(Object... items)
-  {
-    return backend().newListFromArray(items);
-  }
 
   /**
    * Adds a Python object to the end of the list.
@@ -183,8 +156,8 @@ public interface PyList extends PySequence<PyObject>
   @Override
   default boolean containsAll(Collection<?> c)
   {
-    PySet s1 = PySet.of(this);
-    PySet s2 = PySet.of(c);
+    PySet s1 = builtin().set(this);
+    PySet s2 = builtin().set(c);
     return s2.isSubset(s1);
   }
 
@@ -287,7 +260,7 @@ public interface PyList extends PySequence<PyObject>
   @Override
   default boolean remove(Object o)
   {
-    return backend().delattrReturn(this, this.indexOf(o)) != null;
+    return builtin().backend.delattrReturn(this, this.indexOf(o)) != null;
   }
 
   /**
@@ -301,7 +274,7 @@ public interface PyList extends PySequence<PyObject>
   default PyObject remove(int index)
   {
     PyObject out = this.get(index);
-    backend().delitemByIndex(this, index);
+    builtin().backend.delitemByIndex(this, index);
     return out;
   }
 

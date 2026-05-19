@@ -1,4 +1,4 @@
-// --- file: python/lang/PyBuiltInNGTest.java ---
+// --- file: python/lang/contextNGTest.java ---
 package python.lang;
 
 import static org.testng.Assert.*;
@@ -13,7 +13,7 @@ public class PyBuiltInNGTest extends PyTestHarness
   public void test$float()
   {
     double value = 3.14;
-    PyFloat result = PyBuiltIn.$float(value);
+    PyFloat result = context.$float(value);
     assertNotNull(result);
     assertEquals(result.toNumber().doubleValue(), 3.14, 0.0001);
   }
@@ -22,7 +22,7 @@ public class PyBuiltInNGTest extends PyTestHarness
   public void test$int()
   {
     long value = 42L;
-    PyInt result = PyBuiltIn.$int(value);
+    PyInt result = context.$int(value);
     assertNotNull(result);
     assertEquals(result.toNumber().longValue(), 42L);
   }
@@ -30,7 +30,7 @@ public class PyBuiltInNGTest extends PyTestHarness
   @Test
   public void testBytesFromString()
   {
-    PyBytes result = PyBuiltIn.bytes("abc");
+    PyBytes result = context.bytes("abc");
 
     assertNotNull(result);
     assertEquals(result.size(), 3);
@@ -40,10 +40,10 @@ public class PyBuiltInNGTest extends PyTestHarness
   public void testCall()
   {
     PyCallable callable = (PyCallable) context.eval("lambda x, y: x + y");
-    PyTuple args = PyBuiltIn.tuple(2, 3);
-    PyDict kwargs = PyBuiltIn.dict();
+    PyTuple args = context.tuple(2, 3);
+    PyDict kwargs = context.dict();
 
-    PyObject result = PyBuiltIn.call(callable, args, kwargs);
+    PyObject result = context.call(callable, args, kwargs);
 
     assertNotNull(result);
     assertEquals(result.toString(), "5");
@@ -59,9 +59,9 @@ public class PyBuiltInNGTest extends PyTestHarness
             + "obj_delattr.flag = 123\n");
     PyObject obj = (PyObject) context.eval("obj_delattr");
 
-    assertTrue(PyBuiltIn.hasattr(obj, "flag"));
-    PyBuiltIn.delattr(obj, "flag");
-    assertFalse(PyBuiltIn.hasattr(obj, "flag"));
+    assertTrue(context.hasattr(obj, "flag"));
+    context.delattr(obj, "flag");
+    assertFalse(context.hasattr(obj, "flag"));
   }
 
   @Test(expectedExceptions = RuntimeException.class)
@@ -72,22 +72,22 @@ public class PyBuiltInNGTest extends PyTestHarness
             + "    pass\n"
             + "obj_missing_del = DelAttrMissing()\n");
     PyObject obj = (PyObject) context.eval("obj_missing_del");
-    PyBuiltIn.delattr(obj, "does_not_exist");
+    context.delattr(obj, "does_not_exist");
   }
 
   @Test
   public void testDict()
   {
-    PyDict result = PyBuiltIn.dict();
+    PyDict result = context.dict();
     assertNotNull(result);
-    assertEquals(PyBuiltIn.len(result), 0);
+    assertEquals(context.len(result), 0);
   }
 
   @Test
   public void testDir()
   {
-    PyString s = PyBuiltIn.str("hello");
-    PyList result = PyBuiltIn.dir(s);
+    PyString s = context.str("hello");
+    PyList result = context.dir(s);
 
     assertNotNull(result);
     assertTrue(result.toString().contains("upper"));
@@ -96,7 +96,7 @@ public class PyBuiltInNGTest extends PyTestHarness
   @Test
   public void testEnumerateContents()
   {
-    PyEnumerate result = PyBuiltIn.enumerate(Arrays.asList("a", "b"));
+    PyEnumerate result = context.enumerate(Arrays.asList("a", "b"));
     PyList items = result.toList();
 
     assertEquals(items.size(), 2);
@@ -110,7 +110,7 @@ public class PyBuiltInNGTest extends PyTestHarness
   public void testEnumerateIterable()
   {
     List<String> source = Arrays.asList("x", "y");
-    PyEnumerate result = PyBuiltIn.enumerate(source);
+    PyEnumerate result = context.enumerate(source);
 
     assertNotNull(result);
     PyList items = result.toList();
@@ -120,8 +120,8 @@ public class PyBuiltInNGTest extends PyTestHarness
   @Test
   public void testEnumeratePyObject()
   {
-    PyList source = PyBuiltIn.list(Arrays.asList("x", "y"));
-    PyEnumerate result = PyBuiltIn.enumerate((PyObject) source);
+    PyList source = context.list(Arrays.asList("x", "y"));
+    PyEnumerate result = context.enumerate((PyObject) source);
 
     assertNotNull(result);
     PyList items = result.toList();
@@ -132,7 +132,7 @@ public class PyBuiltInNGTest extends PyTestHarness
   public void testEval()
   {
     // Basic math eval
-    PyObject result = PyBuiltIn.eval("1 + 1", PyBuiltIn.dict(), PyBuiltIn.dict());
+    PyObject result = context.eval("1 + 1", context.dict(), context.dict());
     assertTrue(result instanceof PyInt);
     assertEquals(((PyInt) result).toNumber().longValue(), 2L);
   }
@@ -140,16 +140,16 @@ public class PyBuiltInNGTest extends PyTestHarness
   @Test(expectedExceptions = RuntimeException.class)
   public void testEvalInvalidExpressionThrows()
   {
-    PyBuiltIn.eval("1 + ", PyBuiltIn.dict(), PyBuiltIn.dict());
+    context.eval("1 + ", context.dict(), context.dict());
   }
 
   @Test
   public void testExec()
   {
-    PyDict globals = PyBuiltIn.dict();
-    PyDict locals = PyBuiltIn.dict();
+    PyDict globals = context.dict();
+    PyDict locals = context.dict();
 
-    PyBuiltIn.exec("x = 123", globals, locals);
+    context.exec("x = 123", globals, locals);
 
     assertTrue(locals.containsKey("x"));
     assertEquals(locals.get("x").toString(), "123");
@@ -158,8 +158,8 @@ public class PyBuiltInNGTest extends PyTestHarness
   @Test
   public void testGetattr()
   {
-    PyString s = PyBuiltIn.str("hello");
-    PyObject upperFunc = PyBuiltIn.getattr(s, "upper");
+    PyString s = context.str("hello");
+    PyObject upperFunc = context.getattr(s, "upper");
     assertTrue(upperFunc instanceof PyCallable);
   }
 
@@ -172,9 +172,9 @@ public class PyBuiltInNGTest extends PyTestHarness
             + "obj_existing = BuiltinAttrTest2()\n"
             + "obj_existing.name = 'alice'\n");
     PyObject obj = (PyObject) context.eval("obj_existing");
-    PyObject fallback = PyString.of("fallback");
+    PyObject fallback = context.str("fallback");
 
-    PyObject result = PyBuiltIn.getattrDefault(obj, "name", fallback);
+    PyObject result = context.getattrDefault(obj, "name", fallback);
 
     assertNotNull(result);
     assertEquals(result.toString(), "alice");
@@ -188,8 +188,8 @@ public class PyBuiltInNGTest extends PyTestHarness
             + "    pass\n"
             + "obj_default = BuiltinAttrTest()\n");
     PyObject obj = (PyObject) context.eval("obj_default");
-    PyObject fallback = PyString.of("fallback");
-    PyObject result = PyBuiltIn.getattrDefault(obj, "missing", fallback);
+    PyObject fallback = context.str("fallback");
+    PyObject result = context.getattrDefault(obj, "missing", fallback);
 
     System.out.println(result.equals(fallback));
     System.out.println(fallback.equals(result));
@@ -200,23 +200,23 @@ public class PyBuiltInNGTest extends PyTestHarness
   public void testGetattrMissingThrows()
   {
     PyObject obj = (PyObject) context.eval("object()");
-    PyBuiltIn.getattr(obj, "missing_attribute_name");
+    context.getattr(obj, "missing_attribute_name");
   }
 
   @Test
   public void testHasattr()
   {
-    PyString s = PyBuiltIn.str("hello");
+    PyString s = context.str("hello");
     // Strings in Python have upper()
-    assertTrue(PyBuiltIn.hasattr(s, "upper"));
-    assertFalse(PyBuiltIn.hasattr(s, "non_existent_method_123"));
+    assertTrue(context.hasattr(s, "upper"));
+    assertFalse(context.hasattr(s, "non_existent_method_123"));
   }
 
   @Test
   public void testIndices()
   {
-    PySlice slice = PyBuiltIn.slice(1, 5, 2);
-    PyTuple result = PyBuiltIn.indices(slice);
+    PySlice slice = context.slice(1, 5, 2);
+    PyTuple result = context.indices(slice);
 
     assertNotNull(result);
     assertEquals(result.size(), 1);
@@ -225,42 +225,42 @@ public class PyBuiltInNGTest extends PyTestHarness
   @Test
   public void testIsinstanceFalse()
   {
-    PyInt value = PyBuiltIn.$int(5);
-    PyType stringType = PyBuiltIn.type(PyBuiltIn.str("abc"));
+    PyInt value = context.$int(5);
+    PyType stringType = context.type(context.str("abc"));
 
-    assertFalse(PyBuiltIn.isinstance(value, stringType));
+    assertFalse(context.isinstance(value, stringType));
   }
 
   @Test
   public void testIsinstanceMultipleTypes()
   {
-    PyObject value = PyBuiltIn.str("abc");
-    PyType strType = PyBuiltIn.type(value);
-    PyType intType = PyBuiltIn.type(PyBuiltIn.$int(1));
+    PyObject value = context.str("abc");
+    PyType strType = context.type(value);
+    PyType intType = context.type(context.$int(1));
 
-    assertTrue(PyBuiltIn.isinstance(value, intType, strType));
+    assertTrue(context.isinstance(value, intType, strType));
   }
 
   @Test
   public void testIsinstanceTrue()
   {
-    PyInt value = PyBuiltIn.$int(5);
-    PyType type = PyBuiltIn.type(value);
+    PyInt value = context.$int(5);
+    PyType type = context.type(value);
 
-    assertTrue(PyBuiltIn.isinstance(value, type));
+    assertTrue(context.isinstance(value, type));
   }
 
   @Test(expectedExceptions = RuntimeException.class)
   public void testIterOnNonIterableThrows()
   {
-    PyBuiltIn.iter(PyBuiltIn.$int(5));
+    context.iter(context.$int(5));
   }
 
   @Test
   public void testIterOnPyList()
   {
-    PyList list = PyBuiltIn.list(Arrays.asList("a", "b"));
-    PyIter<PyObject> iter = PyBuiltIn.iter(list);
+    PyList list = context.list(Arrays.asList("a", "b"));
+    PyIter<PyObject> iter = context.iter(list);
 
     assertNotNull(iter);
     assertEquals(iter.next().toString(), "a");
@@ -270,15 +270,15 @@ public class PyBuiltInNGTest extends PyTestHarness
   @Test
   public void testLen()
   {
-    PyList list = PyBuiltIn.list(Arrays.asList(1, 2, 3));
-    int result = PyBuiltIn.len(list);
+    PyList list = context.list(Arrays.asList(1, 2, 3));
+    int result = context.len(list);
     assertEquals(result, 3);
   }
 
   @Test
   public void testListEmpty()
   {
-    PyList result = PyBuiltIn.list();
+    PyList result = context.list();
     assertNotNull(result);
     assertEquals(result.size(), 0);
     assertTrue(result.isEmpty());
@@ -289,16 +289,16 @@ public class PyBuiltInNGTest extends PyTestHarness
   {
     // Test conversion from Java List to Python List
     java.util.List<String> jList = Arrays.asList("a", "b");
-    PyList pList = PyBuiltIn.list(jList);
-    assertEquals(PyBuiltIn.len(pList), 2);
+    PyList pList = context.list(jList);
+    assertEquals(context.len(pList), 2);
     assertEquals(pList.get(0).toString(), "a");
   }
 
   @Test
   public void testMemoryviewFromBytes()
   {
-    PyBytes bytes = PyBuiltIn.bytes("abc");
-    PyMemoryView result = PyBuiltIn.memoryview(bytes);
+    PyBytes bytes = context.bytes("abc");
+    PyMemoryView result = context.memoryview(bytes);
 
     assertNotNull(result);
   }
@@ -306,18 +306,18 @@ public class PyBuiltInNGTest extends PyTestHarness
   @Test
   public void testNextWithStopDefault()
   {
-    PyList list = PyBuiltIn.list(Arrays.asList("a"));
-    PyIter<PyObject> iter = PyBuiltIn.iter(list);
-    PyObject stop = PyString.of("stop");
+    PyList list = context.list(Arrays.asList("a"));
+    PyIter<PyObject> iter = context.iter(list);
+    PyObject stop = context.str("stop");
 
-    assertEquals(PyBuiltIn.next(iter, stop).toString(), "a");
-    assertEquals(PyBuiltIn.next(iter, stop), stop);
+    assertEquals(context.next(iter, stop).toString(), "a");
+    assertEquals(context.next(iter, stop), stop);
   }
 
   @Test
   public void testRangeStartStop()
   {
-    PyRange result = PyBuiltIn.range(2, 5);
+    PyRange result = context.range(2, 5);
 
     assertNotNull(result);
     assertEquals(result.getStart(), 2);
@@ -328,7 +328,7 @@ public class PyBuiltInNGTest extends PyTestHarness
   @Test
   public void testRangeStartStopStep()
   {
-    PyRange result = PyBuiltIn.range(1, 7, 2);
+    PyRange result = context.range(1, 7, 2);
 
     assertNotNull(result);
     assertEquals(result.getStart(), 1);
@@ -339,16 +339,16 @@ public class PyBuiltInNGTest extends PyTestHarness
   @Test
   public void testRange_int()
   {
-    PyRange result = PyBuiltIn.range(5);
+    PyRange result = context.range(5);
     assertNotNull(result);
-    assertEquals(PyBuiltIn.len(result), 5);
+    assertEquals(context.len(result), 5);
   }
 
   @Test
   public void testRepr()
   {
-    PyString s = PyBuiltIn.str("test");
-    PyString result = PyBuiltIn.repr(s);
+    PyString s = context.str("test");
+    PyString result = context.repr(s);
     // repr of string includes quotes
     assertEquals(result.toString(), "'test'");
   }
@@ -356,8 +356,8 @@ public class PyBuiltInNGTest extends PyTestHarness
   @Test
   public void testReprList()
   {
-    PyList list = PyBuiltIn.list(Arrays.asList("a", "b"));
-    PyString result = PyBuiltIn.repr(list);
+    PyList list = context.list(Arrays.asList("a", "b"));
+    PyString result = context.repr(list);
 
     assertNotNull(result);
     assertTrue(result.toString().contains("a"));
@@ -367,7 +367,7 @@ public class PyBuiltInNGTest extends PyTestHarness
   @Test
   public void testSetEmpty()
   {
-    PySet result = PyBuiltIn.set();
+    PySet result = context.set();
     assertNotNull(result);
     assertEquals(result.size(), 0);
     assertTrue(result.isEmpty());
@@ -382,16 +382,16 @@ public class PyBuiltInNGTest extends PyTestHarness
             + "obj_setattr = BuiltinAttrTest3()\n");
     PyObject obj = (PyObject) context.eval("obj_setattr");
 
-    PyBuiltIn.setattr(obj, "city", "Paris");
+    context.setattr(obj, "city", "Paris");
 
-    PyObject result = PyBuiltIn.getattr(obj, "city");
+    PyObject result = context.getattr(obj, "city");
     assertEquals(result.toString(), "Paris");
   }
 
   @Test
   public void testSliceSingle()
   {
-    PySlice result = PyBuiltIn.slice(3);
+    PySlice result = context.slice(3);
 
     assertNotNull(result);
     assertEquals(result.getStart(), Integer.valueOf(3));
@@ -401,7 +401,7 @@ public class PyBuiltInNGTest extends PyTestHarness
   @Test
   public void testSliceStartStop()
   {
-    PySlice result = PyBuiltIn.slice(1, 5);
+    PySlice result = context.slice(1, 5);
 
     assertNotNull(result);
     assertEquals(result.getStart(), Integer.valueOf(1));
@@ -412,7 +412,7 @@ public class PyBuiltInNGTest extends PyTestHarness
   @Test
   public void testSliceStartStopStep()
   {
-    PySlice result = PyBuiltIn.slice(1, 5, 2);
+    PySlice result = context.slice(1, 5, 2);
 
     assertNotNull(result);
     assertEquals(result.getStart(), Integer.valueOf(1));
@@ -423,16 +423,16 @@ public class PyBuiltInNGTest extends PyTestHarness
   @Test
   public void testStr()
   {
-    PyInt val = PyBuiltIn.$int(100);
-    PyString result = PyBuiltIn.str(val);
+    PyInt val = context.$int(100);
+    PyString result = context.str(val);
     assertEquals(result.toString(), "100");
   }
 
   @Test
   public void testStrList()
   {
-    PyList list = PyBuiltIn.list(Arrays.asList("a", "b"));
-    PyString result = PyBuiltIn.str(list);
+    PyList list = context.list(Arrays.asList("a", "b"));
+    PyString result = context.str(list);
 
     assertNotNull(result);
     assertTrue(result.toString().contains("a"));
@@ -442,7 +442,7 @@ public class PyBuiltInNGTest extends PyTestHarness
   @Test
   public void testTupleEmpty()
   {
-    PyTuple result = PyBuiltIn.tuple();
+    PyTuple result = context.tuple();
     assertNotNull(result);
     assertEquals(result.size(), 0);
     assertTrue(result.isEmpty());
@@ -451,7 +451,7 @@ public class PyBuiltInNGTest extends PyTestHarness
   @Test
   public void testTupleVarArgs()
   {
-    PyTuple result = PyBuiltIn.tuple("a", "b", 3);
+    PyTuple result = context.tuple("a", "b", 3);
     assertNotNull(result);
     assertEquals(result.size(), 3);
     assertEquals(result.get(0).toString(), "a");
@@ -462,8 +462,8 @@ public class PyBuiltInNGTest extends PyTestHarness
   @Test
   public void testType()
   {
-    PyInt val = PyBuiltIn.$int(10);
-    PyType type = PyBuiltIn.type(val);
+    PyInt val = context.$int(10);
+    PyType type = context.type(val);
     assertEquals(type.toString(), "<class 'int'>");
   }
 
@@ -477,7 +477,7 @@ public class PyBuiltInNGTest extends PyTestHarness
             + "obj_vars.x = 10\n");
     PyObject obj = (PyObject) context.eval("obj_vars");
 
-    PyDict result = PyBuiltIn.vars(obj);
+    PyDict result = context.vars(obj);
 
     assertNotNull(result);
     assertTrue(result.containsKey("x"));
@@ -487,7 +487,7 @@ public class PyBuiltInNGTest extends PyTestHarness
   @Test
   public void testZipBuiltIn()
   {
-    PyZip result = PyBuiltIn.zip(Arrays.asList(1, 2), Arrays.asList("a", "b"));
+    PyZip result = context.zip(Arrays.asList(1, 2), Arrays.asList("a", "b"));
     PyList items = result.toList();
 
     assertNotNull(items);

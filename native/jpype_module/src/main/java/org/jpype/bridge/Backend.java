@@ -239,6 +239,9 @@ public interface Backend
   PyFloat newFloat(double value);
 
   // Create a Python `frozenset` from an iterable.
+  PyFrozenSet frozenset(Object obj);
+
+// Create a Python `frozenset` from an iterable.
   PyFrozenSet newFrozenSet(Iterable<?> iterable);
 
   // Create a Python `int` from a long value.

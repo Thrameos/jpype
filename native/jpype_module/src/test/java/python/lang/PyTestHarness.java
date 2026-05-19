@@ -35,10 +35,11 @@ public class PyTestHarness
     try
     {
 
+      Interpreter interpreter = Interpreter.getInstance();
       if (!Interpreter.getInstance().isStarted())
-        Interpreter.getInstance().start(new String[0]);
+        interpreter.start(new String[0]);
       if (context == null)
-        context = new Context();
+        context = interpreter.newContext();
     } catch (Exception ex)
     {
       ex.printStackTrace();

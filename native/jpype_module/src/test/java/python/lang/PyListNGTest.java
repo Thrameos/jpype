@@ -23,7 +23,7 @@ import org.testng.annotations.BeforeClass;
  *
  * @author nelson85
  */
-public class PyListNGTest
+public class PyListNGTest extends PyTestHarness
 {
 
   public PyListNGTest()

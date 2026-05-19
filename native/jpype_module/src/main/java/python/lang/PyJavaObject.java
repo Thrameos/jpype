@@ -32,6 +32,13 @@ public class PyJavaObject implements PyObject
   }
 
   @Override
+  public PyBuiltIn builtin()
+  {
+    // Python will need to supply the builtin to us
+    throw new UnsupportedOperationException("Not supported yet.");
+  }
+
+  @Override
   public PyAttributes getAttributes()
   {
     // Java objects don't support Python attributes directly.

@@ -25,10 +25,11 @@ class Utility
 
   static Number toNumber(PyObject obj)
   {
+    PyBuiltIn builtin = obj.builtin();
     if (obj instanceof PyFloat)
-      return Double.valueOf(PyBuiltIn.asDouble(obj));
+      return builtin.asDouble(obj);
     if (obj instanceof PyInt)
-      return Long.valueOf(PyBuiltIn.asLong(obj));
+      return builtin.asLong(obj);
     throw new UnsupportedOperationException();
   }
 

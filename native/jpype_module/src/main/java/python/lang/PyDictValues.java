@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import org.jpype.bridge.Backend;
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * Represents a view fromMap the values in a Python dictionary ({@code PyDict})
@@ -58,7 +57,7 @@ public class PyDictValues<T extends PyObject> implements Collection<T>
   /**
    * Backend interface for interacting with the Python interpreter.
    */
-  private final Backend backend;
+  private final PyBuiltIn builtin;
 
   /**
    * The Python dictionary ({@code PyDict}) whose values are represented by this
@@ -80,9 +79,9 @@ public class PyDictValues<T extends PyObject> implements Collection<T>
    */
   public PyDictValues(PyDict dict)
   {
+    this.builtin = dict.builtin();
     this.dict = dict;
-    this.backend = backend();
-    this.values = backend.values(dict);
+    this.values = builtin.backend.values(dict);
   }
 
   /**
@@ -127,7 +126,7 @@ public class PyDictValues<T extends PyObject> implements Collection<T>
   @Override
   public boolean contains(Object o)
   {
-    return backend.contains(this.values, o);
+    return builtin.backend.contains(this.values, o);
   }
 
   /**
@@ -160,7 +159,7 @@ public class PyDictValues<T extends PyObject> implements Collection<T>
   @Override
   public boolean isEmpty()
   {
-    return backend.len(this) == 0;
+    return builtin.backend.len(this) == 0;
   }
 
   /**
@@ -171,7 +170,7 @@ public class PyDictValues<T extends PyObject> implements Collection<T>
   @Override
   public Iterator<T> iterator()
   {
-    return PyBuiltIn.<T>iter(values).iterator();
+    return builtin.<T>iter(values).iterator();
   }
 
   /**
@@ -218,7 +217,7 @@ public class PyDictValues<T extends PyObject> implements Collection<T>
   @Override
   public int size()
   {
-    return backend.len(values);
+    return builtin.len(values);
   }
 
   /**
@@ -229,18 +228,19 @@ public class PyDictValues<T extends PyObject> implements Collection<T>
   @Override
   public Object[] toArray()
   {
-    return new ArrayList<>(PyBuiltIn.list(values)).toArray();
+    return new ArrayList<>(builtin.list(values)).toArray();
   }
 
   /**
    * Converts the dictionary's values to an array fromMap the specified getType.
    *
+   * @param <T2>
    * @param a is the array into which the values are to be stored.
    * @return An array containing the dictionary's values.
    */
   @Override
   public <T2> T2[] toArray(T2[] a)
   {
-    return (T2[]) new ArrayList<>(PyBuiltIn.list(values)).toArray(a);
+    return new ArrayList<>(builtin.list(values)).toArray(a);
   }
 }

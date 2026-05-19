@@ -11,7 +11,7 @@ public class PyContainerNGTest extends PyTestHarness
   @Test
   public void testDictProxyImplementsPyContainerWithKeySemantics()
   {
-    PyDict dict = PyBuiltIn.dict();
+    PyDict dict = context.dict();
     dict.putAny("key1", "value1");
     dict.putAny("key2", "value2");
 
@@ -29,10 +29,10 @@ public class PyContainerNGTest extends PyTestHarness
   @Test
   public void testEmptyContainerBehavior()
   {
-    PyObject list = PyBuiltIn.list();
-    PyObject tuple = PyBuiltIn.tuple();
-    PyObject set = PyBuiltIn.set();
-    PyObject dict = PyBuiltIn.dict();
+    PyObject list = context.list();
+    PyObject tuple = context.tuple();
+    PyObject set = context.set();
+    PyObject dict = context.dict();
 
     assertTrue(list instanceof PyContainer);
     assertTrue(tuple instanceof PyContainer);
@@ -48,7 +48,7 @@ public class PyContainerNGTest extends PyTestHarness
   @Test
   public void testListProxyImplementsPyContainer()
   {
-    PyObject obj = PyBuiltIn.list(Arrays.asList("a", "b", "c"));
+    PyObject obj = context.list(Arrays.asList("a", "b", "c"));
 
     assertTrue(obj instanceof PyContainer);
     assertTrue(((PyContainer<?>) obj).contains("a"));
@@ -92,7 +92,7 @@ public class PyContainerNGTest extends PyTestHarness
   @Test
   public void testSetProxyImplementsPyContainer()
   {
-    PyObject obj = PySet.of(Arrays.asList("a", "b", "c"));
+    PyObject obj = context.set(Arrays.asList("a", "b", "c"));
 
     assertTrue(obj instanceof PyContainer);
     assertTrue(((PyContainer<?>) obj).contains("a"));
@@ -102,7 +102,7 @@ public class PyContainerNGTest extends PyTestHarness
   @Test
   public void testTupleProxyImplementsPyContainer()
   {
-    PyObject obj = PyBuiltIn.tuple("a", "b", "c");
+    PyObject obj = context.tuple("a", "b", "c");
 
     assertTrue(obj instanceof PyContainer);
     assertTrue(((PyContainer<?>) obj).contains("a"));

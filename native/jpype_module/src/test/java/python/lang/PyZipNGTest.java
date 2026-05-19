@@ -18,23 +18,15 @@ package python.lang;
 
 import java.util.Arrays;
 import java.util.List;
-import org.jpype.bridge.Interpreter;
 import static org.testng.Assert.*;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
  *
  * @author nelson85
  */
-public class PyZipNGTest
+public class PyZipNGTest extends PyTestHarness
 {
-
-  @BeforeClass
-  public static void setUpClass() throws Exception
-  {
-    Interpreter.getInstance().start(new String[0]);
-  }
 
   @Test
   public void testStaticOfMethod()
@@ -44,7 +36,7 @@ public class PyZipNGTest
     List<String> list2 = Arrays.asList("a", "b", "c");
 
     // Create PyZip using the static `of` method
-    PyZip pyZip = PyBuiltIn.zip(list1, list2);
+    PyZip pyZip = context.zip(list1, list2);
 
     // Convert to list and verify zipped items
     PyList result = pyZip.toList();
@@ -63,7 +55,7 @@ public class PyZipNGTest
     List<String> list2 = Arrays.asList("a", "b", "c");
 
     // Create PyZip using the static `of` method
-    PyZip pyZip = PyBuiltIn.zip(list1, list2);
+    PyZip pyZip = context.zip(list1, list2);
 
     // Convert to list and verify zipped items
     PyList result = pyZip.toList();
@@ -82,7 +74,7 @@ public class PyZipNGTest
     List<String> list2 = Arrays.asList("a", "b", "c");
 
     // Create PyZip instance
-    PyZip pyZip = PyBuiltIn.zip(list1, list2);
+    PyZip pyZip = context.zip(list1, list2);
 
     // Convert to list and verify zipped items
     PyList result = pyZip.toList();

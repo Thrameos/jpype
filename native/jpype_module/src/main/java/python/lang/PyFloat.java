@@ -16,8 +16,6 @@
  */
 package python.lang;
 
-import static python.lang.PyBuiltIn.backend;
-
 /**
  * Java front-end interface for the Python `float` type.
  *
@@ -33,20 +31,4 @@ import static python.lang.PyBuiltIn.backend;
  */
 public interface PyFloat extends PyObject, PyNumber
 {
-
-  /**
-   * Creates a new Python `float` object from the specified Java {@code double}
-   * value. The resulting {@link PyFloat} object represents the Python
-   * equivalent of the given floating-point number.
-   *
-   * @param value the {@code double} value to be converted into a Python
-   * `float`.
-   * @return a new {@link PyFloat} instance representing the Python `float`
-   * object.
-   */
-  static PyFloat of(double value)
-  {
-    return backend().newFloat(value);
-  }
-
 }

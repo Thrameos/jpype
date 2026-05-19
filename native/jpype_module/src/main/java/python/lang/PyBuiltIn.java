@@ -17,8 +17,8 @@
 package python.lang;
 
 import java.util.Arrays;
+import java.util.Map;
 import org.jpype.bridge.Backend;
-import org.jpype.bridge.Interpreter;
 
 /**
  * Utility class providing built-in functions similar to Python's built-in
@@ -29,8 +29,12 @@ import org.jpype.bridge.Interpreter;
 public class PyBuiltIn
 {
 
-  static Backend instance;
-  
+  protected final Backend backend;
+
+  protected PyBuiltIn(Backend backend)
+  {
+    this.backend = backend;
+  }
 
   /**
    * Creates a new Python float object.
@@ -38,9 +42,9 @@ public class PyBuiltIn
    * @param value the double value to be converted to a Python float.
    * @return a new {@link PyFloat} instance representing the given value.
    */
-  public static PyFloat $float(double value)
+  public PyFloat $float(double value)
   {
-    return backend().newFloat(value);
+    return backend.newFloat(value);
   }
 
   /**
@@ -49,43 +53,19 @@ public class PyBuiltIn
    * @param value the long value to be converted to a Python integer.
    * @return a new {@link PyInt} instance representing the given value.
    */
-  public static PyInt $int(long value)
+  public PyInt $int(long value)
   {
-    return backend().newInt(value);
+    return backend.newInt(value);
   }
 
-  public static double asDouble(PyObject obj)
+  public double asDouble(PyObject obj)
   {
-    return backend().asDouble(obj);
+    return backend.asDouble(obj);
   }
 
-  public static long asLong(PyObject obj)
+  public long asLong(PyObject obj)
   {
-    return backend().asLong(obj);
-  }
-
-  /**
-   * Utility method to retrieve the active backend instance or throw an
-   * exception if the interpreter is not started.
-   *
-   * <p>
-   * This method ensures that the backend instance is properly initialized and
-   * active before returning it. If the interpreter has not been started, an
-   * {@link IllegalStateException} is thrown to indicate that the backend cannot
-   * be accessed.
-   * </p>
-   *
-   * @return The active {@link Backend} instance.
-   * @throws IllegalStateException If the interpreter is not started.
-   */
-  static Backend backend()
-  {
-    if (instance != null)
-      return instance;
-    if (!Interpreter.getInstance().isStarted())
-      throw new IllegalStateException("interpreter is not started");
-    instance = Interpreter.getBackend();
-    return instance;
+    return backend.asLong(obj);
   }
 
   /**
@@ -95,9 +75,112 @@ public class PyBuiltIn
    * @return a new {@link PyBytes} instance representing the bytes of the
    * object.
    */
-  public static PyBytes bytes(Object obj)
+  public PyBytes bytes(Object obj)
   {
-    return backend().bytes(obj);
+    return backend.bytes(obj);
+  }
+
+  public PyByteArray bytearray(int size)
+  {
+    return backend.bytearray(size);
+  }
+  
+  /**
+   * Creates a new Python bytearray from an iterable of Python objects. Each
+   * object in the iterable must be convertible to a byte.
+   *
+   * @param iter the iterable containing {@link PyObject} instances to include
+   * in the bytearray.
+   * @return a new {@link PyByteArray} instance containing the bytes derived
+   * from the iterable.
+   */
+  public PyByteArray bytearray(Iterable<PyObject> iter)
+  {
+    return backend.newByteArrayFromIterable(iter);
+  }
+
+  /**
+   * Creates a new Python bytearray from a {@link PyBuffer}. The buffer's
+   * contents will be used to initialize the bytearray.
+   *
+   * @param bytes the {@link PyBuffer} containing the data to populate the
+   * bytearray.
+   * @return a new {@link PyByteArray} instance containing the bytes from the
+   * buffer.
+   */
+  public PyByteArray bytearray(PyBuffer bytes)
+  {
+    return backend.newByteArrayFromBuffer(bytes);
+  }
+
+  /**
+   * Creates a new Python bytearray from a hexadecimal string. The input string
+   * must contain valid hexadecimal characters.
+   *
+   * @param str the hexadecimal string to convert into a bytearray.
+   * @return a new {@link PyByteArray} instance containing the bytes represented
+   * by the hex string.
+   */
+  public PyByteArray bytearrayFromHex(CharSequence str)
+  {
+    return backend.bytearrayFromHex(str);
+  }
+
+  /**
+   * Creates a new Python `bytes` object with a fixed length. The `bytes` object
+   * will be initialized with zero bytes.
+   *
+   * @param length the length of the `bytes` object to create.
+   * @return a new {@link PyBytes} instance with the specified length.
+   */
+  public PyBytes bytes(int length)
+  {
+    return backend.newBytesOfSize(length);
+  }
+
+  /**
+   * Decodes the contents of the `bytes` object using the specified encoding.
+   *
+   * Optionally, specific bytes can be deleted during decoding.
+   *
+   * @param encoding the encoding to use for decoding (e.g., "utf-8").
+   * @param delete the bytes to delete during decoding, or {@code null} for no
+   * deletion.
+   * @return a {@link PyObject} representing the decoded string.
+   */
+  public PyBytes bytesFromHex(CharSequence str)
+  {
+    return backend.bytesFromHex(str);
+  }
+
+  /**
+   * Creates a new Python `bytes` object from an iterable of Python objects.
+   *
+   * Each object in the iterable must be convertible to a byte.
+   *
+   * @param iterable the iterable containing {@link PyObject} instances to
+   * include in the `bytes` object.
+   * @return a new {@link PyBytes} instance containing the bytes derived from
+   * the iterable.
+   */
+  public PyBytes bytes(Iterable<PyObject> iterable)
+  {
+    return backend.newBytesFromIterator(iterable);
+  }
+
+  /**
+   * Creates a new Python `bytes` object from a {@link PyBuffer}.
+   *
+   * The buffer's contents will be used to initialize the `bytes` object.
+   *
+   * @param buffer the {@link PyBuffer} containing the data to populate the
+   * `bytes` object.
+   * @return a new {@link PyBytes} instance containing the bytes from the
+   * buffer.
+   */
+  public PyBytes bytes(PyBuffer buffer)
+  {
+    return backend.newBytesFromBuffer(buffer);
   }
 
   /**
@@ -109,9 +192,22 @@ public class PyBuiltIn
    * @param kwargs the keyword arguments for the callable.
    * @return the result of the callable execution as a {@link PyObject}.
    */
-  public static PyObject call(PyCallable obj, PyTuple args, PyDict kwargs)
+  public PyObject call(PyCallable obj, PyTuple args, PyDict kwargs)
   {
-    return backend().call(obj, args, kwargs);
+    return backend.call(obj, args, kwargs);
+  }
+
+  /**
+   * Creates a new Python `complex` number with the specified real and imaginary
+   * parts.
+   *
+   * @param real the real part of the complex number.
+   * @param imag the imaginary part of the complex number.
+   * @return a new {@link PyComplex} instance representing the complex number.
+   */
+  public PyComplex complex(double real, double imag)
+  {
+    return backend.newComplex(real, imag);
   }
 
   /**
@@ -120,14 +216,35 @@ public class PyBuiltIn
    * @param obj the Python object from which the attribute will be removed.
    * @param key the name of the attribute to delete.
    */
-  public static void delattr(PyObject obj, CharSequence key)
+  public void delattr(PyObject obj, CharSequence key)
   {
-    backend().delattrString(obj, key);
+    backend.delattrString(obj, key);
   }
 
-  public static PyDict dict()
+  public PyDict dict()
   {
-    return backend().newDict();
+    return backend.newDict();
+  }
+
+  public PyDict dictFromItems(Iterable<? extends Map.Entry<?, ?>> map)
+  {
+    return backend.newDictFromIterable(map);
+  }
+
+  /**
+   * Creates a new Python `dict` object from the specified Java {@link Map}.
+   *
+   * The keys in the provided map are converted to Python objects, and the
+   * values must already be instances of {@link PyObject}.
+   *
+   * @param map the Java {@link Map} whose entries will populate the Python
+   * `dict`. Keys are converted to Python objects, and values are expected to be
+   * {@link PyObject}.
+   * @return a new {@link PyDict} instance representing the Python dictionary.
+   */
+  public PyDict dictFromMap(Map<? extends Object, ? extends Object> map)
+  {
+    return backend.newDict(map);
   }
 
   /**
@@ -136,9 +253,9 @@ public class PyBuiltIn
    * @param obj the Python object to inspect.
    * @return a {@link PyList} containing the attribute names.
    */
-  public static PyList dir(PyObject obj)
+  public PyList dir(PyObject obj)
   {
-    return backend().dir(obj);
+    return backend.dir(obj);
   }
 
   /**
@@ -147,9 +264,9 @@ public class PyBuiltIn
    * @param obj the iterable to enumerate.
    * @return a new {@link PyEnumerate} instance.
    */
-  public static PyEnumerate enumerate(PyObject obj)
+  public PyEnumerate enumerate(PyObject obj)
   {
-    return backend().enumerate(obj);
+    return backend.enumerate(obj);
   }
 
   /**
@@ -158,9 +275,9 @@ public class PyBuiltIn
    * @param obj the Java iterable to enumerate.
    * @return a new {@link PyEnumerate} instance.
    */
-  public static PyEnumerate enumerate(Iterable obj)
+  public PyEnumerate enumerate(Iterable<?> obj)
   {
-    return backend().enumerate(obj);
+    return backend.enumerate(obj);
   }
 
   /**
@@ -171,9 +288,9 @@ public class PyBuiltIn
    * @param locals the local namespace as a {@link PyObject}.
    * @return the result of the evaluation as a {@link PyObject}.
    */
-  public static PyObject eval(CharSequence statement, PyDict globals, PyObject locals)
+  public PyObject eval(CharSequence statement, PyDict globals, PyObject locals)
   {
-    return backend().eval(statement, globals, locals);
+    return backend.eval(statement, globals, locals);
   }
 
   /**
@@ -183,11 +300,11 @@ public class PyBuiltIn
    * @param globals the global namespace as a {@link PyDict}.
    * @param locals the local namespace as a {@link PyMapping}.
    */
-  public static void exec(CharSequence statement, PyDict globals, PyMapping<?,?> locals)
+  public void exec(CharSequence statement, PyDict globals, PyMapping<?, ?> locals)
   {
-    backend().exec(statement, globals, locals);
+    backend.exec(statement, globals, locals);
   }
-  
+
   /**
    * Retrieves the value of an attribute from a Python object.
    *
@@ -195,19 +312,38 @@ public class PyBuiltIn
    * @param key the name of the attribute to retrieve.
    * @return the value of the attribute as a {@link PyObject}.
    */
-  public static PyObject getattr(PyObject obj, PyString key)
+  public PyObject getattr(PyObject obj, PyString key)
   {
-    return backend().getattr(obj, key);
+    return backend.getattr(obj, key);
   }
 
-  public static PyObject getattr(PyObject obj, CharSequence key)
+  public PyFrozenSet frozenset(Object c)
   {
-    return backend().getattr(obj, key);
+    return backend.frozenset(c);
   }
 
-  public static PyObject getattrDefault(PyObject obj, Object key, PyObject defaultValue)
+  /**
+   * Creates a new Python `frozenset` object from the specified
+   * {@link Iterable}.
+   *
+   * @param c the {@link Iterable} whose elements will be included in the
+   * `frozenset`.
+   * @return a new {@link PyFrozenSet} instance representing the Python
+   * `frozenset` object.
+   */
+  public PyFrozenSet frozensetFromIterable(Iterable<?> c)
   {
-    return backend().getattrDefault(obj, key, defaultValue);
+    return backend.newFrozenSet(c);
+  }
+
+  public PyObject getattr(PyObject obj, CharSequence key)
+  {
+    return backend.getattr(obj, key);
+  }
+
+  public PyObject getattrDefault(PyObject obj, Object key, PyObject defaultValue)
+  {
+    return backend.getattrDefault(obj, key, defaultValue);
   }
 
   /**
@@ -217,9 +353,9 @@ public class PyBuiltIn
    * @param key the name of the attribute to check.
    * @return {@code true} if the attribute exists, {@code false} otherwise.
    */
-  public static boolean hasattr(PyObject obj, CharSequence key)
+  public boolean hasattr(PyObject obj, CharSequence key)
   {
-    return backend().hasattrString(obj, key);
+    return backend.hasattrString(obj, key);
   }
 
   /**
@@ -229,9 +365,9 @@ public class PyBuiltIn
    * indices.
    * @return a new {@link PyTuple} instance containing the indices.
    */
-  public static PyTuple indices(PySubscript... indices)
+  public PyTuple indices(PySubscript... indices)
   {
-    return backend().newTupleFromArray(Arrays.asList(indices));
+    return backend.newTupleFromArray(Arrays.asList(indices));
   }
 
   /**
@@ -243,9 +379,9 @@ public class PyBuiltIn
    * @return {@code true} if the object matches any of the types, {@code false}
    * otherwise.
    */
-  public static boolean isinstance(Object obj, PyObject... types)
+  public boolean isinstance(Object obj, PyObject... types)
   {
-    return backend().isinstanceFromArray(obj, types);
+    return backend.isinstanceFromArray(obj, types);
   }
 
   /**
@@ -255,9 +391,9 @@ public class PyBuiltIn
    * @return a new {@link PyIter} instance representing the iterator.
    */
   @SuppressWarnings("unchecked")
-  public static <T extends PyObject> PyIter<T> iter(Object obj)
+  public <T extends PyObject> PyIter<T> iter(Object obj)
   {
-    PyIter<? extends PyObject> out = backend().iter(obj);
+    PyIter<? extends PyObject> out = backend.iter(obj);
     return (PyIter<T>) out;
   }
 
@@ -266,7 +402,7 @@ public class PyBuiltIn
    * interpreter backend.
    *
    * <p>
-   * This method is a static utility that provides access to the Python `len()`
+   * This method is a utility that provides access to the Python `len()`
    * function. It calculates the length of the given {@link PyObject} by
    * invoking the appropriate method in the Python interpreter. The behavior of
    * this method depends on the type of the Python object passed as an argument.
@@ -281,14 +417,14 @@ public class PyBuiltIn
    * @throws RuntimeException if the interpreter fails to compute the length or
    * if the object does not support `len()`
    */
-  public static int len(PyObject obj)
+  public int len(PyObject obj)
   {
-    return backend().len(obj);
+    return backend.len(obj);
   }
 
-  public static PyList list()
+  public PyList list()
   {
-    return backend().newList();
+    return backend.newList();
   }
 
   /**
@@ -297,9 +433,35 @@ public class PyBuiltIn
    * @param object is the object to be converted.
    * @return a new {@link PyObject} representing the Python list.
    */
-  public static PyList list(Object object)
+  public PyList list(Object object)
   {
-    return backend().list(object);
+    return backend.list(object);
+  }
+
+  /**
+   * Creates a new Python `list` object from the given {@link Iterable}.
+   *
+   * The elements of the provided iterable will be added to the Python list.
+   *
+   * @param c the {@link Iterable} whose elements will populate the new Python
+   * list.
+   * @return a new {@link PyList} instance containing the elements of the
+   * iterable.
+   */
+  public PyList listFromItems(Iterable<? extends Object> c)
+  {
+    return backend.newListFromIterable(c);
+  }
+
+  /**
+   * Creates a new Python `list` object from the given a list of objects.
+   *
+   * @param items is an array whose elements will populate the new Python list.
+   * @return a new {@link PyList} instance containing the elements.
+   */
+  public PyList listFromObjects(Object... items)
+  {
+    return backend.newListFromArray(items);
   }
 
   /**
@@ -308,9 +470,9 @@ public class PyBuiltIn
    * @param obj the object to convert into a memoryview.
    * @return a new {@link PyMemoryView} instance representing the memoryview.
    */
-  public static PyMemoryView memoryview(Object obj)
+  public PyMemoryView memoryview(Object obj)
   {
-    return backend().memoryview(obj);
+    return backend.memoryview(obj);
   }
 
   /**
@@ -321,13 +483,14 @@ public class PyBuiltIn
    * @return the next item as a {@link PyObject}, or the stop object if the
    * iterator is exhausted.
    */
-  public static PyObject next(PyIter iter, PyObject stop)
+  public PyObject next(PyIter iter, PyObject stop)
   {
-    return backend().next(iter, stop);
+    return backend.next(iter, stop);
   }
-  public static PyObject object()
+
+  public PyObject object()
   {
-    return backend().object();
+    return backend.object();
   }
 
   /**
@@ -336,9 +499,9 @@ public class PyBuiltIn
    * @param stop the endpoint of the range (exclusive).
    * @return a new {@link PyRange} instance representing the range.
    */
-  public static PyRange range(int stop)
+  public PyRange range(int stop)
   {
-    return backend().range(stop);
+    return backend.range(stop);
   }
 
   /**
@@ -348,9 +511,9 @@ public class PyBuiltIn
    * @param stop the endpoint of the range (exclusive).
    * @return a new {@link PyRange} instance representing the range.
    */
-  public static PyRange range(int start, int stop)
+  public PyRange range(int start, int stop)
   {
-    return backend().range(start, stop);
+    return backend.range(start, stop);
   }
 
   /**
@@ -361,9 +524,9 @@ public class PyBuiltIn
    * @param step the step size between elements in the range.
    * @return a new {@link PyRange} instance representing the range.
    */
-  public static PyRange range(int start, int stop, int step)
+  public PyRange range(int start, int stop, int step)
   {
-    return backend().range(start, stop, step);
+    return backend.range(start, stop, step);
   }
 
   /**
@@ -373,14 +536,26 @@ public class PyBuiltIn
    * @return a new {@link PyString} instance representing the string form of the
    * object.
    */
-  public static PyString repr(Object obj)
+  public PyString repr(Object obj)
   {
-    return backend().repr(obj);
+    return backend.repr(obj);
   }
 
-  public static PySet set()
+  public PySet set()
   {
-    return backend().newSet();
+    return backend.newSet();
+  }
+
+  /**
+   * Creates a new Python set from the elements of the given {@link Iterable}.
+   *
+   * @param c an iterable providing elements for the set
+   * @param <T> the getType of elements in the iterable
+   * @return a new {@code PySet} containing the elements from the iterable
+   */
+  public <T> PySet set(Iterable<T> c)
+  {
+    return backend.newSetFromIterable(c);
   }
 
   /**
@@ -390,13 +565,13 @@ public class PyBuiltIn
    * @param key the name of the attribute to set.
    * @param value the value to assign to the attribute.
    */
-  public static void setattr(PyObject obj, CharSequence key, Object value)
+  public void setattr(PyObject obj, CharSequence key, Object value)
   {
     // FIXME we may want special handling for String and Boxed types to 
     // ensure the type that appears is a Python one rather than a 
     // Java one especially on setattr in which the object is to be 
     // held in Python.
-    backend().setattrString(obj, key, value);
+    backend.setattrString(obj, key, value);
   }
 
   /**
@@ -407,9 +582,9 @@ public class PyBuiltIn
    * @param start the index of the element to slice on.
    * @return a new {@link PySlice} instance representing the slice.
    */
-  public static PySlice slice(int start)
+  public PySlice slice(int start)
   {
-    return backend().slice(start, start + 1, null);
+    return backend.slice(start, start + 1, null);
   }
 
   /**
@@ -423,9 +598,9 @@ public class PyBuiltIn
    * @param stop the ending index or {@code null}.
    * @return a new {@link PySlice} instance representing the slice.
    */
-  public static PySlice slice(Integer start, Integer stop)
+  public PySlice slice(Integer start, Integer stop)
   {
-    return backend().slice(start, stop, null);
+    return backend.slice(start, stop, null);
   }
 
   /**
@@ -441,9 +616,9 @@ public class PyBuiltIn
    * @param step the step size or {@code null}.
    * @return a new {@link PySlice} instance representing the slice.
    */
-  public static PySlice slice(Integer start, Integer stop, Integer step)
+  public PySlice slice(Integer start, Integer stop, Integer step)
   {
-    return backend().slice(start, stop, step);
+    return backend.slice(start, stop, step);
   }
 
   /**
@@ -455,21 +630,20 @@ public class PyBuiltIn
    * @return a new {@link PyString} instance representing the string form of the
    * object.
    */
-  public static PyString str(Object obj)
+  public PyString str(Object obj)
   {
-    return backend().str(obj);
+    return backend.str(obj);
   }
 
   /**
    * Creates an empty Python tuple.
    *
-   * @param args the objects to include in the tuple.
    * @param <T> the type of the objects.
    * @return a new {@link PyTuple} instance containing the objects.
    */
-  public static <T> PyTuple tuple()
+  public <T> PyTuple tuple()
   {
-    return backend().newTuple();
+    return backend.newTuple();
   }
 
   /**
@@ -479,9 +653,21 @@ public class PyBuiltIn
    * @param <T> the type of the objects.
    * @return a new {@link PyTuple} instance containing the objects.
    */
-  public static PyTuple tuple(Object... items)
+  public PyTuple tuple(Object... items)
   {
-    return backend().newTupleFromArray(Arrays.asList(items));
+    return backend.newTupleFromArray(Arrays.asList(items));
+  }
+
+  /**
+   * Creates a new {@code PyTuple} from an {@link Iterable}.
+   *
+   * @param values an iterator providing the elements to include in the tuple
+   * @param <T> the getType of elements in the iterator
+   * @return a new {@code PyTuple} containing the elements from the iterator
+   */
+  public <T> PyTuple tupleFromItems(Iterable<T> values)
+  {
+    return backend.newTupleFromIterator(values);
   }
 
   /**
@@ -490,9 +676,9 @@ public class PyBuiltIn
    * @param obj the object to inspect.
    * @return a {@link PyType} instance representing the type of the object.
    */
-  public static PyType type(Object obj)
+  public PyType type(Object obj)
   {
-    return backend().type(obj);
+    return backend.type(obj);
   }
 
   /**
@@ -508,14 +694,14 @@ public class PyBuiltIn
    * specified object
    * @throws NullPointerException if the provided object is {@code null}
    */
-  public static PyDict vars(Object obj)
+  public PyDict vars(Object obj)
   {
-    return backend().vars(obj);
+    return backend.vars(obj);
   }
-  
-  public static PyDict vars(PyObject obj)
+
+  public PyDict vars(PyObject obj)
   {
-    return backend().vars(obj);
+    return backend.vars(obj);
   }
 
   /**
@@ -526,13 +712,9 @@ public class PyBuiltIn
    * @param objects the iterable objects to zip.
    * @return a new {@link PyZip} instance representing the zipped generator.
    */
-  public static PyZip zip(Iterable... objects)
+  public PyZip zip(Iterable<?>... objects)
   {
-    return backend().zipFromIterable(Arrays.asList(objects));
-  }
-
-  protected PyBuiltIn()
-  {
+    return backend.zipFromIterable(Arrays.asList(objects));
   }
 
 }

@@ -19,7 +19,6 @@ package python.lang;
 import java.util.Iterator;
 import java.util.List;
 import org.jpype.annotation.Bypass;
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * Interface for Python-like objects that act as sequences.
@@ -37,7 +36,7 @@ public interface PySequence<T extends PyObject> extends PyCollection<T>, List<T>
   @Override
   default boolean contains(Object obj)
   {
-    return backend().contains(this, obj);
+    return builtin().backend.contains(this, obj);
   }
 
   /**
@@ -53,7 +52,7 @@ public interface PySequence<T extends PyObject> extends PyCollection<T>, List<T>
   @SuppressWarnings("unchecked")
   default T get(int index)
   {
-    return (T) backend().getitemSequence(this, index);
+    return (T) builtin().backend.getitemSequence(this, index);
   }
 
   /**
@@ -68,7 +67,7 @@ public interface PySequence<T extends PyObject> extends PyCollection<T>, List<T>
     @Bypass
   default PyObject get(PySubscript index)
   {
-    return backend().getitemMappingObject(this, index);
+    return builtin().backend.getitemMappingObject(this, index);
   }
 
   /**
@@ -87,7 +86,7 @@ public interface PySequence<T extends PyObject> extends PyCollection<T>, List<T>
     @Bypass
   default PyObject get(PySubscript... indices)
   {
-    return backend().getitemMappingObject(this, PyBuiltIn.indices(indices));
+    return builtin().backend.getitemMappingObject(this, builtin().indices(indices));
   }
 
     @Bypass
@@ -141,6 +140,6 @@ public interface PySequence<T extends PyObject> extends PyCollection<T>, List<T>
   @Override
   default int size()
   {
-    return backend().len(this);
+    return builtin().backend.len(this);
   }
 }

@@ -19,7 +19,6 @@ package python.lang;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import org.jpype.bridge.Interpreter;
-import static python.lang.PyBuiltIn.backend;
 import org.jpype.annotation.Bypass;
 
 /**
@@ -106,7 +105,7 @@ public interface PyIter<T> extends PyObject
   default Iterator<T> iterator()
   {
     // It is not clear if we should tee the iterator here or not.
-    //   return new PyIterator(backend().tee(this));    
+    //   return new PyIterator(backend.tee(this));    
     return new PyIterator<>(this);
   }
 
@@ -120,7 +119,7 @@ public interface PyIter<T> extends PyObject
    * @return the next element in the iterator.
    * @throws NoSuchElementException if the iterator has no more elements.
    * @implNote Internally, this method calls
-   * {@code backend().next(this, Interpreter.stop)} to fetch the next element.
+   * {@code backend.next(this, Interpreter.stop)} to fetch the next element.
    * If the backend returns the special {@code Interpreter.stop} object, it
    * indicates the end of the iteration.
    */
@@ -128,7 +127,7 @@ public interface PyIter<T> extends PyObject
   @Bypass
   default T next()
   {
-    PyObject out = backend().next(this, Interpreter.stop);
+    PyObject out =  builtin().backend.next(this, Interpreter.stop);
     if (out.equals(Interpreter.stop))
       throw new NoSuchElementException();
     return (T) out;
@@ -143,13 +142,13 @@ public interface PyIter<T> extends PyObject
    * @return the next element in the iterator, or the provided default value if
    * the iterator has no more elements.
    * @implNote Internally, this method calls
-   * {@code backend().next(this, defaults)} to fetch the next element.
+   * {@code backend.next(this, defaults)} to fetch the next element.
    */
     @Bypass
     @SuppressWarnings("unchecked")
   default T next(PyObject defaults)
   {
-    return (T) backend().next(this, defaults);
+    return (T) builtin().backend.next(this, defaults);
   }
 
   /**

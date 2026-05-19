@@ -20,7 +20,6 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import org.jpype.bridge.Backend;
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * A {@link Map}-like implementation for accessing and manipulating Python
@@ -68,7 +67,7 @@ public class PyAttributes implements Map<PyObject, PyObject>
   /**
    * Backend implementation for interacting with Python objects.
    */
-  private final Backend backend;
+  private final PyBuiltIn builtin;
 
   /**
    * Cached dictionary representation fromMap the object's attributes.
@@ -88,7 +87,7 @@ public class PyAttributes implements Map<PyObject, PyObject>
   public PyAttributes(PyObject obj)
   {
     this.obj = obj;
-    this.backend = backend();
+    this.builtin = obj.builtin();
   }
 
   /**
@@ -104,7 +103,7 @@ public class PyAttributes implements Map<PyObject, PyObject>
   public PyDict asDict()
   {
     if (this.dict == null)
-      this.dict = PyBuiltIn.vars(obj);
+      this.dict = builtin.vars(obj);
     return this.dict;
   }
 
@@ -132,7 +131,7 @@ public class PyAttributes implements Map<PyObject, PyObject>
    */
   public boolean contains(CharSequence key)
   {
-    return PyBuiltIn.hasattr(obj, key);
+    return builtin.hasattr(obj, key);
   }
 
   /**
@@ -156,7 +155,7 @@ public class PyAttributes implements Map<PyObject, PyObject>
   @Override
   public boolean containsValue(Object value)
   {
-    return PyBuiltIn.vars(this).containsValue(value);
+    return builtin.vars(this).containsValue(value);
   }
 
   /**
@@ -170,7 +169,7 @@ public class PyAttributes implements Map<PyObject, PyObject>
    */
   public PyList dir()
   {
-    return PyBuiltIn.dir(obj);
+    return builtin.dir(obj);
   }
 
   @Override
@@ -194,10 +193,10 @@ public class PyAttributes implements Map<PyObject, PyObject>
     if (key == null)
       return null;
     if (key instanceof CharSequence)
-      return PyBuiltIn.getattr(obj, (CharSequence) key);
+      return builtin.getattr(obj, (CharSequence) key);
     if (key instanceof PyString)
-      return PyBuiltIn.getattr(obj, (PyString) key);
-    return PyBuiltIn.getattr(obj, key.toString());
+      return builtin.getattr(obj, (PyString) key);
+    return builtin.getattr(obj, key.toString());
   }
 
   /**
@@ -217,7 +216,7 @@ public class PyAttributes implements Map<PyObject, PyObject>
   @Override
   public PyObject getOrDefault(Object key, PyObject defaultValue)
   {
-    return PyBuiltIn.getattrDefault(obj, key, defaultValue);
+    return builtin.getattrDefault(obj, key, defaultValue);
   }
 
   /**
@@ -252,7 +251,7 @@ public class PyAttributes implements Map<PyObject, PyObject>
   @Override
   public PyObject put(PyObject key, PyObject value)
   {
-    return backend.setattrReturn(obj, key, value);
+    return builtin.backend.setattrReturn(obj, key, value);
   }
 
   /**
@@ -266,7 +265,7 @@ public class PyAttributes implements Map<PyObject, PyObject>
   {
     for (Entry<? extends PyObject, ? extends PyObject> v : map.entrySet())
     {
-      backend.setitemFromObject(this.obj, v.getKey(), v.getValue());
+      builtin.backend.setitemFromObject(this.obj, v.getKey(), v.getValue());
     }
   }
 
@@ -279,7 +278,7 @@ public class PyAttributes implements Map<PyObject, PyObject>
   @Override
   public PyObject remove(Object key)
   {
-    return backend.delattrReturn(this.obj, key);
+    return builtin.backend.delattrReturn(this.obj, key);
   }
 
   /**

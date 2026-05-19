@@ -17,7 +17,6 @@
 package python.lang;
 
 import org.jpype.annotation.Bypass;
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * Java front-end interface for the concrete Python `bytearray` type.
@@ -28,60 +27,6 @@ import static python.lang.PyBuiltIn.backend;
  */
 public interface PyByteArray extends PyObject, PyBuffer, PySequence<PyInt>
 {
-
-  /**
-   * Creates a new Python bytearray with a fixed length.
-   *
-   * The bytearray will be initialized with zero bytes.
-   *
-   * @param length the length of the bytearray to create.
-   * @return a new {@link PyByteArray} instance with the specified length.
-   */
-  static PyByteArray create(int length)
-  {
-    return backend().newByteArrayOfSize(length);
-  }
-
-  /**
-   * Creates a new Python bytearray from a hexadecimal string. The input string
-   * must contain valid hexadecimal characters.
-   *
-   * @param str the hexadecimal string to convert into a bytearray.
-   * @return a new {@link PyByteArray} instance containing the bytes represented
-   * by the hex string.
-   */
-  static PyByteArray fromHex(CharSequence str)
-  {
-    return backend().bytearrayFromHex(str);
-  }
-
-  /**
-   * Creates a new Python bytearray from an iterable of Python objects. Each
-   * object in the iterable must be convertible to a byte.
-   *
-   * @param iter the iterable containing {@link PyObject} instances to include
-   * in the bytearray.
-   * @return a new {@link PyByteArray} instance containing the bytes derived
-   * from the iterable.
-   */
-  static PyByteArray of(Iterable<PyObject> iter)
-  {
-    return backend().newByteArrayFromIterable(iter);
-  }
-
-  /**
-   * Creates a new Python bytearray from a {@link PyBuffer}. The buffer's
-   * contents will be used to initialize the bytearray.
-   *
-   * @param bytes the {@link PyBuffer} containing the data to populate the
-   * bytearray.
-   * @return a new {@link PyByteArray} instance containing the bytes from the
-   * buffer.
-   */
-  static PyByteArray of(PyBuffer bytes)
-  {
-    return backend().newByteArrayFromBuffer(bytes);
-  }
 
   /**
    * Decodes a bytearray object into a Python string.
@@ -122,25 +67,25 @@ public interface PyByteArray extends PyObject, PyBuffer, PySequence<PyInt>
    */
   PyObject decode(PyObject encoding, PyObject errors);
 
-    @Bypass
+  @Bypass
   @Override
   default PyInt get(PySubscript... indices)
   {
     throw new IllegalArgumentException("bytearray does not support tuple assignment");
   }
 
-    @Bypass
+  @Bypass
   @Override
   default PyInt get(PySubscript index)
   {
-    return (PyInt) PyBuiltIn.backend().getitemMappingObject(this, index);
+    return (PyInt) builtin().backend.getitemMappingObject(this, index);
   }
 
-    @Bypass
+  @Bypass
   @Override
   default PyInt get(int index)
   {
-    return (PyInt) PyBuiltIn.backend().getitemSequence(this, index);
+    return (PyInt) builtin().backend.getitemSequence(this, index);
   }
 
   @Override
@@ -148,24 +93,24 @@ public interface PyByteArray extends PyObject, PyBuffer, PySequence<PyInt>
 
   void remove(PySubscript index);
 
-    @Bypass
+  @Bypass
   @Override
   default PyInt set(int index, PyInt value)
   {
-    return (PyInt) PyBuiltIn.backend().setitemSequence(this, index, value);
+    return (PyInt) builtin().backend.setitemSequence(this, index, value);
   }
 
-    @Bypass
+  @Bypass
   default void set(PySubscript index, PyObject values)
   {
-    PyBuiltIn.backend().setitemMapping(this, index, values);
+    builtin().backend.setitemMapping(this, index, values);
   }
 
-    @Bypass
+  @Bypass
   @Override
   default int size()
   {
-    return backend().len(this);
+    return builtin().backend.len(this);
   }
 
   /**

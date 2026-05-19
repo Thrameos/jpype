@@ -31,9 +31,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.logging.Level;
-import python.lang.PyObject;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
+import python.lang.PyBuiltIn;
+import python.lang.PyDict;
+import python.lang.PyObject;
 
 /**
  * Frontend for managing the Python interpreter within JPype.
@@ -100,6 +102,7 @@ public class Interpreter
    * Indicates whether the interpreter is active.
    */
   private boolean active = false;
+  private PyBuiltIn builtin;
   private boolean terminated = false;
 
   /**
@@ -148,7 +151,7 @@ public class Interpreter
    *
    * @return The {@link Backend} instance.
    */
-  public static Backend getBackend()
+  public Backend getBackend()
   {
     return backend;
   }
@@ -162,12 +165,13 @@ public class Interpreter
    *
    * @param entry The {@link Backend} instance to set.
    */
-  public static void setBackend(Backend entry)
+  public void setBackend(Backend entry)
   {
     if (backend != null)
       throw new RuntimeException("Backend reconfigured");
     LOGGER.log(Level.INFO, "Backend installed");
     backend = entry;
+    this.builtin = new InterpreterBuiltIn(backend);
 //    stop = backend.object();
   }
 
@@ -242,6 +246,16 @@ public class Interpreter
   public boolean isStarted()
   {
     return backend != null;
+  }
+
+  public Context newContext()
+  {
+    return new Context(this.backend);
+  }
+
+  public Context newContext(PyDict dict, PyObject locals)
+  {
+    return new Context(this.backend);
   }
 
   /**

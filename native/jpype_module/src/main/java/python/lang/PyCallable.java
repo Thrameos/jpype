@@ -21,7 +21,6 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.Future;
 import org.jpype.annotation.Bypass;
-import static python.lang.PyBuiltIn.backend;
 
 /**
  * Protocol for Python objects that act as callable entities.
@@ -63,7 +62,7 @@ public interface PyCallable extends PyObject
     @Bypass
   default PyObject call(PyTuple args, PyDict kwargs)
   {
-    return backend().call(this, args, kwargs);
+    return builtin().backend.call(this, args, kwargs);
   }
 
   /**
@@ -75,7 +74,7 @@ public interface PyCallable extends PyObject
     @Bypass
   default PyObject call(PyTuple args)
   {
-    return backend().call(this, args, null);
+    return builtin().backend.call(this, args, null);
   }
 
   /**
@@ -88,7 +87,7 @@ public interface PyCallable extends PyObject
     @Bypass
   default PyObject call(Object... args)
   {
-    return backend().call(this, PyTuple.of(args), null);
+    return builtin().backend.call(this, builtin().tuple(args), null);
   }
 
   /**
@@ -102,7 +101,7 @@ public interface PyCallable extends PyObject
     @Bypass
   default Future<PyObject> callAsync(PyTuple args, PyDict kwargs)
   {
-    return backend().callAsync(this, args, kwargs);
+    return builtin().backend.callAsync(this, args, kwargs);
   }
 
   /**
@@ -117,7 +116,7 @@ public interface PyCallable extends PyObject
     @Bypass
   default Future<PyObject> callAsyncWithTimeout(PyTuple args, PyDict kwargs, long timeout)
   {
-    return backend().callAsyncWithTimeout(this, args, kwargs, timeout);
+    return builtin().backend.callAsyncWithTimeout(this, args, kwargs, timeout);
   }
 
   /**
@@ -129,7 +128,8 @@ public interface PyCallable extends PyObject
     @Bypass
   default PyObject callWithKwargs(PyDict kwargs)
   {
-    return backend().call(this, PyTuple.of(), kwargs);
+    PyBuiltIn builtin = builtin();
+    return builtin.backend.call(this, builtin.tuple(), kwargs);
   }
 
   /**
@@ -142,7 +142,7 @@ public interface PyCallable extends PyObject
     @Bypass
   default String getDocString()
   {
-    return backend().getDocString(this);
+    return builtin().backend.getDocString(this);
   }
 
   /**
@@ -153,7 +153,7 @@ public interface PyCallable extends PyObject
     @Bypass
   default PyObject getSignature()
   {
-    return backend().getSignature(this);
+    return builtin().backend.getSignature(this);
   }
 
   /**
@@ -164,7 +164,7 @@ public interface PyCallable extends PyObject
     @Bypass
   default boolean isCallable()
   {
-    return backend().isCallable(this);
+    return builtin().backend.isCallable(this);
   }
 
   // Nested CallBuilder class documentation
@@ -178,6 +178,7 @@ public interface PyCallable extends PyObject
   public static class CallBuilder
   {
 
+    final PyBuiltIn builtin;
     final PyCallable callable;
     final ArrayList<Object> jargs = new ArrayList<>();
     final ArrayList<Map.Entry<Object, Object>> jkwargs = new ArrayList<>();
@@ -189,6 +190,7 @@ public interface PyCallable extends PyObject
      */
     public CallBuilder(PyCallable callable)
     {
+      this.builtin = callable.builtin();
       this.callable = callable;
     }
 
@@ -264,7 +266,7 @@ public interface PyCallable extends PyObject
      */
     public PyObject execute()
     {
-      return callable.call(PyTuple.fromItems(jargs), PyDict.fromItems(jkwargs));
+      return callable.call(builtin.tupleFromItems(jargs), builtin.dictFromItems(jkwargs));
     }
 
     /**
@@ -275,7 +277,7 @@ public interface PyCallable extends PyObject
      */
     public Future<PyObject> executeAsync()
     {
-      return callable.callAsync(PyTuple.fromItems(jargs), PyDict.fromItems(jkwargs));
+      return callable.callAsync(builtin.tupleFromItems(jargs), builtin.dictFromItems(jkwargs));
     }
 
     /**
@@ -287,7 +289,7 @@ public interface PyCallable extends PyObject
      */
     public Future<PyObject> executeAsync(long timeout)
     {
-      return callable.callAsyncWithTimeout(PyTuple.of(jargs), PyDict.fromItems(jkwargs), timeout);
+      return callable.callAsyncWithTimeout(builtin.tupleFromItems(jargs), builtin.dictFromItems(jkwargs), timeout);
     }
   }
 
