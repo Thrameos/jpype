@@ -498,10 +498,12 @@ def initializeResources():
     _jpype._type_classes[_jpype.JClass] = _jpype._java_lang_Class
     _jinit.runJVMInitializers()
 
-    _jpype.JClass('org.jpype.JPypeKeywords').setKeywords(
+    _jpype.JClass('org.jpype.internal.Keywords').setKeywords(
         list(_pykeywords._KEYWORDS))
 
-    _jpype.JPypeContext = _jpype.JClass('org.jpype.JPypeContext').getInstance()
+    print(type(_jpype.context()))
+
+    _jpype.JPypeContext = _jpype.context()
     _jpype.JPypeClassLoader = _jpype.JPypeContext.getClassLoader()
 
     _jbridge.initialize()
@@ -637,10 +639,10 @@ def getJVMVersion():
 class _JRuntime(object):
     # We need to redirect hooks so that we control the order
     def addShutdownHook(self, thread):
-        return _jpype.JClass("org.jpype.JPypeContext").getInstance().addShutdownHook(thread)
+        return _jpype.JPypeContext.addShutdownHook(thread)
 
     def removeShutdownHook(self, thread):
-        return _jpype.JClass("org.jpype.JPypeContext").getInstance().removeShutdownHook(thread)
+        return _jpype.JPypeContext.removeShutdownHook(thread)
 
 
 _jpype.JVMNotRunning = JVMNotRunning
