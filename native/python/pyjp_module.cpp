@@ -113,7 +113,6 @@ static void PyJPModule_clearResources(PyObject *module)
 	Py_CLEAR(st->cacheDict);
 	Py_CLEAR(st->cacheInterfacesDict);
 	Py_CLEAR(st->cacheMethodsDict);
-	Py_CLEAR(st->package_dict);
 
 	Py_CLEAR(st->abc_sequence);
 	Py_CLEAR(st->abc_mapping);
@@ -282,6 +281,7 @@ static int PyJPModule_clear(PyObject *module)
 	Py_CLEAR(st->class_magic);
 	Py_CLEAR(st->Py_JP_CALL);
 	Py_CLEAR(st->strings_dict);
+	Py_CLEAR(st->package_dict);
 	return 0;
 }
 

@@ -67,7 +67,6 @@ static PyObject *PyJPPackage_new(PyTypeObject *type, PyObject *args, PyObject *k
 		}
 	}
 
-printf("Done\n");
 	// Place in cache
 	PyDict_SetItem(st->package_dict, name, self);
 	return self;
