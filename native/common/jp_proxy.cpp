@@ -234,8 +234,8 @@ JPProxy::JPProxy(JPJavaFrame& frame, PyJPProxy* inst, JPClassList& intf, bool co
 	v_factory[1].l = ar;
 
 	// Corrected JNI call for the static method
-	jobject proxyType = frame.CallStaticObjectMethodA(
-		context->m_ProxyFactoryClass,
+	jobject proxyType = frame.CallObjectMethodA(
+		context->m_JavaProxyFactory,
 		context->m_ProxyFactory_getProxyTypeID, 
 		v_factory);
 

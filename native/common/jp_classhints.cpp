@@ -972,11 +972,11 @@ public:
 			if (match.frame->IsAssignableFrom(i->getJavaClass(), cls->getJavaClass()))
 			{
 				JP_TRACE("implicit proxy");
+				match.closure = proxy;
 				match.conversion = this;
 				return match.type = JPMatch::_implicit;
 			}
 		}
-		match.closure = proxy;
 		return match.type = JPMatch::_none;
 		JP_TRACE_OUT;
 	}

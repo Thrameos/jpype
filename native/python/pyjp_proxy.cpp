@@ -63,10 +63,9 @@ static PyObject *PyJPProxy_new(PyTypeObject *type, PyObject *args, PyObject *kwa
 		}
 		interfaces.push_back(cls);
 	}
-
-	JPContext* context = PyJPObject_getContext(intf[0].get());
-	self->m_State = context->modulestate;
-	JPJavaFrame frame = JPJavaFrame::outer(context);
+	auto* st = reinterpret_cast<PyJPModuleState*>(PyType_GetModuleState(type->tp_base));
+	self->m_State = st;
+	JPJavaFrame frame = JPJavaFrame::outer(st->context);
 
 	// 4 cases land here
 	//   @JImplements (None, None, actualIntf, True)
@@ -187,7 +186,11 @@ PyType_Spec PyJPProxySpec = {
 void PyJPProxy_initType(PyObject* module, PyJPModuleState* st)
 {
 	JPPyObject bases = JPPyTuple_Pack(&PyBaseObject_Type);
+#if PY_VERSION_HEX >= 0x030A0000
+	st->PyJPProxy_Type = (PyTypeObject*) PyType_FromModuleAndSpec(module, &PyJPProxySpec, bases.get());
+#else
 	st->PyJPProxy_Type = (PyTypeObject*) PyType_FromSpecWithBases(&PyJPProxySpec, bases.get());
+#endif
 	JP_PY_CHECK();
 	Py_INCREF((PyObject*) st->PyJPProxy_Type);
 	PyModule_AddObject(module, "_JProxy", (PyObject*) st->PyJPProxy_Type);
