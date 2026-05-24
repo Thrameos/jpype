@@ -368,7 +368,7 @@ public class NativeContext
   {
     synchronized (this.typeFactory)
     {
-      this.typeFactory.newWrapper(l);
+      this.typeFactory.newWrapper(this.contextAddress, l);
     }
   }
 

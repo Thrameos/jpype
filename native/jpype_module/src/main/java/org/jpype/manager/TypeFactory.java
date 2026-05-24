@@ -54,7 +54,7 @@ public interface TypeFactory
    *
    * @param cls A pointer to the Java class (JClass) to wrap.
    */
-  void newWrapper(long cls);
+  void newWrapper(long ctx, long cls);
 
   /**
    * Creates a JPArray class.

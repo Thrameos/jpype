@@ -32,7 +32,7 @@ public class TypeFactoryNative implements TypeFactory
   }
 
   @Override
-  public native void newWrapper(long cls);
+  public native void newWrapper(long ctx, long cls);
 
   @Override
   public native long defineArrayClass(

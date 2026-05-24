@@ -89,11 +89,11 @@ static PyObject* loadAttrFrom(PyObject* obj, const char* name)
 }
 
 // This must only deal with resources from loadResources
-static int PyJPModule_clearResources(PyObject *module)
+static void PyJPModule_clearResources(PyObject *module)
 {
 	PyJPModuleState *st = reinterpret_cast<PyJPModuleState*>(PyModule_GetState(module));
 	if (st == nullptr)
-		return 0;
+		return;
 	Py_CLEAR(st->JObject);
 	Py_CLEAR(st->JInterface);
 	Py_CLEAR(st->JArray);
@@ -145,7 +145,7 @@ void PyJPModule_loadResources(PyObject* module, PyJPModuleState *st)
 {
 	try
 	{
-		PyJPModule_clear(module);
+		PyJPModule_clearResources(module);
 
 		st->numpy_typepos = 0;
 		st->numpy_genericpos = 0;
@@ -257,6 +257,8 @@ static int PyJPModule_clear(PyObject *module)
 	if (st == nullptr)
 		return 0;
 
+	PyJPModule_clearResources(module);
+
 	// Clear type references
 	Py_CLEAR(st->PyJPClass_Type);
 	Py_CLEAR(st->PyJPObject_Type);
@@ -280,9 +282,6 @@ static int PyJPModule_clear(PyObject *module)
 	Py_CLEAR(st->class_magic);
 	Py_CLEAR(st->Py_JP_CALL);
 	Py_CLEAR(st->strings_dict);
-
-	
-
 	return 0;
 }
 
@@ -1219,7 +1218,6 @@ PyMODINIT_FUNC PyInit__jpype()
 	// Initialize module state
 	memset(st, 0, sizeof(PyJPModuleState));
 
-	st->context = new JPContext();
 	st->trace = 1;
 #ifdef JP_INSTRUMENTATION
 	st->fault_code = (uint32_t) -1;
@@ -1260,7 +1258,7 @@ PyMODINIT_FUNC PyInit__jpype()
 	PyJPPackage_initType(module, st);
 	PyJPChar_initType(module, st);
 
-
+	st->context = new JPContext(st);
 	return module;
 	JP_PY_CATCH(nullptr); // GCOVR_EXCL_LINE
 }

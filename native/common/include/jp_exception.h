@@ -150,6 +150,7 @@ public:
 	// This one is called only when there was a Java exception set which captures the context
 	void convertJavaToPython();
 	void convertPythonToJava(JPJavaFrame& frame);
+	string toString();
 
 	/** Transfer handling of this exception to python.
 	 *

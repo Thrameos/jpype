@@ -291,6 +291,14 @@ void JPypeException::convertPythonToJava(JPJavaFrame& frame)
 		}
 	}
 
+	if (!context->isRunning())
+	{
+		JPPyObject v_repr = JPPyObject::claim(PyObject_Repr(exc.get()));
+		const char* msg = v_repr.isValid() ? PyUnicode_AsUTF8(v_repr.get()) : "Undetermined error";
+		fail(frame, msg);
+		return;
+	}
+
 #if 1
 	JPPyObject c_repr = JPPyObject::claim(PyObject_Repr((PyObject*) Py_TYPE(exc.get())));
 	JPPyObject v_repr = JPPyObject::claim(PyObject_Repr(exc.get()));
@@ -304,8 +312,8 @@ void JPypeException::convertPythonToJava(JPJavaFrame& frame)
 	PyObject* pyexc_convert_fn = context->m_PyExcConvert; 
 	if (pyexc_convert_fn == nullptr)
 	{
-		JPPyObject c_repr = JPPyObject::claim(PyObject_Repr((PyObject*) Py_TYPE(exc.get())));
-		const char* msg = c_repr.isValid() ? PyUnicode_AsUTF8(v_repr.get()) : "Undetermined error";
+		JPPyObject v_repr = JPPyObject::claim(PyObject_Repr(exc.get()));
+		const char* msg = v_repr.isValid() ? PyUnicode_AsUTF8(v_repr.get()) : "Undetermined error";
 		fail(frame, msg);
 		return;
 	}
@@ -316,8 +324,8 @@ void JPypeException::convertPythonToJava(JPJavaFrame& frame)
 	if (proxy_res.isNull())
 	{
 		// If Python code raises an unhandled exception during conversion, it's trapped here
-		JPPyObject c_repr = JPPyObject::claim(PyObject_Repr((PyObject*) Py_TYPE(exc.get())));
-		const char* msg = c_repr.isValid() ? PyUnicode_AsUTF8(v_repr.get()) : "Undetermined error";
+		JPPyObject v_repr = JPPyObject::claim(PyObject_Repr(exc.get()));
+		const char* msg = v_repr.isValid() ? PyUnicode_AsUTF8(v_repr.get()) : "Undetermined error";
 		fail(frame, msg);
 		return;
 	}
@@ -348,7 +356,25 @@ void JPypeException::convertPythonToJava(JPJavaFrame& frame)
 	JP_TRACE_OUT;
 }
 
+string JPypeException::toString()
+{
+	const char* mesg = what();
+	if (m_Type == JPError::_java_error)
+	{
+		if (m_Throwable != 0)
+		{
+			return string(mesg) + ": java throwable";
+		}
+		return mesg;
+	}
 
+	if (m_Type == JPError::_python_error)
+	{
+		return string(mesg) + ": python exception";
+	}
+
+	return mesg;
+}
 
 void JPypeException::toPython()
 {

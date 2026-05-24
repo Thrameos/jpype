@@ -51,8 +51,7 @@ JPClass::JPClass(JPJavaFrame& frame,
 
 JPClass::~JPClass() 
 {
-	if (m_Class != nullptr && m_Context->isRunning())
-		m_Context->getEnv()->DeleteGlobalRef(m_Class);
+	m_Context->tryRelease(m_Class);
 }
 
 void JPClass::setHost(PyObject* host)
@@ -367,6 +366,7 @@ JPPyObject JPClass::convertToPythonObject(JPJavaFrame& frame, jvalue value, bool
 
 	if (isThrowable())
 	{
+printf("Throwable\n");
 		JPPyObject tuple0;
 		if (value.l == nullptr)
 		{
@@ -385,6 +385,7 @@ JPPyObject JPClass::convertToPythonObject(JPJavaFrame& frame, jvalue value, bool
 			}
 		}
 		PyJPModuleState* st = frame.getContext()->modulestate;
+printf("St=%p\n", st);
 		JPPyObject tuple1 = JPPyTuple_Pack(st->JObjectKey, tuple0.get());
 		// Exceptions need new and init
 		obj = JPPyObject::call(PyObject_Call(wrapper.get(), tuple1.get(), nullptr));

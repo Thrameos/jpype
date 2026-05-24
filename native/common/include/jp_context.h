@@ -65,7 +65,7 @@ public:
     friend class JPypeException;
     friend class JPClass;
 
-    JPContext();
+    JPContext(PyJPModuleState *state);
     virtual ~JPContext();
     JPContext(const JPContext& orig) = delete;
 
@@ -230,6 +230,8 @@ public:
     // This will gather C++ resources to clean up after shutdown.
     std::list<JPResource*> m_Resources;
     PyObject* m_PyExcConvert{};
+
+	void tryRelease(jobject obj) ;
 };
 
 extern void JPRef_failed();

@@ -154,6 +154,8 @@ PyObject* JPPyObject::keep()
 	// management system.  It should never be triggered by the user.
 	if (m_PyObject == nullptr)
 	{
+		int *i=0;
+		*i=0;
 		JP_RAISE(PyExc_SystemError, "Attempt to keep null reference"); // GCOVR_EXCL_LINE
 	}
 	JP_TRACE_PY("pyref keep ", m_PyObject);

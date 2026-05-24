@@ -409,6 +409,7 @@ void PyJPMethod_initType(PyObject* module, PyJPModuleState* st)
 	st->PyJPMethod_Type = (PyTypeObject*) PyType_FromSpecWithBases(&methodSpec, tuple.get());
 	PyFunction_Type.tp_flags = flags;
 	JP_PY_CHECK();
+	printf("SETUP METHOD %p %p\n", st, st->PyJPMethod_Type);
 
 	Py_INCREF((PyObject*) st->PyJPMethod_Type);
 	PyModule_AddObject(module, "_JMethod", (PyObject*) st->PyJPMethod_Type);
@@ -419,6 +420,7 @@ JPPyObject PyJPMethod_create(JPJavaFrame& frame, JPMethodDispatch *m, PyObject *
 {
 	JP_TRACE_IN("PyJPMethod_create");
 	auto* PyJPMethod_Type = frame.getContext()->modulestate->PyJPMethod_Type;
+	printf("METHOD ctx=%p st=%p %p %p %p\n", frame.getContext(), frame.getContext()->modulestate, m, instance, PyJPMethod_Type);
 	auto* self = (PyJPMethod*) (PyJPMethod_Type->tp_alloc(PyJPMethod_Type, 0));
 	JP_PY_CHECK();
 	self->m_Method = m;

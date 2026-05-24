@@ -395,7 +395,7 @@ public class TypeFactoryHarness implements TypeFactory, TypeAudit
 //<editor-fold desc="inner" defaultstate="collapsed">
 
   @Override
-  public void newWrapper(long cls)
+  public void newWrapper(long ctx, long cls)
   {
   }
 

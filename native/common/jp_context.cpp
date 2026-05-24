@@ -44,15 +44,15 @@ void JPRef_failed()
 {
 	JP_RAISE(PyExc_SystemError, "NULL context in JPRef()");
 }
-JPContext::JPContext()
+JPContext::JPContext(PyJPModuleState *state)
 {
     // --- State and Flags ---
+	modulestate = state;
     m_Running = false;
     m_ConvertStrings = false;
     m_Embedded = false;
 
     // --- Core Services & Framework ---
-    modulestate = nullptr;
     m_JavaVM = nullptr;
     m_TypeManager = nullptr;
     m_ClassLoader = nullptr;
@@ -359,7 +359,6 @@ std::string getShared()
 void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 {
 	printf("Initialize Resources\n");
-	m_Running = true;
 	JPJavaFrame frame = JPJavaFrame::external(env, this);
 	// This is the only frame that we can use until the system
 	// is initialized.  Any other frame creation will result in an error.
@@ -545,6 +544,7 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 	// ========================================================================
 	// JNI Wrapper Hooks
 	// ========================================================================
+	printf("Initialize JNI Wrapper Hooks\n");
 	jclass wrapperClass = getClassLoader()->findClass(frame, "python.lang.PyJavaObject");
 	m_PyJavaObjectClass = (jclass) frame.NewGlobalRef(wrapperClass);
 	m_PyJavaObject_wrap = frame.GetStaticMethodID(
@@ -552,7 +552,9 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 		"wrap",
 		"(Ljava/lang/Object;)Ljava/lang/Object;");
 
-	m_GC->init(frame);
+	printf("GC initialization\n");
+	// FIXME this depends on resources that are not initialized until jpype module is initialized, so we need to delay this until then.  We should probably move the GC initialization to the module init code instead of the context init code.
+	//m_GC->init(frame);
 
 	//_java_nio_ByteBuffer = (jclass) frame.NewGlobalRef(frame.findClassByName("java.nio.ByteBuffer"));
 
@@ -560,6 +562,8 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 	// FIXME find a way to call this from instrumentation.
 	// throw std::runtime_error("Failed");
 	// Everything is started.
+	printf("Initialization complete\n");
+	m_Running = true;
 }
 
 void JPContext::onShutdown()
@@ -586,6 +590,7 @@ void JPContext::shutdownJVM(bool destroyJVM, bool freeJVM)
 	}
 
 	// unload the jvm library
+	m_Running = false;
 	if (freeJVM)
 	{
 		JP_TRACE("Unload JVM");
@@ -675,6 +680,17 @@ JNIEnv* JPContext::getEnv()
 		}
 	}
 	return env;
+}
+
+void JPContext::tryRelease(jobject obj) 
+{
+	if (obj == nullptr || m_JavaVM == nullptr || !m_Running)
+		return;
+	JNIEnv* env = nullptr;
+	jint res = m_JavaVM->functions->GetEnv(m_JavaVM, (void**) &env, USE_JNI_VERSION);
+	if (res == JNI_EDETACHED)
+		return;
+	env->DeleteGlobalRef(obj);
 }
 
 extern "C" JNIEXPORT void JNICALL Java_org_jpype_JPypeContext_onShutdown
