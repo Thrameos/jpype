@@ -26,8 +26,8 @@ class Half
 {
 public:
 	static jvalue convert(void* c)
-    {
-        uint16_t i = *(uint16_t*) c;
+	{
+		uint16_t i = *(uint16_t*) c;
 		uint32_t sign = (i&0x8000)>>15;
 		uint32_t exp  = (i&0x7C00)>>10;
 		uint32_t frac = (i&0x03ff);

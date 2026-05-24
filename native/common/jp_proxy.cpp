@@ -326,13 +326,13 @@ JPPyObject JPProxyIndirectAttr::getCallable(JPContext* context, PyObject* name, 
 
 JPPyObject JPProxyIndirectDict::getCallable(JPContext* context, PyObject* name, int& addSelf)
 {
-    JPPyObject out = JPPyObject::use(PyDict_GetItem(m_Instance->m_Dispatch, name));
+	JPPyObject out = JPPyObject::use(PyDict_GetItem(m_Instance->m_Dispatch, name));
 	if (!out.isNull())
-    {
-        addSelf = (m_Instance->m_Dispatch != m_Instance->m_Target) && (m_Instance->m_Target != Py_None);
-        return out;
-    }
-    return JPPyObject::accept(PyObject_GetAttr((PyObject*) m_Instance, name));
+	{
+		addSelf = (m_Instance->m_Dispatch != m_Instance->m_Target) && (m_Instance->m_Target != Py_None);
+		return out;
+	}
+	return JPPyObject::accept(PyObject_GetAttr((PyObject*) m_Instance, name));
 }
 
 JPProxyFunctional::JPProxyFunctional(JPJavaFrame& frame, PyJPProxy* inst, JPClassList& intf)

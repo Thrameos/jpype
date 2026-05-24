@@ -289,14 +289,6 @@ int PyJPClass_init(PyObject *self, PyObject *args, PyObject *kwargs)
 	JP_PY_TRY("PyJPClass_init");
 	if (!PyJPClass_Check(self))
 	{
-PyTypeObject* type = (PyTypeObject*) self;
-printf("self %s\n", type->tp_name);
-printf("  alloc %p %p \n", type->tp_alloc, PyJPValue_alloc);
-printf("  finalize %p %p \n", type->tp_finalize, PyJPValue_finalize);
-printf("  init %p %p \n", type->tp_init, PyJPClass_init);
-printf("  dealloc %p %p \n", type->tp_dealloc, PyJPClass_dealloc);
-printf("  traverse %p %p \n", type->tp_traverse, PyJPClass_traverse);
-printf("  clear %p %p \n", type->tp_clear, PyJPClass_clear);
 		PyErr_SetString(PyExc_TypeError, "Type incorrect");
 		return -1;
 	}
@@ -1079,15 +1071,15 @@ static PyType_Spec classSpec = {
 
 void PyJPClass_initType(PyObject* module, PyJPModuleState* st)
 {
-    JPPyObject bases = JPPyTuple_Pack(&PyType_Type);
+	JPPyObject bases = JPPyTuple_Pack(&PyType_Type);
 #if PY_VERSION_HEX >= 0x030A0000
-    st->PyJPClass_Type = (PyTypeObject*) PyType_FromModuleAndSpec(module, &classSpec, bases.get());
+	st->PyJPClass_Type = (PyTypeObject*) PyType_FromModuleAndSpec(module, &classSpec, bases.get());
 #else
-    st->PyJPClass_Type = (PyTypeObject*) PyType_FromSpecWithBases(&classSpec, bases.get());
+	st->PyJPClass_Type = (PyTypeObject*) PyType_FromSpecWithBases(&classSpec, bases.get());
 #endif
-    JP_PY_CHECK();
-    PyModule_AddObject(module, "_JClass", (PyObject*) st->PyJPClass_Type);
-    JP_PY_CHECK();
+	JP_PY_CHECK();
+	PyModule_AddObject(module, "_JClass", (PyObject*) st->PyJPClass_Type);
+	JP_PY_CHECK();
 }
 
 /** This operates on both PyJPObject and PyJPClass */
@@ -1206,7 +1198,6 @@ JPPyObject PyJPClass_create(JPJavaFrame &frame, JPClass* cls)
 	auto *host = (PyObject*) cls->getHost();
 	if (host == nullptr)
 	{
-		printf("New wrapper %p %p\n", frame.getContext(), cls);
 		frame.newWrapper(cls);
 		host = (PyObject*) cls->getHost();
 	}
@@ -1216,10 +1207,7 @@ JPPyObject PyJPClass_create(JPJavaFrame &frame, JPClass* cls)
 
 void PyJPClass_hook(JPJavaFrame &frame, JPClass* cls)
 {
-	try {
 	JPContext *context = frame.getContext();
-printf("Context %p %p \n", context, cls);
-printf("Hook %s\n", cls->getName(frame).c_str());
 	auto *host = (PyObject*) cls->getHost();
 	if (host != nullptr)
 		return;
@@ -1236,7 +1224,6 @@ printf("Hook %s\n", cls->getName(frame).c_str());
 	if (host != nullptr)
 		return;
 
-printf("preflight\n");
 	const JPFieldList & instFields = cls->getFields();
 	for (auto instField : instFields)
 	{
@@ -1264,11 +1251,9 @@ printf("preflight\n");
 
 	// Call the customizer to make any required changes to the tables.
 	JP_TRACE("call pre");
-printf("call pre\n");
 	JPPyObject rc = JPPyObject::call(PyObject_Call(context->modulestate->JClassPre, args.get(), nullptr));
 
 	JP_TRACE("type new");
-printf("type new\n");
 	PyJPModuleState* st = frame.getContext()->modulestate;
 	// Create the type using the meta class magic
 	JPPyObject vself = JPPyObject::call(st->PyJPClass_Type->tp_call((PyObject*) st->PyJPClass_Type, rc.get(), st->class_magic));
@@ -1281,19 +1266,13 @@ printf("type new\n");
 			(jobject) self->m_Class->getJavaClass()));
 
 	// Attach the cache  (adds reference, thus wrapper lives to end of JVM)
-printf("set host\n");
 	JP_TRACE("set host");
 	cls->setHost((PyObject*) self);
 
 	// Call the post load routine to attach inner classes
-printf("call post\n");
 	JP_TRACE("call post");
 	args = JPPyTuple_Pack(self);
 	JPPyObject rc2 = JPPyObject::call(PyObject_Call(context->modulestate->JClassPost, args.get(), nullptr));
-	} catch (JPypeException& ex)
-	{
-		printf("Exception: %s\n", ex.toString().c_str());
-  	}
 }
 
 #ifdef __cplusplus

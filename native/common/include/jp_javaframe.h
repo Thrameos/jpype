@@ -192,8 +192,8 @@ public:
 	JPClass *findClassByName(const string& name);
 	JPClass *findClassForObject(jobject obj);
 
-    // not implemented
-    JPJavaFrame& operator= (const JPJavaFrame& frame) = delete;
+	// not implemented
+	JPJavaFrame& operator= (const JPJavaFrame& frame) = delete;
 
 private:
 	jint PushLocalFrame(jint);

@@ -62,8 +62,8 @@ public:
 
 	jobject getJavaObject() const;
 
-    // Cast operators to jvalue.
-    // TODO: these could be explicit too, right?
+	// Cast operators to jvalue.
+	// TODO: these could be explicit too, right?
 	operator jvalue&()
 	{
 		return m_Value;
@@ -74,7 +74,7 @@ public:
 		return m_Value;
 	}
 
-    // TODO: never used.
+	// TODO: never used.
 	JPValue& global(JPJavaFrame& frame)
 	{
 		m_Value.l = frame.NewGlobalRef(m_Value.l);

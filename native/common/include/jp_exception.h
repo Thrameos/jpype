@@ -43,7 +43,7 @@
 #ifndef __FUNCTION_NAME__
 #ifdef WIN32   //WINDOWS
 #define __FUNCTION_NAME__   __FUNCTION__
-#else          //*NIX
+#else		  //*NIX
 #define __FUNCTION_NAME__   __func__
 #endif
 #endif
@@ -77,13 +77,13 @@ _os_error_windows,
 
 // Now you can use standard string compile-time merging!
 #define ASSERT_NOT_NULL(X, Location) \
-    do { \
-        if ((X) == nullptr) { \
-            PyErr_SetString(PyExc_RuntimeError, \
-                "Null Pointer Exception at " Location " (" #X " is null) [" __FILE__ ":" TO_STRING(__LINE__) "]"); \
-            JP_RAISE_PYTHON(); \
-        } \
-    } while (0)
+	do { \
+		if ((X) == nullptr) { \
+			PyErr_SetString(PyExc_RuntimeError, \
+				"Null Pointer Exception at " Location " (" #X " is null) [" __FILE__ ":" TO_STRING(__LINE__) "]"); \
+			JP_RAISE_PYTHON(); \
+		} \
+	} while (0)
 
 // Macro to add stack trace info when multiple paths lead to the same trouble spot
 #define JP_CATCH catch (JPypeException& ex) { ex.from(JP_STACKINFO()); throw; }
@@ -121,8 +121,8 @@ using JPStackTrace = vector<JPStackInfo>;
 
 typedef union
 {
-    int  i;
-    void*  l;
+	int  i;
+	void*  l;
 } JPErrorUnion;
 
 /**
@@ -139,9 +139,9 @@ public:
 	JPypeException(int type, void* error, const JPStackInfo& stackInfo);
 	JPypeException(int type, void* error, const string& msn, const JPStackInfo& stackInfo);
 	JPypeException(int type, const string& msn, int error, const JPStackInfo& stackInfo);
-    // The copy constructor for an object thrown as an exception must be declared noexcept, including any implicitly-defined copy constructors.
-    // Any function declared noexcept that terminates by throwing an exception violates ERR55-CPP. Honor exception specifications.
-    JPypeException(const JPypeException &ex) noexcept;
+	// The copy constructor for an object thrown as an exception must be declared noexcept, including any implicitly-defined copy constructors.
+	// Any function declared noexcept that terminates by throwing an exception violates ERR55-CPP. Honor exception specifications.
+	JPypeException(const JPypeException &ex) noexcept;
 	JPypeException& operator = (const JPypeException& ex);
 	~JPypeException() override;
 

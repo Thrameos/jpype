@@ -3,7 +3,7 @@
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-        http://www.apache.org/licenses/LICENSE-2.0
+		http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,7 +34,7 @@ struct PyJPModuleState;
  *  - Java context is shared with all objects that exist in a virtual machine.
  *  - Java environment exists for each thread for each machine.
  *  - Java frames exist in the stack holding the local variables that
- *    method.
+ *	method.
  * Frames and Environments should never be held longer than the duration of
  * a method.
  *
@@ -61,175 +61,175 @@ struct PyJPModuleState;
 class JPContext
 {
 public:
-    friend class JPJavaFrame;
-    friend class JPypeException;
-    friend class JPClass;
+	friend class JPJavaFrame;
+	friend class JPypeException;
+	friend class JPClass;
 
-    JPContext(PyJPModuleState *state);
-    virtual ~JPContext();
-    JPContext(const JPContext& orig) = delete;
+	JPContext(PyJPModuleState *state);
+	virtual ~JPContext();
+	JPContext(const JPContext& orig) = delete;
 
-    // JVM control functions
-    bool isRunning();
-    void startJVM(const string& vmPath, const StringVector& args,
-            bool ignoreUnrecognized, bool convertStrings, bool interrupt);
-    void attachJVM(JNIEnv* env);
-    void detachJVM();
-    void initializeResources(JNIEnv* env, bool interrupt);
-    void shutdownJVM(bool destroyJVM, bool freeJVM);
-    void attachCurrentThread();
-    void attachCurrentThreadAsDaemon();
-    bool isThreadAttached();
-    void detachCurrentThread();
+	// JVM control functions
+	bool isRunning();
+	void startJVM(const string& vmPath, const StringVector& args,
+			bool ignoreUnrecognized, bool convertStrings, bool interrupt);
+	void attachJVM(JNIEnv* env);
+	void detachJVM();
+	void initializeResources(JNIEnv* env, bool interrupt);
+	void shutdownJVM(bool destroyJVM, bool freeJVM);
+	void attachCurrentThread();
+	void attachCurrentThreadAsDaemon();
+	bool isThreadAttached();
+	void detachCurrentThread();
 
-    PyJPModuleState *modulestate;
+	PyJPModuleState *modulestate;
 
-    JNIEnv* getEnv();
-    JavaVM* getJavaVM()
-    {
-        return m_JavaVM;
-    }
+	JNIEnv* getEnv();
+	JavaVM* getJavaVM()
+	{
+		return m_JavaVM;
+	}
 
-    jobject getJavaContext()
-    {
-        return m_JavaContext;
-    }
+	jobject getJavaContext()
+	{
+		return m_JavaContext;
+	}
 
-    /** Release a global reference checking for shutdown.
-     *
-     * This should be used in any calls to release resources from a destructor.
-     * It cannot fail even if the JVM is no longer operating.
-     */
-    void ReleaseGlobalRef(jobject obj);
+	/** Release a global reference checking for shutdown.
+	 *
+	 * This should be used in any calls to release resources from a destructor.
+	 * It cannot fail even if the JVM is no longer operating.
+	 */
+	void ReleaseGlobalRef(jobject obj);
 
-    // JPype services
-    JPTypeManager* getTypeManager()
-    {
-        return m_TypeManager;
-    }
+	// JPype services
+	JPTypeManager* getTypeManager()
+	{
+		return m_TypeManager;
+	}
 
-    JPClassLoader* getClassLoader()
-    {
-        return m_ClassLoader;
-    }
+	JPClassLoader* getClassLoader()
+	{
+		return m_ClassLoader;
+	}
 
-    bool getConvertStrings() const
-    {
-        return m_ConvertStrings;
-    }
+	bool getConvertStrings() const
+	{
+		return m_ConvertStrings;
+	}
 
-    // Java type resources
-    JPPrimitiveType* _void{};
-    JPPrimitiveType* _boolean{};
-    JPPrimitiveType* _byte{};
-    JPPrimitiveType* _char{};
-    JPPrimitiveType* _short{};
-    JPPrimitiveType* _int{};
-    JPPrimitiveType* _long{};
-    JPPrimitiveType* _float{};
-    JPPrimitiveType* _double{};
+	// Java type resources
+	JPPrimitiveType* _void{};
+	JPPrimitiveType* _boolean{};
+	JPPrimitiveType* _byte{};
+	JPPrimitiveType* _char{};
+	JPPrimitiveType* _short{};
+	JPPrimitiveType* _int{};
+	JPPrimitiveType* _long{};
+	JPPrimitiveType* _float{};
+	JPPrimitiveType* _double{};
 
-    JPBoxedType* _java_lang_Void{};
-    JPBoxedType* _java_lang_Boolean{};
-    JPBoxedType* _java_lang_Byte{};
-    JPBoxedType* _java_lang_Character{};
-    JPBoxedType* _java_lang_Short{};
-    JPBoxedType* _java_lang_Integer{};
-    JPBoxedType* _java_lang_Long{};
-    JPBoxedType* _java_lang_Float{};
-    JPBoxedType* _java_lang_Double{};
+	JPBoxedType* _java_lang_Void{};
+	JPBoxedType* _java_lang_Boolean{};
+	JPBoxedType* _java_lang_Byte{};
+	JPBoxedType* _java_lang_Character{};
+	JPBoxedType* _java_lang_Short{};
+	JPBoxedType* _java_lang_Integer{};
+	JPBoxedType* _java_lang_Long{};
+	JPBoxedType* _java_lang_Float{};
+	JPBoxedType* _java_lang_Double{};
 
-    JPClass* _java_lang_Object{};
-    JPClass* _java_lang_Class{};
-    JPClass* _java_lang_reflect_Field{};
-    JPClass* _java_lang_reflect_Method{};
-    JPClass* _java_lang_Throwable{};
-    JPStringType* _java_lang_String{};
-    //JPClass* _java_nio_ByteBuffer{};
-    JPClass* _python_lang_PyObject{};
+	JPClass* _java_lang_Object{};
+	JPClass* _java_lang_Class{};
+	JPClass* _java_lang_reflect_Field{};
+	JPClass* _java_lang_reflect_Method{};
+	JPClass* _java_lang_Throwable{};
+	JPStringType* _java_lang_String{};
+	//JPClass* _java_nio_ByteBuffer{};
+	JPClass* _python_lang_PyObject{};
 
 private:
 
 	// Launch facilities
-    void loadEntryPoints(const string& path);
-    jint(JNICALL * CreateJVM_Method)(JavaVM **pvm, void **penv, void *args){};
-    jint(JNICALL * GetCreatedJVMs_Method)(JavaVM **pvm, jsize size, jsize * nVms){};
-    jint(JNICALL * GetDefaultJavaVMInitArgs_Method)(void *args){};
-    JavaVM *m_JavaVM{};
+	void loadEntryPoints(const string& path);
+	jint(JNICALL * CreateJVM_Method)(JavaVM **pvm, void **penv, void *args){};
+	jint(JNICALL * GetCreatedJVMs_Method)(JavaVM **pvm, jsize size, jsize * nVms){};
+	jint(JNICALL * GetDefaultJavaVMInitArgs_Method)(void *args){};
+	JavaVM *m_JavaVM{};
 
-    // Services
-    JPTypeManager *m_TypeManager{};
-    JPClassLoader *m_ClassLoader{};
+	// Services
+	JPTypeManager *m_TypeManager{};
+	JPClassLoader *m_ClassLoader{};
 
 public:
-    jclass m_RuntimeException;
-    jclass m_Array;
+	jclass m_RuntimeException;
+	jclass m_Array;
 
-    // Java Functions
-    jmethodID m_Array_NewInstanceID{};
-    jmethodID m_Buffer_IsReadOnlyID{};
-    jmethodID m_Buffer_AsReadOnlyID{};
-    jmethodID m_Class_GetNameID{};
-    jmethodID m_CompareToID{};
-    jmethodID m_Object_ToStringID{};
-    jmethodID m_Object_EqualsID{};
-    jmethodID m_Object_HashCodeID{};
-    jmethodID m_Object_GetClassID{};
-    jmethodID m_String_ToCharArrayID{};
-    jmethodID m_Throwable_GetCauseID{};
-    jmethodID m_Throwable_GetMessageID{};
+	// Java Functions
+	jmethodID m_Array_NewInstanceID{};
+	jmethodID m_Buffer_IsReadOnlyID{};
+	jmethodID m_Buffer_AsReadOnlyID{};
+	jmethodID m_Class_GetNameID{};
+	jmethodID m_CompareToID{};
+	jmethodID m_Object_ToStringID{};
+	jmethodID m_Object_EqualsID{};
+	jmethodID m_Object_HashCodeID{};
+	jmethodID m_Object_GetClassID{};
+	jmethodID m_String_ToCharArrayID{};
+	jmethodID m_Throwable_GetCauseID{};
+	jmethodID m_Throwable_GetMessageID{};
 
 	// --- Package Bindings ---
-    jobject m_JavaContext;
-    jclass m_ContextClass;
-    jmethodID m_Context_ClearInterruptID{};
-    jmethodID m_Context_GetFunctionalID{};
-    jmethodID m_Context_IsPackageID{};
-    jmethodID m_Context_GetPackageID{};
-    jmethodID m_Package_GetObjectID{};
-    jmethodID m_Package_GetContentsID{};
-    jmethodID m_Context_NewWrapperID{};
+	jobject m_JavaContext;
+	jclass m_ContextClass;
+	jmethodID m_Context_ClearInterruptID{};
+	jmethodID m_Context_GetFunctionalID{};
+	jmethodID m_Context_IsPackageID{};
+	jmethodID m_Context_GetPackageID{};
+	jmethodID m_Package_GetObjectID{};
+	jmethodID m_Package_GetContentsID{};
+	jmethodID m_Context_NewWrapperID{};
 	
-    // --- Support Utilities ---
-    jclass    m_SupportClass;
-    jmethodID m_Support_GetStackFrameID{};
-    jmethodID m_Support_collectRectangularID{};
-    jmethodID m_Support_assembleID{};
-    jmethodID m_Support_OrderID{};
-    jmethodID m_Support_GetTotalMemoryID{};
-    jmethodID m_Support_GetFreeMemoryID{};
-    jmethodID m_Support_GetMaxMemoryID{};
-    jmethodID m_Support_GetUsedMemoryID{};
-    jmethodID m_Support_GetHeapMemoryID{};
+	// --- Support Utilities ---
+	jclass	m_SupportClass;
+	jmethodID m_Support_GetStackFrameID{};
+	jmethodID m_Support_collectRectangularID{};
+	jmethodID m_Support_assembleID{};
+	jmethodID m_Support_OrderID{};
+	jmethodID m_Support_GetTotalMemoryID{};
+	jmethodID m_Support_GetFreeMemoryID{};
+	jmethodID m_Support_GetMaxMemoryID{};
+	jmethodID m_Support_GetUsedMemoryID{};
+	jmethodID m_Support_GetHeapMemoryID{};
 
-    // --- Proxy Management (Refactored for NativeContext_2.java) ---
-    friend class JPProxy;
-    friend class JPypeException;
-    jobject   m_JavaProxyFactory; // Holds the instance extracted from the context getter
-    jclass    m_ProxyFactoryClass;
-    jmethodID m_ProxyFactory_getProxyTypeID{};
-    jclass    m_ProxyTypeClass;
-    jmethodID m_ProxyType_newInstanceID{};
-    jmethodID m_ProxyType_UnwrapPythonExceptionID{};
-    jmethodID m_ProxyType_GetInstanceID{};
+	// --- Proxy Management (Refactored for NativeContext_2.java) ---
+	friend class JPProxy;
+	friend class JPypeException;
+	jobject   m_JavaProxyFactory; // Holds the instance extracted from the context getter
+	jclass	m_ProxyFactoryClass;
+	jmethodID m_ProxyFactory_getProxyTypeID{};
+	jclass	m_ProxyTypeClass;
+	jmethodID m_ProxyType_newInstanceID{};
+	jmethodID m_ProxyType_UnwrapPythonExceptionID{};
+	jmethodID m_ProxyType_GetInstanceID{};
 
-    jobject m_Reflector;
-    jmethodID m_Reflector_CallMethodID{};  // Cleaned up naming match
-    void onShutdown();
+	jobject m_Reflector;
+	jmethodID m_Reflector_CallMethodID{};  // Cleaned up naming match
+	void onShutdown();
 
-    jclass m_PyJavaObjectClass;
-    jmethodID m_PyJavaObject_wrap{};
+	jclass m_PyJavaObjectClass;
+	jmethodID m_PyJavaObject_wrap{};
 
 private:
-    bool m_Running{};
-    bool m_ConvertStrings{};
-    bool m_Embedded;
+	bool m_Running{};
+	bool m_ConvertStrings{};
+	bool m_Embedded;
 public:
-    JPGarbageCollection *m_GC;
+	JPGarbageCollection *m_GC;
 
-    // This will gather C++ resources to clean up after shutdown.
-    std::list<JPResource*> m_Resources;
-    PyObject* m_PyExcConvert{};
+	// This will gather C++ resources to clean up after shutdown.
+	std::list<JPResource*> m_Resources;
+	PyObject* m_PyExcConvert{};
 
 	void tryRelease(jobject obj) ;
 };

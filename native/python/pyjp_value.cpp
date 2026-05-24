@@ -117,48 +117,48 @@ extern JavaVM* _JavaVM;
 
 void PyJPValue_finalize(void* obj)
 {
-    JP_PY_TRY("PyJPValue_finalize", obj);
+	JP_PY_TRY("PyJPValue_finalize", obj);
 
-    // 1. Grab raw java slot payload
-    JPValue* value = PyJPValue_getJavaSlot((PyObject*) obj);
-    if (value == nullptr)
-        return;
+	// 1. Grab raw java slot payload
+	JPValue* value = PyJPValue_getJavaSlot((PyObject*) obj);
+	if (value == nullptr)
+		return;
 
-    // Safety net: if the JVM has completely detached or never started, bail early
-    if (_JavaVM == nullptr)
-        return;
+	// Safety net: if the JVM has completely detached or never started, bail early
+	if (_JavaVM == nullptr)
+		return;
 
-    // 3. Extract the thread-safe JNIEnv* for the CURRENT running thread
-    JNIEnv* env = nullptr;
-    jint env_result = _JavaVM->GetEnv((void**)&env, USE_JNI_VERSION);
+	// 3. Extract the thread-safe JNIEnv* for the CURRENT running thread
+	JNIEnv* env = nullptr;
+	jint env_result = _JavaVM->GetEnv((void**)&env, USE_JNI_VERSION);
 
-    if (env_result == JNI_EDETACHED)
-    {
-        // The current thread is not attached to the JVM.
-        // We must attach it to safely execute the DeleteGlobalRef.
-        if (_JavaVM->AttachCurrentThread((void**)&env, nullptr) != JNI_OK)
-            return;
-    }
-    else if (env_result != JNI_OK || env == nullptr)
-        return; // Something else is wrong, abort to avoid crashing.
+	if (env_result == JNI_EDETACHED)
+	{
+		// The current thread is not attached to the JVM.
+		// We must attach it to safely execute the DeleteGlobalRef.
+		if (_JavaVM->AttachCurrentThread((void**)&env, nullptr) != JNI_OK)
+			return;
+	}
+	else if (env_result != JNI_OK || env == nullptr)
+		return; // Something else is wrong, abort to avoid crashing.
 
-    // 4. Thread-safe execution boundary
-    JPClass* cls = value->getClass();
-    if (cls != nullptr && !cls->isPrimitive())
-    {
-        jobject global_ref = (jobject)value->getValue().l;
-        if (global_ref != nullptr)
-        {
-            // Safely execute using the validated thread-local environment handle
-            env->DeleteGlobalRef(global_ref);
-            *value = JPValue();
-        }
-    }
+	// 4. Thread-safe execution boundary
+	JPClass* cls = value->getClass();
+	if (cls != nullptr && !cls->isPrimitive())
+	{
+		jobject global_ref = (jobject)value->getValue().l;
+		if (global_ref != nullptr)
+		{
+			// Safely execute using the validated thread-local environment handle
+			env->DeleteGlobalRef(global_ref);
+			*value = JPValue();
+		}
+	}
 
-    // 5. Clean up the attachment if we had to borrow it
-    if (env_result == JNI_EDETACHED)
-        _JavaVM->DetachCurrentThread();
-    JP_PY_CATCH_NONE();
+	// 5. Clean up the attachment if we had to borrow it
+	if (env_result == JNI_EDETACHED)
+		_JavaVM->DetachCurrentThread();
+	JP_PY_CATCH_NONE();
 }
 
 /** This is the way to convert an object into a python string. */

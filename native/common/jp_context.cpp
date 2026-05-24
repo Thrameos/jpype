@@ -46,106 +46,106 @@ void JPRef_failed()
 }
 JPContext::JPContext(PyJPModuleState *state)
 {
-    // --- State and Flags ---
+	// --- State and Flags ---
 	modulestate = state;
-    m_Running = false;
-    m_ConvertStrings = false;
-    m_Embedded = false;
+	m_Running = false;
+	m_ConvertStrings = false;
+	m_Embedded = false;
 
-    // --- Core Services & Framework ---
-    m_JavaVM = nullptr;
-    m_TypeManager = nullptr;
-    m_ClassLoader = nullptr;
-    m_GC = new JPGarbageCollection();
-    m_PyExcConvert = nullptr;
+	// --- Core Services & Framework ---
+	m_JavaVM = nullptr;
+	m_TypeManager = nullptr;
+	m_ClassLoader = nullptr;
+	m_GC = new JPGarbageCollection();
+	m_PyExcConvert = nullptr;
 
-    // --- JNI Function Pointers ---
-    CreateJVM_Method = nullptr;
-    GetCreatedJVMs_Method = nullptr;
-    GetDefaultJavaVMInitArgs_Method = nullptr;
+	// --- JNI Function Pointers ---
+	CreateJVM_Method = nullptr;
+	GetCreatedJVMs_Method = nullptr;
+	GetDefaultJavaVMInitArgs_Method = nullptr;
 
-    // --- Primitive Types ---
-    _void = nullptr;
-    _boolean = nullptr;
-    _byte = nullptr;
-    _char = nullptr;
-    _short = nullptr;
-    _int = nullptr;
-    _long = nullptr;
-    _float = nullptr;
-    _double = nullptr;
+	// --- Primitive Types ---
+	_void = nullptr;
+	_boolean = nullptr;
+	_byte = nullptr;
+	_char = nullptr;
+	_short = nullptr;
+	_int = nullptr;
+	_long = nullptr;
+	_float = nullptr;
+	_double = nullptr;
 
-    // --- Boxed Types ---
-    _java_lang_Void = nullptr;
-    _java_lang_Boolean = nullptr;
-    _java_lang_Byte = nullptr;
-    _java_lang_Character = nullptr;
-    _java_lang_Short = nullptr;
-    _java_lang_Integer = nullptr;
-    _java_lang_Long = nullptr;
-    _java_lang_Float = nullptr;
-    _java_lang_Double = nullptr;
+	// --- Boxed Types ---
+	_java_lang_Void = nullptr;
+	_java_lang_Boolean = nullptr;
+	_java_lang_Byte = nullptr;
+	_java_lang_Character = nullptr;
+	_java_lang_Short = nullptr;
+	_java_lang_Integer = nullptr;
+	_java_lang_Long = nullptr;
+	_java_lang_Float = nullptr;
+	_java_lang_Double = nullptr;
 
-    // --- Core Java Classes ---
-    _java_lang_Object = nullptr;
-    _java_lang_Class = nullptr;
-    _java_lang_reflect_Field = nullptr;
-    _java_lang_reflect_Method = nullptr;
-    _java_lang_Throwable = nullptr;
-    _java_lang_String = nullptr;
-    _python_lang_PyObject = nullptr;
-    m_RuntimeException = nullptr;
-    m_Array = nullptr;
-    m_PyJavaObjectClass = nullptr;
+	// --- Core Java Classes ---
+	_java_lang_Object = nullptr;
+	_java_lang_Class = nullptr;
+	_java_lang_reflect_Field = nullptr;
+	_java_lang_reflect_Method = nullptr;
+	_java_lang_Throwable = nullptr;
+	_java_lang_String = nullptr;
+	_python_lang_PyObject = nullptr;
+	m_RuntimeException = nullptr;
+	m_Array = nullptr;
+	m_PyJavaObjectClass = nullptr;
 
-    // --- Core Java Method IDs ---
-    m_Array_NewInstanceID = nullptr;
-    m_Buffer_IsReadOnlyID = nullptr;
-    m_Buffer_AsReadOnlyID = nullptr;
-    m_Class_GetNameID = nullptr;
-    m_CompareToID = nullptr;
-    m_Object_ToStringID = nullptr;
-    m_Object_EqualsID = nullptr;
-    m_Object_HashCodeID = nullptr;
-    m_Object_GetClassID = nullptr;
-    m_String_ToCharArrayID = nullptr;
-    m_Throwable_GetCauseID = nullptr;
-    m_Throwable_GetMessageID = nullptr;
+	// --- Core Java Method IDs ---
+	m_Array_NewInstanceID = nullptr;
+	m_Buffer_IsReadOnlyID = nullptr;
+	m_Buffer_AsReadOnlyID = nullptr;
+	m_Class_GetNameID = nullptr;
+	m_CompareToID = nullptr;
+	m_Object_ToStringID = nullptr;
+	m_Object_EqualsID = nullptr;
+	m_Object_HashCodeID = nullptr;
+	m_Object_GetClassID = nullptr;
+	m_String_ToCharArrayID = nullptr;
+	m_Throwable_GetCauseID = nullptr;
+	m_Throwable_GetMessageID = nullptr;
 
-    // --- Package Bindings & Support ---
-    m_JavaContext = nullptr;
-    m_ContextClass = nullptr;
-    m_Context_ClearInterruptID = nullptr;
-    m_Context_GetFunctionalID = nullptr;
-    m_Context_IsPackageID = nullptr;
-    m_Context_GetPackageID = nullptr;
-    m_Package_GetObjectID = nullptr;
-    m_Package_GetContentsID = nullptr;
-    m_Context_NewWrapperID = nullptr;
-    
-    m_SupportClass = nullptr;
-    m_Support_GetStackFrameID = nullptr;
-    m_Support_collectRectangularID = nullptr;
-    m_Support_assembleID = nullptr;
-    m_Support_OrderID = nullptr;
-    m_Support_GetTotalMemoryID = nullptr;
-    m_Support_GetFreeMemoryID = nullptr;
-    m_Support_GetMaxMemoryID = nullptr;
-    m_Support_GetUsedMemoryID = nullptr;
-    m_Support_GetHeapMemoryID = nullptr;
+	// --- Package Bindings & Support ---
+	m_JavaContext = nullptr;
+	m_ContextClass = nullptr;
+	m_Context_ClearInterruptID = nullptr;
+	m_Context_GetFunctionalID = nullptr;
+	m_Context_IsPackageID = nullptr;
+	m_Context_GetPackageID = nullptr;
+	m_Package_GetObjectID = nullptr;
+	m_Package_GetContentsID = nullptr;
+	m_Context_NewWrapperID = nullptr;
+	
+	m_SupportClass = nullptr;
+	m_Support_GetStackFrameID = nullptr;
+	m_Support_collectRectangularID = nullptr;
+	m_Support_assembleID = nullptr;
+	m_Support_OrderID = nullptr;
+	m_Support_GetTotalMemoryID = nullptr;
+	m_Support_GetFreeMemoryID = nullptr;
+	m_Support_GetMaxMemoryID = nullptr;
+	m_Support_GetUsedMemoryID = nullptr;
+	m_Support_GetHeapMemoryID = nullptr;
 
-    // --- Proxy Management & Reflection ---
-    m_JavaProxyFactory = nullptr;
-    m_ProxyFactoryClass = nullptr;
-    m_ProxyFactory_getProxyTypeID = nullptr;
-    m_ProxyTypeClass = nullptr;
-    m_ProxyType_newInstanceID = nullptr;
-    m_ProxyType_UnwrapPythonExceptionID = nullptr;
-    m_ProxyType_GetInstanceID = nullptr;
+	// --- Proxy Management & Reflection ---
+	m_JavaProxyFactory = nullptr;
+	m_ProxyFactoryClass = nullptr;
+	m_ProxyFactory_getProxyTypeID = nullptr;
+	m_ProxyTypeClass = nullptr;
+	m_ProxyType_newInstanceID = nullptr;
+	m_ProxyType_UnwrapPythonExceptionID = nullptr;
+	m_ProxyType_GetInstanceID = nullptr;
 
-    m_Reflector = nullptr;
-    m_Reflector_CallMethodID = nullptr;
-    m_PyJavaObject_wrap = nullptr;
+	m_Reflector = nullptr;
+	m_Reflector_CallMethodID = nullptr;
+	m_PyJavaObject_wrap = nullptr;
 
 }
 
@@ -358,7 +358,6 @@ std::string getShared()
 
 void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 {
-	printf("Initialize Resources\n");
 	JPJavaFrame frame = JPJavaFrame::external(env, this);
 	// This is the only frame that we can use until the system
 	// is initialized.  Any other frame creation will result in an error.
@@ -373,7 +372,6 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 
 	// We need these first because if anything goes south this is the first
 	// thing that will get hit.
-	printf("Initialize Object and String\n");
 	jclass objectClass = frame.FindClass("java/lang/Object");
 	m_Object_ToStringID = frame.GetMethodID(objectClass, "toString", "()Ljava/lang/String;");
 	m_Object_EqualsID = frame.GetMethodID(objectClass, "equals", "(Ljava/lang/Object;)Z");
@@ -402,10 +400,8 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 	// Initialize the Modernized NativeContext Core Hub
 	// ========================================================================
 	JP_TRACE("Start Context");
-	printf("Initialize Context\n");
 	m_ContextClass = (jclass) frame.NewGlobalRef((jclass) m_ClassLoader->findClass(frame, "org.jpype.internal.NativeContext"));
 	jclass contextClass = m_ContextClass;
-	printf("Context Class: %p\n", contextClass);
 
 	// Needed for TypeFactory and other early users of the context during initialization
 	m_Context_GetFunctionalID = frame.GetMethodID(contextClass,
@@ -437,7 +433,6 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 	JP_TRACE("Connect resources");
 	
 	// Hook up the type manager
-	printf("Connect Type Manager\n");
 	jmethodID getTypeManager = frame.GetMethodID(contextClass, "getTypeManager",
 			"()Lorg/jpype/manager/TypeManager;");
 	m_TypeManager->m_JavaTypeManager = frame.NewGlobalRef(
@@ -466,7 +461,6 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 	// ========================================================================
 	// Resolve Support_2.java Utilities Class and Static Method Handles
 	// ========================================================================
-	printf("Initialize Support Utilities\n");
 	jclass supportLocal = (jclass) m_ClassLoader->findClass(frame, "org.jpype.internal.Support");
 	m_SupportClass = (jclass) frame.NewGlobalRef(supportLocal);
 	jclass supportClass = m_SupportClass;
@@ -544,7 +538,6 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 	// ========================================================================
 	// JNI Wrapper Hooks
 	// ========================================================================
-	printf("Initialize JNI Wrapper Hooks\n");
 	jclass wrapperClass = getClassLoader()->findClass(frame, "python.lang.PyJavaObject");
 	m_PyJavaObjectClass = (jclass) frame.NewGlobalRef(wrapperClass);
 	m_PyJavaObject_wrap = frame.GetStaticMethodID(
@@ -552,7 +545,6 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 		"wrap",
 		"(Ljava/lang/Object;)Ljava/lang/Object;");
 
-	printf("GC initialization\n");
 	// FIXME this depends on resources that are not initialized until jpype module is initialized, so we need to delay this until then.  We should probably move the GC initialization to the module init code instead of the context init code.
 	//m_GC->init(frame);
 
@@ -562,7 +554,6 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 	// FIXME find a way to call this from instrumentation.
 	// throw std::runtime_error("Failed");
 	// Everything is started.
-	printf("Initialization complete\n");
 	m_Running = true;
 }
 

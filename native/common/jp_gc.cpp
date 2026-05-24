@@ -142,12 +142,12 @@ void JPGarbageCollection::init(JPJavaFrame& frame)
 	PyJPModuleState* st = m_Context->modulestate;
 
 	// Defensive check to ensure state resources are fully populated
-    if (st != nullptr && st->gc_callbacks != nullptr && st->collect != nullptr)
-    {
-        // Hook up our callback directly using the pre-pinned state vector
-        PyList_Append(st->gc_callbacks, st->collect);
-        JP_PY_CHECK();
-    }
+	if (st != nullptr && st->gc_callbacks != nullptr && st->collect != nullptr)
+	{
+		// Hook up our callback directly using the pre-pinned state vector
+		PyList_Append(st->gc_callbacks, st->collect);
+		JP_PY_CHECK();
+	}
 
 	// Get the Java System gc so we can trigger
 	_SystemClass = (jclass) frame.NewGlobalRef(frame.FindClass("java/lang/System"));

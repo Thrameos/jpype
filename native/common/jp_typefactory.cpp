@@ -96,13 +96,11 @@ JNIEXPORT void JNICALL Java_org_jpype_manager_TypeFactoryNative_newWrapper(
 		jlong ctx,
 		jlong jcls)
 {
-printf("NEW WRAPPER\n");
 	auto *context = (JPContext*) ctx;
 	JPJavaFrame frame = JPJavaFrame::external(env, context);
 	JP_JAVA_TRY("JPTypeFactory_newWrapper");
 	JPPyCallAcquire callback;
 	auto* cls = (JPClass*) jcls;
-printf("HOOK\n");
 	PyJPClass_hook(frame, cls);
 	JP_JAVA_CATCH();  // GCOVR_EXCL_LINE
 }

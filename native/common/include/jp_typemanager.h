@@ -41,7 +41,7 @@ public:
 	JPClass* findClassForObject(JPJavaFrame& frame, jobject obj);
 	void populateMethod(JPJavaFrame& frame, void* method, jobject obj);
 	void populateMembers(JPJavaFrame& frame, JPClass* cls);
-    int interfaceParameterCount(JPJavaFrame& frame, JPClass* cls);
+	int interfaceParameterCount(JPJavaFrame& frame, JPClass* cls);
 
 	bool isReady()
 	{
@@ -55,7 +55,7 @@ private:
 	jmethodID m_FindClassForObject;
 	jmethodID m_PopulateMethod;
 	jmethodID m_PopulateMembers;
-    jmethodID m_InterfaceParameterCount;
+	jmethodID m_InterfaceParameterCount;
 } ;
 
 #endif // _JPCLASS_H_

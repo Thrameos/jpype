@@ -44,16 +44,16 @@ class JPViewWrapper
 {
 public:
 
-    JPViewWrapper()
-    {
-        view = new Py_buffer();
-    }
+	JPViewWrapper()
+	{
+		view = new Py_buffer();
+	}
 
-    ~JPViewWrapper()
-    {
-        delete view;
-    }
-    Py_buffer *view;
+	~JPViewWrapper()
+	{
+		delete view;
+	}
+	Py_buffer *view;
 } ;
 
 #ifdef __cplusplus
@@ -1038,6 +1038,17 @@ static PyObject *PyJPModule_bootstrap(PyObject *module)
 }
 #endif
 
+static PyObject *PyJPModule_context(PyObject* module, PyObject *obj)
+{
+	JPContext *context = PyJPModule_getContext(module);
+	if (context == nullptr)
+		return nullptr;
+	JPJavaFrame frame = JPJavaFrame::outer(context);
+	jvalue v;
+	v.l = context->getJavaContext();
+	return context->_java_lang_Object->convertToPythonObject(frame, v, false).keep();
+}
+
 static int PyJPModule_traverse(PyObject *module, visitproc visit, void *arg)
 {
 	PyJPModuleState *st = reinterpret_cast<PyJPModuleState*>(PyModule_GetState(module));
@@ -1153,6 +1164,7 @@ static PyMethodDef moduleMethods[] = {
 	{"_newArrayType", (PyCFunction) PyJPModule_newArrayType, METH_VARARGS, ""},
 	{"_collect", (PyCFunction) PyJPModule_collect, METH_VARARGS, ""},
 	{"gcStats", (PyCFunction) PyJPModule_gcStats, METH_NOARGS, ""},
+	{"context", (PyCFunction) PyJPModule_context, METH_NOARGS, ""},
 
 	// Threading
 	{"isThreadAttachedToJVM", (PyCFunction) PyJPModule_isThreadAttached, METH_NOARGS, ""},

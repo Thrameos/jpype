@@ -76,24 +76,24 @@ printf("Done\n");
 
 static int PyJPPackage_init(PyObject *self, PyObject *args, PyObject *kwargs)
 {
-    JP_PY_TRY("PyJPPackage_init");
+	JP_PY_TRY("PyJPPackage_init");
 	PyObject *dict = PyModule_GetDict(self);
-    if (dict != nullptr && PyDict_GetItemString(dict, "_module_state") != nullptr)
-    {
-        return 0; 
-    }
-    PyObject *strict_obj = nullptr;
-    static char *kwlist[] = {"", "strict", nullptr}; // First arg is name positional-only or positional
-    PyObject *name = nullptr;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "U|O", kwlist, &name, &strict_obj))
-    {
-        return -1;
-    }
+	if (dict != nullptr && PyDict_GetItemString(dict, "_module_state") != nullptr)
+	{
+		return 0; 
+	}
+	PyObject *strict_obj = nullptr;
+	static char *kwlist[] = {"", "strict", nullptr}; // First arg is name positional-only or positional
+	PyObject *name = nullptr;
+	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "U|O", kwlist, &name, &strict_obj))
+	{
+		return -1;
+	}
 
 printf("Init\n");
-    return PyModule_Type.tp_init(self, args, nullptr);
-    
-    JP_PY_CATCH(-1);
+	return PyModule_Type.tp_init(self, args, nullptr);
+	
+	JP_PY_CATCH(-1);
 }
 
 extern JavaVM* _JavaVM;
@@ -412,10 +412,10 @@ void PyJPPackage_initType(PyObject* module, PyJPModuleState* st)
 {
 	// Inherit from module.
 	JPPyObject bases = JPPyTuple_Pack(&PyModule_Type);
-    
+	
 	st->PyJPPackage_Type = (PyTypeObject*) PyType_FromModuleAndSpec(module, &packageSpec, bases.get());
 	JP_PY_CHECK();
-    
+	
 	PyModule_AddObject(module, "_JPackage", (PyObject*) st->PyJPPackage_Type);
 	Py_INCREF((PyObject*) st->PyJPPackage_Type);
 	JP_PY_CHECK();
