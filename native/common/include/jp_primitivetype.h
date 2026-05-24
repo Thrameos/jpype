@@ -20,7 +20,7 @@
 class JPPrimitiveType : public JPClass
 {
 protected:
-	explicit JPPrimitiveType(const string& name);
+	explicit JPPrimitiveType(JPJavaFrame& frame, jclass cls, const string& name);
 	~JPPrimitiveType() override;
 
 public:
@@ -32,9 +32,9 @@ public:
 	virtual jlong getAsLong(jvalue v) = 0;
 	virtual jdouble getAsDouble(jvalue v) = 0;
 
-	void setClass(JPJavaFrame& frame, jclass o)
+	void setClass(jclass o)
 	{
-		m_Class = JPClassRef(frame, o);
+		m_Class = o;
 	}
 
 	virtual void getView(JPJavaFrame& frame, JPArrayView& view) = 0;

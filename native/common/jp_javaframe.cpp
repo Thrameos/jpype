@@ -35,11 +35,9 @@ static void jpype_frame_check(int popped)
 #define JP_FRAME_CHECK() if (false) while (false)
 #endif
 
-JPJavaFrame::JPJavaFrame(JNIEnv* p_env, int size, bool outer)
-: m_Env(p_env), m_Popped(false), m_Outer(outer)
+JPJavaFrame::JPJavaFrame(JNIEnv* p_env, JPContext* context, int size, bool outer)
+: m_Env(p_env), m_Context(context), m_Popped(false), m_Outer(outer)
 {
-	JPContext* context = JPContext_global;
-
 	if (p_env == nullptr)
 	{
 		m_Env = context->getEnv();
@@ -58,31 +56,12 @@ JPJavaFrame::JPJavaFrame(JNIEnv* p_env, int size, bool outer)
 }
 
 JPJavaFrame::JPJavaFrame(const JPJavaFrame& frame)
-: m_Env(frame.m_Env), m_Popped(false), m_Outer(false)
+: m_Env(frame.m_Env), m_Context(frame.getContext()), m_Popped(false), m_Outer(false)
 {
 	// Create a memory management frame to live in
 	m_Env->PushLocalFrame(LOCAL_FRAME_DEFAULT);
 	JP_TRACE_JAVA("JavaFrame (copy)", (jobject) - 1);
 }
-
-JPContext* JPJavaFrame::getContext()
-{
-	// We can add guard statements here.
-	return JPContext_global;
-}
-
-//jobject JPJavaFrame::keep(jobject obj)
-//{
-//	if (m_Outer)
-//		JP_RAISE(PyExc_SystemError, "Keep on outer frame");
-//	JP_FRAME_CHECK();
-//	m_Popped = true;
-//	JP_TRACE_JAVA("Keep", obj);
-//	JP_TRACE_JAVA("~JavaFrame (keep)", (jobject) - 2);
-//	obj = m_Env->PopLocalFrame(obj);
-//	JP_TRACE_JAVA("Return", obj);
-//	return obj;
-//}
 
 JPJavaFrame::~JPJavaFrame()
 {
@@ -1054,8 +1033,8 @@ jboolean JPJavaFrame::orderBuffer(jobject obj)
 	jvalue arg;
 	arg.l = obj;
 	JPContext *context = getContext();
-	return CallBooleanMethodA(context->m_JavaContext.get(),
-			context->m_Context_OrderID, &arg);
+	return CallStaticBooleanMethodA(context->m_SupportClass,
+			context->m_Support_OrderID, &arg);
 }
 
 // GCOVR_EXCL_START
@@ -1146,28 +1125,28 @@ jint JPJavaFrame::hashCode(jobject o)
 jobject JPJavaFrame::collectRectangular(jarray obj)
 {
 	JPContext* context = getContext();
-	if (context->m_Context_collectRectangularID == nullptr)
+	if (context->m_Support_collectRectangularID == nullptr)
 		return nullptr;
 	jvalue v;
 	v.l = (jobject) obj;
 	JAVA_RETURN(jobject, "JPJavaFrame::collectRectangular",
-			CallObjectMethodA(
-			context->m_JavaContext.get(),
-			context->m_Context_collectRectangularID, &v));
+			CallStaticObjectMethodA(
+			context->m_SupportClass,
+			context->m_Support_collectRectangularID, &v));
 }
 
 jobject JPJavaFrame::assemble(jobject dims, jobject parts)
 {
 	JPContext* context = getContext();
-	if (context->m_Context_collectRectangularID == nullptr)
+	if (context->m_Support_assembleID == nullptr)
 		return nullptr;
 	jvalue v[2];
 	v[0].l = (jobject) dims;
 	v[1].l = (jobject) parts;
 	JAVA_RETURN(jobject, "JPJavaFrame::assemble",
-			CallObjectMethodA(
-			context->m_JavaContext.get(),
-			context->m_Context_assembleID, v));
+			CallStaticObjectMethodA(
+			context->m_SupportClass,
+			context->m_Support_assembleID, v));
 }
 
 jobject JPJavaFrame::newArrayInstance(jclass c, jintArray dims)
@@ -1178,7 +1157,7 @@ jobject JPJavaFrame::newArrayInstance(jclass c, jintArray dims)
 	v[1].l = (jobject) dims;
 	JAVA_RETURN(jobject, "JPJavaFrame::newArrayInstance",
 			CallStaticObjectMethodA(
-			context->m_Array.get(),
+			context->m_Array,
 			context->m_Array_NewInstanceID, v));
 }
 
@@ -1186,13 +1165,13 @@ jobject JPJavaFrame::callMethod(jobject method, jobject obj, jobject args)
 {
 	JP_TRACE_IN("JPJavaFrame::callMethod");
 	JPContext* context = getContext();
-	if (context->m_CallMethodID == nullptr)
+	if (context->m_Reflector_CallMethodID == nullptr)
 		return nullptr;
 	jvalue v[3];
 	v[0].l = method;
 	v[1].l = obj;
 	v[2].l = args;
-	return CallObjectMethodA(context->m_Reflector.get(), context->m_CallMethodID, v);
+	return CallObjectMethodA(context->m_Reflector, context->m_Reflector_CallMethodID, v);
 	JP_TRACE_OUT;
 }
 
@@ -1201,8 +1180,10 @@ PyObject* JPJavaFrame::getFunctional(jclass c)
 	JPContext* context = getContext();
 	jvalue v;
 	v.l = (jobject) c;
-	return reinterpret_cast<PyObject*>(CallStaticLongMethodA(
-			context->m_ContextClass.get(),
+	if (context->m_JavaContext == nullptr)
+		return nullptr;
+	return reinterpret_cast<PyObject*>(CallLongMethodA(
+			context->m_JavaContext,
 			context->m_Context_GetFunctionalID, &v));
 }
 
@@ -1250,7 +1231,7 @@ jboolean JPJavaFrame::isPackage(const string& str)
 	jvalue v;
 	v.l = fromStringUTF8(str);
 	JAVA_RETURN(jboolean, "JPJavaFrame::isPackage",
-			CallBooleanMethodA(context->m_JavaContext.get(), context->m_Context_IsPackageID, &v));
+			CallBooleanMethodA(context->m_JavaContext, context->m_Context_IsPackageID, &v));
 }
 
 jobject JPJavaFrame::getPackage(const string& str)
@@ -1259,7 +1240,7 @@ jobject JPJavaFrame::getPackage(const string& str)
 	jvalue v;
 	v.l = fromStringUTF8(str);
 	JAVA_RETURN(jobject, "JPJavaFrame::getPackage",
-			CallObjectMethodA(context->m_JavaContext.get(), context->m_Context_GetPackageID, &v));
+			CallObjectMethodA(context->m_JavaContext, context->m_Context_GetPackageID, &v));
 }
 
 jobject JPJavaFrame::getPackageObject(jobject pkg, const string& str)
@@ -1303,6 +1284,6 @@ void JPJavaFrame::clearInterrupt(bool throws)
 	JPPyCallRelease call;
 	jvalue jv;
 	jv.z = throws;
-	CallVoidMethodA(context->m_ContextClass.get(),
+	CallVoidMethodA(context->m_ContextClass,
 			context->m_Context_ClearInterruptID, &jv);
 }

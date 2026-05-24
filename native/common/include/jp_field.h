@@ -44,7 +44,7 @@ public:
 
 	jobject getJavaObject()
 	{
-		return this->m_Field.get();
+		return this->m_Field;
 	}
 
 	const string& getName() const
@@ -76,7 +76,7 @@ public:
 private:
 	string           m_Name;
 	JPClass*         m_Class;
-	JPObjectRef      m_Field;
+	jobject          m_Field;
 	jfieldID         m_FieldID;
 	JPClass*         m_Type;
 	jint             m_Modifiers;

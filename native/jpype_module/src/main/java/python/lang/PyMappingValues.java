@@ -16,12 +16,12 @@
  */
 package python.lang;
 
-import org.jpype.internal.Utility;
+import org.jpype.internal.FunctionalAdapters;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.function.Function;
-import org.jpype.bridge.Backend;
+import org.jpype.Backend;
 
 /**
  * Provides a Java {@link Collection} interface for the values of a Python
@@ -159,7 +159,7 @@ class PyMappingValues<K extends PyObject, V extends PyObject> implements Collect
   {
     Function<K, V> function = p -> this.map.get(p);
     Iterator<?> iter = this.map.keySet().iterator();
-    return Utility.mapIterator(this.map.keySet().iterator(), function);
+    return FunctionalAdapters.mapIterator(this.map.keySet().iterator(), function);
   }
 
   /**

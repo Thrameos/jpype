@@ -21,8 +21,8 @@
 #include "jp_floattype.h"
 #include "jp_boxedtype.h"
 
-JPFloatType::JPFloatType()
-: JPPrimitiveType("float")
+JPFloatType::JPFloatType(JPJavaFrame& frame, jclass cls)
+: JPPrimitiveType(frame, cls, "float")
 {
 }
 
@@ -98,7 +98,7 @@ public:
 
 	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
 	{
-		JPContext *context = JPContext_global;
+		JPContext *context = frame.getContext();
 		PyList_Append(info.exact, (PyObject*) context->_float->getHost());
 		PyList_Append(info.implicit, (PyObject*) context->_byte->getHost());
 		PyList_Append(info.implicit, (PyObject*) context->_char->getHost());
@@ -131,7 +131,7 @@ void JPFloatType::getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info)
 	asJFloatConversion.getInfo(frame, this, info);
 	asFloatLongConversion.getInfo(frame, this, info);
 	asFloatConversion.getInfo(frame, this, info);
-	PyList_Append(info.ret, (PyObject*) JPContext_global->_float->getHost());
+	PyList_Append(info.ret, (PyObject*) frame.getContext()->_float->getHost());
 }
 
 jarray JPFloatType::newArrayOf(JPJavaFrame& frame, jsize sz)
@@ -178,7 +178,7 @@ JPPyObject JPFloatType::invoke(JPJavaFrame& frame, jobject obj, jclass clazz, jm
 
 void JPFloatType::setStaticField(JPJavaFrame& frame, jclass c, jfieldID fid, PyObject *obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java float");
 	type_t val = field(match.convert());
@@ -187,7 +187,7 @@ void JPFloatType::setStaticField(JPJavaFrame& frame, jclass c, jfieldID fid, PyO
 
 void JPFloatType::setField(JPJavaFrame& frame, jobject c, jfieldID fid, PyObject *obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java float");
 	type_t val = field(match.convert());
@@ -262,7 +262,7 @@ JPPyObject JPFloatType::getArrayItem(JPJavaFrame& frame, jarray a, jsize ndx)
 
 void JPFloatType::setArrayItem(JPJavaFrame& frame, jarray a, jsize ndx, PyObject* obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java float");
 	type_t val = field(match.convert());

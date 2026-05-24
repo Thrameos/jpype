@@ -20,7 +20,7 @@ class JPFloatType : public JPPrimitiveType
 {
 public:
 
-	JPFloatType();
+	JPFloatType(JPJavaFrame& frame, jclass cls);
 	~JPFloatType() override;
 
 	using type_t = jfloat;

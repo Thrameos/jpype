@@ -8,20 +8,24 @@ import java.lang.reflect.Proxy;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import org.jpype.JPypeContext;
+import org.jpype.internal.NativeContext;
+import org.jpype.manager.StringManager;
 import org.jpype.manager.TypeManager;
-import org.jpype.ref.JPypeReferenceQueue;
 import org.jpype.annotation.Bypass;
 
-public final class JPypeProxyType
+public final class ProxyType
 {
 
+  final NativeContext context;
+  final StringManager stringManager;
+  final TypeManager typeManager;
+
   // Static cache for standard Object methods to avoid re-resolving them
-  private static final Map<Method, JPypeMethodDescriptor> OBJECT_METHOD_CACHE = new HashMap<>();
+
   private final Class<?>[] interfaces;
   private final ClassLoader cl;
   final long cleanup;
-  final Map<Method, JPypeMethodDescriptor> methodCache;
+  final Map<Method, MethodDescriptor> methodCache;
   
   /**
    * Initializes the static cache for Object methods. This happens once when the
@@ -29,29 +33,22 @@ public final class JPypeProxyType
    *
    * @param tm
    */
-  public static void init(TypeManager tm)
+  public  void init(TypeManager tm)
   {
-    synchronized (tm)
-    {
-      for (Method method : Object.class.getMethods())
-      {
-        long returnType = tm.findClass(method.getReturnType());
-        Class<?>[] params = method.getParameterTypes();
-        long[] paramTypes = new long[params.length];
-        for (int i = 0; i < params.length; i++)
-          paramTypes[i] = tm.findClass(params[i]);
-        OBJECT_METHOD_CACHE.put(method, new JPypeMethodDescriptor(method.getName(), returnType, paramTypes, null, false));
-      }
-    }
+
   }
 
-  public JPypeProxyType(long cleanup, Class<?>[] interfaces)
+  public ProxyType(ProxyFactory factory, long cleanup, Class<?>[] interfaces)
   {
+    
+    this.context = factory.context;
+    this.typeManager = context.getTypeManager();
+    this.stringManager = context.getStringManager();
     this.interfaces = interfaces;
     this.cleanup = cleanup;
 
     // Pin the loader to the org.jpype module loader as the baseline default
-    ClassLoader tempCl = JPypeProxyType.class.getClassLoader();
+    ClassLoader tempCl = ProxyType.class.getClassLoader();
     if (tempCl == null)
       tempCl = ClassLoader.getSystemClassLoader();
 
@@ -69,13 +66,13 @@ public final class JPypeProxyType
     this.cl = tempCl;
 
     // Build the instance-specific cache
-    Map<Method, JPypeMethodDescriptor> tempMap = new HashMap<>();
+    Map<Method, MethodDescriptor> tempMap = new HashMap<>();
 
     // 1. Bulk copy the pre-resolved Object methods
-    tempMap.putAll(OBJECT_METHOD_CACHE);
+    tempMap.putAll(factory.objectMethods);
 
     // 2. Resolve interface-specific methods
-    TypeManager tm = JPypeContext.getInstance().getTypeManager();
+    TypeManager tm = context.getTypeManager();
     synchronized (tm)
     {
       for (Class<?> iface : interfaces)
@@ -85,7 +82,7 @@ public final class JPypeProxyType
     this.methodCache = Collections.unmodifiableMap(tempMap);
   }
 
-  private void populateCache(TypeManager tm, Method[] methods, Map<Method, JPypeMethodDescriptor> map)
+  private void populateCache(TypeManager tm, Method[] methods, Map<Method, MethodDescriptor> map)
   {
     for (Method method : methods)
     {
@@ -102,20 +99,20 @@ public final class JPypeProxyType
       MethodHandle defaultHandle = null;
       if (method.isDefault())
         defaultHandle = getDefaultHandle(method.getDeclaringClass(), method, java.lang.invoke.MethodHandles.class);
-      map.put(method, new JPypeMethodDescriptor(method.getName(), returnType, paramTypes, defaultHandle, bypass));
+      map.put(method, new MethodDescriptor(this.stringManager.get(method.getName()), returnType, paramTypes, defaultHandle, bypass));
     }
   }
 
-  public JPypeMethodDescriptor getMethodDescriptor(Method method)
+  public MethodDescriptor getMethodDescriptor(Method method)
   {
     return methodCache.get(method);
   }
 
   public Object newInstance(long instance)
   {
-    JPypeProxyInstance handler = new JPypeProxyInstance(this, instance);
+    ProxyInstance handler = new ProxyInstance(this, instance);
     Object proxy = Proxy.newProxyInstance(cl, interfaces, handler);
-    JPypeReferenceQueue.getInstance().registerRef(proxy, instance, cleanup);
+    context.getReferenceQueue().registerRef(proxy, instance, cleanup);
     return proxy;
   }
 
@@ -141,9 +138,9 @@ public final class JPypeProxyType
     try
     {
       InvocationHandler handler = Proxy.getInvocationHandler(obj);
-      if (handler instanceof JPypeProxyInstance)
+      if (handler instanceof ProxyInstance)
       {
-        JPypeProxyInstance jpypeHandler = (JPypeProxyInstance) handler;
+        ProxyInstance jpypeHandler = (ProxyInstance) handler;
         return jpypeHandler.instance;
       }
     } catch (IllegalArgumentException e)
@@ -159,9 +156,9 @@ public final class JPypeProxyType
     if (obj == null || !Proxy.isProxyClass(obj.getClass()))
       return 0L;
     InvocationHandler handler = Proxy.getInvocationHandler(obj);
-    if (!(handler instanceof JPypeProxyInstance))
+    if (!(handler instanceof ProxyInstance))
       return 0L;
-    JPypeProxyInstance proxy = ((JPypeProxyInstance) handler);
+    ProxyInstance proxy = ((ProxyInstance) handler);
     return proxy.instance;
   }
 

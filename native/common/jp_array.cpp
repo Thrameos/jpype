@@ -25,18 +25,18 @@
 // carry them around so that we can match types.
 
 JPArray::JPArray(JPJavaFrame& frame, const JPValue &value)
-: m_Object((jarray) value.getValue().l)
 {
+	m_Object = (jarray) frame.NewGlobalRef((jarray) value.getValue().l);
 	m_Class = dynamic_cast<JPArrayClass*>( value.getClass());
 	JP_TRACE_IN("JPArray::JPArray");
 	ASSERT_NOT_NULL(m_Class, "JPArray::JPArray");
 	JP_TRACE(m_Class->toString());
 
 	// We will use this during range checks, so cache it
-	if (m_Object.get() == nullptr)
+	if (m_Object == nullptr)
 		m_Length = 0;  // GCOVR_EXCL_LINE
 	else
-		m_Length = frame.GetArrayLength(m_Object.get());
+		m_Length = frame.GetArrayLength(m_Object);
 
 	m_Step = 1;
 	m_Start = 0;
@@ -63,7 +63,11 @@ JPArray::JPArray(JPArray* instance, jsize start, jsize stop, jsize step)
 }
 
 JPArray::~JPArray()
-= default;
+{
+	JPContext* context = m_Class->getContext();
+	if (m_Object != nullptr && context->isRunning())
+		context->getEnv()->DeleteGlobalRef(m_Object);
+}
 
 jsize JPArray::getLength() const
 {
@@ -94,7 +98,7 @@ void JPArray::setRange(JPJavaFrame& frame, jsize start, jsize length, jsize step
 
 	JP_TRACE("Call component set range");
 	jsize i0 = m_Start + m_Step*start;
-	compType->setArrayRange(frame, m_Object.get(), i0, length, m_Step*step, val);
+	compType->setArrayRange(frame, m_Object, i0, length, m_Step*step, val);
 	JP_TRACE_OUT;
 }
 
@@ -108,7 +112,7 @@ void JPArray::setItem(JPJavaFrame& frame, jsize ndx, PyObject* val)
 	if (ndx >= m_Length || ndx < 0)
 		JP_RAISE(PyExc_IndexError, "java array assignment out of bounds");
 
-	compType->setArrayItem(frame, m_Object.get(), m_Start + ndx*m_Step, val);
+	compType->setArrayItem(frame, m_Object, m_Start + ndx*m_Step, val);
 }
 
 JPPyObject JPArray::getItem(JPJavaFrame& frame, jsize ndx)
@@ -123,7 +127,7 @@ JPPyObject JPArray::getItem(JPJavaFrame& frame, jsize ndx)
 		JP_RAISE(PyExc_IndexError, "array index out of bounds");
 	}
 
-	return compType->getArrayItem(frame, m_Object.get(), m_Start + ndx * m_Step);
+	return compType->getArrayItem(frame, m_Object, m_Start + ndx * m_Step);
 }
 
 jarray JPArray::clone(JPJavaFrame& frame, PyObject* obj)

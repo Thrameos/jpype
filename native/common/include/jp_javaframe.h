@@ -46,11 +46,12 @@ static const int LOCAL_FRAME_DEFAULT = 8;
 class JPJavaFrame
 {
 	JNIEnv* m_Env;
+	JPContext* m_Context;
 	bool m_Popped;
 	bool m_Outer;
 
 private:
-	JPJavaFrame(JNIEnv* env, int size, bool outer);
+	JPJavaFrame(JNIEnv* env, JPContext* ctx, int size, bool outer);
 
 public:
 
@@ -65,9 +66,9 @@ public:
 	 * @throws JPypeException if the jpype cannot
 	 * acquire an env handle to work with jvm.
 	 */
-	static JPJavaFrame outer(int size = LOCAL_FRAME_DEFAULT)
+	static JPJavaFrame outer(JPContext* ctx, int size = LOCAL_FRAME_DEFAULT)
 	{
-		return {nullptr, size, true};
+		return {nullptr, ctx, size, true};
 	}
 
 	/** Create a new JavaFrame when called internal when
@@ -94,9 +95,9 @@ public:
 	 * @throws JPypeException if the jpype cannot
 	 * acquire an env handle to work with jvm.
 	 */
-	static JPJavaFrame external(JNIEnv* env, int size = LOCAL_FRAME_DEFAULT)
+	static JPJavaFrame external(JNIEnv* env, JPContext* ctx, int size = LOCAL_FRAME_DEFAULT)
 	{
-		return {env, size, false};
+		return {env, ctx, size, false};
 	}
 
 	JPJavaFrame(const JPJavaFrame& frame);
@@ -108,8 +109,6 @@ public:
 	 * by the keep method will be kept alive.
 	 */
 	~JPJavaFrame();
-
-	JPContext* getContext();
 
 	void check();
 
@@ -157,6 +156,11 @@ public:
 	JNIEnv* getEnv() const
 	{
 		return m_Env;
+	}
+	JPContext* getContext() const
+	{
+		// We can add guard statements here.
+		return m_Context;
 	}
 
 	string toString(jobject o);

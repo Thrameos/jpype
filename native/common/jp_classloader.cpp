@@ -21,7 +21,7 @@
 
 jobject JPClassLoader::getBootLoader()
 {
-	return m_BootLoader.get();
+	return m_BootLoader;
 }
 
 JPClassLoader::JPClassLoader(JPJavaFrame& frame)
@@ -29,20 +29,20 @@ JPClassLoader::JPClassLoader(JPJavaFrame& frame)
 	JP_TRACE_IN("JPClassLoader::JPClassLoader");
 
 	// Define the class loader
-	m_ClassClass = JPClassRef(frame, frame.FindClass("java/lang/Class"));
-	m_ForNameID = frame.GetStaticMethodID(m_ClassClass.get(), "forName",
+	m_ClassClass = (jclass) frame.NewGlobalRef(frame.FindClass("java/lang/Class"));
+	m_ForNameID = frame.GetStaticMethodID(m_ClassClass, "forName",
 			"(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;");
 	jclass classLoaderClass = frame.FindClass("java/lang/ClassLoader");
 	jmethodID getSystemClassLoader
 			= frame.GetStaticMethodID(classLoaderClass, "getSystemClassLoader", "()Ljava/lang/ClassLoader;");
-	m_SystemClassLoader = JPObjectRef(frame,
+	m_SystemClassLoader = (jclass) frame.NewGlobalRef(
 			frame.CallStaticObjectMethodA(classLoaderClass, getSystemClassLoader, nullptr));
 
-	jclass dynamicLoaderClass = frame.getEnv()->FindClass("org/jpype/JPypeClassLoader");
+	jclass dynamicLoaderClass = frame.getEnv()->FindClass("org/jpype/internal/DynamicClassLoader");
 	if (dynamicLoaderClass != nullptr)
 	{
 		// Use the one in place already
-		if (frame.IsInstanceOf(m_SystemClassLoader.get(), dynamicLoaderClass))
+		if (frame.IsInstanceOf(m_SystemClassLoader, dynamicLoaderClass))
 		{
 			m_BootLoader = m_SystemClassLoader;
 			return;
@@ -52,8 +52,8 @@ JPClassLoader::JPClassLoader(JPJavaFrame& frame)
 		jmethodID newDyLoader = frame.GetMethodID(dynamicLoaderClass, "<init>",
 				"(Ljava/lang/ClassLoader;)V");
 		jvalue v;
-		v.l = m_SystemClassLoader.get();
-		m_BootLoader = JPObjectRef(frame, frame.NewObjectA(dynamicLoaderClass, newDyLoader, &v));
+		v.l = m_SystemClassLoader;
+		m_BootLoader = frame.NewGlobalRef(frame.NewObjectA(dynamicLoaderClass, newDyLoader, &v));
 		return;
 	}
 	frame.ExceptionClear();
@@ -75,7 +75,7 @@ jclass JPClassLoader::findClass(JPJavaFrame& frame, const string& name)
 	jvalue v[3];
 	v[0].l = frame.NewStringUTF(name.c_str());
 	v[1].z = true;
-	v[2].l = m_BootLoader.get();
-	return (jclass) frame.CallStaticObjectMethodA(m_ClassClass.get(), m_ForNameID, v);
+	v[2].l = m_BootLoader;
+	return (jclass) frame.CallStaticObjectMethodA(m_ClassClass, m_ForNameID, v);
 #endif
 }

@@ -3,23 +3,23 @@ package org.jpype.proxy;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
-import org.jpype.JPypeContext;
+import org.jpype.internal.NativeContext;
 import org.jpype.manager.TypeManager;
 
-public class JPypeProxyInstance implements InvocationHandler
+public class ProxyInstance implements InvocationHandler
 {
 
-  static final TypeManager manager = JPypeContext.getInstance().getTypeManager();
-  private final JPypeProxyType type;
+//  static final TypeManager manager = JPypeContext.getInstance().getTypeManager();
+  private final ProxyType type;
   final long instance; // JPProxy*
 
-  public JPypeProxyInstance(JPypeProxyType type, long instance)
+  public ProxyInstance(ProxyType type, long instance)
   {
     this.type = type;
     this.instance = instance;
   }
 
-  public JPypeProxyType getType()
+  public ProxyType getType()
   {
     return type;
   }
@@ -27,11 +27,11 @@ public class JPypeProxyInstance implements InvocationHandler
   @Override
   public Object invoke(Object proxy, Method method, Object[] args) throws Throwable
   {
-    JPypeContext context = JPypeContext.getInstance();
+    NativeContext context = type.context;
     if (context.isShutdown())
       throw new RuntimeException("Proxy called during shutdown");
 
-    JPypeMethodDescriptor md = type.getMethodDescriptor(method);
+    MethodDescriptor md = type.getMethodDescriptor(method);
     if (md.bypass)
       return md.defaultHandler.bindTo(proxy).invokeWithArguments(args);
 
@@ -44,7 +44,7 @@ public class JPypeProxyInstance implements InvocationHandler
       scratch = get(sz);
       for (int i = 0; i < sz; ++i)
       {
-        long cls = manager.findClassForObject(args[i]);
+        long cls = type.typeManager.findClassForObject(args[i]);
         if (cls == 0L)
           cls = md.parameterTypes[i];
         scratch[i] = cls;
@@ -76,6 +76,7 @@ public class JPypeProxyInstance implements InvocationHandler
    * Ensures the current thread's cache is at least 'requiredSize'. Returns the
    * (possibly new) array.
    *
+   * @param requiredSize
    * @return
    */
   public static long[] get(int requiredSize)

@@ -14,7 +14,7 @@
  * 
  *  See NOTICE file for details.
  */
-package org.jpype.bridge;
+package org.jpype;
 
 import java.util.Collection;
 import java.util.List;

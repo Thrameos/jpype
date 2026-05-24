@@ -1,25 +1,36 @@
-// --- file: org/jpype/JPypeUtilities.java ---
-package org.jpype;
+/*
+ *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ *  use this file except in compliance with the License. You may obtain a copy of
+ *  the License at
+ * 
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ *  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ *  License for the specific language governing permissions and limitations under
+ *  the License.
+ * 
+ *  See NOTICE file for details.
+ */
+package org.jpype.internal;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandleProxies;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.net.URISyntaxException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.function.Predicate;
 
+/**
+ *
+ * @author nelson85
+ */
 @SuppressWarnings("unchecked")
-public class JPypeUtilities
+public class Functional
 {
 
-  private JPypeUtilities()
-  {
-  }
-          
   // a functional interface can only re-declare a public non-final method from Object
   // this should end up being an array of equals, hashCode and toString
   private static final Method[] OBJECT_METHODS
@@ -49,23 +60,26 @@ public class JPypeUtilities
     isSealed = result;
   }
 
-  public static Path getJarPath(Class c)
+  private static boolean equals(Method a, Method b)
   {
-    try
-    {
-      return Paths.get(c.getProtectionDomain().getCodeSource().getLocation()
-              .toURI()).getParent();
-    } catch (URISyntaxException ex)
-    {
-      return null;
-    }
+    // this should be the fastest possible short circuit
+    if (a.getParameterCount() != b.getParameterCount())
+      return false;
+    if (!a.getName().equals(b.getName()))
+      return false;
+    // if the return types are different it wouldn't compile
+    // parameters must be exactly the same and may not be an extended class
+    if (!Arrays.equals(a.getParameterTypes(), b.getParameterTypes()))
+      return false;
+    // if declared exceptions were different it wouldn't compile
+    // if it did compile then it is an override
+    return true;
   }
 
-  public static Method getFunctionalInterfaceMethod(Class cls)
+  public static Method getFunctionalInterfaceMethod(Class<?> cls)
   {
     if (!cls.isInterface() || cls.isAnnotation() || isSealed.test(cls))
       return null;
-
     Method result = null;
     for (Method m : cls.getMethods())
     {
@@ -73,10 +87,8 @@ public class JPypeUtilities
       {
         if (isObjectMethodOverride(m))
           continue;
-
         if (result != null && !equals(m, result))
           return null;
-
         if (result == null || cls.equals(m.getDeclaringClass()))
           result = m;
       }
@@ -92,25 +104,6 @@ public class JPypeUtilities
         return true;
     }
     return false;
-  }
-
-  private static boolean equals(Method a, Method b)
-  {
-    // this should be the fastest possible short circuit
-    if (a.getParameterCount() != b.getParameterCount())
-      return false;
-
-    if (!a.getName().equals(b.getName()))
-      return false;
-
-    // if the return types are different it wouldn't compile
-    // parameters must be exactly the same and may not be an extended class
-    if (!Arrays.equals(a.getParameterTypes(), b.getParameterTypes()))
-      return false;
-
-    // if declared exceptions were different it wouldn't compile
-    // if it did compile then it is an override
-    return true;
   }
 
 }

@@ -60,6 +60,7 @@ public class TypeFactoryHarness implements TypeFactory, TypeAudit
 //<editor-fold desc="class" defaultstate="collapsed">
   @Override
   public long defineArrayClass(
+          long ctx,
           Class<?> cls,
           String name,
           long superClass,
@@ -75,7 +76,9 @@ public class TypeFactoryHarness implements TypeFactory, TypeAudit
   }
 
   @Override
-  public long defineObjectClass(Class cls, String name, long superClass, long[] interfaces, int modifiers)
+  public long defineObjectClass(
+          long ctx,
+          Class cls, String name, long superClass, long[] interfaces, int modifiers)
   {
     value++;
     System.out.println("defineObjectClass " + value + ": " + name);
@@ -93,7 +96,9 @@ public class TypeFactoryHarness implements TypeFactory, TypeAudit
   }
 
   @Override
-  public long definePrimitive(String name, Class cls, long boxedPtr, int modifiers)
+  public long definePrimitive(
+          long ctx,
+          String name, Class cls, long boxedPtr, int modifiers)
   {
     value++;
     System.out.println("defineObjectClass " + value + ": " + cls.toString());
@@ -107,6 +112,7 @@ public class TypeFactoryHarness implements TypeFactory, TypeAudit
 
   @Override
   public void assignMembers(
+          long ctx,
           long classId,
           long ctorMethod,
           long[] methodList,
@@ -135,6 +141,7 @@ public class TypeFactoryHarness implements TypeFactory, TypeAudit
 
   @Override
   public long defineField(
+          long ctx,
           long classId,
           String name,
           Field field,
@@ -155,6 +162,7 @@ public class TypeFactoryHarness implements TypeFactory, TypeAudit
 
   @Override
   public long defineMethod(
+          long ctx,
           long classId, String name, Executable method,
           long[] overloadList,
           int modifiers)
@@ -174,6 +182,7 @@ public class TypeFactoryHarness implements TypeFactory, TypeAudit
 
   @Override
   public void populateMethod(
+          long ctx,
           long method, long returnType, long[] argumentTypes)
   {
     assertResource(returnType, MethodResource.class);
@@ -185,6 +194,7 @@ public class TypeFactoryHarness implements TypeFactory, TypeAudit
 
   @Override
   public long defineMethodDispatch(
+          long ctx,
           long classId,
           String name,
           long[] overloadList,
@@ -206,7 +216,7 @@ public class TypeFactoryHarness implements TypeFactory, TypeAudit
   Resource lastDestroyed = null;
 
   @Override
-  public void destroy(long[] resources, int sz)
+  public void destroy(long ctx, long[] resources, int sz)
   {
     System.out.println("destroy resources " + sz);
     for (int i = 0; i < sz; ++i)

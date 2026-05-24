@@ -1,5 +1,5 @@
 // --- file: org/jpype/JPypeReflector.java ---
-package org.jpype;
+package org.jpype.internal;
 
 import java.lang.reflect.Method;
 
@@ -11,7 +11,7 @@ import java.lang.reflect.Method;
  * caller-sensitive methods while ensuring proper stack frame creation for
  * execution.
  */
-public interface JPypeReflector
+public interface Reflector
 {
 
   /**

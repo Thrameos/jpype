@@ -1,4 +1,4 @@
-// --- file: org/jpype/ref/JPypeReferenceQueue.java ---
+// --- file: org/jpype/ref/NativeReferenceQueue.java ---
 /* ****************************************************************************
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -16,9 +16,10 @@
 **************************************************************************** */
 package org.jpype.ref;
 
-import java.lang.ref.PhantomReference;
 import java.lang.ref.ReferenceQueue;
-import org.jpype.bridge.Interpreter;
+import org.jpype.MainInterpreter;
+import org.jpype.internal.NativeContext;
+
 
 /**
  * A reference queue that binds the lifetime of Python objects to Java objects.
@@ -45,18 +46,14 @@ import org.jpype.bridge.Interpreter;
  *
  * @author smenard
  */
-public final class JPypeReferenceQueue extends ReferenceQueue<Object>
+public final class NativeReferenceQueue extends ReferenceQueue<Object>
 {
 
-  /**
-   * Singleton instance of the {@code JPypeReferenceQueue}.
-   */
-  private final static JPypeReferenceQueue INSTANCE = new JPypeReferenceQueue();
-
+  
   /**
    * A set of active references to Python objects.
    */
-  private JPypeReferenceSet hostReferences;
+  private ReferenceSet hostReferences;
 
   /**
    * Indicates whether the reference queue has been stopped.
@@ -72,22 +69,14 @@ public final class JPypeReferenceQueue extends ReferenceQueue<Object>
    * Mutex used to synchronize stopping the queue thread.
    */
   private final Object queueStopMutex = new Object();
-
+  
+  private final long address;
+  
   /**
    * Sentinel reference used to wake up the queue thread periodically.
    */
-  private PhantomReference<Object> sentinel = null;
-
-  /**
-   * Returns the singleton instance of the {@code JPypeReferenceQueue}.
-   *
-   * @return The singleton instance of the reference queue.
-   */
-  public static JPypeReferenceQueue getInstance()
-  {
-    return INSTANCE;
-  }
-
+  NativeReference sentinel;
+ 
   /**
    * Private constructor to initialize the reference queue.
    *
@@ -95,15 +84,16 @@ public final class JPypeReferenceQueue extends ReferenceQueue<Object>
    * This constructor sets up the reference queue, initializes the native
    * bindings, and adds a sentinel reference.</p>
    */
-  private JPypeReferenceQueue()
+  public NativeReferenceQueue(NativeContext context)
   {
     super();
-    this.hostReferences = new JPypeReferenceSet();
+    this.address = context.address();
+    this.hostReferences = new ReferenceSet(address);
     addSentinel();
-    JPypeReferenceNative.removeHostReference(0, 0);
+    NativeReference.removeHostReference(address, 0, 0);
     try
     {
-      JPypeReferenceNative.init(this, getClass().getDeclaredMethod("registerRef", Object.class, Long.TYPE, Long.TYPE));
+      NativeReference.init(this, getClass().getDeclaredMethod("registerRef", Object.class, Long.TYPE, Long.TYPE));
     } catch (NoSuchMethodException | SecurityException ex)
     {
       throw new RuntimeException(ex);
@@ -131,10 +121,10 @@ public final class JPypeReferenceQueue extends ReferenceQueue<Object>
     }
     if (isStopped)
     {
-      JPypeReferenceNative.removeHostReference(host, cleanup);
+      NativeReference.removeHostReference(address, host, cleanup);
     } else
     {
-      JPypeReference ref = new JPypeReference(this, javaObject, host, cleanup);
+      NativeReference ref = new NativeReference(this, javaObject, host, cleanup);
       hostReferences.add(ref);
     }
   }
@@ -182,7 +172,7 @@ public final class JPypeReferenceQueue extends ReferenceQueue<Object>
     }
 
     // Empty the queue
-    if (!Interpreter.getInstance().isJava())
+    if (!MainInterpreter.getInstance().isJava())
     {
       hostReferences.flush();
     }
@@ -217,7 +207,7 @@ public final class JPypeReferenceQueue extends ReferenceQueue<Object>
    */
   final void addSentinel()
   {
-    sentinel = new JPypeReference(this, new byte[0], 0, 0);
+    sentinel = new NativeReference(this, new byte[0], 0, 0);
   }
 
   /**
@@ -235,11 +225,11 @@ public final class JPypeReferenceQueue extends ReferenceQueue<Object>
         try
         {
           // Check if a reference has been queued
-          JPypeReference ref = (JPypeReference) remove(250);
+          NativeReference ref = (NativeReference) remove(250);
           if (ref == sentinel)
           {
             addSentinel();
-            JPypeReferenceNative.wake();
+            NativeReference.wake(address);
             continue;
           }
           if (ref != null)
@@ -247,7 +237,7 @@ public final class JPypeReferenceQueue extends ReferenceQueue<Object>
             long hostRef = ref.hostReference;
             long cleanup = ref.cleanup;
             hostReferences.remove(ref);
-            JPypeReferenceNative.removeHostReference(hostRef, cleanup);
+            NativeReference.removeHostReference(address, hostRef, cleanup);
           }
         } catch (InterruptedException ex)
         {

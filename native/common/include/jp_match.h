@@ -32,8 +32,9 @@ public:
 	} ;
 
 public:
-	JPMatch();
-	JPMatch(JPJavaFrame *frame, PyObject *object);
+	JPMatch() {}
+	JPMatch(const JPMatch&);
+	JPMatch(JPJavaFrame& frame, PyObject *object);
 
 	/**
 	 * Get the Java slot associated with the Python object.
@@ -46,13 +47,16 @@ public:
 
 	jvalue convert();
 
+private:
 public:
 	JPConversion *conversion;
-	JPJavaFrame *frame;
 	PyObject *object;
 	JPMatch::Type type;
 	JPValue *slot;
 	void *closure;
+	JPJavaFrame* frame;
+	JPContext* context;
+	PyJPModuleState* st;
 } ;
 
 class JPMethodCache

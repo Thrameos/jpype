@@ -26,9 +26,9 @@ JPMethod::JPMethod(JPJavaFrame& frame,
 		jmethodID mid,
 		JPMethodList& moreSpecific,
 		jint modifiers)
-: m_Method(frame, mth)
 {
 	m_Class = claz;
+	m_Method = frame.NewGlobalRef(mth);
 	m_Name = name;
 	m_MethodID = mid;
 	m_MoreSpecificOverloads = moreSpecific;
@@ -37,7 +37,11 @@ JPMethod::JPMethod(JPJavaFrame& frame,
 }
 
 JPMethod::~JPMethod()
-= default;
+{
+	JPContext* context = m_Class->getContext();
+	if (m_Method != nullptr && context->isRunning())
+		context->getEnv()->DeleteGlobalRef(m_Method);
+}
 
 void JPMethod::setParameters(
 		JPClass *returnType,
@@ -208,7 +212,7 @@ JPPyObject JPMethod::invoke(JPJavaFrame& frame, JPMethodMatch& match, JPPyObject
 	JP_TRACE_IN("JPMethod::invoke");
 	// Check if it is caller sensitive
 	if (isCallerSensitive())
-		return invokeCallerSensitive(match, arg, instance);
+		return invokeCallerSensitive(frame, match, arg, instance);
 
 	size_t alen = m_ParameterTypes.size();
 	JPClass* retType = m_ReturnType;
@@ -251,11 +255,11 @@ JPPyObject JPMethod::invoke(JPJavaFrame& frame, JPMethodMatch& match, JPPyObject
 	JP_TRACE_OUT; // GCOVR_EXCL_LINE
 }
 
-JPPyObject JPMethod::invokeCallerSensitive(JPMethodMatch& match, JPPyObjectVector& arg, bool instance)
+JPPyObject JPMethod::invokeCallerSensitive(JPJavaFrame& outer, JPMethodMatch& match, JPPyObjectVector& arg, bool instance)
 {
 	JP_TRACE_IN("JPMethod::invokeCallerSensitive");
 	size_t alen = m_ParameterTypes.size();
-	JPJavaFrame frame = JPJavaFrame::outer((int) (8 + alen));
+	JPJavaFrame frame = JPJavaFrame::outer(outer.getContext(), (int) (8 + alen));
 	JPContext *context = frame.getContext();
 	JPClass* retType = m_ReturnType;
 
@@ -286,7 +290,7 @@ JPPyObject JPMethod::invokeCallerSensitive(JPMethodMatch& match, JPPyObjectVecto
 		{
 			auto* type = dynamic_cast<JPPrimitiveType*>( cls);
 			PyObject *u = arg[i + match.m_Skip];
-			JPMatch conv(&frame, u);
+			JPMatch conv(frame, u);
 			JPClass *boxed = type->getBoxedClass(frame);
 			boxed->findJavaConversion(conv);
 			jvalue v = conv.convert();
@@ -301,11 +305,11 @@ JPPyObject JPMethod::invokeCallerSensitive(JPMethodMatch& match, JPPyObjectVecto
 	jobject o;
 	{
 		JPPyCallRelease call;
-		o =	 frame.callMethod(m_Method.get(), self, ja);
+		o =	 frame.callMethod(m_Method, self, ja);
 	}
 
 
-	JP_TRACE("ReturnType", retType->getCanonicalName());
+	JP_TRACE("ReturnType", retType->getCanonicalName(frame));
 
 	// Deal with the return
 	if (retType->isPrimitive())
@@ -340,7 +344,7 @@ string JPMethod::matchReport(JPJavaFrame& frame, JPPyObjectVector& args)
 	ensureTypeCache(frame);
 	std::stringstream res;
 
-	res << m_ReturnType->getCanonicalName() << " (";
+	res << m_ReturnType->getCanonicalName(frame) << " (";
 
 	bool isFirst = true;
 	for (auto & m_ParameterType : m_ParameterTypes)
@@ -351,7 +355,7 @@ string JPMethod::matchReport(JPJavaFrame& frame, JPPyObjectVector& args)
 			continue;
 		}
 		isFirst = false;
-		res << m_ParameterType->getCanonicalName();
+		res << m_ParameterType->getCanonicalName(frame);
 	}
 
 	res << ") ==> ";
@@ -397,5 +401,5 @@ void JPMethod::ensureTypeCache(JPJavaFrame& frame)
 	if (m_ReturnType != (JPClass*) (-1))
 		return;
 
-	JPContext_global->getTypeManager()->populateMethod(frame, this, m_Method.get());
+	frame.getContext()->getTypeManager()->populateMethod(frame, this, m_Method);
 }

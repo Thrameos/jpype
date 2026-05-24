@@ -14,7 +14,7 @@
   
   See NOTICE file for details.
 **************************************************************************** */
-package org.jpype;
+package org.jpype.internal;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -28,7 +28,7 @@ import java.util.Set;
  * keywords. It also includes a method to safely process package names
  * containing underscores.
  */
-public class JPypeKeywords
+public class Keywords
 {
 
   /**

@@ -1,5 +1,5 @@
-// --- file: org/jpype/JPypeClassLoader.java ---
-package org.jpype;
+// --- file: org/jpype/DynamicClassLoader.java ---
+package org.jpype.internal;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -37,13 +37,29 @@ import java.util.HashSet;
  * This is augmented to manage directory resources, allow for late loading, and
  * handling of resources on non-ASCII paths.
  */
-public class JPypeClassLoader extends URLClassLoader
+public class DynamicClassLoader extends URLClassLoader
 {
+
+  static DynamicClassLoader INSTANCE = null;
+
+  static DynamicClassLoader install(DynamicClassLoader loader)
+  {
+    if (INSTANCE != null)
+    {
+      System.err.println("Class loader already installed");
+      return INSTANCE;
+    }
+    if (loader == null)
+      INSTANCE = new org.jpype.internal.DynamicClassLoader(DynamicClassLoader.getSystemClassLoader());
+    else
+      INSTANCE = loader;
+    return INSTANCE;
+  }
 
   HashMap<String, ArrayList<URL>> map = new HashMap<>();
   int code = 0;
 
-  public JPypeClassLoader(ClassLoader parent)
+  public DynamicClassLoader(ClassLoader parent)
   {
     super(initial(), parent);
   }
@@ -189,7 +205,7 @@ public class JPypeClassLoader extends URLClassLoader
     String aname = name.replace('.', '/') + ".class";
     URL url = this.getResource(aname);
     if (url == null)
-      return Class.forName(name, false, JPypeClassLoader.class.getClassLoader());
+      return Class.forName(name, false, DynamicClassLoader.class.getClassLoader());
     try
     {
       URLConnection connection = url.openConnection();

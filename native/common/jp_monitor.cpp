@@ -17,25 +17,30 @@
 #include "jpype.h"
 #include "jp_monitor.h"
 
-JPMonitor::JPMonitor(jobject value) : m_Value(value)
+JPMonitor::JPMonitor(JPJavaFrame& frame, jobject value)
 {
+	m_Context = frame.getContext();
+	m_Value = frame.NewGlobalRef(value);
 }
 
 JPMonitor::~JPMonitor()
-= default;
+{
+	if (m_Value != nullptr && m_Context->isRunning())
+		m_Context->getEnv()->DeleteGlobalRef(m_Value);
+}
 
 void JPMonitor::enter()
 {
 	// This can hold off for a while so we need to release resource
 	// so that we don't dead lock.
 	JPPyCallRelease call;
-	JPJavaFrame frame = JPJavaFrame::outer();
-	frame.MonitorEnter(m_Value.get());
+	JPJavaFrame frame = JPJavaFrame::outer(m_Context);
+	frame.MonitorEnter(m_Value);
 }
 
 void JPMonitor::exit()
 {
-	JPJavaFrame frame = JPJavaFrame::outer();
-	frame.MonitorExit(m_Value.get());
+	JPJavaFrame frame = JPJavaFrame::outer(m_Context);
+	frame.MonitorExit(m_Value);
 }
 

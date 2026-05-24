@@ -19,6 +19,7 @@
 
 JPTypeManager::JPTypeManager(JPJavaFrame& frame)
 {
+	m_JavaTypeManager = nullptr;
 	JP_TRACE_IN("JPTypeManager::init");
 	jclass cls = frame.getContext()->getClassLoader()->findClass(frame, "org.jpype.manager.TypeManager");
 	m_FindClass = frame.GetMethodID(cls, "findClass", "(Ljava/lang/Class;)J");
@@ -37,7 +38,7 @@ JPClass* JPTypeManager::findClass(JPJavaFrame &frame, jclass obj)
 	JP_TRACE_IN("JPTypeManager::findClass");
 	jvalue val;
 	val.l = obj;
-	return (JPClass*) (frame.CallLongMethodA(m_JavaTypeManager.get(), m_FindClass, &val));
+	return (JPClass*) (frame.CallLongMethodA(m_JavaTypeManager, m_FindClass, &val));
 	JP_TRACE_OUT;
 }
 
@@ -46,7 +47,7 @@ JPClass* JPTypeManager::findClassByName(JPJavaFrame& frame, const string& name)
 	JP_TRACE_IN("JPTypeManager::findClassByName");
 	jvalue val;
 	val.l = (jobject) frame.fromStringUTF8(name);
-	auto* out = (JPClass*) (frame.CallLongMethodA(m_JavaTypeManager.get(), m_FindClassByName, &val));
+	auto* out = (JPClass*) (frame.CallLongMethodA(m_JavaTypeManager, m_FindClassByName, &val));
 	if (out == nullptr)
 	{
 		std::stringstream err;
@@ -62,7 +63,7 @@ JPClass* JPTypeManager::findClassForObject(JPJavaFrame &frame, jobject obj)
 	JP_TRACE_IN("JPTypeManager::findClassForObject");
 	jvalue val;
 	val.l = obj;
-	auto *cls = (JPClass*) (frame.CallLongMethodA(m_JavaTypeManager.get(), m_FindClassForObject, &val));
+	auto *cls = (JPClass*) (frame.CallLongMethodA(m_JavaTypeManager, m_FindClassForObject, &val));
 	frame.check();
 	JP_TRACE("ClassName", cls == NULL ? "null" : cls->getCanonicalName());
 	return cls;
@@ -76,7 +77,7 @@ void JPTypeManager::populateMethod(JPJavaFrame& frame, void* method, jobject obj
 	val[0].j = (jlong) method;
 	val[1].l = obj;
 	JP_TRACE("Method", method);
-	frame.CallVoidMethodA(m_JavaTypeManager.get(), m_PopulateMethod, val);
+	frame.CallVoidMethodA(m_JavaTypeManager, m_PopulateMethod, val);
 	JP_TRACE_OUT;
 }
 
@@ -85,16 +86,15 @@ void JPTypeManager::populateMembers(JPJavaFrame& frame, JPClass* cls)
 	JP_TRACE_IN("JPTypeManager::populateMembers");
 	jvalue val[1];
 	val[0].l = (jobject) cls->getJavaClass();
-	frame.CallVoidMethodA(m_JavaTypeManager.get(), m_PopulateMembers, val);
+	frame.CallVoidMethodA(m_JavaTypeManager, m_PopulateMembers, val);
 	JP_TRACE_OUT;
 }
 
-int JPTypeManager::interfaceParameterCount(JPClass *cls)
+int JPTypeManager::interfaceParameterCount(JPJavaFrame& frame, JPClass *cls)
 {
 	JP_TRACE_IN("JPTypeManager::interfaceParameterCount");
-	JPJavaFrame frame = JPJavaFrame::outer();
 	jvalue val[1];
 	val[0].l = (jobject) cls->getJavaClass();
-	return frame.CallIntMethodA(m_JavaTypeManager.get(), m_InterfaceParameterCount, val);
+	return frame.CallIntMethodA(m_JavaTypeManager, m_InterfaceParameterCount, val);
 	JP_TRACE_OUT;
 }

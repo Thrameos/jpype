@@ -20,7 +20,7 @@ class JPDoubleType : public JPPrimitiveType
 {
 public:
 
-	JPDoubleType();
+	JPDoubleType(JPJavaFrame& frame, jclass cls);
 	~JPDoubleType() override = default;
 
 	using type_t = jdouble;

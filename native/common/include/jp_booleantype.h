@@ -20,7 +20,7 @@ class JPBooleanType : public JPPrimitiveType
 {
 public:
 
-	JPBooleanType();
+	JPBooleanType(JPJavaFrame& frame, jclass cls);
 	~JPBooleanType() override;
 
 	using type_t = jboolean;

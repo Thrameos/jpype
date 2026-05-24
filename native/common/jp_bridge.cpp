@@ -230,6 +230,7 @@ static bool appendModulePathsToSysPath(JNIEnv* env, jobjectArray modulePath)
  * A list of module_search_paths so this can be used of limited/embedded deployments.
  * A list of command line arguments so we can execute command line functionality.
  */
+// FIXME CONTEXT MUST COME FROM ABOVE
 JNIEXPORT void JNICALL Java_org_jpype_bridge_Natives_start
 (JNIEnv *env, jclass cls, jobjectArray modulePath, jobjectArray args, 
 	jstring name, jstring prefix, jstring home, jstring exec_prefix, jstring executable,
@@ -352,13 +353,12 @@ success_config:
 		//print_module_path("jpype", jpype);
 		//print_module_path("_jpype", jpypep);
 
-		PyJPModule_loadResources(jpypep.get());
+		PyJPModuleState* st = reinterpret_cast<PyJPModuleState*>(PyModule_GetState(jpypep.get()));
 
 		// Then attach the private module to the JVM
-		context = JPContext_global;
+		context = st->context;
 		context->attachJVM(env);
-
-		JPJavaFrame frame = JPJavaFrame::external(env);
+		JPJavaFrame frame = JPJavaFrame::external(env, context);
 		
 		// Initialize the resources in the jpype module
 		JPPyObject obj = JPPyObject::call(PyObject_GetAttrString(jpype.get(), "_core"));
@@ -397,13 +397,14 @@ JNIEXPORT void JNICALL Java_org_jpype_bridge_Natives_interactive
 }
 
 JNIEXPORT void JNICALL Java_org_jpype_bridge_Natives_finish
-(JNIEnv *env, jclass cls)
+(JNIEnv *env, jclass cls, jlong ctx)
 {
 	try
 	{
+		JPContext* context = (JPContext*) ctx;
 		printf("A1\n");
 		PyGILState_STATE gstate = PyGILState_Ensure();
-		JPContext_global->detachJVM();
+		context->detachJVM();
 		printf("A2\n");
 		Py_Finalize();
 		printf("A3\n");

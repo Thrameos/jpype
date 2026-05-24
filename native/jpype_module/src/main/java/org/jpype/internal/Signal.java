@@ -14,7 +14,7 @@
 
   See NOTICE file for details.
 **************************************************************************** */
-package org.jpype;
+package org.jpype.internal;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -26,14 +26,17 @@ import java.lang.reflect.Proxy;
  * Thus the have warnings against it that cannot be disabled. So we will skin
  * this cat another way.
  */
-public class JPypeSignal
+public class Signal
 {
 
+  private Signal()
+  {}
+  
   static Thread main;
 
   static Object getSignalHandler(Class signalHandlerClazz, int signal) throws ClassNotFoundException
   {
-    return Proxy.newProxyInstance(ClassLoader.getSystemClassLoader(), new Class[]
+    return Proxy.newProxyInstance(DynamicClassLoader.getSystemClassLoader(), new Class[]
     {
       signalHandlerClazz
     }, (proxy, method, args) ->

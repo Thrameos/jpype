@@ -14,7 +14,7 @@
  * 
  *  See NOTICE file for details.
  */
-package org.jpype.bridge;
+package org.jpype;
 
 import python.lang.PyBuiltIn;
 import python.lang.PyDict;
@@ -31,27 +31,23 @@ import python.lang.PyObject;
  * private scope object.
  *
  */
-public class Context extends PyBuiltIn
+public class Script extends PyBuiltIn
 {
 
-  public final PyDict globalsDict;
-  public final PyObject localsDict;
+  private final PyDict globalsDict;
+  private final PyObject localsDict;
        
 
-  Context(Backend backend)
+  public Script(Interpreter interpeter)
   {
-    super(backend);
-    if (!Interpreter.getInstance().isJava())
-      throw new IllegalStateException("Java bridge must be active");
-    this.globalsDict = Interpreter.backend.newDict();
+    super(interpeter.getBuiltIn().getBackend());
+    this.globalsDict = MainInterpreter.backend.newDict();
     this.localsDict = globalsDict;
   }
 
-  Context(Backend backend, PyDict globals, PyObject locals)
+ public Script(Interpreter interpeter, PyDict globals, PyObject locals)
   {
-    super(backend);
-    if (!Interpreter.getInstance().isJava())
-      throw new IllegalStateException("Java bridge must be active");
+    super(interpeter.getBuiltIn().getBackend());
     this.globalsDict = globals;
     this.localsDict = locals;
   }
@@ -64,7 +60,7 @@ public class Context extends PyBuiltIn
    */
   public PyObject eval(String source)
   {
-    return Interpreter.backend.eval(source, globalsDict, localsDict);
+    return backend.eval(source, globalsDict, localsDict);
   }
 
   /**
@@ -74,17 +70,17 @@ public class Context extends PyBuiltIn
    */
   public void exec(String source)
   {
-    Interpreter.backend.exec(source, globalsDict, localsDict);
+    backend.exec(source, globalsDict, localsDict);
   }
 
   public void importModule(String module)
   {
-    Interpreter.backend.exec(String.format("import %s", module), globalsDict, localsDict);
+    backend.exec(String.format("import %s", module), globalsDict, localsDict);
   }
 
   public void importModule(String module, String as)
   {
-    Interpreter.backend.exec(String.format("import %s as %s", module, as), globalsDict, localsDict);
+    backend.exec(String.format("import %s as %s", module, as), globalsDict, localsDict);
   }
 
   /**

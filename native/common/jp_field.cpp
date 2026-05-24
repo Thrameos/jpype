@@ -24,9 +24,9 @@ JPField::JPField(JPJavaFrame& frame,
 		jfieldID fid,
 		JPClass* fieldType,
 		jint modifiers)
-: m_Field(frame, field)
 {
 	m_Class = cls;
+	m_Field = frame.NewGlobalRef(field);
 	m_Name = name;
 	m_FieldID = fid;
 	m_Type = fieldType;
@@ -34,7 +34,11 @@ JPField::JPField(JPJavaFrame& frame,
 }
 
 JPField::~JPField()
-= default;
+{
+	JPContext* context = m_Class->getContext();
+	if (m_Field != nullptr && context->isRunning())
+		context->getEnv()->DeleteGlobalRef(m_Field);
+}
 
 JPPyObject JPField::getStaticField(JPJavaFrame& frame)
 {

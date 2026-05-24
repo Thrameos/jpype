@@ -27,7 +27,18 @@ struct PyJPField
 {
 	PyObject_HEAD
 	JPField* m_Field;
+	PyJPModuleState* m_State;
 } ;
+
+static inline int PyJPField_checkContext(PyJPField* self)
+{
+	if (self == nullptr || self->m_State == nullptr || self->m_State->context == nullptr)
+	{
+		PyErr_SetString(PyExc_RuntimeError, "JPype module context is not available");
+		return 0;
+	}
+	return 1;
+}
 
 static void PyJPField_dealloc(PyJPField *self)
 {
@@ -38,7 +49,9 @@ static void PyJPField_dealloc(PyJPField *self)
 static PyObject *PyJPField_get(PyJPField *self, PyObject *obj, PyObject *type)
 {
 	JP_PY_TRY("PyJPField_get");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	if (!PyJPField_checkContext(self))
+		return nullptr;
+	JPJavaFrame frame = JPJavaFrame::outer(self->m_State->context);
 	// Clear any pending interrupts if we are on the main thread.
 	if (hasInterrupt())
 		frame.clearInterrupt(false);
@@ -57,7 +70,9 @@ static PyObject *PyJPField_get(PyJPField *self, PyObject *obj, PyObject *type)
 static int PyJPField_set(PyJPField *self, PyObject *obj, PyObject *pyvalue)
 {
 	JP_PY_TRY("PyJPField_set");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	if (!PyJPField_checkContext(self))
+		return -1;
+	JPJavaFrame frame = JPJavaFrame::outer(self->m_State->context);
 	if (self->m_Field->isFinal())
 	{
 		PyErr_SetString(PyExc_AttributeError, "Field is final");
@@ -87,10 +102,12 @@ static int PyJPField_set(PyJPField *self, PyObject *obj, PyObject *pyvalue)
 static PyObject *PyJPField_repr(PyJPField *self)
 {
 	JP_PY_TRY("PyJPField_repr");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	if (!PyJPField_checkContext(self))
+		return nullptr;
+	JPJavaFrame frame = JPJavaFrame::outer(self->m_State->context);
 	return PyUnicode_FromFormat("<java field '%s' of '%s'>",
 			self->m_Field->getName().c_str(),
-			self->m_Field->getClass()->getCanonicalName().c_str()
+			self->m_Field->getClass()->getCanonicalName(frame).c_str()
 			);
 	JP_PY_CATCH(nullptr);
 }
@@ -103,12 +120,11 @@ static PyType_Slot fieldSlots[] = {
 	{ Py_tp_dealloc,   (void*) PyJPField_dealloc},
 	{ Py_tp_descr_get, (void*) PyJPField_get},
 	{ Py_tp_descr_set, (void*) PyJPField_set},
-	{ Py_tp_repr,      (void*) &PyJPField_repr},
-	{ Py_tp_getset,    (void*) &fieldGetSets},
+	{ Py_tp_repr,	  (void*) &PyJPField_repr},
+	{ Py_tp_getset,	(void*) &fieldGetSets},
 	{0}
 };
 
-PyTypeObject *PyJPField_Type = nullptr;
 PyType_Spec PyJPFieldSpec = {
 	"_jpype._JField",
 	sizeof (PyJPField),
@@ -117,24 +133,28 @@ PyType_Spec PyJPFieldSpec = {
 	fieldSlots
 };
 
+void PyJPField_initType(PyObject* module, PyJPModuleState* st)
+{
+	st->PyJPField_Type = (PyTypeObject*) PyType_FromSpec(&PyJPFieldSpec);
+	JP_PY_CHECK();
+	PyModule_AddObject(module, "_JField", (PyObject*) st->PyJPField_Type);
+	JP_PY_CHECK();
+}
+
+JPPyObject PyJPField_create(JPJavaFrame& frame, JPField* m)
+{
+	JP_TRACE_IN("PyJPField_create");
+	PyJPModuleState* st = frame.getContext()->modulestate;
+	auto* self = (PyJPField*) st->PyJPField_Type->tp_alloc(st->PyJPField_Type, 0);
+	JP_PY_CHECK();
+	self->m_Field = m;
+	self->m_State = frame.getContext()->modulestate;
+	return JPPyObject::claim((PyObject*) self);
+	JP_TRACE_OUT; // GCOVR_EXCL_LINE
+}
+
 #ifdef __cplusplus
 }
 #endif
 
-void PyJPField_initType(PyObject* module)
-{
-	PyJPField_Type = (PyTypeObject*) PyType_FromSpec(&PyJPFieldSpec);
-	JP_PY_CHECK();
-	PyModule_AddObject(module, "_JField", (PyObject*) PyJPField_Type);
-	JP_PY_CHECK();
-}
 
-JPPyObject PyJPField_create(JPField* m)
-{
-	JP_TRACE_IN("PyJPField_create");
-	auto* self = (PyJPField*) PyJPField_Type->tp_alloc(PyJPField_Type, 0);
-	JP_PY_CHECK();
-	self->m_Field = m;
-	return JPPyObject::claim((PyObject*) self);
-	JP_TRACE_OUT; // GCOVR_EXCL_LINE
-}

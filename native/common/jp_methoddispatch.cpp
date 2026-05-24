@@ -152,9 +152,9 @@ bool JPMethodDispatch::findOverload(JPJavaFrame& frame, JPMethodMatch &bestMatch
 		// We have two possible overloads so we declare an error
 		std::stringstream ss;
 		if (JPModifier::isConstructor(m_Modifiers))
-			ss << "Ambiguous overloads found for constructor " << m_Class->getCanonicalName() << "(";
+			ss << "Ambiguous overloads found for constructor " << m_Class->getCanonicalName(frame) << "(";
 		else
-			ss << "Ambiguous overloads found for " << m_Class->getCanonicalName() << "." << getName() << "(";
+			ss << "Ambiguous overloads found for " << m_Class->getCanonicalName(frame) << "." << getName() << "(";
 		size_t start = callInstance ? 1 : 0;
 		for (size_t i = start; i < arg.size(); ++i)
 		{
@@ -178,13 +178,13 @@ bool JPMethodDispatch::findOverload(JPJavaFrame& frame, JPMethodMatch &bestMatch
 			return false;
 		std::stringstream ss;
 		if (JPModifier::isConstructor(m_Modifiers))
-			ss << "No matching overloads found for constructor " << m_Class->getCanonicalName() << "(";
+			ss << "No matching overloads found for constructor " << m_Class->getCanonicalName(frame) << "(";
 		else
 		{
 			ss << "No matching overloads found for ";
 			if (!callInstance)
 				ss << "*static* ";
-			ss << m_Class->getCanonicalName() << "." << getName() << "(";
+			ss << m_Class->getCanonicalName(frame) << "." << getName() << "(";
 		}
 		size_t start = callInstance ? 1 : 0;
 		for (size_t i = start; i < arg.size(); ++i)

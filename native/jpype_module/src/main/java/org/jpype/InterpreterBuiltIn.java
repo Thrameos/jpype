@@ -1,4 +1,3 @@
-// --- file: org/jpype/bridge/BootstrapLoader.java ---
 /*
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
  *  use this file except in compliance with the License. You may obtain a copy of
@@ -14,16 +13,19 @@
  * 
  *  See NOTICE file for details.
  */
-package org.jpype.bridge;
+package org.jpype;
+
+import python.lang.PyBuiltIn;
 
 /**
- * JPype Python Native Embedding.
  *
- * Loaded by _jpyne shared library.
+ * @author nelson85
  */
-class BootstrapLoader
+class InterpreterBuiltIn extends PyBuiltIn
 {
 
-  native static void loadLibrary(String library);
-
+  InterpreterBuiltIn(Backend backend)
+  {
+    super(backend);
+  }
 }

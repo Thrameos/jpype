@@ -143,12 +143,13 @@ public:
     // Any function declared noexcept that terminates by throwing an exception violates ERR55-CPP. Honor exception specifications.
     JPypeException(const JPypeException &ex) noexcept;
 	JPypeException& operator = (const JPypeException& ex);
-	~JPypeException() override = default;
+	~JPypeException() override;
 
 	void from(const JPStackInfo& info);
 
+	// This one is called only when there was a Java exception set which captures the context
 	void convertJavaToPython();
-	void convertPythonToJava();
+	void convertPythonToJava(JPJavaFrame& frame);
 
 	/** Transfer handling of this exception to python.
 	 *
@@ -158,7 +159,7 @@ public:
 	void toPython();
 
 	/** Transfer handling of this exception to java. */
-	void toJava();
+	void toJava(JPJavaFrame& frame);
 
 	int getExceptionType() const
 	{
@@ -167,14 +168,15 @@ public:
 
 	jthrowable getThrowable()
 	{
-		return m_Throwable.get();
+		return m_Throwable;
 	}
 
 private:
 	int m_Type;
+	JPContext* m_Context;
 	JPErrorUnion m_Error{};
 	JPStackTrace m_Trace;
-	JPThrowableRef m_Throwable;
+	jthrowable m_Throwable;
 	std::string m_Message;
 };
 

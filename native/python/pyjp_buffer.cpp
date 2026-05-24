@@ -54,7 +54,8 @@ static void PyJPBuffer_releaseBuffer(PyJPBuffer *self, Py_buffer *view)
 int PyJPBuffer_getBuffer(PyJPBuffer *self, Py_buffer *view, int flags)
 {
 	JP_PY_TRY("PyJPBufferPrimitive_getBuffer");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPContext* context = PyJPType_getContext(Py_TYPE(self));
+	JPJavaFrame frame = JPJavaFrame::outer(context);
 	if (self->m_Buffer == nullptr)
 		JP_RAISE(PyExc_ValueError, "Null buffer"); // GCOVR_EXCL_LINE
 	try
@@ -113,7 +114,7 @@ int PyJPBuffer_getBuffer(PyJPBuffer *self, Py_buffer *view, int flags)
 
 static PyType_Slot bufferSlots[] = {
 	{ Py_tp_dealloc,  (void*) PyJPBuffer_dealloc},
-	{ Py_tp_repr,     (void*) PyJPBuffer_repr},
+	{ Py_tp_repr,	 (void*) PyJPBuffer_repr},
 #if PY_VERSION_HEX >= 0x03090000
 	{ Py_bf_getbuffer, (void*) PyJPBuffer_getBuffer},
 	{ Py_bf_releasebuffer, (void*) PyJPBuffer_releaseBuffer},
@@ -128,7 +129,6 @@ static PyBufferProcs directBuffer = {
 };
 #endif
 
-PyTypeObject *PyJPBuffer_Type = nullptr;
 static PyType_Spec bufferSpec = {
 	"_jpype._JBuffer",
 	sizeof (PyJPBuffer),
@@ -137,19 +137,15 @@ static PyType_Spec bufferSpec = {
 	bufferSlots
 };
 
-#ifdef __cplusplus
-}
-#endif
-
-void PyJPBuffer_initType(PyObject * module)
+void PyJPBuffer_initType(PyObject * module, PyJPModuleState* st)
 {
-	JPPyObject tuple = JPPyTuple_Pack(PyJPObject_Type);
-	PyJPBuffer_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&bufferSpec, tuple.get());
+	JPPyObject tuple = JPPyTuple_Pack(st->PyJPObject_Type);
+	st->PyJPBuffer_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(module, &bufferSpec, tuple.get());
 #if PY_VERSION_HEX < 0x03090000
-	PyJPBuffer_Type->tp_as_buffer = &directBuffer;
+	st->PyJPBuffer_Type->tp_as_buffer = &directBuffer;
 #endif
 	JP_PY_CHECK();
-	PyModule_AddObject(module, "_JBuffer", (PyObject*) PyJPBuffer_Type);
+	PyModule_AddObject(module, "_JBuffer", (PyObject*) st->PyJPBuffer_Type);
 	JP_PY_CHECK();
 }
 
@@ -160,3 +156,8 @@ JPPyObject PyJPBuffer_create(JPJavaFrame &frame, PyTypeObject *type, const JPVal
 	PyJPValue_assignJavaSlot(frame, obj.get(), value);
 	return obj;
 }
+
+#ifdef __cplusplus
+}
+#endif
+

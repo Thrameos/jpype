@@ -20,8 +20,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.BiFunction;
-import org.jpype.bridge.Interpreter;
-import org.jpype.internal.Utility;
+import org.jpype.MainInterpreter;
+import org.jpype.internal.FunctionalAdapters;
 
 /**
  *
@@ -54,8 +54,8 @@ public class PyDictItemsIterator<K, V> implements Iterator<Map.Entry<K, V>>
       return !done;
     check = true;
     if (yield == null)
-      yield = (PyTuple) builtin.backend.next(iter, Interpreter.stop);
-    done = (yield == Interpreter.stop);
+      yield = (PyTuple) builtin.backend.next(iter, MainInterpreter.stop);
+    done = (yield == MainInterpreter.stop);
     return !done;
   }
 
@@ -71,7 +71,7 @@ public class PyDictItemsIterator<K, V> implements Iterator<Map.Entry<K, V>>
 
     K key = (K) yield.get(0);
     V value = (V) yield.get(1);
-    return new Utility.MapEntryWithSet<>(key, value, setter);
+    return new FunctionalAdapters.MapEntryWithSet<>(key, value, setter);
   }
 
 }

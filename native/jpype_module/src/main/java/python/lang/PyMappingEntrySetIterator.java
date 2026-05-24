@@ -16,12 +16,12 @@
  */
 package python.lang;
 
-import org.jpype.internal.Utility;
+import org.jpype.internal.FunctionalAdapters;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.BiFunction;
-import org.jpype.bridge.Interpreter;
+import org.jpype.MainInterpreter;
 
 /**
  * Iterator implementation for iterating over the entries of a Python
@@ -142,8 +142,8 @@ class PyMappingEntrySetIterator<K extends PyObject, V extends PyObject> implemen
       return !done;
     check = true;
     if (yield == null)
-      yield = builtin.next(iter, Interpreter.stop);
-    done = (yield == Interpreter.stop);
+      yield = builtin.next(iter, MainInterpreter.stop);
+    done = (yield == MainInterpreter.stop);
     return !done;
   }
 
@@ -171,6 +171,6 @@ class PyMappingEntrySetIterator<K extends PyObject, V extends PyObject> implemen
     PyTuple tuple = (PyTuple) yield;
     PyObject key = tuple.get(0);
     PyObject value = tuple.get(1);
-    return new Utility.MapEntryWithSet(key, value, setter);
+    return new FunctionalAdapters.MapEntryWithSet(key, value, setter);
   }
 }

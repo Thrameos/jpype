@@ -19,7 +19,7 @@ package python.lang;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
-import org.jpype.bridge.Backend;
+import org.jpype.Backend;
 
 /**
  * Represents a view fromMap the values in a Python dictionary ({@code PyDict})

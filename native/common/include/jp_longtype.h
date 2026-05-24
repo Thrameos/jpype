@@ -20,7 +20,7 @@ class JPLongType : public JPPrimitiveType
 {
 public:
 
-	JPLongType();
+	JPLongType(JPJavaFrame& frame, jclass cls);
 	~JPLongType() override;
 
 	using type_t = jlong;

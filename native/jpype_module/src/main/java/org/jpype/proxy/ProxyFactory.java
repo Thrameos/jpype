@@ -1,24 +1,32 @@
 // --- file: org/jpype/proxy/JPypeProxyFactory.java ---
 package org.jpype.proxy;
 
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jpype.internal.NativeContext;
+import org.jpype.manager.TypeManager;
+import org.jpype.manager.StringManager;
+import java.util.HashMap;
+import java.util.Map;
 
-public class JPypeProxyFactory
+public class ProxyFactory
 {
 
-  private JPypeProxyFactory()
-  {
-  }
+  final NativeContext context;
 
   // Define a common interface for both keys
   // Map now uses the interface, silencing CodeQL
-  private final Map<ProxyKey, JPypeProxyType> typeCache = new ConcurrentHashMap<>();
+  private final Map<ProxyKey, ProxyType> typeCache = new ConcurrentHashMap<>();
   private static final ThreadLocal<ReusableKey> LOOKUP_KEY
           = ThreadLocal.withInitial(ReusableKey::new);
-  private static final JPypeProxyFactory INSTANCE = new JPypeProxyFactory();
+  final Map<Method, MethodDescriptor> objectMethods = new HashMap<>();
+
+  public ProxyFactory(NativeContext context)
+  {
+    this.context = context;
+  }
 
   private interface ProxyKey
   {
@@ -33,19 +41,14 @@ public class JPypeProxyFactory
    * @param interfaces
    * @return
    */
-  public static JPypeProxyType getProxyType(long cleanup, Class<?>[] interfaces)
-  {
-    return INSTANCE.getProxyTypeImpl(cleanup, interfaces);
-  }
-
-  JPypeProxyType getProxyTypeImpl(long cleanup, Class<?>[] interfaces)
+  public ProxyType getProxyType(long cleanup, Class<?>[] interfaces)
   {
     Arrays.sort(interfaces, Comparator.comparing(Class::getName));
 
     // 1. Thread-local probe (Zero allocation)
     ReusableKey probe = LOOKUP_KEY.get().set(interfaces);
 
-    JPypeProxyType existing = typeCache.get(probe);
+    ProxyType existing = typeCache.get(probe);
 
     if (existing != null)
       return existing;
@@ -54,9 +57,9 @@ public class JPypeProxyFactory
     Class<?>[] permanentArray = interfaces.clone();
     InterfaceKey permanentKey = new InterfaceKey(permanentArray);
 
-    JPypeProxyType out = typeCache.computeIfAbsent(permanentKey,
-            k -> new JPypeProxyType(cleanup, permanentArray));
-    
+    ProxyType out = typeCache.computeIfAbsent(permanentKey,
+            k -> new ProxyType(this, cleanup, permanentArray));
+
     return out;
   }
 
@@ -128,4 +131,23 @@ public class JPypeProxyFactory
       return Arrays.equals(this.interfaces, ((ProxyKey) obj).getInterfaces());
     }
   }
+
+  public void init()
+  {
+    TypeManager tm = context.getTypeManager();
+    StringManager sm = context.getStringManager();
+    synchronized (tm)
+    {
+      for (Method method : Object.class.getMethods())
+      {
+        long returnType = tm.findClass(method.getReturnType());
+        Class<?>[] params = method.getParameterTypes();
+        long[] paramTypes = new long[params.length];
+        for (int i = 0; i < params.length; i++)
+          paramTypes[i] = tm.findClass(params[i]);
+        objectMethods.put(method, new MethodDescriptor(sm.get(method.getName()), returnType, paramTypes, null, false));
+      }
+    }
+  }
+
 }

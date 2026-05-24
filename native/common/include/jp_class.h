@@ -21,8 +21,10 @@
 class JPClass : public JPResource
 {
 public:
-	// Special entry point for JVM independent entities
-	JPClass(const string& name, jint modifiers);
+	JPClass(JPJavaFrame& frame,
+			jclass clss,
+			const string& name, 
+			jint modifiers);
 	JPClass(JPJavaFrame& context,
 			jclass clss,
 			const string& name,
@@ -41,6 +43,11 @@ public:
 	void setHints(PyObject* host);
 
 	PyObject* getHints();
+	
+	JPContext* getContext()
+	{
+		return m_Context;
+	}
 
 public:
 	void ensureMembers(JPJavaFrame& frame);
@@ -51,14 +58,14 @@ public:
 			JPMethodDispatchList& methods,
 			JPFieldList& fields);
 
-	string toString() const;
+	string toString(JPJavaFrame& frame) const;
 
-	string getCanonicalName() const
+	string getCanonicalName(JPJavaFrame& frame) const
 	{
 		return m_CanonicalName;
 	}
 
-	string getName() const;
+	string getName(JPJavaFrame& frame) const;
 
 	bool isAbstract() const
 	{
@@ -209,7 +216,8 @@ public:
 	}
 
 protected:
-	JPClassRef           m_Class;
+	JPContext*           m_Context;
+	jclass               m_Class;
 	JPClass*             m_SuperClass;
 	JPClassList          m_Interfaces;
 	JPMethodDispatch*    m_Constructors;

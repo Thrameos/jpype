@@ -96,7 +96,7 @@ void JPBoxedType::getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info)
 
 jobject JPBoxedType::box(JPJavaFrame &frame, jvalue v)
 {
-	return frame.NewObjectA(m_Class.get(), m_CtorID, &v);
+	return frame.NewObjectA(m_Class, m_CtorID, &v);
 }
 
 JPPyObject JPBoxedType::convertToPythonObject(JPJavaFrame& frame, jvalue value, bool cast)
@@ -117,7 +117,7 @@ JPPyObject JPBoxedType::convertToPythonObject(JPJavaFrame& frame, jvalue value, 
 
 	JPPyObject wrapper = PyJPClass_create(frame, cls);
 	JPPyObject obj;
-	JPContext *context = JPContext_global;
+	JPContext *context = frame.getContext();
 	if (this->getPrimitive() == context->_char)
 	{
 		jchar value2 = 0;

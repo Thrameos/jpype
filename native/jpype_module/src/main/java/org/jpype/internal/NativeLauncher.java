@@ -14,7 +14,7 @@
  * 
  *  See NOTICE file for details.
  */
-package org.jpype.bridge;
+package org.jpype.internal;
 
 /**
  * Internal behaviors used by the binding.
@@ -22,16 +22,16 @@ package org.jpype.bridge;
  * Loaded by the _jpype module.
  *
  */
-public class Natives
+public class NativeLauncher
 {
 
-  native static void start(String[] modulePaths, String[] args,
+  public native static void start(String[] modulePaths, String[] args,
           String name, String prefix, String home, String exec_prefix, String executable,
           boolean isolated, boolean fault_handler, boolean quiet, boolean verbose,
           boolean site_import, boolean user_site, boolean write_bytecode);
 
-  native static void interactive();
+  public native static void interactive();
 
-  native static void finish();
+  public native static void finish();
 
 }

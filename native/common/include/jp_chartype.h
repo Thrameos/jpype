@@ -20,7 +20,7 @@ class JPCharType : public JPPrimitiveType
 {
 public:
 
-	JPCharType();
+	JPCharType(JPJavaFrame& frame, jclass cls);
 	~JPCharType() override;
 
 

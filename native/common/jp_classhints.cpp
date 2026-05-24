@@ -25,13 +25,20 @@
 
 #include "pyjp.h"
 
-JPMatch::JPMatch() : conversion(nullptr), frame(nullptr), object(nullptr),
-					 type(JPMatch::_none), slot((JPValue*) - 1), closure(nullptr)
+JPMatch::JPMatch(const JPMatch& match) 
+	: conversion(match.conversion), object(match.object),
+	  type(match.type), slot(match.slot), closure(match.closure), 
+	  frame(match.frame), context(match.context), st(match.st)
 {}
 
-JPMatch::JPMatch(JPJavaFrame *fr, PyObject *obj) : conversion(nullptr), frame(fr), object(obj),
+
+JPMatch::JPMatch(JPJavaFrame& fr, PyObject *obj) : conversion(nullptr), object(obj),
 												   type(JPMatch::_none), slot((JPValue*) - 1), closure(nullptr)
-{}
+{
+	frame = &fr;
+	context = fr.getContext();
+	st = context->modulestate;
+}
 
 JPValue *JPMatch::getJavaSlot()
 {
@@ -56,7 +63,7 @@ JPMethodMatch::JPMethodMatch(JPJavaFrame &frame, JPPyObjectVector& args, bool ca
 	for (size_t i = 0; i < args.size(); ++i)
 	{
 		PyObject *arg = args[i];
-		m_Arguments[i] = JPMatch(&frame, arg);
+		m_Arguments[i] = JPMatch(frame, arg);
 
 		// This is an LCG used to compute a hash code for the incoming
 		// arguments using (A*X+A_i) mod2^64 where A_i is the address of each
@@ -159,10 +166,10 @@ public:
 			v.l = match.frame->NewLocalRef(v.l);
 			return v;
 		}
-		JPProxy *proxy = PyJPProxy_getJPProxy(ret.get());
+		JPProxy *proxy = PyJPProxy_getJPProxy(match.st, ret.get());
 		if (proxy != nullptr)
 		{
-			jvalue v = proxy->getProxy(*(match.frame));
+			jvalue v = proxy->getProxy(*match.frame);
 			JP_TRACE("Proxy", v.l);
 			v.l = match.frame->NewLocalRef(v.l);
 			return v;
@@ -357,8 +364,8 @@ public:
 	{
 		JP_TRACE_IN("JPConversionCharArray::matches");
 		auto* acls = dynamic_cast<JPArrayClass*>( cls);
-		if (match.frame == nullptr  || !JPPyString::check(match.object) ||
-				acls->getComponentType() != JPContext_global->_char)
+		if (!JPPyString::check(match.object) ||
+				acls->getComponentType() != match.context->_char)
 			return match.type = JPMatch::_none;
 		match.conversion = this;
 		return match.type = JPMatch::_implicit;
@@ -368,14 +375,13 @@ public:
 	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
 	{
 		auto* acls = dynamic_cast<JPArrayClass*>( cls);
-		if (acls->getComponentType() != JPContext_global->_char)
+		if (acls->getComponentType() != frame.getContext()->_char)
 			return;
 		PyList_Append(info.implicit, (PyObject*) & PyUnicode_Type);
 	}
 
 	jvalue convert(JPMatch &match) override
 	{
-		JPJavaFrame *frame = match.frame;
 		JP_TRACE("char[]");
 		jvalue res;
 
@@ -383,10 +389,10 @@ public:
 		string str = JPPyString::asStringUTF8(match.object);
 
 		// Convert to new java string
-		jstring jstr = frame->fromStringUTF8(str);
+		jstring jstr = match.frame->fromStringUTF8(str);
 
 		// call toCharArray()
-		res.l = frame->toCharArray(jstr);
+		res.l = match.frame->toCharArray(jstr);
 		return res;
 	}
 } _charArrayConversion;
@@ -399,8 +405,8 @@ public:
 	{
 		JP_TRACE_IN("JPConversionByteArray::matches");
 		auto* acls = dynamic_cast<JPArrayClass*>( cls);
-		if (match.frame == nullptr  || !PyBytes_Check(match.object) ||
-				acls->getComponentType() != JPContext_global->_byte)
+		if (!PyBytes_Check(match.object) ||
+				acls->getComponentType() != match.context->_byte)
 			return match.type = JPMatch::_none;
 		match.conversion = this;
 		return match.type = JPMatch::_implicit;
@@ -409,21 +415,21 @@ public:
 
 	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
 	{
+		JPContext* context = frame.getContext();
 		auto* acls = dynamic_cast<JPArrayClass*>( cls);
-		if (acls->getComponentType() != JPContext_global->_byte)
+		if (acls->getComponentType() != context->_byte)
 			return;
 		PyList_Append(info.implicit, (PyObject*) & PyBytes_Type);
 	}
 
 	jvalue convert(JPMatch &match) override
 	{
-		JPJavaFrame& frame = *(match.frame);
 		jvalue res;
 		Py_ssize_t size = 0;
 		char *buffer = nullptr;
 		PyBytes_AsStringAndSize(match.object, &buffer, &size); // internal reference
-		jbyteArray byteArray = frame.NewByteArray((jsize) size);
-		frame.SetByteArrayRegion(byteArray, 0, (jsize) size, (jbyte*) buffer);
+		jbyteArray byteArray = match.frame->NewByteArray((jsize) size);
+		match.frame->SetByteArrayRegion(byteArray, 0, (jsize) size, (jbyte*) buffer);
 		res.l = byteArray;
 		return res;
 	}
@@ -460,7 +466,7 @@ public:
 		if (length > 0)
 		{
 			JPPyObject item = seq[0];
-			JPMatch imatch(match.frame, item.get());
+			JPMatch imatch(*match.frame, item.get());
 			componentType->findJavaConversion(imatch);
 			if (imatch.type < match.type)
 				match.type = imatch.type;
@@ -479,13 +485,12 @@ public:
 	jvalue convert(JPMatch &match) override
 	{
 		JP_TRACE_IN("JPConversionBuffer::convert");
-		JPJavaFrame& frame = *(match.frame);
 		jvalue res;
 		auto *acls = (JPArrayClass *) match.closure;
 		auto length = (jsize) PySequence_Length(match.object);
 		JPClass *ccls = acls->getComponentType();
-		jarray array = ccls->newArrayOf(frame, (jsize) length);
-		ccls->setArrayRange(frame, array, 0, length, 1, match.object);
+		jarray array = ccls->newArrayOf(*match.frame, (jsize) length);
+		ccls->setArrayRange(*match.frame, array, 0, length, 1, match.object);
 		res.l = array;
 		return res;
 		JP_TRACE_OUT;
@@ -517,7 +522,7 @@ public:
 			// so we must hold the reference in a container while
 			// the match is caching it.
 			JPPyObject item = seq[i];
-			JPMatch imatch(match.frame, item.get());
+			JPMatch imatch(*match.frame, item.get());
 			componentType->findJavaConversion(imatch);
 			if (imatch.type < match.type)
 				match.type = imatch.type;
@@ -530,24 +535,24 @@ public:
 
 	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
 	{
+		JPContext *context = frame.getContext();
 		PyObject *typing = PyImport_AddModule("jpype.protocol");
 		JPPyObject proto = JPPyObject::call(PyObject_GetAttrString(typing, "Sequence"));
 		PyList_Append(info.implicit, proto.get());
 		auto* acls = dynamic_cast<JPArrayClass*>( cls);
-		if (acls->getComponentType() == JPContext_global->_char)
+		if (acls->getComponentType() == context->_char)
 			return;
 		PyList_Append(info.none, (PyObject*) & PyUnicode_Type);
 	}
 
 	jvalue convert(JPMatch &match) override
 	{
-		JPJavaFrame& frame = *(match.frame);
 		jvalue res;
 		auto *acls = (JPArrayClass *) match.closure;
 		auto length = (jsize) PySequence_Length(match.object);
 		JPClass *ccls = acls->getComponentType();
-		jarray array = ccls->newArrayOf(frame, (jsize) length);
-		ccls->setArrayRange(frame, array, 0, length, 1, match.object);
+		jarray array = ccls->newArrayOf(*match.frame, (jsize) length);
+		ccls->setArrayRange(*match.frame, array, 0, length, 1, match.object);
 		res.l = array;
 		return res;
 	}
@@ -586,8 +591,6 @@ public:
 	JPMatch::Type matches(JPClass *cls, JPMatch &match) override
 	{
 		JP_TRACE_IN("JPConversionClass::matches");
-		if (match.frame == nullptr)
-			return match.type = JPMatch::_none;
 		JPClass* cls2 = PyJPClass_getJPClass(match.object);
 		if (cls2 == nullptr)
 			return match.type = JPMatch::_none;
@@ -599,7 +602,8 @@ public:
 
 	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
 	{
-		PyList_Append(info.implicit, (PyObject*) PyJPClass_Type);
+		PyJPModuleState* st = frame.getContext()->modulestate;
+		PyList_Append(info.implicit, (PyObject*) st->PyJPClass_Type);
 	}
 
 	jvalue convert(JPMatch &match) override
@@ -619,7 +623,7 @@ public:
 	{
 		JP_TRACE_IN("JPConversionObject::matches");
 		JPValue *value = match.getJavaSlot();
-		if (value == nullptr || match.frame == nullptr)
+		if (value == nullptr)
 			return match.type = JPMatch::_none;
 		match.conversion = this;
 		JPClass *oc = value->getClass();
@@ -696,16 +700,15 @@ public:
 	JPMatch::Type matches(JPClass *cls, JPMatch &match) override
 	{
 		JP_TRACE_IN("JPConversionString::matches");
-		if (match.frame == nullptr || !JPPyString::check(match.object))
+		if (!JPPyString::check(match.object))
 			return match.type = JPMatch::_none;
 		match.conversion = this;
-		if (cls == JPContext_global->_java_lang_String)
+		if (cls == match.context->_java_lang_String)
 			return match.type = JPMatch::_exact;
 		return match.type = JPMatch::_implicit;
 		JP_TRACE_OUT;
 	}
-
-	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
+void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
 	{
 		PyList_Append(info.implicit, (PyObject*) & PyUnicode_Type);
 	}
@@ -744,7 +747,7 @@ public:
 		if (!PyBool_Check(match.object))
 			return match.type = JPMatch::_none;
 		match.conversion = this;
-		match.closure = JPContext_global->_java_lang_Boolean;
+		match.closure = match.context->_java_lang_Boolean;
 		return match.type = JPMatch::_implicit;
 		JP_TRACE_OUT;
 	}
@@ -763,8 +766,6 @@ public:
 	JPMatch::Type matches(JPClass *cls, JPMatch &match)  override
 	{
 		JP_TRACE_IN("JPConversionBoxLong::matches");
-		if (match.frame == nullptr)
-			return match.type = JPMatch::_none;
 		if (PyLong_CheckExact(match.object) || PyIndex_Check(match.object))
 		{
 			match.conversion = this;
@@ -784,18 +785,18 @@ public:
 	jvalue convert(JPMatch &match) override
 	{
 		PyTypeObject* type = Py_TYPE(match.object);
-		match.closure = JPContext_global->_java_lang_Long;
+		match.closure = match.context->_java_lang_Long;
 
 		// Hot path dispatch using the numpy tree
-		PyTypeObject* nptype = PyJP_GetNumPyBaseType(type);
+		PyTypeObject* nptype = PyJP_GetNumPyBaseType(match.st, type);
 		if (nptype != nullptr)
 		{
-			if (nptype == (PyTypeObject*) _numpy_int32_type)
-				match.closure = JPContext_global->_java_lang_Integer;
-			else if (nptype == (PyTypeObject*) _numpy_int16_type)
-				match.closure = JPContext_global->_java_lang_Short;
-			else if (nptype == (PyTypeObject*) _numpy_int8_type)
-				match.closure = JPContext_global->_java_lang_Byte;
+			if (nptype == (PyTypeObject*) match.st->numpy_int32_type)
+				match.closure = match.context->_java_lang_Integer;
+			else if (nptype == (PyTypeObject*) match.st->numpy_int16_type)
+				match.closure = match.context->_java_lang_Short;
+			else if (nptype == (PyTypeObject*) match.st->numpy_int8_type)
+				match.closure = match.context->_java_lang_Byte;
 		}
 
 		return JPConversionBox::convert(match);
@@ -809,8 +810,6 @@ public:
 	JPMatch::Type matches(JPClass *cls, JPMatch &match) override
 	{
 		JP_TRACE_IN("JPConversionBoxDouble::matches");
-		if (match.frame == nullptr)
-			return match.type = JPMatch::_none;
 		if (PyNumber_Check(match.object))
 		{
 			match.conversion = this;
@@ -831,12 +830,12 @@ public:
 	{
 		PyTypeObject* type = Py_TYPE(match.object);
 		const char *name = type->tp_name;
-		match.closure = JPContext_global->_java_lang_Double;
+		match.closure = match.context->_java_lang_Double;
 		if (strncmp(name, "numpy", 5) == 0)
 		{
 			// We only handle specific sized types, all others go to double.
 			if (strcmp(&name[5], ".float32") == 0)
-				match.closure = JPContext_global->_java_lang_Float;
+				match.closure = match.context->_java_lang_Float;
 		}
 		return JPConversionBox::convert(match);
 	}
@@ -850,7 +849,7 @@ public:
 	{
 		JP_TRACE_IN("JPConversionJavaObjectAny::matches");
 		JPValue *value = match.getJavaSlot();
-		if (value == nullptr || match.frame == nullptr || value->getClass() == nullptr)
+		if (value == nullptr || value->getClass() == nullptr)
 			return match.type = JPMatch::_none;
 		match.conversion = this;
 		if (value->getClass()->isPrimitive())
@@ -865,23 +864,23 @@ public:
 
 	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
 	{
-		PyList_Append(info.implicit, PyJPClass_create(frame, JPContext_global->_java_lang_Object).get());
+		JPContext* context = frame.getContext();
+		PyList_Append(info.implicit, PyJPClass_create(frame, context->_java_lang_Object).get());
 	}
 
 	jvalue convert(JPMatch &match) override
 	{
 		jvalue res;
-		JPJavaFrame *frame = match.frame;
 		JPValue *value = match.getJavaSlot();
 		if (!value->getClass()->isPrimitive())
 		{
-			res.l = frame->NewLocalRef(value->getJavaObject());
+			res.l = match.frame->NewLocalRef(value->getJavaObject());
 			return res;
 		} else
 		{
 			// Okay we need to box it.
 			auto* type = dynamic_cast<JPPrimitiveType*> (value->getClass());
-			match.closure = type->getBoxedClass(*frame);
+			match.closure = type->getBoxedClass(*match.frame);
 			res = JPConversionBox::convert(match);
 			return res;
 		}
@@ -895,13 +894,12 @@ public:
 	JPMatch::Type matches(JPClass *cls, JPMatch &match) override
 	{
 		JP_TRACE_IN("JPConversionJavaNumberAny::matches");
-		JPContext *context = JPContext_global;
 		JPValue *value = match.getJavaSlot();
 		// This converter only works for number types, thus boolean and char
 		// are excluded.
-		if (value == nullptr || match.frame == nullptr || value->getClass() == nullptr
-				|| value->getClass() == context->_boolean
-				|| value->getClass() == context->_char)
+		if (value == nullptr || value->getClass() == nullptr
+				|| value->getClass() == match.context->_boolean
+				|| value->getClass() == match.context->_char)
 			return match.type = JPMatch::_none;
 		match.conversion = this;
 		JPClass *oc = value->getClass();
@@ -919,8 +917,9 @@ public:
 
 	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
 	{
-		PyList_Append(info.implicit, (PyObject*) PyJPNumberLong_Type);
-		PyList_Append(info.implicit, (PyObject*) PyJPNumberFloat_Type);
+		PyJPModuleState* st = frame.getContext()->modulestate;
+		PyList_Append(info.implicit, (PyObject*) st->PyJPNumberLong_Type);
+		PyList_Append(info.implicit, (PyObject*) st->PyJPNumberFloat_Type);
 	}
 
 } _javaNumberAnyConversion;
@@ -931,9 +930,6 @@ public:
 
 	JPMatch::Type matches(JPClass *cls, JPMatch &match) override
 	{
-		JPContext *context = JPContext_global;
-		if (context == nullptr)
-			return match.type = JPMatch::_none;
 		JPValue *slot = match.getJavaSlot();
 		auto *pcls = dynamic_cast<JPPrimitiveType*>( cls);
 		if (slot->getClass() != pcls->getBoxedClass(*match.frame))
@@ -965,8 +961,8 @@ public:
 	JPMatch::Type matches(JPClass *cls, JPMatch &match) override
 	{
 		JP_TRACE_IN("JPConversionProxy::matches");
-		JPProxy* proxy = PyJPProxy_getJPProxy(match.object);
-		if (proxy == nullptr || match.frame == nullptr)
+		JPProxy* proxy = PyJPProxy_getJPProxy(match.st, match.object);
+		if (proxy == nullptr)
 			return match.type = JPMatch::_none;
 
 		// Check if any of the interfaces matches ...
@@ -980,6 +976,7 @@ public:
 				return match.type = JPMatch::_implicit;
 			}
 		}
+		match.closure = proxy;
 		return match.type = JPMatch::_none;
 		JP_TRACE_OUT;
 	}
@@ -990,7 +987,8 @@ public:
 
 	jvalue convert(JPMatch &match) override
 	{
-		return PyJPProxy_getJPProxy(match.object)->getProxy(*(match.frame));
+		JPProxy* proxy = (JPProxy*) match.closure;
+		return proxy->getProxy(*match.frame);
 	}
 } _proxyConversion;
 
@@ -1001,10 +999,7 @@ public:
 	JPMatch::Type matches(JPClass *cls, JPMatch &match) override
 	{
 		JP_TRACE_IN("JPConversionPython::matches");
-		if (match.frame == nullptr)
-			return match.type = JPMatch::_none;
-
-		JPPyObject probe_result = JPPyObject::accept(PyJPModule_probe(Py_TYPE(match.object)));
+		JPPyObject probe_result = JPPyObject::accept(PyJP_probe(match.st, Py_TYPE(match.object)));
 		if (!probe_result.isValid())
 			return match.type = JPMatch::_none;
 			
@@ -1036,19 +1031,21 @@ public:
 	{
 		jvalue v;
 		v.l = 0;
-		JPPyObject probe_result = JPPyObject::accept(PyJPModule_probe(Py_TYPE(match.object)));
+		JPPyObject probe_result = JPPyObject::accept(PyJP_probe(match.st, Py_TYPE(match.object)));
 		JPPyObject jcls = JPPyObject::use(PyTuple_GetItem(probe_result.get(), 0));
 		JPPyObject meth = JPPyObject::use(PyTuple_GetItem(probe_result.get(), 1));
 		JPPyObject proxy_args = JPPyObject::accept(PyTuple_Pack(4, match.object, meth.get(), jcls.get(), Py_True));
 		if (!proxy_args.isValid())
 			return v;
+		auto PyJPProxy_Type = match.st->PyJPProxy_Type;
 		JPPyObject proxy_instance = JPPyObject::accept(PyJPProxy_Type->tp_new(PyJPProxy_Type, proxy_args.get(), nullptr));
 		if (!proxy_instance.isValid())
 			return v;
-		JPProxy *proxy = PyJPProxy_getJPProxy(proxy_instance.get());
+		PyJPProxy* pyproxy = (PyJPProxy*) (proxy_instance.get());
+		JPProxy* proxy = pyproxy->m_Proxy;
 		if (proxy == nullptr)
 			return v;
-		return proxy->getProxy(*(match.frame));
+		return proxy->getProxy(*match.frame);
 	}
 } _pythonConversion;
 
@@ -1059,7 +1056,7 @@ public:
 	{
 		JP_TRACE_IN("JPConversionJavaPython::matches");
 		JPValue *value = match.getJavaSlot();
-		if (value == nullptr || match.frame == nullptr || value->getClass() == nullptr)
+		if (value == nullptr || value->getClass() == nullptr)
 			return match.type = JPMatch::_none;
 		// No double wrapping allowed
 		if (value->getClass()->isPython())
@@ -1075,11 +1072,10 @@ public:
 
 	jvalue convert(JPMatch &match) override
 	{
-		JPContext *context = JPContext_global;
 		jvalue value = match.slot->getValue();
 		jvalue out;
-		jclass cls = context->m_PyJavaObjectClass.get();
-		jmethodID mid = context->m_PyJavaObject_wrap;
+		jclass cls = match.context->m_PyJavaObjectClass;
+		jmethodID mid = match.context->m_PyJavaObject_wrap;
 		out.l = match.frame->CallStaticObjectMethodA(cls, mid, &value);
 		return out;
 	}

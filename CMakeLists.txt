@@ -176,12 +176,15 @@ set(JPYPE_NATIVE_SRC
         native/python/pyjp_classhints.cpp
         native/python/pyjp_field.cpp
         native/python/pyjp_method.cpp
+        native/python/pyjp_misc.cpp
         native/python/pyjp_module.cpp
         native/python/pyjp_monitor.cpp
         native/python/pyjp_number.cpp
         native/python/pyjp_object.cpp
         native/python/pyjp_package.cpp
+        native/python/pyjp_probe.cpp
         native/python/pyjp_proxy.cpp
+        native/python/pyjp_util.cpp
         native/python/pyjp_value.cpp
 )
 

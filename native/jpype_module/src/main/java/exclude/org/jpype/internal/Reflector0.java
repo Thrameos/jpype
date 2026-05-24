@@ -1,6 +1,7 @@
 // --- file: exclude/org/jpype/Reflector0.java ---
-package org.jpype;
+package org.jpype.internal;
 
+import org.jpype.internal.Reflector;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
@@ -14,7 +15,7 @@ import java.lang.reflect.Method;
  * Java version 0. When JPype loads it fetches this class from the jar and loads
  * it with the required security privilages.
  */
-public class Reflector0 implements JPypeReflector
+public class Reflector0 implements Reflector
 {
 
   public Reflector0()

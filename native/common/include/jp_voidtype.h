@@ -20,7 +20,7 @@ class JPVoidType : public JPPrimitiveType
 {
 public:
 
-	JPVoidType();
+	JPVoidType(JPJavaFrame& frame, jclass cls);
 	~JPVoidType() override;
 
 	JPClass* getBoxedClass(JPJavaFrame& frame) const override;

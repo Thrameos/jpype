@@ -19,7 +19,7 @@ package python.lang;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
-import org.jpype.bridge.Backend;
+import org.jpype.Backend;
 
 /**
  * A {@link Map}-like implementation for accessing and manipulating Python

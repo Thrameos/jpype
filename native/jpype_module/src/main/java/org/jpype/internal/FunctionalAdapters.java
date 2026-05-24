@@ -27,7 +27,7 @@ import java.util.function.Function;
  * This class contains generic utility methods and nested classes that simplify
  * working with iterators and map entries with custom setter logic.
  */
-public class Utility
+public class FunctionalAdapters
 {
 
   /**

@@ -20,7 +20,7 @@ class JPIntType : public JPPrimitiveType
 {
 public:
 
-	JPIntType();
+	JPIntType(JPJavaFrame& frame, jclass cls);
 	~JPIntType() override;
 
 	using type_t = jint;

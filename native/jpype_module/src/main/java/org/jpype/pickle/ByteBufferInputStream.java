@@ -35,6 +35,11 @@ public class ByteBufferInputStream extends InputStream
 {
 
   private final LinkedList<ByteBuffer> buffers = new LinkedList<>();
+  
+  public ByteBufferInputStream()
+  {
+    super();
+  }
 
   /**
    * Adds a byte array to the stream by wrapping it in a {@link ByteBuffer}.

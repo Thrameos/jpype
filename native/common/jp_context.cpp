@@ -44,12 +44,109 @@ void JPRef_failed()
 {
 	JP_RAISE(PyExc_SystemError, "NULL context in JPRef()");
 }
-
 JPContext::JPContext()
 {
-	m_Embedded = false;
+    // --- State and Flags ---
+    m_Running = false;
+    m_ConvertStrings = false;
+    m_Embedded = false;
 
-	m_GC = new JPGarbageCollection();
+    // --- Core Services & Framework ---
+    modulestate = nullptr;
+    m_JavaVM = nullptr;
+    m_TypeManager = nullptr;
+    m_ClassLoader = nullptr;
+    m_GC = new JPGarbageCollection();
+    m_PyExcConvert = nullptr;
+
+    // --- JNI Function Pointers ---
+    CreateJVM_Method = nullptr;
+    GetCreatedJVMs_Method = nullptr;
+    GetDefaultJavaVMInitArgs_Method = nullptr;
+
+    // --- Primitive Types ---
+    _void = nullptr;
+    _boolean = nullptr;
+    _byte = nullptr;
+    _char = nullptr;
+    _short = nullptr;
+    _int = nullptr;
+    _long = nullptr;
+    _float = nullptr;
+    _double = nullptr;
+
+    // --- Boxed Types ---
+    _java_lang_Void = nullptr;
+    _java_lang_Boolean = nullptr;
+    _java_lang_Byte = nullptr;
+    _java_lang_Character = nullptr;
+    _java_lang_Short = nullptr;
+    _java_lang_Integer = nullptr;
+    _java_lang_Long = nullptr;
+    _java_lang_Float = nullptr;
+    _java_lang_Double = nullptr;
+
+    // --- Core Java Classes ---
+    _java_lang_Object = nullptr;
+    _java_lang_Class = nullptr;
+    _java_lang_reflect_Field = nullptr;
+    _java_lang_reflect_Method = nullptr;
+    _java_lang_Throwable = nullptr;
+    _java_lang_String = nullptr;
+    _python_lang_PyObject = nullptr;
+    m_RuntimeException = nullptr;
+    m_Array = nullptr;
+    m_PyJavaObjectClass = nullptr;
+
+    // --- Core Java Method IDs ---
+    m_Array_NewInstanceID = nullptr;
+    m_Buffer_IsReadOnlyID = nullptr;
+    m_Buffer_AsReadOnlyID = nullptr;
+    m_Class_GetNameID = nullptr;
+    m_CompareToID = nullptr;
+    m_Object_ToStringID = nullptr;
+    m_Object_EqualsID = nullptr;
+    m_Object_HashCodeID = nullptr;
+    m_Object_GetClassID = nullptr;
+    m_String_ToCharArrayID = nullptr;
+    m_Throwable_GetCauseID = nullptr;
+    m_Throwable_GetMessageID = nullptr;
+
+    // --- Package Bindings & Support ---
+    m_JavaContext = nullptr;
+    m_ContextClass = nullptr;
+    m_Context_ClearInterruptID = nullptr;
+    m_Context_GetFunctionalID = nullptr;
+    m_Context_IsPackageID = nullptr;
+    m_Context_GetPackageID = nullptr;
+    m_Package_GetObjectID = nullptr;
+    m_Package_GetContentsID = nullptr;
+    m_Context_NewWrapperID = nullptr;
+    
+    m_SupportClass = nullptr;
+    m_Support_GetStackFrameID = nullptr;
+    m_Support_collectRectangularID = nullptr;
+    m_Support_assembleID = nullptr;
+    m_Support_OrderID = nullptr;
+    m_Support_GetTotalMemoryID = nullptr;
+    m_Support_GetFreeMemoryID = nullptr;
+    m_Support_GetMaxMemoryID = nullptr;
+    m_Support_GetUsedMemoryID = nullptr;
+    m_Support_GetHeapMemoryID = nullptr;
+
+    // --- Proxy Management & Reflection ---
+    m_JavaProxyFactory = nullptr;
+    m_ProxyFactoryClass = nullptr;
+    m_ProxyFactory_getProxyTypeID = nullptr;
+    m_ProxyTypeClass = nullptr;
+    m_ProxyType_newInstanceID = nullptr;
+    m_ProxyType_UnwrapPythonExceptionID = nullptr;
+    m_ProxyType_GetInstanceID = nullptr;
+
+    m_Reflector = nullptr;
+    m_Reflector_CallMethodID = nullptr;
+    m_PyJavaObject_wrap = nullptr;
+
 }
 
 JPContext::~JPContext()
@@ -72,21 +169,14 @@ bool JPContext::isRunning()
  */
 void assertJVMRunning(JPContext* context, const JPStackInfo& info)
 {
-	if (_JVMNotRunning == nullptr)
-	{
-		_JVMNotRunning = PyObject_GetAttrString(PyJPModule, "JVMNotRunning");
-		JP_PY_CHECK();
-		Py_INCREF(_JVMNotRunning);
-	}
-
 	if (context == nullptr)
 	{
-		throw JPypeException(JPError::_python_exc, _JVMNotRunning, "Java Context is null", info);
+		throw JPypeException(JPError::_python_exc, context->modulestate->JVMNotRunning, "Java Context is null", info);
 	}
 
 	if (!context->isRunning())
 	{
-		throw JPypeException(JPError::_python_exc, _JVMNotRunning, "Java Virtual Machine is not running", info);
+		throw JPypeException(JPError::_python_exc, context->modulestate->JVMNotRunning, "Java Virtual Machine is not running", info);
 	}
 }
 
@@ -107,6 +197,7 @@ void JPContext::loadEntryPoints(const string& path)
 	JP_TRACE_OUT;
 }
 
+JavaVM* _JavaVM = nullptr;
 void JPContext::startJVM(const string& vmPath, const StringVector& args,
 		bool ignoreUnrecognized, bool convertStrings, bool interrupt)
 {
@@ -191,6 +282,7 @@ void JPContext::startJVM(const string& vmPath, const StringVector& args,
 	try
 	{
 		CreateJVM_Method(&m_JavaVM, (void**) &env, (void*) jniArgs);
+		_JavaVM = m_JavaVM;
 	} catch (...)
 	{
 		JP_TRACE("Exception in CreateJVM?");
@@ -215,9 +307,11 @@ void JPContext::startJVM(const string& vmPath, const StringVector& args,
 	JP_TRACE_OUT;
 }
 
+
 void JPContext::attachJVM(JNIEnv* env)
 {
 	env->GetJavaVM(&m_JavaVM);
+	_JavaVM = m_JavaVM;
 #ifndef ANDROID
 	m_Embedded = true;
 #endif
@@ -229,6 +323,7 @@ void JPContext::detachJVM()
 	printf("DETACH\n");
 	m_JavaVM = nullptr;
 	m_Running = false;
+	_JavaVM = nullptr;
 }
 
 std::string getShared() 
@@ -263,8 +358,9 @@ std::string getShared()
 
 void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 {
+	printf("Initialize Resources\n");
 	m_Running = true;
-	JPJavaFrame frame = JPJavaFrame::external(env);
+	JPJavaFrame frame = JPJavaFrame::external(env, this);
 	// This is the only frame that we can use until the system
 	// is initialized.  Any other frame creation will result in an error.
 
@@ -278,19 +374,23 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 
 	// We need these first because if anything goes south this is the first
 	// thing that will get hit.
+	printf("Initialize Object and String\n");
 	jclass objectClass = frame.FindClass("java/lang/Object");
 	m_Object_ToStringID = frame.GetMethodID(objectClass, "toString", "()Ljava/lang/String;");
 	m_Object_EqualsID = frame.GetMethodID(objectClass, "equals", "(Ljava/lang/Object;)Z");
 	m_Object_HashCodeID = frame.GetMethodID(objectClass, "hashCode", "()I");
 	m_Object_GetClassID = frame.GetMethodID(objectClass, "getClass", "()Ljava/lang/Class;");
 
-	m_RuntimeException = JPClassRef(frame, (jclass) frame.FindClass("java/lang/RuntimeException"));
+	m_RuntimeException = (jclass) frame.NewGlobalRef((jclass) frame.FindClass("java/lang/RuntimeException"));
 
 	jclass stringClass = frame.FindClass("java/lang/String");
 	m_String_ToCharArrayID = frame.GetMethodID(stringClass, "toCharArray", "()[C");
 
 	jclass classClass = frame.FindClass("java/lang/Class");
 	m_Class_GetNameID = frame.GetMethodID(classClass, "getName", "()Ljava/lang/String;");
+	
+
+	printf("Initialize Class Loader\n");
 
 	// Bootloader needs to go first so we can load classes
 	m_ClassLoader = new JPClassLoader(frame);
@@ -299,114 +399,162 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 	// Start the rest of the services
 	m_TypeManager = new JPTypeManager(frame);
 
-	// Prepare to launch
+	// ========================================================================
+	// Initialize the Modernized NativeContext Core Hub
+	// ========================================================================
 	JP_TRACE("Start Context");
-	m_ContextClass = JPClassRef(frame, (jclass) m_ClassLoader->findClass(frame, "org.jpype.JPypeContext"));
-	jclass contextClass = m_ContextClass.get();
-	m_Context_GetStackFrameID = frame.GetMethodID(contextClass, "getStackTrace",
-			"(Ljava/lang/Throwable;Ljava/lang/Throwable;)[Ljava/lang/Object;");
+	printf("Initialize Context\n");
+	m_ContextClass = (jclass) frame.NewGlobalRef((jclass) m_ClassLoader->findClass(frame, "org.jpype.internal.NativeContext"));
+	jclass contextClass = m_ContextClass;
+	printf("Context Class: %p\n", contextClass);
 
+	// Needed for TypeFactory and other early users of the context during initialization
+	m_Context_GetFunctionalID = frame.GetMethodID(contextClass,
+			"getFunctional",
+			"(Ljava/lang/Class;)J");
+
+
+	// Update the createContext bootstrap signature
 	jmethodID startMethod = frame.GetStaticMethodID(contextClass, "createContext",
-			"(Ljava/lang/ClassLoader;Ljava/lang/String;Z)Lorg/jpype/JPypeContext;");
+			"(JLorg/jpype/internal/DynamicClassLoader;Ljava/lang/String;Z)Lorg/jpype/internal/NativeContext;");
 
-	// Launch
-	jvalue val[3];
-	val[0].l = m_ClassLoader->getBootLoader();
-	val[1].l = nullptr;
-	val[2].z = interrupt;
+	// Prepare arguments for context creation
+	jvalue val[4];
+	val[0].j = (jlong) this;
+	val[1].l = m_ClassLoader->getBootLoader();
+	val[2].l = nullptr;
+	val[3].z = interrupt;
 
 	if (!m_Embedded)
 	{
 		std::string shared = getShared();
-		val[1].l = frame.fromStringUTF8(shared);
+		val[2].l = frame.fromStringUTF8(shared);
 	}
 
-	// Required before launch
-	m_Context_GetFunctionalID = frame.GetStaticMethodID(contextClass,
-			"getFunctional",
-			"(Ljava/lang/Class;)J");
+	// Instantiate the core context hub
+	m_JavaContext = frame.NewGlobalRef(frame.CallStaticObjectMethodA(contextClass, startMethod, val));
 
-	m_JavaContext = JPObjectRef(frame, frame.CallStaticObjectMethodA(contextClass, startMethod, val));
-
-	// Post launch
+	// Post launch bindings
 	JP_TRACE("Connect resources");
+	
 	// Hook up the type manager
+	printf("Connect Type Manager\n");
 	jmethodID getTypeManager = frame.GetMethodID(contextClass, "getTypeManager",
 			"()Lorg/jpype/manager/TypeManager;");
-	m_TypeManager->m_JavaTypeManager = JPObjectRef(frame,
-			frame.CallObjectMethodA(m_JavaContext.get(), getTypeManager, nullptr));
+	m_TypeManager->m_JavaTypeManager = frame.NewGlobalRef(
+			frame.CallObjectMethodA(m_JavaContext, getTypeManager, nullptr));
 
-	// Set up methods after everything is start so we get better error
-	// messages
-	jclass reflectorClass = frame.FindClass("org/jpype/JPypeReflector");
-	jfieldID reflectorField = frame.GetFieldID(contextClass, "reflector", "Lorg/jpype/JPypeReflector;");
-	m_Reflector = JPObjectRef(frame, frame.GetObjectField(m_JavaContext.get(), reflectorField));
-	m_CallMethodID = frame.GetMethodID(reflectorClass, "callMethod",
+	// Connect the reflector from the new NativeContext field
+	jclass reflectorClass = frame.FindClass("org/jpype/internal/Reflector");
+	jfieldID reflectorField = frame.GetFieldID(contextClass, "reflector", "Lorg/jpype/internal/Reflector;");
+	m_Reflector = frame.NewGlobalRef(frame.GetObjectField(m_JavaContext, reflectorField));
+	m_Reflector_CallMethodID = frame.GetMethodID(reflectorClass, "callMethod",
 			"(Ljava/lang/reflect/Method;Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
-	m_Context_collectRectangularID = frame.GetMethodID(contextClass,
-			"collectRectangular",
-			"(Ljava/lang/Object;)[Ljava/lang/Object;");
-
-	m_Context_assembleID = frame.GetMethodID(contextClass,
-			"assemble",
-			"([ILjava/lang/Object;)Ljava/lang/Object;");
-
-	m_Context_OrderID = frame.GetMethodID(contextClass, "order", "(Ljava/nio/Buffer;)Z");
+	
+	// NativeContext instance/static methods
 	m_Context_IsPackageID = frame.GetMethodID(contextClass, "isPackage", "(Ljava/lang/String;)Z");
-	m_Context_GetPackageID = frame.GetMethodID(contextClass, "getPackage", "(Ljava/lang/String;)Lorg/jpype/pkg/JPypePackage;");
+	m_Context_GetPackageID = frame.GetMethodID(contextClass, "getPackage", "(Ljava/lang/String;)Lorg/jpype/pkg/Package;");
 	m_Context_ClearInterruptID = frame.GetStaticMethodID(contextClass, "clearInterrupt", "(Z)V");
+	m_Context_NewWrapperID = frame.GetMethodID(contextClass, "newWrapper", "(J)V");
 
-	jclass packageClass = m_ClassLoader->findClass(frame, "org.jpype.pkg.JPypePackage");
+	// Package bindings
+	jclass packageClass = m_ClassLoader->findClass(frame, "org.jpype.pkg.Package");
 	m_Package_GetObjectID = frame.GetMethodID(packageClass, "getObject",
 			"(Ljava/lang/String;)Ljava/lang/Object;");
 	m_Package_GetContentsID = frame.GetMethodID(packageClass, "getContents",
 			"()[Ljava/lang/String;");
-	m_Context_NewWrapperID = frame.GetMethodID(contextClass, "newWrapper",
-			"(J)V");
 
-	m_Array = JPClassRef(frame, frame.FindClass("java/lang/reflect/Array"));
-	m_Array_NewInstanceID = frame.GetStaticMethodID(m_Array.get(), "newInstance",
+	// ========================================================================
+	// Resolve Support_2.java Utilities Class and Static Method Handles
+	// ========================================================================
+	printf("Initialize Support Utilities\n");
+	jclass supportLocal = (jclass) m_ClassLoader->findClass(frame, "org.jpype.internal.Support");
+	m_SupportClass = (jclass) frame.NewGlobalRef(supportLocal);
+	jclass supportClass = m_SupportClass;
+
+	// --- Diagnostic Hooks & Exception Handling ---
+	m_Support_GetStackFrameID = frame.GetStaticMethodID(supportClass, "getStackTrace",
+			"(Ljava/lang/Throwable;Ljava/lang/Throwable;)[Ljava/lang/Object;");
+
+	// --- Primitive Memory View & Multidimensional Array Processing ---
+	m_Support_collectRectangularID = frame.GetStaticMethodID(supportClass, "collectRectangular",
+			"(Ljava/lang/Object;)[Ljava/lang/Object;");
+
+	m_Support_assembleID = frame.GetStaticMethodID(supportClass, "assemble",
+			"([ILjava/lang/Object;)Ljava/lang/Object;");
+
+	// --- Endianness / Byte Ordering ---
+	m_Support_OrderID = frame.GetStaticMethodID(supportClass, "order", 
+			"(Ljava/nio/Buffer;)Z");
+
+	// --- Memory Profiling and Diagnostics ---
+	m_Support_GetTotalMemoryID = frame.GetStaticMethodID(supportClass, "getTotalMemory", "()J");
+	m_Support_GetFreeMemoryID = frame.GetStaticMethodID(supportClass, "getFreeMemory", "()J");
+	m_Support_GetMaxMemoryID = frame.GetStaticMethodID(supportClass, "getMaxMemory", "()J");
+	m_Support_GetUsedMemoryID = frame.GetStaticMethodID(supportClass, "getUsedMemory", "()J");
+	m_Support_GetHeapMemoryID = frame.GetStaticMethodID(supportClass, "getHeapMemory", "()J");
+
+	// ========================================================================
+	// Resolve ProxyFactory (via NativeContext_2.java Explicit Getter)
+	// ========================================================================
+	JP_TRACE("Connect Proxy Factory");
+
+	// 1. Look up the modernized ProxyFactory class
+	jclass factoryClass = getClassLoader()->findClass(frame, "org.jpype.proxy.ProxyFactory");
+	m_ProxyFactoryClass = (jclass) frame.NewGlobalRef(factoryClass);
+
+	// 2. Look up the explicit getter method on NativeContext and safely pull the instance
+	jmethodID getProxyFactoryMethod = frame.GetMethodID(contextClass, "getProxyFactory", 
+		"()Lorg/jpype/proxy/ProxyFactory;");
+	m_JavaProxyFactory = frame.NewGlobalRef(frame.CallObjectMethodA(m_JavaContext, getProxyFactoryMethod, nullptr));
+
+	// 3. Bind getProxyType as an instance method on ProxyFactory
+	m_ProxyFactory_getProxyTypeID = frame.GetMethodID(factoryClass, "getProxyType",
+		"(J[Ljava/lang/Class;)Lorg/jpype/proxy/ProxyType;");
+
+	// 4. Resolve the simplified ProxyType class
+	jclass proxyTypeClass = getClassLoader()->findClass(frame, "org.jpype.proxy.ProxyType");
+	m_ProxyTypeClass = (jclass) frame.NewGlobalRef(proxyTypeClass);
+
+	// 5. Look up ProxyType instance and utility methods
+	m_ProxyType_newInstanceID = frame.GetMethodID(proxyTypeClass, "newInstance", "(J)Ljava/lang/Object;");
+	
+	m_ProxyType_UnwrapPythonExceptionID = frame.GetStaticMethodID(
+		proxyTypeClass, 
+		"unwrapPythonException", 
+		"(Ljava/lang/Throwable;)J"
+	);
+	m_ProxyType_GetInstanceID = frame.GetStaticMethodID(proxyTypeClass, "getInstance", "(Ljava/lang/Object;)J");
+
+	// ========================================================================
+	// Core Standard Library Array and Buffer Support
+	// ========================================================================
+	m_Array = (jclass) frame.NewGlobalRef(frame.FindClass("java/lang/reflect/Array"));
+	m_Array_NewInstanceID = frame.GetStaticMethodID(m_Array, "newInstance",
 			"(Ljava/lang/Class;[I)Ljava/lang/Object;");
-
 	jclass bufferClass = frame.FindClass("java/nio/Buffer");
 	m_Buffer_IsReadOnlyID = frame.GetMethodID(bufferClass, "isReadOnly",
 			"()Z");
-
 	jclass bytebufferClass = frame.FindClass("java/nio/ByteBuffer");
 	m_Buffer_AsReadOnlyID = frame.GetMethodID(bytebufferClass, "asReadOnlyBuffer",
 			"()Ljava/nio/ByteBuffer;");
-
 	jclass comparableClass = frame.FindClass("java/lang/Comparable");
 	m_CompareToID = frame.GetMethodID(comparableClass, "compareTo",
 			"(Ljava/lang/Object;)I");
 
-	// Look up the class once
-	jclass factoryClass = getClassLoader()->findClass(frame, "org.jpype.proxy.JPypeProxyFactory");
-	m_ProxyFactoryClass = JPClassRef(frame, factoryClass);
-	m_ProxyFactory_getProxyTypeID = frame.GetStaticMethodID(factoryClass, "getProxyType",
-		"(J[Ljava/lang/Class;)Lorg/jpype/proxy/JPypeProxyType;");
-
-	jclass proxyTypeClass = getClassLoader()->findClass(frame, "org.jpype.proxy.JPypeProxyType");
-	m_ProxyTypeClass = JPClassRef(frame, proxyTypeClass);
-
-	m_ProxyType_newInstanceID = frame.GetMethodID(proxyTypeClass, "newInstance", "(J)Ljava/lang/Object;");
-	m_ProxyType_UnwrapPythonExceptionID = frame.GetStaticMethodID(
-		proxyTypeClass, 
-		"unwrapPythonException", 
-		"(Ljava/lang/Throwable;)J" // Takes java.lang.Throwable, returns a long (PyObject*)
-	);
-	m_ProxyType_GetInstanceID = frame.GetStaticMethodID(proxyTypeClass, "getInstance", "(Ljava/lang/Object;)J");
-
+	// ========================================================================
+	// JNI Wrapper Hooks
+	// ========================================================================
 	jclass wrapperClass = getClassLoader()->findClass(frame, "python.lang.PyJavaObject");
-	m_PyJavaObjectClass = JPClassRef(frame, wrapperClass);
+	m_PyJavaObjectClass = (jclass) frame.NewGlobalRef(wrapperClass);
 	m_PyJavaObject_wrap = frame.GetStaticMethodID(
-        wrapperClass,
-        "wrap",
-        "(Ljava/lang/Object;)Ljava/lang/Object;");
+		wrapperClass,
+		"wrap",
+		"(Ljava/lang/Object;)Ljava/lang/Object;");
 
 	m_GC->init(frame);
 
-	_java_nio_ByteBuffer = frame.findClassByName("java.nio.ByteBuffer");
+	//_java_nio_ByteBuffer = (jclass) frame.NewGlobalRef(frame.findClassByName("java.nio.ByteBuffer"));
 
 	// Testing code to make sure C++ exceptions are handled.
 	// FIXME find a way to call this from instrumentation.
@@ -530,9 +678,10 @@ JNIEnv* JPContext::getEnv()
 }
 
 extern "C" JNIEXPORT void JNICALL Java_org_jpype_JPypeContext_onShutdown
-(JNIEnv *env, jobject obj)
+(JNIEnv *env, jobject obj, jlong ctx)
 {
-	JPContext_global->onShutdown();
+	JPContext* context = (JPContext*) ctx;
+	context->onShutdown();
 }
 
 /**********************************************************************

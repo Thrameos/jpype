@@ -20,18 +20,28 @@ module org.jpype {
   requires transitive java.xml;
   requires java.sql;
   requires java.management;
+  requires transitive java.logging;
   
-  exports org.jpype;
-  exports org.jpype.bridge;
-  exports org.jpype.html;
-  exports org.jpype.javadoc;
-  exports org.jpype.manager;
-  exports org.jpype.pickle;
-  exports org.jpype.pkg;
-  exports org.jpype.proxy;
-  exports org.jpype.ref;
+  // ==========================================
+  // PUBLIC USER API
+  // ==========================================
+  exports org.jpype;                    // Crucial for NativeContext & PyExceptionProxy
+  exports org.jpype.annotation;         // For extension modules
+  exports org.jpype.pickle;             // For data serialization pipelines
+  exports org.jpype.pkg;                // For interacting with Python package spaces
+
+  // Python wrapper language spaces
   exports python.lang;
   exports python.exceptions;
+  exports python.collections;           // Added: Lets users use PyDeque, PyCounter, etc.
+
+  // Documentation and Tooling
+  exports org.jpype.html;
+  exports org.jpype.javadoc;
   
+ 
+  // ==========================================
+  // REFLECTION / REFLECTIVE ACCESS
+  // ==========================================
   opens python.lang;
 }

@@ -36,7 +36,7 @@ public:
 
 	jobject getJava()
 	{
-		return m_Object.get();
+		return m_Object;
 	}
 
 	bool isReadOnly() const;
@@ -47,7 +47,7 @@ public:
 
 private:
 	JPBufferType* m_Class;
-	JPObjectRef m_Object;
+	jobject m_Object;
 	void *m_Address;
 	Py_ssize_t m_Capacity;
 	Py_buffer m_Buffer{};

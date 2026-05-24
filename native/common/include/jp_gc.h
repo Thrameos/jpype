@@ -50,6 +50,7 @@ public:
 	void getStats(JPGCStats& stats);
 
 private:
+	JPContext* m_Context;
 	bool running;
 	bool in_python_gc;
 	bool java_triggered;

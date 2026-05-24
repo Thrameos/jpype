@@ -1,4 +1,4 @@
-// --- file: org/jpype/ref/JPypeReferenceSet.java ---
+// --- file: org/jpype/ref/ReferenceSet.java ---
 /* ****************************************************************************
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import java.util.ArrayList;
  * A set that manages references to Python objects used by JPype.
  *
  * <p>
- * This class is responsible for storing and managing {@link JPypeReference}
+ * This class is responsible for storing and managing {@link NativeReference}
  * objects efficiently. It uses an internal pooling mechanism to ensure that
  * adding and removing references are performed in constant time (O(1)).</p>
  *
@@ -36,13 +36,14 @@ import java.util.ArrayList;
  * Note: This class is intended for internal use and should not be used directly
  * by external code.</p>
  */
-public class JPypeReferenceSet
+public class ReferenceSet
 {
 
   /**
    * The size of each pool used to store references.
    */
   static final int SIZE = 256;
+  private final long address;
 
   /**
    * A list of pools that store references.
@@ -66,8 +67,9 @@ public class JPypeReferenceSet
    * This constructor initializes the reference set but does not create any
    * pools until references are added.</p>
    */
-  JPypeReferenceSet()
+  ReferenceSet(long address)
   {
+    this.address = address;
   }
 
   /**
@@ -87,9 +89,9 @@ public class JPypeReferenceSet
    * This operation is performed in constant time (O(1)) by using a pooling
    * mechanism.</p>
    *
-   * @param ref The {@link JPypeReference} to add to the set.
+   * @param ref The {@link NativeReference} to add to the set.
    */
-  synchronized void add(JPypeReference ref)
+  synchronized void add(NativeReference ref)
   {
     if (ref.cleanup == 0)
     {
@@ -125,9 +127,9 @@ public class JPypeReferenceSet
    * This operation is performed in constant time (O(1)) by directly accessing
    * the reference's pool and index.</p>
    *
-   * @param ref The {@link JPypeReference} to remove from the set.
+   * @param ref The {@link NativeReference} to remove from the set.
    */
-  synchronized void remove(JPypeReference ref)
+  synchronized void remove(NativeReference ref)
   {
     if (ref.cleanup == 0)
     {
@@ -153,7 +155,7 @@ public class JPypeReferenceSet
     {
       for (int i = 0; i < pool.tail; ++i)
       {
-        JPypeReference ref = pool.entries[i];
+        NativeReference ref = pool.entries[i];
         long hostRef = ref.hostReference;
         long cleanup = ref.cleanup;
 
@@ -163,7 +165,7 @@ public class JPypeReferenceSet
           continue;
         }
         ref.cleanup = 0;
-        JPypeReferenceNative.removeHostReference(hostRef, cleanup);
+        NativeReference.removeHostReference(address, hostRef, cleanup);
       }
       pool.tail = 0;
     }
@@ -174,10 +176,9 @@ public class JPypeReferenceSet
    * A pool that stores references to Python objects.
    *
    * <p>
-   * Each pool has a fixed size ({@link JPypeReferenceSet#SIZE}) and is
-   * responsible for managing references efficiently. Pools are used to ensure
-   * that adding and removing references are performed in constant time
-   * (O(1)).</p>
+   * Each pool has a fixed size ({@link ReferenceSet#SIZE}) and is responsible
+   * for managing references efficiently. Pools are used to ensure that adding
+   * and removing references are performed in constant time (O(1)).</p>
    */
   static class Pool
   {
@@ -185,7 +186,7 @@ public class JPypeReferenceSet
     /**
      * The array of references stored in this pool.
      */
-    JPypeReference[] entries = new JPypeReference[SIZE];
+    NativeReference[] entries = new NativeReference[SIZE];
 
     /**
      * The index of the next available slot in the pool.
@@ -213,11 +214,11 @@ public class JPypeReferenceSet
      * <p>
      * This operation is performed in constant time (O(1)).</p>
      *
-     * @param ref The {@link JPypeReference} to add to the pool.
+     * @param ref The {@link NativeReference} to add to the pool.
      * @return {@code true} if the pool is full after adding the reference;
      * {@code false} otherwise.
      */
-    boolean add(JPypeReference ref)
+    boolean add(NativeReference ref)
     {
       ref.pool = id;
       ref.index = tail;
@@ -232,9 +233,9 @@ public class JPypeReferenceSet
      * This operation is performed in constant time (O(1)) by swapping the
      * reference to be removed with the last reference in the pool.</p>
      *
-     * @param ref The {@link JPypeReference} to remove from the pool.
+     * @param ref The {@link NativeReference} to remove from the pool.
      */
-    void remove(JPypeReference ref)
+    void remove(NativeReference ref)
     {
       entries[ref.index] = entries[--tail];
       entries[ref.index].index = ref.index;

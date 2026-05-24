@@ -4,7 +4,7 @@ package python.lang;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.BiFunction;
-import org.jpype.bridge.Interpreter;
+import org.jpype.MainInterpreter;
 import static org.testng.Assert.*;
 import org.testng.annotations.Test;
 
@@ -23,7 +23,7 @@ public class PyDictItemsIteratorNGTest extends PyTestHarness
   @SuppressWarnings("unchecked")
   private PyDictItemsIterator<PyObject, PyObject> newIterator(PyDict dict)
   {
-    PyObject itemsView = Interpreter.getInstance().getBackend().items(dict);
+    PyObject itemsView = MainInterpreter.getInstance().getBackend().items(dict);
     PyIter<PyTuple> iter = context.<PyTuple>iter(itemsView);
     BiFunction<PyObject, PyObject, PyObject> setter = dict::put;
     return new PyDictItemsIterator<>(iter, setter);

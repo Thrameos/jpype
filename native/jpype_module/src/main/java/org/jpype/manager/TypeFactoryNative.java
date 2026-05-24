@@ -27,12 +27,16 @@ import java.lang.reflect.Field;
  */
 public class TypeFactoryNative implements TypeFactory
 {
+  public TypeFactoryNative()
+  {
+  }
 
   @Override
   public native void newWrapper(long cls);
 
   @Override
   public native long defineArrayClass(
+          long ctx,
           Class<?> cls,
           String name,
           long superClass,
@@ -41,6 +45,7 @@ public class TypeFactoryNative implements TypeFactory
 
   @Override
   public native long defineObjectClass(
+          long ctx,
           Class<?> cls,
           String name,
           long superClass,
@@ -49,6 +54,7 @@ public class TypeFactoryNative implements TypeFactory
 
   @Override
   public native long definePrimitive(
+          long ctx,
           String name,
           Class<?> cls,
           long boxedPtr,
@@ -56,6 +62,7 @@ public class TypeFactoryNative implements TypeFactory
 
   @Override
   public native void assignMembers(
+          long ctx,
           long cls,
           long ctorMethod,
           long[] methodList,
@@ -63,6 +70,7 @@ public class TypeFactoryNative implements TypeFactory
 
   @Override
   public native long defineField(
+          long ctx,
           long cls,
           String name,
           Field field,
@@ -71,6 +79,7 @@ public class TypeFactoryNative implements TypeFactory
 
   @Override
   public native long defineMethod(
+          long ctx,
           long cls,
           String name,
           Executable method,
@@ -79,12 +88,14 @@ public class TypeFactoryNative implements TypeFactory
 
   @Override
   public native void populateMethod(
+          long ctx,
           long method,
           long returnType,
           long[] argumentTypes);
 
   @Override
   public native long defineMethodDispatch(
+          long ctx,
           long cls,
           String name,
           long[] overloadList,
@@ -92,5 +103,6 @@ public class TypeFactoryNative implements TypeFactory
 
   @Override
   public native void destroy(
+          long ctx,
           long[] resources, int sz);
 }

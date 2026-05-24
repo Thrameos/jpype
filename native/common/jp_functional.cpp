@@ -54,6 +54,7 @@ public:
 		// - keyword only arguments are not counted.
 		if (PyFunction_Check(match.object))
 		{
+			JPContext *context = match.frame->getContext();
 			PyObject* func = match.object; 
 			auto* code = (PyCodeObject*) PyFunction_GetCode(func); // borrowed
 			Py_ssize_t args = code->co_argcount;
@@ -62,7 +63,7 @@ public:
 			JPPyObject defaults = JPPyObject::accept(PyObject_GetAttrString(func, "__defaults__"));
 			if (!defaults.isNull() && defaults.get() != Py_None)
 				optional = PyTuple_Size(defaults.get());
-			const int jargs = JPContext_global->getTypeManager()->interfaceParameterCount(cls);
+			const int jargs = context->getTypeManager()->interfaceParameterCount(*(match.frame), cls);
 			// Too few arguments
 			if (!is_varargs && args < jargs)
 				return match.type = JPMatch::_none;
@@ -72,6 +73,7 @@ public:
 		}
 		else if (PyMethod_Check(match.object))
 		{
+			JPContext *context = match.frame->getContext();
 			PyObject* func = PyMethod_Function(match.object); // borrowed
 			auto* code = (PyCodeObject*) PyFunction_GetCode(func); // borrowed
 			Py_ssize_t args = code->co_argcount;
@@ -80,7 +82,7 @@ public:
 			JPPyObject defaults = JPPyObject::accept(PyObject_GetAttrString(func, "__defaults__"));
 			if (!defaults.isNull() && defaults.get() != Py_None)
 				optional = PyTuple_Size(defaults.get());
-			const int jargs = JPContext_global->getTypeManager()->interfaceParameterCount(cls);
+			const int jargs = context->getTypeManager()->interfaceParameterCount(*(match.frame), cls);
 			// Bound self argument removes one argument
 			if ((PyMethod_Self(match.object))!=nullptr) // borrowed
 				args--;
@@ -107,11 +109,12 @@ public:
 	{
 		auto *cls = (JPFunctional*) match.closure;
 		JP_TRACE_IN("JPConversionFunctional::convert");
+		auto PyJPProxy_Type = match.frame->getContext()->modulestate->PyJPProxy_Type;
 		auto *self = (PyJPProxy*) PyJPProxy_Type->tp_alloc(PyJPProxy_Type, 0);
 		JP_PY_CHECK();
 		JPClassList cl;
 		cl.push_back(cls);
-		self->m_Proxy = new JPProxyFunctional(self, cl);
+		self->m_Proxy = new JPProxyFunctional(*(match.frame), self, cl);
 		self->m_Target = match.object;
 		self->m_Dispatch = match.object;
 		Py_INCREF(self->m_Target);

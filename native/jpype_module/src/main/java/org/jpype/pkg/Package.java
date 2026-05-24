@@ -26,9 +26,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Map;
-import org.jpype.JPypeClassLoader;
-import org.jpype.JPypeContext;
-import org.jpype.JPypeKeywords;
+import org.jpype.internal.Keywords;
 
 /**
  * Represents a Java package in JPype.
@@ -36,7 +34,7 @@ import org.jpype.JPypeKeywords;
  * <p>
  * This class provides the directory structure and attributes for a Java
  * package, enabling JPype imports. Most of the heavy lifting is done by the
- * {@link JPypePackageManager}, which acts as a class loader to determine
+ * {@link PackageManager}, which acts as a class loader to determine
  * available resources.</p>
  *
  * <p>
@@ -44,7 +42,7 @@ import org.jpype.JPypeKeywords;
  * retrieving specific objects (e.g., classes or sub-packages) from the
  * package.</p>
  */
-public class JPypePackage
+public class Package
 {
 
   // Name of the package
@@ -54,19 +52,19 @@ public class JPypePackage
   Map<String, URI> contents;
 
   int code;
-  private final JPypeClassLoader classLoader;
 
   /**
    * Constructs a new {@code JPypePackage} for the specified package name.
    *
    * @param pkg The name of the Java package.
    */
-  public JPypePackage(String pkg)
+  public Package(String pkg)
   {
     this.pkg = pkg;
-    this.contents = JPypePackageManager.getContentMap(pkg);
-    this.classLoader = ((JPypeClassLoader) (JPypeContext.getInstance().getClassLoader()));
-    this.code = classLoader.getCode();
+    this.contents = PackageManager.getContentMap(pkg);
+    ClassLoader classLoader = PackageManager.classloader;
+    if (classLoader instanceof org.jpype.internal.DynamicClassLoader)
+      this.code = ((org.jpype.internal.DynamicClassLoader) classLoader).getCode();
   }
 
   /**
@@ -84,18 +82,18 @@ public class JPypePackage
    */
   public Object getObject(String name)
   {
-    String basename = pkg + "." + JPypeKeywords.unwrap(name);
-    ClassLoader cl = JPypeContext.getInstance().getClassLoader();
+    String basename = pkg + "." + Keywords.unwrap(name);
+    ClassLoader cl = PackageManager.classloader;
     try
     {
       // Check if it is a package
-      if (JPypePackageManager.isPackage(basename))
+      if (PackageManager.isPackage(basename))
       {
         return basename;
       }
 
       // Else probe for a class
-      Class<?> cls = Class.forName(basename, false, JPypeContext.getInstance().getClassLoader());
+      Class<?> cls = Class.forName(basename, false, PackageManager.classloader);
       if (Modifier.isPublic(cls.getModifiers()))
       {
         return Class.forName(basename, true, cl);
@@ -126,7 +124,7 @@ public class JPypePackage
       // Skip null entries
       if (uri == null)
         continue;
-      Path p = JPypePackageManager.getPath(uri);
+      Path p = PackageManager.getPath(uri);
 
       // Add directories (packages)
       if (Files.isDirectory(p))
@@ -234,12 +232,15 @@ public class JPypePackage
    */
   void checkCache()
   {
-    int current = classLoader.getCode();
+    ClassLoader classLoader = PackageManager.classloader;
+    if (!(classLoader instanceof ClassLoader))
+      return;
+    int current = ((org.jpype.internal.DynamicClassLoader) classLoader).getCode();
     if (this.code == current)
     {
       return;
     }
     this.code = current;
-    this.contents = JPypePackageManager.getContentMap(pkg);
+    this.contents = PackageManager.getContentMap(pkg);
   }
 }

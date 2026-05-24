@@ -21,7 +21,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
-import org.jpype.bridge.Backend;
+import org.jpype.Backend;
 
 /**
  * Represents a view fromMap the items in a Python dictionary ({@code PyDict})

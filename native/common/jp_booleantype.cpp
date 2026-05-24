@@ -21,8 +21,8 @@
 #include "jp_booleantype.h"
 #include "jp_boxedtype.h"
 
-JPBooleanType::JPBooleanType()
-: JPPrimitiveType("boolean")
+JPBooleanType::JPBooleanType(JPJavaFrame& frame, jclass cls)
+: JPPrimitiveType(frame, cls, "boolean")
 {
 }
 
@@ -53,8 +53,8 @@ public:
     JPMatch::Type matches(JPClass *cls, JPMatch &match) override
     {
         PyObject* obj = match.object;
-
-        if (PyBool_Check(obj) || PyJP_IsInstanceSingle(obj, (PyTypeObject*)_numpy_bool_type))
+		PyJPModuleState* st = match.frame->getContext()->modulestate;
+        if (PyBool_Check(obj) || PyJP_IsInstanceSingle(obj, (PyTypeObject*) st->numpy_bool_type))
         {
             match.conversion = this;
             return match.type = JPMatch::_exact;
@@ -101,7 +101,7 @@ public:
 
 	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
 	{
-		JPContext *context = JPContext_global;
+		JPContext *context = frame.getContext();
 		PyList_Append(info.exact, (PyObject*) context->_boolean->getHost());
 		unboxConversion->getInfo(frame, cls, info);
 	}
@@ -221,7 +221,7 @@ JPPyObject JPBooleanType::invoke(JPJavaFrame& frame, jobject obj, jclass clazz, 
 
 void JPBooleanType::setStaticField(JPJavaFrame& frame, jclass c, jfieldID fid, PyObject* obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java boolean");
 	type_t val = field(match.convert());
@@ -230,7 +230,7 @@ void JPBooleanType::setStaticField(JPJavaFrame& frame, jclass c, jfieldID fid, P
 
 void JPBooleanType::setField(JPJavaFrame& frame, jobject c, jfieldID fid, PyObject* obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java boolean");
 	type_t val = field(match.convert());
@@ -305,7 +305,7 @@ JPPyObject JPBooleanType::getArrayItem(JPJavaFrame& frame, jarray a, jsize ndx)
 
 void JPBooleanType::setArrayItem(JPJavaFrame& frame, jarray a, jsize ndx, PyObject* obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java boolean");
 	type_t val = field(match.convert());

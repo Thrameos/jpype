@@ -20,7 +20,7 @@ class JPByteType : public JPPrimitiveType
 {
 public:
 
-	JPByteType();
+	JPByteType(JPJavaFrame& frame, jclass cls);
 	~JPByteType() override;
 
 	using type_t = jbyte;

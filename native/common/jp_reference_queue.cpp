@@ -38,23 +38,23 @@ static void releasePython(void* host)
  * Method:    init
  * Signature: (Ljava/lang/Object;Ljava/lang/reflect/Method;)V
  */
-JNIEXPORT void JNICALL Java_org_jpype_ref_JPypeReferenceNative_init
+JNIEXPORT void JNICALL Java_org_jpype_ref_NativeReference_init
 (JNIEnv *env, jclass clazz, jobject refqueue, jobject registerID)
 {
 	s_ReferenceQueue = env->NewGlobalRef(refqueue);
 	s_ReferenceQueueRegisterMethod = env->FromReflectedMethod(registerID);
 }
 
-JNIEXPORT void JNICALL Java_org_jpype_ref_JPypeReferenceNative_removeHostReference
-(JNIEnv *env, jclass, jlong host, jlong cleanup)
+JNIEXPORT void JNICALL Java_org_jpype_ref_NativeReference_removeHostReference
+(JNIEnv *env, jclass, jlong ctx, jlong host, jlong cleanup)
 {
 	// Exceptions are not allowed here
 	try
 	{
-		JPContext* context = JPContext_global;
+		auto *context = (JPContext*) ctx;
 		if (context == nullptr || !context->isRunning())
 			return;
-		JPJavaFrame frame = JPJavaFrame::external(env);
+		JPJavaFrame frame = JPJavaFrame::external(env, context);
 		JPPyCallAcquire callback;
 		if (cleanup != 0)
 		{
@@ -68,13 +68,13 @@ JNIEXPORT void JNICALL Java_org_jpype_ref_JPypeReferenceNative_removeHostReferen
 
 /** Triggered whenever the sentinel is deleted
  */
-JNIEXPORT void JNICALL Java_org_jpype_ref_JPypeReferenceNative_wake
-(JNIEnv *env, jclass clazz)
+JNIEXPORT void JNICALL Java_org_jpype_ref_NativeReference_wake
+(JNIEnv *env, jclass clazz, jlong ctx)
 {
 	// Exceptions are not allowed here
 	try
 	{
-		JPContext* context = JPContext_global;
+		auto *context = (JPContext*) ctx;
 		if (context == nullptr || !context->isRunning())
 			return;
 		context->m_GC->triggered();

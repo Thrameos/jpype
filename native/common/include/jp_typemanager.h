@@ -41,10 +41,15 @@ public:
 	JPClass* findClassForObject(JPJavaFrame& frame, jobject obj);
 	void populateMethod(JPJavaFrame& frame, void* method, jobject obj);
 	void populateMembers(JPJavaFrame& frame, JPClass* cls);
-    int interfaceParameterCount(JPClass* cls);
+    int interfaceParameterCount(JPJavaFrame& frame, JPClass* cls);
+
+	bool isReady()
+	{
+		return m_JavaTypeManager!=nullptr;
+	}
 
 private:
-	JPObjectRef m_JavaTypeManager;
+	jobject m_JavaTypeManager;
 	jmethodID m_FindClass;
 	jmethodID m_FindClassByName;
 	jmethodID m_FindClassForObject;

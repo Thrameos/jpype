@@ -78,12 +78,12 @@ public:
 
 	jarray     getJava()
 	{
-		return m_Object.get();
+		return m_Object;
 	}
 
 private:
 	JPArrayClass* m_Class;
-	JPArrayRef    m_Object;
+	jarray        m_Object;
 	jsize         m_Start;
 	jsize         m_Step;
 	jsize         m_Length;

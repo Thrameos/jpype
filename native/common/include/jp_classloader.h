@@ -46,9 +46,9 @@ public:
 	jobject getBootLoader();
 
 private:
-	JPClassRef m_ClassClass;
-	JPObjectRef m_SystemClassLoader;
-	JPObjectRef m_BootLoader;
+	jclass m_ClassClass;
+	jobject m_SystemClassLoader;
+	jobject m_BootLoader;
 	jmethodID m_ForNameID;
 } ;
 

@@ -17,8 +17,8 @@
 #include "jpype.h"
 #include "jp_voidtype.h"
 
-JPVoidType::JPVoidType()
-: JPPrimitiveType("void")
+JPVoidType::JPVoidType(JPJavaFrame& frame, jclass cls)
+: JPPrimitiveType(frame, cls, "void")
 {
 }
 

@@ -14,9 +14,10 @@
  * 
  *  See NOTICE file for details.
  */
-package org.jpype.bridge;
+package org.jpype;
 
-import org.jpype.JPypeContext;
+import org.jpype.internal.NativeLauncher;
+import org.jpype.internal.NativeContext;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -34,7 +35,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 import python.lang.PyBuiltIn;
-import python.lang.PyDict;
 import python.lang.PyObject;
 
 /**
@@ -65,10 +65,10 @@ import python.lang.PyObject;
  * </pre>
  *
  */
-public class Interpreter
+public class MainInterpreter implements Interpreter
 {
 
-  final static Logger LOGGER = Logger.getLogger(Interpreter.class.getName());
+  final static Logger LOGGER = Logger.getLogger(MainInterpreter.class.getName());
   final static String PROBE = "/org/jpype/resources/probe.py";
 
   // Configuration variables
@@ -139,7 +139,7 @@ public class Interpreter
   /**
    * Singleton instance of the {@code Interpreter}.
    */
-  static Interpreter INSTANCE = new Interpreter();
+  static MainInterpreter INSTANCE = new MainInterpreter();
 
   /**
    * Python object used to signal interpreter shutdown.
@@ -174,13 +174,19 @@ public class Interpreter
     this.builtin = new InterpreterBuiltIn(backend);
 //    stop = backend.object();
   }
+  
+  @Override
+  public PyBuiltIn getBuiltIn()
+  {
+    return this.builtin;
+  }
 
   /**
    * Returns the singleton instance of the {@code Interpreter}.
    *
    * @return The singleton {@code Interpreter} instance.
    */
-  public static Interpreter getInstance()
+  public static MainInterpreter getInstance()
   {
     return INSTANCE;
   }
@@ -197,7 +203,7 @@ public class Interpreter
   {
     // This will be the entry point for pretending we are a python variant and
     // launching a python shell.
-    Interpreter interpreter = getInstance();
+    MainInterpreter interpreter = getInstance();
     interpreter.start(args);
     interpreter.interactive();
   }
@@ -226,7 +232,7 @@ public class Interpreter
    */
   public void interactive()
   {
-    Natives.interactive();
+    NativeLauncher.interactive();
   }
 
   /**
@@ -246,16 +252,6 @@ public class Interpreter
   public boolean isStarted()
   {
     return backend != null;
-  }
-
-  public Context newContext()
-  {
-    return new Context(this.backend);
-  }
-
-  public Context newContext(PyDict dict, PyObject locals)
-  {
-    return new Context(this.backend);
   }
 
   /**
@@ -291,7 +287,7 @@ public class Interpreter
     if (terminated)
       throw new IllegalStateException("interpreter is terminated");
 
-    if (Interpreter.backend != null || active)
+    if (MainInterpreter.backend != null || active)
       return;
     active = true;
 
@@ -311,9 +307,9 @@ public class Interpreter
 
     // 4. Compatibility check
     int[] version = parseVersion(this.jpypeVersion);
-    int[] required = parseVersion(JPypeContext.VERSION);
+    int[] required = parseVersion(NativeContext.VERSION);
     if (version[0] < required[0] || (version[0] == required[0] && version[1] < required[1]))
-      throw new LinkageError("JPype version " + jpypeVersion + " is older than required " + JPypeContext.VERSION);
+      throw new LinkageError("JPype version " + jpypeVersion + " is older than required " + NativeContext.VERSION);
 
     // 5. Load Native Binaries
     installNatives();
@@ -349,7 +345,7 @@ public class Interpreter
 
     // 7. Launch
     LOGGER.info("Launching Python Interpreter...");
-    Natives.start(paths, args,
+    NativeLauncher.start(paths, args,
             programName,
             System.getProperty(CONF_PREFIX),
             home,
@@ -370,12 +366,13 @@ public class Interpreter
    *
    * This is irrevokable.
    */
-  public synchronized void stop()
+  @Override
+  public synchronized void close()
   {
     if (terminated)
       throw new IllegalStateException("interpreter is terminated");
 
-    Natives.finish();
+    NativeLauncher.finish();
     backend = null;
     terminated = true;
   }
@@ -399,7 +396,7 @@ public class Interpreter
   private String loadProbeResource()
   {
     // Get the module that contains the Interpreter class
-    Module module = Interpreter.class.getModule();
+    Module module = MainInterpreter.class.getModule();
 
     try (InputStream is = module.getResourceAsStream(PROBE))
     {
@@ -446,7 +443,7 @@ public class Interpreter
    * This constructor initializes the interpreter and sets up any module paths
    * specified via the Java system property {@code python.module.path}.</p>
    */
-  private Interpreter()
+  private MainInterpreter()
   {
     String paths = System.getProperty(MOD_PATH);
     if (paths != null)
@@ -724,7 +721,7 @@ public class Interpreter
     try
     {
       // 1. Get requirements from the detective probe and context
-      int[] v = parseVersion(JPypeContext.VERSION);
+      int[] v = parseVersion(NativeContext.VERSION);
       String versionReq = String.format("%d.%d", v[0], v[1]);
       String arch = System.getProperty(JPYPE_ARCH, "undetermined");
       LOGGER.log(Level.INFO, "Self-healer searching for local wheel matching: {0}", arch);

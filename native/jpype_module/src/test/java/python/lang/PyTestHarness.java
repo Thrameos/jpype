@@ -16,8 +16,8 @@
  */
 package python.lang;
 
-import org.jpype.bridge.Context;
-import org.jpype.bridge.Interpreter;
+import org.jpype.Script;
+import org.jpype.MainInterpreter;
 import org.testng.annotations.*;
 
 /**
@@ -27,7 +27,7 @@ import org.testng.annotations.*;
 public class PyTestHarness
 {
 
-  protected static Context context;
+  protected static Script context;
 
   @BeforeClass
   public static void setUpClass() throws Exception
@@ -35,11 +35,11 @@ public class PyTestHarness
     try
     {
 
-      Interpreter interpreter = Interpreter.getInstance();
-      if (!Interpreter.getInstance().isStarted())
+      MainInterpreter interpreter = MainInterpreter.getInstance();
+      if (!interpreter.isStarted())
         interpreter.start(new String[0]);
       if (context == null)
-        context = interpreter.newContext();
+        context = new Script(interpreter);
     } catch (Exception ex)
     {
       ex.printStackTrace();
@@ -59,10 +59,10 @@ public class PyTestHarness
   public void tearDownBridge()
   {
     System.out.println(">>> Shutting down JPype Bridge...");
-    if (Interpreter.getInstance().isStarted())
+    if (MainInterpreter.getInstance().isStarted())
     {
       System.out.println("Close bridge");
-      Interpreter.getInstance().stop();
+      MainInterpreter.getInstance().close();
       System.out.println("Bridge down");
       try
       {

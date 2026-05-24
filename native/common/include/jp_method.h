@@ -49,7 +49,7 @@ public:
 	 */
 	JPMatch::Type matches(JPJavaFrame &frame, JPMethodMatch& match, bool isInstance, JPPyObjectVector& args);
 	JPPyObject invoke(JPJavaFrame &frame, JPMethodMatch& match, JPPyObjectVector& arg, bool instance);
-	JPPyObject invokeCallerSensitive(JPMethodMatch& match, JPPyObjectVector& arg, bool instance);
+	JPPyObject invokeCallerSensitive(JPJavaFrame& frame, JPMethodMatch& match, JPPyObjectVector& arg, bool instance);
 	JPValue invokeConstructor(JPJavaFrame &frame, JPMethodMatch& match, JPPyObjectVector& arg);
 
 	bool isAbstract() const
@@ -94,7 +94,7 @@ public:
 
 	jobject getJava()
 	{
-		return m_Method.get();
+		return m_Method;
 	}
 
     JPMethod& operator=(const JPMethod&) = delete;
@@ -108,7 +108,7 @@ private:
 private:
 	JPClass*                 m_Class{};
 	string                   m_Name;
-	JPObjectRef              m_Method;
+	jobject                  m_Method;
 	jmethodID                m_MethodID{};
 	JPClass*                 m_ReturnType{};
 	JPClassList              m_ParameterTypes;

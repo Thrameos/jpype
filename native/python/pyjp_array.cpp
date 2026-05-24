@@ -49,12 +49,6 @@ static int PyJPArray_init(PyObject *self, PyObject *args, PyObject *kwargs)
 {
 	JP_PY_TRY("PyJPArray_init");
 
-	// Cases here.
-	//  -  We got here with a JPValue
-	//  -  We get an integer. Just create a new array with desired size.
-	//  -  We get a sequence. Allocate with desired size and call setItems.
-	//  -  We get something else.... ???
-
 	PyObject* v;
 	if (!PyArg_ParseTuple(args, "O", &v))
 		return -1;
@@ -64,7 +58,8 @@ static int PyJPArray_init(PyObject *self, PyObject *args, PyObject *kwargs)
 	if (arrayClass == nullptr)
 		JP_RAISE(PyExc_TypeError, "Class must be array type");
 
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPContext* context = PyJPType_getContext(Py_TYPE(self));
+	JPJavaFrame frame = JPJavaFrame::outer(context);
 
 	JPValue *value = PyJPValue_getJavaSlot(v);
 	if (value != nullptr)
@@ -82,7 +77,7 @@ static int PyJPArray_init(PyObject *self, PyObject *args, PyObject *kwargs)
 	if (PySequence_Check(v))
 	{
 		JP_TRACE("Sequence");
-		jlong length =  PySequence_Size(v);
+		jlong length = PySequence_Size(v);
 		if (length < 0 || length > 2147483647)
 			JP_RAISE(PyExc_ValueError, "Array size invalid");
 		JPValue newArray = arrayClass->newArray(frame, (int) length);
@@ -127,7 +122,7 @@ static PyObject *PyJPArray_repr(PyJPArray *self)
 static Py_ssize_t PyJPArray_len(PyJPArray *self)
 {
 	JP_PY_TRY("PyJPArray_len");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext((PyObject*) self));
 	if (self->m_Array == nullptr)
 		JP_RAISE(PyExc_ValueError, "Null array"); // GCOVR_EXCL_LINE
 	return self->m_Array->getLength();
@@ -142,7 +137,7 @@ static PyObject* PyJPArray_length(PyJPArray *self, PyObject *closure)
 static PyObject *PyJPArray_getItem(PyJPArray *self, PyObject *item)
 {
 	JP_PY_TRY("PyJPArray_getArrayItem");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext((PyObject*) self));
 	if (self->m_Array == nullptr)
 		JP_RAISE(PyExc_ValueError, "Null array");
 
@@ -164,7 +159,7 @@ static PyObject *PyJPArray_getItem(PyJPArray *self, PyObject *item)
 
 		slicelength = PySlice_AdjustIndices(length, &start, &stop, step);
 
-        if (slicelength <= 0)
+		if (slicelength <= 0)
 		{
 			// This should point to a null array so we don't hold worthless
 			// memory, but this is a low priority
@@ -194,7 +189,8 @@ static PyObject *PyJPArray_getItem(PyJPArray *self, PyObject *item)
 static int PyJPArray_assignSubscript(PyJPArray *self, PyObject *item, PyObject *value)
 {
 	JP_PY_TRY("PyJPArray_assignSubscript");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext((PyObject*) self));
+	PyJPModuleState* st = frame.getContext()->modulestate;
 	// Verified with numpy that item deletion on immutable should
 	// be ValueError
 	if ( value == nullptr)
@@ -203,7 +199,7 @@ static int PyJPArray_assignSubscript(PyJPArray *self, PyObject *item, PyObject *
 		JP_RAISE(PyExc_ValueError, "Null array");
 
 	// Watch out for self assignment
-	if (PyObject_IsInstance(value, (PyObject*) PyJPArray_Type))
+	if (PyObject_IsInstance(value, (PyObject*) st->PyJPArray_Type))
 	{
 		JPValue *v1 = PyJPValue_getJavaSlot((PyObject*) self);
 		JPValue *v2 = PyJPValue_getJavaSlot((PyObject*) value);
@@ -230,7 +226,7 @@ static int PyJPArray_assignSubscript(PyJPArray *self, PyObject *item, PyObject *
 
 		slicelength = PySlice_AdjustIndices(length, &start, &stop, step);
 
-        if (slicelength <= 0)
+		if (slicelength <= 0)
 			return 0;
 
 		self->m_Array->setRange(frame, (jsize) start, (jsize) slicelength, (jsize) step,  value);
@@ -245,10 +241,10 @@ static int PyJPArray_assignSubscript(PyJPArray *self, PyObject *item, PyObject *
 static void PyJPArray_releaseBuffer(PyJPArray *self, Py_buffer *view)
 {
 	JP_PY_TRY("PyJPArrayPrimitive_releaseBuffer");
-	JPContext* context = JPContext_global;
+	JPContext* context = PyJPObject_getContext((PyObject*) self);
 	if (context->isRunning())
 	{
-		JPJavaFrame frame = JPJavaFrame::outer();
+		JPJavaFrame frame = JPJavaFrame::outer(context);
 		if (self->m_View == nullptr || !self->m_View->unreference(frame))
 			return;
 	}
@@ -260,7 +256,7 @@ static void PyJPArray_releaseBuffer(PyJPArray *self, Py_buffer *view)
 int PyJPArray_getBuffer(PyJPArray *self, Py_buffer *view, int flags)
 {
 	JP_PY_TRY("PyJPArray_getBuffer");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext((PyObject*) self));
 	if (self->m_Array == nullptr)
 		JP_RAISE(PyExc_ValueError, "Null array");
 
@@ -343,7 +339,7 @@ int PyJPArray_getBuffer(PyJPArray *self, Py_buffer *view, int flags)
 int PyJPArrayPrimitive_getBuffer(PyJPArray *self, Py_buffer *view, int flags)
 {
 	JP_PY_TRY("PyJPArrayPrimitive_getBuffer");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext((PyObject*) self));
 	if (self->m_Array == nullptr)
 		JP_RAISE(PyExc_ValueError, "Null array");
 	try
@@ -415,10 +411,10 @@ static PyGetSetDef arrayGetSets[] = {
 };
 
 static PyType_Slot arraySlots[] = {
-	{ Py_tp_new,      (void*) PyJPArray_new},
-	{ Py_tp_init,     (void*) PyJPArray_init},
+	{ Py_tp_new,	  (void*) PyJPArray_new},
+	{ Py_tp_init,	 (void*) PyJPArray_init},
 	{ Py_tp_dealloc,  (void*) PyJPArray_dealloc},
-	{ Py_tp_repr,     (void*) PyJPArray_repr},
+	{ Py_tp_repr,	 (void*) PyJPArray_repr},
 	{ Py_tp_methods,  (void*) &arrayMethods},
 	{ Py_mp_subscript, (void*) &PyJPArray_getItem},
 	{ Py_sq_length,   (void*) &PyJPArray_len},
@@ -438,7 +434,6 @@ static PyBufferProcs arrayBuffer = {
 };
 #endif
 
-PyTypeObject *PyJPArray_Type = nullptr;
 static PyType_Spec arraySpec = {
 	"_jpype._JArray",
 	sizeof (PyJPArray),
@@ -471,32 +466,31 @@ static PyType_Spec arrayPrimSpec = {
 	arrayPrimSlots
 };
 
-#ifdef __cplusplus
-}
-#endif
-
-void PyJPArray_initType(PyObject * module)
+void PyJPArray_initType(PyObject *module, PyJPModuleState* st)
 {
-	JPPyObject tuple = JPPyTuple_Pack(PyJPObject_Type);
-	PyJPArray_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&arraySpec, tuple.get());
+	JPPyObject tuple = JPPyTuple_Pack(st->PyJPObject_Type);
+	st->PyJPArray_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(module, &arraySpec, tuple.get());
 	JP_PY_CHECK();
 #if PY_VERSION_HEX < 0x03090000
-	PyJPArray_Type->tp_as_buffer = &arrayBuffer;
+	st->PyJPArray_Type->tp_as_buffer = &arrayBuffer;
 #endif
-	PyModule_AddObject(module, "_JArray", (PyObject*) PyJPArray_Type);
+	Py_INCREF((PyObject*) st->PyJPArray_Type);
+	PyModule_AddObject(module, "_JArray", (PyObject*) st->PyJPArray_Type);
 	JP_PY_CHECK();
 
-	tuple = JPPyTuple_Pack(PyJPArray_Type);
-	PyJPArrayPrimitive_Type = (PyTypeObject*)
-			PyJPClass_FromSpecWithBases(&arrayPrimSpec, tuple.get());
+	tuple = JPPyTuple_Pack(st->PyJPArray_Type);
+	st->PyJPArrayPrimitive_Type = (PyTypeObject*)
+			PyJPClass_FromSpecWithBases(module, &arrayPrimSpec, tuple.get());
 #if PY_VERSION_HEX < 0x03090000
-	PyJPArrayPrimitive_Type->tp_as_buffer = &arrayPrimBuffer;
+	st->PyJPArrayPrimitive_Type->tp_as_buffer = &arrayPrimBuffer;
 #endif
 	JP_PY_CHECK();
+	Py_INCREF((PyObject*) st->PyJPArrayPrimitive_Type);
 	PyModule_AddObject(module, "_JArrayPrimitive",
-			(PyObject*) PyJPArrayPrimitive_Type);
+			(PyObject*) st->PyJPArrayPrimitive_Type);
 	JP_PY_CHECK();
 }
+
 
 JPPyObject PyJPArray_create(JPJavaFrame &frame, PyTypeObject *type, const JPValue & value)
 {
@@ -506,3 +500,9 @@ JPPyObject PyJPArray_create(JPJavaFrame &frame, PyTypeObject *type, const JPValu
 	PyJPValue_assignJavaSlot(frame, obj, value);
 	return JPPyObject::claim(obj);
 }
+
+#ifdef __cplusplus
+}
+#endif
+
+

@@ -18,7 +18,7 @@ package python.lang;
 
 import java.util.Arrays;
 import java.util.Map;
-import org.jpype.bridge.Backend;
+import org.jpype.Backend;
 
 /**
  * Utility class providing built-in functions similar to Python's built-in
@@ -30,6 +30,11 @@ public class PyBuiltIn
 {
 
   protected final Backend backend;
+  
+  public Backend getBackend()
+  {
+    return this.backend;
+  }
 
   protected PyBuiltIn(Backend backend)
   {

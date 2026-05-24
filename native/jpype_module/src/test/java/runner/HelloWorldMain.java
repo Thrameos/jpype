@@ -3,9 +3,8 @@ package runner;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import org.jpype.bridge.Context;
-import org.jpype.bridge.Interpreter;
-import python.lang.PyBuiltIn;
+import org.jpype.Script;
+import org.jpype.MainInterpreter;
 import python.lang.PyObject;
 
 public class HelloWorldMain
@@ -18,8 +17,8 @@ public class HelloWorldMain
       Path here = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
       Path root = here.resolve("../..").normalize();
       System.setProperty("python.module.path", root.toString());
-      Interpreter.getInstance().start(new String[0]);
-      Context context = Interpreter.getInstance().newContext();
+      MainInterpreter.getInstance().start(new String[0]);
+      Script context = new Script(MainInterpreter.getInstance());
       context.exec("msg = 'Hello World from Python'");
       PyObject msg = context.eval("msg");
       System.out.println("Python returned: " + msg);

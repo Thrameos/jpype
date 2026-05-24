@@ -20,8 +20,8 @@
 #include "jp_primitive_accessor.h"
 #include "jp_inttype.h"
 
-JPIntType::JPIntType()
-: JPPrimitiveType("int")
+JPIntType::JPIntType(JPJavaFrame& frame, jclass cls)
+: JPPrimitiveType(frame, cls, "int")
 {
 }
 
@@ -96,7 +96,7 @@ public:
 
 	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
 	{
-		JPContext *context = JPContext_global;
+		JPContext *context = frame.getContext();
 		PyList_Append(info.exact, (PyObject*) context->_int->getHost());
 		PyList_Append(info.implicit, (PyObject*) context->_byte->getHost());
 		PyList_Append(info.implicit, (PyObject*) context->_char->getHost());
@@ -127,7 +127,7 @@ void JPIntType::getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info)
 	jintConversion.getInfo(frame, this, info);
 	intConversion.getInfo(frame, this, info);
 	intNumberConversion.getInfo(frame, this, info);
-	PyList_Append(info.ret, (PyObject*) JPContext_global->_int->getHost());
+	PyList_Append(info.ret, (PyObject*) frame.getContext()->_int->getHost());
 }
 
 jarray JPIntType::newArrayOf(JPJavaFrame& frame, jsize sz)
@@ -174,7 +174,7 @@ JPPyObject JPIntType::invoke(JPJavaFrame& frame, jobject obj, jclass clazz, jmet
 
 void JPIntType::setStaticField(JPJavaFrame& frame, jclass c, jfieldID fid, PyObject* obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java int");
 	type_t val = field(match.convert());
@@ -183,7 +183,7 @@ void JPIntType::setStaticField(JPJavaFrame& frame, jclass c, jfieldID fid, PyObj
 
 void JPIntType::setField(JPJavaFrame& frame, jobject c, jfieldID fid, PyObject* obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java int");
 	type_t val = field(match.convert());
@@ -264,7 +264,7 @@ JPPyObject JPIntType::getArrayItem(JPJavaFrame& frame, jarray a, jsize ndx)
 
 void JPIntType::setArrayItem(JPJavaFrame& frame, jarray a, jsize ndx, PyObject* obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java int");
 	type_t val = field(match.convert());

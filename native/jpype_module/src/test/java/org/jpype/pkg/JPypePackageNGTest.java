@@ -37,20 +37,20 @@ public class JPypePackageNGTest
   @Test
   public void testGetPackage()
   {
-    assertTrue(JPypePackageManager.isPackage("java.lang"));
-    JPypePackage pkg = new JPypePackage("java.lang");
+    assertTrue(PackageManager.isPackage("java.lang"));
+    Package pkg = new Package("java.lang");
     for (Map.Entry<String, URI> e : pkg.contents.entrySet())
     {
-      Path p = JPypePackageManager.getPath(e.getValue());
-      JPypePackage.isPublic(p);
+      Path p = PackageManager.getPath(e.getValue());
+      Package.isPublic(p);
     }
   }
 
   @Test
   public void testBase()
   {
-    assertTrue(JPypePackageManager.isPackage("java"));
-    JPypePackage pkg = new JPypePackage("java");
+    assertTrue(PackageManager.isPackage("java"));
+    Package pkg = new Package("java");
       Set<String> entries = pkg.contents.keySet();
       assertTrue(entries.contains("rmi"));
   }
@@ -58,7 +58,7 @@ public class JPypePackageNGTest
   @Test
   public void testOrg()
   {
-    JPypePackage pkg = new JPypePackage("org");
+    Package pkg = new Package("org");
       Set<String> entries = pkg.contents.keySet();
       assertTrue(entries.contains("jpype"));
   }
@@ -69,7 +69,7 @@ public class JPypePackageNGTest
   @Test
   public void testGetObject()
   {
-    JPypePackage instance = new JPypePackage("java.lang");
+    Package instance = new Package("java.lang");
     Object expResult = Object.class;
     Object result = instance.getObject("Object");
     assertEquals(result, expResult);
@@ -81,7 +81,7 @@ public class JPypePackageNGTest
   @Test
   public void testGetContents()
   {
-    JPypePackage instance = new JPypePackage("java.lang");
+    Package instance = new Package("java.lang");
     String[] expResult = new String[]
     {
       "AbstractMethodError", "Appendable"

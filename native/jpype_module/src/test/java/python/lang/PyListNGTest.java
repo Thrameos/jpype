@@ -16,7 +16,7 @@
  */
 package python.lang;
 
-import org.jpype.bridge.Interpreter;
+import org.jpype.MainInterpreter;
 import org.testng.annotations.BeforeClass;
 
 /**
@@ -33,6 +33,6 @@ public class PyListNGTest extends PyTestHarness
   @BeforeClass
   public static void setUpClass() throws Exception
   {
-    Interpreter.getInstance().start(new String[0]);
+    MainInterpreter.getInstance().start(new String[0]);
   }
 }

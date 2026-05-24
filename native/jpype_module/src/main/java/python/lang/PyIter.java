@@ -18,7 +18,7 @@ package python.lang;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-import org.jpype.bridge.Interpreter;
+import org.jpype.MainInterpreter;
 import org.jpype.annotation.Bypass;
 
 /**
@@ -127,8 +127,8 @@ public interface PyIter<T> extends PyObject
   @Bypass
   default T next()
   {
-    PyObject out =  builtin().backend.next(this, Interpreter.stop);
-    if (out.equals(Interpreter.stop))
+    PyObject out =  builtin().backend.next(this, MainInterpreter.stop);
+    if (out.equals(MainInterpreter.stop))
       throw new NoSuchElementException();
     return (T) out;
   }

@@ -70,6 +70,7 @@ public interface TypeFactory
    * @return A pointer to the newly created JPArrayClass.
    */
   long defineArrayClass(
+          long ctx,
           Class<?> cls,
           String name,
           long superClass,
@@ -92,6 +93,7 @@ public interface TypeFactory
    * @return A pointer to the newly created JPObjectClass.
    */
   long defineObjectClass(
+          long ctx,
           Class<?> cls,
           String name,
           long superClass,
@@ -111,6 +113,7 @@ public interface TypeFactory
    * @return A pointer to the newly defined primitive type.
    */
   long definePrimitive(
+          long ctx,
           String name,
           Class<?> cls,
           long boxedPtr,
@@ -132,6 +135,7 @@ public interface TypeFactory
    * fields.
    */
   void assignMembers(
+          long ctx,
           long cls,
           long ctorMethod,
           long[] methodList,
@@ -150,6 +154,7 @@ public interface TypeFactory
    * @return A pointer to the newly defined JPField.
    */
   long defineField(
+          long ctx,
           long cls,
           String name,
           Field field,
@@ -170,6 +175,7 @@ public interface TypeFactory
    * @return A pointer to the newly defined JPMethod.
    */
   long defineMethod(
+          long ctx,
           long cls,
           String name,
           Executable method,
@@ -186,6 +192,7 @@ public interface TypeFactory
    * the argument types.
    */
   void populateMethod(
+          long ctx,
           long method,
           long returnType,
           long[] argumentTypes);
@@ -204,6 +211,7 @@ public interface TypeFactory
    * @return A pointer to the newly defined JPMethodDispatch.
    */
   long defineMethodDispatch(
+          long ctx,
           long cls,
           String name,
           long[] overloadList,
@@ -220,6 +228,7 @@ public interface TypeFactory
    * @param sz The size of the resources array.
    */
   void destroy(
+          long ctx,
           long[] resources, int sz);
 
   //</editor-fold>

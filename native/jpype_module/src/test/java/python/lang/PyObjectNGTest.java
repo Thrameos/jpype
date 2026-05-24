@@ -16,8 +16,8 @@
  */
 package python.lang;
 
-import org.jpype.bridge.Context;
-import org.jpype.bridge.Interpreter;
+import org.jpype.Script;
+import org.jpype.MainInterpreter;
 import org.testng.annotations.BeforeClass;
 import static org.testng.Assert.*;
 import org.testng.annotations.Test;

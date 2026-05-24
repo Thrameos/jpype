@@ -1,12 +1,13 @@
 // --- file: org/jpype/bridge/WrapperProvider.java ---
-package org.jpype.bridge;
+package org.jpype;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The central registry and router for Python-to-Java type extensions. It
- * discovers WrapperServices via Jigsaw and caches mapping for performance.
+ * The central registry and router for Python-to-Java type extensions.
+ *
+ * It discovers WrapperServices via Jigsaw and caches mapping for performance.
  */
 public final class WrapperProvider
 {
@@ -29,6 +30,7 @@ public final class WrapperProvider
    * Forks the request to the appropriate service based on the class name.
    *
    * * @param clsName Fully qualified Python name (e.g., "numpy.ndarray")
+   * @param clsName
    * @return Aggregated array of interfaces from all matching services.
    */
   public Class<?>[] getInterfaces(String clsName)

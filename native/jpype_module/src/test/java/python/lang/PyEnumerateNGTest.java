@@ -16,7 +16,7 @@
  */
 package python.lang;
 
-import org.jpype.bridge.Interpreter;
+import org.jpype.MainInterpreter;
 import static org.testng.Assert.*;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -35,7 +35,7 @@ public class PyEnumerateNGTest extends PyTestHarness
   @BeforeClass
   public static void setUpClass() throws Exception
   {
-    Interpreter.getInstance().start(new String[0]);
+    MainInterpreter.getInstance().start(new String[0]);
   }
 
   @Test

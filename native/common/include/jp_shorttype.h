@@ -20,7 +20,7 @@ class JPShortType : public JPPrimitiveType
 {
 public:
 
-	JPShortType();
+	JPShortType(JPJavaFrame& frame, jclass cls);
 	~JPShortType() override;
 
 	using type_t = jshort;

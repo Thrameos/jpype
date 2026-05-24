@@ -16,8 +16,8 @@
  *****************************************************************************/
 #include "jpype.h"
 
-JPPrimitiveType::JPPrimitiveType(const string& name)
-: JPClass(name, 0x411)
+JPPrimitiveType::JPPrimitiveType(JPJavaFrame& frame, jclass cls, const string& name)
+: JPClass(frame, cls, name, 0x411)
 {
 }
 

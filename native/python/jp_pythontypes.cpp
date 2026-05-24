@@ -37,7 +37,7 @@ static void assertValid(PyObject *obj)
 	JP_RAISE(PyExc_SystemError, "Deleted reference");
 	// GCOVR_EXCL_STOP
 #else
-    return; // GIL is disabled; we assume obj is valid
+	return; // GIL is disabled; we assume obj is valid
 #endif
 }
 

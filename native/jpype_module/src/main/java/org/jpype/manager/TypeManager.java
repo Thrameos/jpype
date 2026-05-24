@@ -35,9 +35,9 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.TreeSet;
-import org.jpype.JPypeContext;
-import org.jpype.JPypeUtilities;
-import org.jpype.proxy.JPypeProxyInstance;
+import org.jpype.internal.NativeContext;
+import org.jpype.internal.Functional;
+import org.jpype.proxy.ProxyInstance;
 import java.util.logging.Level;
 import python.lang.PyObject;
 
@@ -47,6 +47,8 @@ import python.lang.PyObject;
 public class TypeManager
 {
 
+  private final NativeContext context;
+  private final long address;
   public boolean isStarted = false;
   public boolean isShutdown = false;
   public HashMap<Class<?>, ClassDescriptor> classMap = new HashMap<>();
@@ -64,12 +66,16 @@ public class TypeManager
     PROXY;
   }
 
-  public TypeManager()
+  public TypeManager(NativeContext ctx)
   {
+    this.context = ctx;
+    this.address = ctx.address();
   }
 
-  public TypeManager(TypeFactory typeFactory)
+  public TypeManager(NativeContext ctx, TypeFactory typeFactory)
   {
+    this.context = ctx;
+    this.address = ctx.address();
     this.typeFactory = typeFactory;
   }
 
@@ -83,7 +89,6 @@ public class TypeManager
         throw new RuntimeException("Cannot be restarted");
       isStarted = true;
       isShutdown = false;
-      
 
       // Create the required minimum classes
       this.java_lang_Object = createOrdinaryClass(Object.class, EnumSet.of(Kind.SPECIAL));
@@ -95,10 +100,7 @@ public class TypeManager
       Class<?>[] cls =
       {
         Class.class, Number.class, CharSequence.class, Throwable.class,
-        Void.class, Boolean.class, Byte.class, Character.class,
-        Short.class, Integer.class, Long.class, Float.class, Double.class,
-        String.class, JPypeProxyInstance.class,
-        Method.class, Field.class, PyObject.class
+        String.class, ProxyInstance.class, Method.class, Field.class, PyObject.class
       };
       for (Class<?> c : cls)
       {
@@ -117,10 +119,20 @@ public class TypeManager
       createPrimitive("float", Float.TYPE, Float.class);
       createPrimitive("double", Double.TYPE, Double.class);
 
+      Class<?>[] boxed =
+      {
+        Void.class, Boolean.class, Byte.class, Character.class,
+        Short.class, Integer.class, Long.class, Float.class, Double.class,
+      };
+      for (Class<?> c : boxed)
+      {
+        createOrdinaryClass(c, EnumSet.of(Kind.SPECIAL, Kind.BASES));
+      }
+
     } catch (Throwable ex)
     {
       // We can't get debugging information at this point in the process.
-      JPypeContext.LOGGER.log(Level.SEVERE, "error in init", ex);
+      NativeContext.LOGGER.log(Level.SEVERE, "error in init", ex);
       throw ex;
     }
   }
@@ -210,7 +222,7 @@ public class TypeManager
 
   public Class<?> lookupByName(String name)
   {
-    ClassLoader classLoader = JPypeContext.getInstance().getClassLoader();
+    ClassLoader classLoader = context.getClassLoader();
 
     // Handle arrays
     if (name.endsWith("[]"))
@@ -324,10 +336,10 @@ public class TypeManager
 
     try
     {
-      typeFactory.populateMethod(wrapper, returnType, paramPtrs);
+      typeFactory.populateMethod(address, wrapper, returnType, paramPtrs);
     } catch (Exception ex)
     {
-      JPypeContext.LOGGER.log(Level.SEVERE, "error in populateMethod", ex);
+      NativeContext.LOGGER.log(Level.SEVERE, "error in populateMethod", ex);
     }
   }
 
@@ -354,22 +366,22 @@ public class TypeManager
    */
   public long findClassForObject(Object object) throws InterruptedException
   {
-    JPypeContext.clearInterrupt(true);
+    NativeContext.clearInterrupt(true);
     if (object == null)
       return 0;
 
     Class<?> cls = object.getClass();
     long found = checkCache(cls);
     if (found != 0)
-      return found; 
+      return found;
 
     boolean proxy = false;
     if (Proxy.isProxyClass(cls))
     {
       InvocationHandler ih = Proxy.getInvocationHandler(object);
-      proxy = (ih instanceof JPypeProxyInstance);
+      proxy = (ih instanceof ProxyInstance);
     }
-    
+
     final EnumSet<Kind> flags;
     if (proxy)
       flags = EnumSet.of(Kind.BASES, Kind.PROXY);
@@ -473,7 +485,7 @@ public class TypeManager
       modifiers |= ModifierCode.PROXY.value;
 
     // Check if is Functional class
-    Method method = JPypeUtilities.getFunctionalInterfaceMethod(cls);
+    Method method = Functional.getFunctionalInterfaceMethod(cls);
     if (method != null)
       modifiers |= ModifierCode.FUNCTIONAL.value | ModifierCode.SPECIAL.value;
 
@@ -483,7 +495,7 @@ public class TypeManager
       name = cls.getName();
 
     // Create the JPClass
-    long classPtr = typeFactory.defineObjectClass(cls, name,
+    long classPtr = typeFactory.defineObjectClass(address, cls, name,
             superClassPtr,
             interfacesPtr,
             modifiers);
@@ -500,6 +512,7 @@ public class TypeManager
       return parent.anonymous;
 
     parent.anonymous = typeFactory.defineObjectClass(
+            address,
             parent.cls, parent.cls.getCanonicalName() + "$Anonymous",
             parent.classPtr,
             null,
@@ -519,7 +532,7 @@ public class TypeManager
       modifiers |= ModifierCode.PRIMITIVE_ARRAY.value;
 
     long classPtr = typeFactory
-            .defineArrayClass(cls,
+            .defineArrayClass(address, cls,
                     cls.getCanonicalName(),
                     this.java_lang_Object.classPtr,
                     componentTypePtr,
@@ -540,7 +553,7 @@ public class TypeManager
   private void createPrimitive(String name, Class<?> cls, Class<?> boxed)
   {
     long classPtr = typeFactory.definePrimitive(
-            name,
+            address, name,
             cls,
             findClass(boxed),
             cls.getModifiers() & 0xffff);
@@ -561,7 +574,7 @@ public class TypeManager
       createMembers(desc);
     } catch (Exception ex)
     {
-      JPypeContext.LOGGER.log(Level.SEVERE, "error in populate members", ex);
+      NativeContext.LOGGER.log(Level.SEVERE, "error in populate members", ex);
       throw ex;
     }
   }
@@ -578,7 +591,7 @@ public class TypeManager
 
     // Pass this to JPype
     this.typeFactory.assignMembers(
-            desc.classPtr,
+            address, desc.classPtr,
             desc.constructorDispatch,
             desc.methodDispatch,
             desc.fields);
@@ -596,7 +609,7 @@ public class TypeManager
     for (Field field : fields)
     {
       fieldPtr[i++] = this.typeFactory.defineField(
-              desc.classPtr,
+              address, desc.classPtr,
               field.getName(),
               field,
               findClass(field.getType()),
@@ -632,6 +645,7 @@ public class TypeManager
     // Create the dispatch for it
     desc.constructorDispatch = typeFactory
             .defineMethodDispatch(
+                    address,
                     desc.classPtr,
                     "<init>",
                     desc.constructors,
@@ -654,7 +668,7 @@ public class TypeManager
     long[] overloadPtrs = new long[overloads.size()];
     for (MethodResolution ov : overloads)
     {
-      Constructor constructor = (Constructor) ov.executable;
+      Constructor<?> constructor = (Constructor) ov.executable;
 
       int i = 0;
       long[] precedencePtrs = new long[ov.children.size()];
@@ -666,7 +680,7 @@ public class TypeManager
       int modifiers = constructor.getModifiers() & 0xffff;
       modifiers |= ModifierCode.CTOR.value;
       ov.ptr = typeFactory.defineMethod(
-              desc.classPtr,
+              address, desc.classPtr,
               constructor.toString(),
               constructor,
               precedencePtrs,
@@ -742,6 +756,7 @@ public class TypeManager
     long[] overloadPtrs = this.createMethods(desc, overloads);
 
     long methodContainer = typeFactory.defineMethodDispatch(
+            address,
             desc.classPtr,
             key,
             overloadPtrs,
@@ -803,6 +818,7 @@ public class TypeManager
         modifiers |= ModifierCode.CALLER_SENSITIVE.value;
 
       ov.ptr = typeFactory.defineMethod(
+              address,
               desc.classPtr,
               method.toString(),
               method,
@@ -998,7 +1014,7 @@ public class TypeManager
         return;
       if (v.length > BLOCK_SIZE / 2)
       {
-        typeFactory.destroy(v, v.length);
+        typeFactory.destroy(address,v, v.length);
         return;
       }
       if (index + v.length > BLOCK_SIZE)
@@ -1015,7 +1031,7 @@ public class TypeManager
 
     void flush()
     {
-      typeFactory.destroy(queue, index);
+      typeFactory.destroy(address, queue, index);
       index = 0;
     }
   }

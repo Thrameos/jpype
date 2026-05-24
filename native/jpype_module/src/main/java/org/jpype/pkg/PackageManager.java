@@ -37,8 +37,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import org.jpype.JPypeContext;
-import org.jpype.JPypeKeywords;
+import org.jpype.internal.Keywords;
 
 /**
  * Manages the contents of Java packages for JPype.
@@ -54,8 +53,9 @@ import org.jpype.JPypeKeywords;
  * impossible, this class leverages the jar and jrt file systems to provide the
  * required methods for package inspection.</p>
  */
-public class JPypePackageManager
+public class PackageManager
 {
+  static ClassLoader classloader = ClassLoader.getSystemClassLoader();
 
   final static List<FileSystem> bases = new ArrayList<>();
   final static List<ModuleDirectory> modules = getModules();
@@ -63,6 +63,14 @@ public class JPypePackageManager
   final static Map<String, String> env = new HashMap<>();
   final static LinkedList<FileSystem> fs = new LinkedList<>();
 
+  private PackageManager()
+  {}
+  
+  public static void setClassLoader(ClassLoader cl)
+  {
+    classloader = cl;
+  }
+  
   /**
    * Checks if a package exists.
    *
@@ -79,7 +87,9 @@ public class JPypePackageManager
     {
       name = name.replace(".", "/");
     }
-    return isModulePackage(name) || isBasePackage(name) || isJarPackage(name);
+    return isModulePackage(name) 
+//            || isBasePackage(name) 
+            || isJarPackage(name);
   }
 
   /**
@@ -99,7 +109,7 @@ public class JPypePackageManager
     packageName = packageName.replace(".", "/");
     // We need to merge all the file systems into one view like the classloader
     getJarContents(out, packageName);
-    getBaseContents(out, packageName);
+//    getBaseContents(out, packageName);
     getModuleContents(out, packageName);
     return out;
   }
@@ -164,76 +174,6 @@ public class JPypePackageManager
     throw new FileSystemNotFoundException("Unable to find filesystem for " + str);
   }
 
-//<editor-fold desc="java 8" defaultstate="collapsed">
-  //FIXME we are dropping Java 1.8 support so this code should be removed.
-  /**
-   * Older versions of Java do not have a file system for boot packages. Thus
-   * rather working through the classloader, we will instead probe java to get
-   * the rt.jar. Crypto is a special case as it has its own jar. All other
-   * resources are sourced through the regular jar loading method.
-   */
-  static
-  {
-    env.put("create", "true");
-
-    ClassLoader cl = ClassLoader.getSystemClassLoader();
-    URI uri = null;
-    try
-    {
-      // This is for Java 8 and earlier in which the API jars are in rt.jar
-      // and jce.jar
-      uri = cl.getResource("java/lang/String.class").toURI();
-      if (uri != null && uri.getScheme().equals("jar"))
-      {
-        FileSystem fs = jfsp.newFileSystem(uri, env);
-        if (fs != null)
-          bases.add(fs);
-      }
-      uri = cl.getResource("javax/crypto/Cipher.class").toURI();
-      if (uri != null && uri.getScheme().equals("jar"))
-      {
-        FileSystem fs = jfsp.newFileSystem(uri, env);
-        if (fs != null)
-          bases.add(fs);
-      }
-    } catch (URISyntaxException | IOException ex)
-    {
-    }
-  }
-
-  private static void getBaseContents(Map<String, URI> out, String packageName)
-  {
-    for (FileSystem b : bases)
-    {
-      collectContents(out, b.getPath(packageName));
-    }
-  }
-
-  /**
-   * Check if a name is a package in the java bootstrap classloader.
-   *
-   * @param name
-   * @return
-   */
-  private static boolean isBasePackage(String name)
-  {
-    try
-    {
-      if (name.isEmpty())
-        return false;
-      for (FileSystem jar : bases)
-      {
-        if (Files.isDirectory(jar.getPath(name)))
-          return true;
-      }
-      return false;
-    } catch (Exception ex)
-    {
-      throw new RuntimeException("Fail checking package '" + name + "'", ex);
-    }
-  }
-
-//</editor-fold>
 //<editor-fold desc="java 9" defaultstate="collapsed">
   /**
    * Get a list of all modules.
@@ -375,7 +315,7 @@ public class JPypePackageManager
    */
   private static boolean isJarPackage(String name)
   {
-    ClassLoader cl = JPypeContext.getInstance().getClassLoader();
+    ClassLoader cl = classloader;
     try
     {
       Enumeration<URL> resources = cl.getResources(name);
@@ -400,7 +340,7 @@ public class JPypePackageManager
    */
   private static void getJarContents(Map<String, URI> out, String packageName)
   {
-    ClassLoader cl = JPypeContext.getInstance().getClassLoader();
+    ClassLoader cl = classloader;
     try
     {
       String path = packageName.replace('.', '/');
@@ -461,7 +401,7 @@ public class JPypePackageManager
           // Same implementations add the path separator to the end of toString().
           if (filename.endsWith(file.getFileSystem().getSeparator()))
             filename = filename.substring(0, filename.length() - 1);
-          out.put(JPypeKeywords.wrap(filename), toURI(file));
+          out.put(Keywords.wrap(filename), toURI(file));
           continue;
         }
         // Skip inner classes
@@ -471,7 +411,7 @@ public class JPypePackageManager
         // Include class files
         if (filename.endsWith(".class"))
         {
-          String key = JPypeKeywords.wrap(filename.substring(0, filename.length() - 6));
+          String key = Keywords.wrap(filename.substring(0, filename.length() - 6));
           out.put(key, toURI(file));
         }
 

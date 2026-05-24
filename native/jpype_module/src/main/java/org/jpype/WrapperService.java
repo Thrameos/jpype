@@ -1,5 +1,5 @@
 // --- file: org/jpype/bridge/WrapperService.java ---
-package org.jpype.bridge;
+package org.jpype;
 
 
 /**
