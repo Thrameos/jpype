@@ -25,8 +25,7 @@ JPMonitor::JPMonitor(JPJavaFrame& frame, jobject value)
 
 JPMonitor::~JPMonitor()
 {
-	if (m_Value != nullptr && m_Context->isRunning())
-		m_Context->getEnv()->DeleteGlobalRef(m_Value);
+	m_Context->tryRelease(m_Value);
 }
 
 void JPMonitor::enter()

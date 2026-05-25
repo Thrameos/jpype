@@ -44,9 +44,7 @@ JPBuffer::JPBuffer(JPJavaFrame& frame, const JPValue &value)
 
 JPBuffer::~JPBuffer()
 {
-	JPContext* context = m_Class->getContext();
-	if (m_Object != nullptr && context->isRunning())
-		context->getEnv()->DeleteGlobalRef(m_Object);
+	m_Class->getContext()->tryRelease(m_Object);
 }
 
 bool JPBuffer::isReadOnly() const

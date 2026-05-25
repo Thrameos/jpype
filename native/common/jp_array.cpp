@@ -46,10 +46,11 @@ JPArray::JPArray(JPJavaFrame& frame, const JPValue &value)
 }
 
 JPArray::JPArray(JPArray* instance, jsize start, jsize stop, jsize step)
-: m_Object((jarray) instance->getJava())
 {
 	JP_TRACE_IN("JPArray::JPArraySlice");
 	m_Class = instance->m_Class;
+	JPJavaFrame frame = JPJavaFrame::outer(m_Class->getContext());
+	m_Object = (jarray) frame.NewGlobalRef((jarray) instance->getJava());
 	m_Step = step * instance->m_Step;
 	m_Start = instance->m_Start + instance->m_Step*start;
 	if (step > 0)
@@ -64,9 +65,7 @@ JPArray::JPArray(JPArray* instance, jsize start, jsize stop, jsize step)
 
 JPArray::~JPArray()
 {
-	JPContext* context = m_Class->getContext();
-	if (m_Object != nullptr && context->isRunning())
-		context->getEnv()->DeleteGlobalRef(m_Object);
+	m_Class->getContext()->tryRelease(m_Object);
 }
 
 jsize JPArray::getLength() const

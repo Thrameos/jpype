@@ -35,9 +35,7 @@ JPField::JPField(JPJavaFrame& frame,
 
 JPField::~JPField()
 {
-	JPContext* context = m_Class->getContext();
-	if (m_Field != nullptr && context->isRunning())
-		context->getEnv()->DeleteGlobalRef(m_Field);
+	m_Class->getContext()->tryRelease(m_Field);
 }
 
 JPPyObject JPField::getStaticField(JPJavaFrame& frame)

@@ -37,7 +37,7 @@ static inline int PyJPClass_checkContext(PyJPClass* cls)
 {
 	if (cls == nullptr || cls->m_State == nullptr || cls->m_State->context == nullptr)
 	{
-		PyErr_SetString(PyExc_RuntimeError, "JPype module context is not available");
+		PyErr_SetString(PyExc_RuntimeError, "JPype module context is not available to JPClass");
 		return 0;
 	}
 	return 1;
@@ -78,7 +78,7 @@ PyObject* PyJPClass_FromSpecWithBases(PyObject* module, PyType_Spec *spec, PyObj
 	auto* st = reinterpret_cast<PyJPModuleState*>(PyModule_GetState(module));
 	if (st == nullptr)
 	{
-		PyErr_SetString(PyExc_RuntimeError, "JPype module state is not available");
+		PyErr_SetString(PyExc_RuntimeError, "JPype module state is not available to JClass init");
 		return nullptr;
 	}
 

@@ -1204,7 +1204,7 @@ static struct PyModuleDef moduledef = {
 	PyJPModule_free
 };
 
-
+JPContext* TEST_GLOBAL = nullptr;
 PyMODINIT_FUNC PyInit__jpype()
 {
 	JP_PY_TRY("PyInit__jpype");
@@ -1271,6 +1271,7 @@ PyMODINIT_FUNC PyInit__jpype()
 	PyJPChar_initType(module, st);
 
 	st->context = new JPContext(st);
+	TEST_GLOBAL = st->context;
 	return module;
 	JP_PY_CATCH(nullptr); // GCOVR_EXCL_LINE
 }

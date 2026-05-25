@@ -35,9 +35,16 @@ static void jpype_frame_check(int popped)
 #define JP_FRAME_CHECK() if (false) while (false)
 #endif
 
+extern "C" JPContext* TEST_GLOBAL;
 JPJavaFrame::JPJavaFrame(JNIEnv* p_env, JPContext* context, int size, bool outer)
 : m_Env(p_env), m_Context(context), m_Popped(false), m_Outer(outer)
 {
+	if (context!=TEST_GLOBAL)  
+	{
+		printf("FATAL LOSS OF CONTEXT\n");
+		int*i=0;
+		*i=0;
+	}
 	if (p_env == nullptr)
 	{
 		m_Env = context->getEnv();

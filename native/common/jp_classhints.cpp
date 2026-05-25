@@ -336,6 +336,11 @@ public:
 	JPMatch::Type matches(JPClass *cls, JPMatch &match) override
 	{
 		auto *pyhints = (PyJPClassHints*) cls->getHints();
+		if (pyhints == nullptr)
+		{
+			printf("no hints found for %s\n", cls->getName(*match.frame).c_str());
+			return match.type;
+		}
 		JPClassHints *hints = pyhints->m_Hints;
 		hints->getConversion(match, cls);
 		return match.type;

@@ -38,9 +38,7 @@ JPMethod::JPMethod(JPJavaFrame& frame,
 
 JPMethod::~JPMethod()
 {
-	JPContext* context = m_Class->getContext();
-	if (m_Method != nullptr && context->isRunning())
-		context->getEnv()->DeleteGlobalRef(m_Method);
+	m_Class->getContext()->tryRelease(m_Method);
 }
 
 void JPMethod::setParameters(

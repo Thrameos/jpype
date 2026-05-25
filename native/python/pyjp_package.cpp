@@ -32,7 +32,13 @@ static PyObject *PyJPPackage_new(PyTypeObject *type, PyObject *args, PyObject *k
 		return nullptr;
 
 	// Extract the subinterpreter module state directly from the type object!
-	auto* st = reinterpret_cast<PyJPModuleState*>(PyType_GetModuleState(type->tp_base));
+	// This is tricky because we have potential paths to _JPackage
+	// The one coming from user JPackage requests and those created as part of the module system.
+	PyJPModuleState* st;
+	if (type->tp_base->tp_flags & Py_TPFLAGS_HEAPTYPE)
+		st = reinterpret_cast<PyJPModuleState*>(PyType_GetModuleState(type->tp_base));
+	else
+		st = reinterpret_cast<PyJPModuleState*>(PyType_GetModuleState(type));
 	if (st == nullptr)
 	{
 		PyErr_SetString(PyExc_RuntimeError, "JPype module state is not available from type");
