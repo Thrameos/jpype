@@ -38,7 +38,7 @@ JPMethod::JPMethod(JPJavaFrame& frame,
 
 JPMethod::~JPMethod()
 {
-	m_Class->getContext()->tryRelease(m_Method);
+	tryRelease(m_Method);
 }
 
 void JPMethod::setParameters(

@@ -35,7 +35,7 @@ JPField::JPField(JPJavaFrame& frame,
 
 JPField::~JPField()
 {
-	m_Class->getContext()->tryRelease(m_Field);
+	tryRelease(m_Field);
 }
 
 JPPyObject JPField::getStaticField(JPJavaFrame& frame)

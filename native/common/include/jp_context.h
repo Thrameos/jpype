@@ -231,9 +231,9 @@ public:
 	std::list<JPResource*> m_Resources;
 	PyObject* m_PyExcConvert{};
 
-	void tryRelease(jobject obj) ;
 };
 
+extern void tryRelease(jobject obj) ;
 extern void JPRef_failed();
 
 // GCOVR_EXCL_START

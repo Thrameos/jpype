@@ -42,7 +42,7 @@ public:
 
 	void setHints(PyObject* host);
 
-	PyObject* getHints();
+	PyObject* getHints(JPJavaFrame& frame);
 	
 	JPContext* getContext()
 	{

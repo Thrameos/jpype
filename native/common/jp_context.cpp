@@ -311,6 +311,7 @@ void JPContext::startJVM(const string& vmPath, const StringVector& args,
 void JPContext::attachJVM(JNIEnv* env)
 {
 	env->GetJavaVM(&m_JavaVM);
+	printf("ATTACH %p\n", _JavaVM);
 	_JavaVM = m_JavaVM;
 #ifndef ANDROID
 	m_Embedded = true;
@@ -320,7 +321,7 @@ void JPContext::attachJVM(JNIEnv* env)
 
 void JPContext::detachJVM()
 {
-	printf("DETACH\n");
+	printf("DETACH %p\n", _JavaVM);
 	m_JavaVM = nullptr;
 	m_Running = false;
 	_JavaVM = nullptr;
@@ -569,8 +570,6 @@ void JPContext::shutdownJVM(bool destroyJVM, bool freeJVM)
 		JP_RAISE(PyExc_RuntimeError, "Attempt to shutdown embedded JVM");
 	if (m_JavaVM == nullptr)
 		JP_RAISE(PyExc_RuntimeError, "Attempt to shutdown without a live JVM");
-	//	if (m_Embedded)
-	//		JP_RAISE(PyExc_RuntimeError, "Cannot shutdown from embedded Python");
 
 	// Wait for all non-demon threads to terminate
 	if (destroyJVM)
@@ -581,11 +580,10 @@ void JPContext::shutdownJVM(bool destroyJVM, bool freeJVM)
 	}
 
 	// unload the jvm library
-	m_Running = false;
+	detachJVM();
 	if (freeJVM)
 	{
 		JP_TRACE("Unload JVM");
-		m_JavaVM = nullptr;
 		JPPlatformAdapter::getAdapter()->unloadLibrary();
 	}
 
@@ -673,12 +671,15 @@ JNIEnv* JPContext::getEnv()
 	return env;
 }
 
-void JPContext::tryRelease(jobject obj) 
+void tryRelease(jobject obj) 
 {
-	if (obj == nullptr || m_JavaVM == nullptr || !m_Running)
+	if (obj == nullptr || _JavaVM == nullptr)
 		return;
 	JNIEnv* env = nullptr;
-	jint res = m_JavaVM->functions->GetEnv(m_JavaVM, (void**) &env, USE_JNI_VERSION);
+	// If we get detached here it usually means the JVM is not active as any thread
+	// that can reach this point was once we attached.   I will need to assess that
+	// assumption later to make sure we don't leak.
+	jint res = _JavaVM->functions->GetEnv(_JavaVM, (void**) &env, USE_JNI_VERSION);
 	if (res == JNI_EDETACHED)
 		return;
 	env->DeleteGlobalRef(obj);

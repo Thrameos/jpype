@@ -44,7 +44,7 @@ JPBuffer::JPBuffer(JPJavaFrame& frame, const JPValue &value)
 
 JPBuffer::~JPBuffer()
 {
-	m_Class->getContext()->tryRelease(m_Object);
+	tryRelease(m_Object);
 }
 
 bool JPBuffer::isReadOnly() const

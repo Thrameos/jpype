@@ -25,7 +25,7 @@ JPMonitor::JPMonitor(JPJavaFrame& frame, jobject value)
 
 JPMonitor::~JPMonitor()
 {
-	m_Context->tryRelease(m_Value);
+	tryRelease(m_Value);
 }
 
 void JPMonitor::enter()

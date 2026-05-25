@@ -65,7 +65,7 @@ JPArray::JPArray(JPArray* instance, jsize start, jsize stop, jsize step)
 
 JPArray::~JPArray()
 {
-	m_Class->getContext()->tryRelease(m_Object);
+	tryRelease(m_Object);
 }
 
 jsize JPArray::getLength() const

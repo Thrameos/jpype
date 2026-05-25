@@ -51,7 +51,7 @@ JPClass::JPClass(JPJavaFrame& frame,
 
 JPClass::~JPClass() 
 {
-	m_Context->tryRelease(m_Class);
+	tryRelease(m_Class);
 }
 
 void JPClass::setHost(PyObject* host)
@@ -366,7 +366,6 @@ JPPyObject JPClass::convertToPythonObject(JPJavaFrame& frame, jvalue value, bool
 
 	if (isThrowable())
 	{
-printf("Throwable\n");
 		JPPyObject tuple0;
 		if (value.l == nullptr)
 		{
@@ -385,7 +384,6 @@ printf("Throwable\n");
 			}
 		}
 		PyJPModuleState* st = frame.getContext()->modulestate;
-printf("St=%p\n", st);
 		JPPyObject tuple1 = JPPyTuple_Pack(st->JObjectKey, tuple0.get());
 		// Exceptions need new and init
 		obj = JPPyObject::call(PyObject_Call(wrapper.get(), tuple1.get(), nullptr));
@@ -418,14 +416,12 @@ JPMatch::Type JPClass::findJavaConversion(JPMatch &match)
 	JP_TRACE_OUT;
 }
 
-PyObject* JPClass::getHints()
+PyObject* JPClass::getHints(JPJavaFrame& frame)
 {
 	PyObject* out = m_Hints.get();
 	if (out != nullptr)
 		return out;
-	// Force creation (FIXME not sure why we must to this?)
-	// JPJavaFrame frame = JPJavaFrame::outer();
-	// PyJPClass_create(frame, this);
+	PyJPClass_create(frame, this);
 	return m_Hints.get();
 }
 

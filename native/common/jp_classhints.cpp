@@ -335,7 +335,7 @@ public:
 
 	JPMatch::Type matches(JPClass *cls, JPMatch &match) override
 	{
-		auto *pyhints = (PyJPClassHints*) cls->getHints();
+		auto *pyhints = (PyJPClassHints*) cls->getHints(*match.frame);
 		if (pyhints == nullptr)
 		{
 			printf("no hints found for %s\n", cls->getName(*match.frame).c_str());
@@ -348,7 +348,7 @@ public:
 
 	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
 	{
-		auto *pyhints = (PyJPClassHints*) cls->getHints();
+		auto *pyhints = (PyJPClassHints*) cls->getHints(frame);
 		JPClassHints *hints = pyhints->m_Hints;
 		hints->getInfo(frame, cls, info);
 	}
@@ -646,7 +646,7 @@ public:
 		// User has request a Java class to class conversion.  We must pass through check it.
 		if (!assignable)
 		{
-			auto *pyhints = (PyJPClassHints*) cls->getHints();
+			auto *pyhints = (PyJPClassHints*) cls->getHints(*match.frame);
 			JPClassHints *hints = pyhints->m_Hints;
 			if (hints->m_ConvertJava)
 				return match.type;

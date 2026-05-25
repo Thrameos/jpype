@@ -54,10 +54,9 @@ JPPyObject getArgs(JPJavaFrame& frame, jlongArray parameterTypePtrs,
 
 
 // Consider using a Multirelease Jar to skip this starting in 16
-extern "C" JNIEXPORT jobject JNICALL Java_org_jpype_proxy_JPypeProxyType_getDefaultHandle(
-	JNIEnv *env, jclass clazz, jlong ctx, jclass iface, jobject method, jclass mhClass)
+extern "C" JNIEXPORT jobject JNICALL Java_org_jpype_proxy_ProxyType_getDefaultHandle(
+	JNIEnv *env, jclass clazz, jclass iface, jobject method, jclass mhClass)
 {
-	JPJavaFrame frame = JPJavaFrame::external(env, (JPContext*) ctx);
 	try {
 #if 1
 		// Until we drop Java 11 we are stuck with this extreme unfriendly code
@@ -92,7 +91,7 @@ extern "C" JNIEXPORT jobject JNICALL Java_org_jpype_proxy_JPypeProxyType_getDefa
 	}
 }
 
-extern "C" JNIEXPORT jobject JNICALL Java_org_jpype_proxy_JPypeProxyInstance_hostInvoke(
+extern "C" JNIEXPORT jobject JNICALL Java_org_jpype_proxy_ProxyInstance_hostInvoke(
 		JNIEnv *env, jclass clazz,
 		jlong cname,
 		jlong hostObj,

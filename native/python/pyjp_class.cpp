@@ -647,7 +647,8 @@ static PyObject *PyJPClass_hints(PyJPClass *self, PyObject *closure)
 {
 	JP_PY_TRY("PyJPClass_hints");
 	PyJPClass_checkContext(self);
-	JPPyObject hints = JPPyObject::use(self->m_Class->getHints());
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPClass_getContext(self));
+	JPPyObject hints = JPPyObject::use(self->m_Class->getHints(frame));
 	if (hints.get() == nullptr)
 		Py_RETURN_NONE; // GCOVR_EXCL_LINE only triggered if JClassPost failed
 
@@ -668,7 +669,6 @@ static PyObject *PyJPClass_hints(PyJPClass *self, PyObject *closure)
 	info.exact = exact.get();
 	info.expl = expl.get();
 	info.none = none.get();
-	JPJavaFrame frame = JPJavaFrame::outer(PyJPClass_getContext(self));
 	self->m_Class->getConversionInfo(frame, info);
 	PyObject_SetAttrString(hints.get(), "returns", ret.get());
 	PyObject_SetAttrString(hints.get(), "implicit", implicit.get());
@@ -684,7 +684,8 @@ static int PyJPClass_setHints(PyJPClass *self, PyObject *value, PyObject *closur
 {
 	JP_PY_TRY("PyJPClass_setHints", self);
 	PyJPClass_checkContext(self);
-	PyObject *hints = self->m_Class->getHints();
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPClass_getContext(self));
+	PyObject *hints = self->m_Class->getHints(frame);
 	if (hints != nullptr)
 	{
 		PyErr_SetString(PyExc_AttributeError, "_hints can't be set");
