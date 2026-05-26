@@ -738,19 +738,13 @@ extern "C" JNIEXPORT void JNICALL Java_org_jpype_internal_Signal_interruptPy
 {
 	JPContext* context = (JPContext*) ctx;
     context->interruptState = 1;
-
-    // 1. Ensure this thread is bound to Python and holds the GIL
-    PyGILState_STATE gstate = PyGILState_Ensure();
-
+	JPPyCallAcquire callback(context->modulestate->interp_state);
     // 2. Safely trip the engine evaluation loop interrupt flag
 #if PY_VERSION_HEX < 0x030A0000
     PyErr_SetInterrupt();
 #else
     PyErr_SetInterruptEx((int) signal);
 #endif
-
-    // 3. Release immediately so Java doesn't freeze waiting on Python execution
-    PyGILState_Release(gstate);
 }
 
 extern "C" JNIEXPORT void JNICALL Java_org_jpype_internal_Signal_acknowledgePy
