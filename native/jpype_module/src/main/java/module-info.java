@@ -44,4 +44,5 @@ module org.jpype {
   // REFLECTION / REFLECTIVE ACCESS
   // ==========================================
   opens python.lang;
+  exports org.jpype.internal to java.base;
 }

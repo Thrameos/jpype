@@ -78,7 +78,7 @@ public class TypeFactoryHarness implements TypeFactory, TypeAudit
   @Override
   public long defineObjectClass(
           long ctx,
-          Class cls, String name, long superClass, long[] interfaces, int modifiers)
+          Class<?> cls, String name, long superClass, long[] interfaces, int modifiers)
   {
     value++;
     System.out.println("defineObjectClass " + value + ": " + name);
@@ -98,7 +98,7 @@ public class TypeFactoryHarness implements TypeFactory, TypeAudit
   @Override
   public long definePrimitive(
           long ctx,
-          String name, Class cls, long boxedPtr, int modifiers)
+          String name, Class<?> cls,  int modifiers)
   {
     value++;
     System.out.println("defineObjectClass " + value + ": " + cls.toString());

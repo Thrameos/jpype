@@ -315,7 +315,6 @@ JNIEXPORT jlong JNICALL Java_org_jpype_manager_TypeFactoryNative_definePrimitive
 		jlong ctx,
 		jstring name,
 		jclass cls,
-		jlong boxedPtr,
 		jint modifiers)
 {
 	auto *context = (JPContext*) ctx;

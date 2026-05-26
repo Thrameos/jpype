@@ -182,9 +182,6 @@ struct PyJPModuleState
     PyObject* gc_callbacks;
     PyObject* collect;
 
-	// Exceptions
-	PyObject* JVMNotRunning;
-
 	// Guards
 	PyObject* JObjectKey;
 
@@ -215,7 +212,6 @@ struct PyJPModuleState
 
 	int numpy_typepos;
 	int numpy_genericpos;
-	int trace;
 	int cpp_exceptions;
 	uint32_t fault_code;
 };

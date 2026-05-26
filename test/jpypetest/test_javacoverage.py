@@ -15,7 +15,6 @@
 #   See NOTICE file for details.
 #
 # *****************************************************************************
-import _jpype
 import jpype
 import _jpype
 from jpype.types import *
@@ -27,22 +26,23 @@ class JavaCoverageTestCase(common.JPypeTestCase):
     def setUp(self):
         common.JPypeTestCase.setUp(self)
         self.fixture = JClass('jpype.common.Fixture')()
-        JPypeContext = JClass('org.jpype.JPypeContext')
-        self.inst = JPypeContext.getInstance()
+        JPypeContext = JClass('org.jpype.internal.NativeContext')
+        self.inst = _jpype.context()
+        self.support = JClass('org.jpype.internal.Support')
 
     def testTypeFactory(self):
         self.assertNotEqual(self.inst.getTypeFactory(), None)
 
     def testContext(self):
-        self.assertEqual(self.inst.collectRectangular(None), None)
-        self.assertEqual(self.inst.collectRectangular(JString('hello')), None)
-        self.assertEqual(self.inst.collectRectangular(
+        self.assertEqual(self.support.collectRectangular(None), None)
+        self.assertEqual(self.support.collectRectangular(JString('hello')), None)
+        self.assertEqual(self.support.collectRectangular(
             JArray(JObject, 2)([JArray(JObject)(0)])), None)
-        self.assertEqual(self.inst.collectRectangular(
+        self.assertEqual(self.support.collectRectangular(
             JArray(JObject)([None, None])), None)
 
     def testReference(self):
-        JPypeReference = JClass('org.jpype.ref.JPypeReference')
+        JPypeReference = JClass('org.jpype.ref.NativeReference')
         u = JPypeReference(None, None, 0, 0)
         u2 = JPypeReference(None, None, 1, 0)
         self.assertTrue(u.equals(u))
@@ -68,48 +68,48 @@ class JavaCoverageTestCase(common.JPypeTestCase):
                 return self.id
 
             @JOverride
-            def newWrapper(self, cls):
+            def newWrapper(self, ctx, cls):
                 pass
 
             @JOverride
-            def defineArrayClass(self, cls, name, superClass, componentPtr, modifiers):
+            def defineArrayClass(self, ctx, cls, name, superClass, componentPtr, modifiers):
                 return self.define(name)
 
             @JOverride
-            def defineObjectClass(self, cls, name, superClass, interfaces, modifiers):
+            def defineObjectClass(self, ctx, cls, name, superClass, interfaces, modifiers):
                 return self.define(name)
 
             @JOverride
-            def definePrimitive(self, name, cls, boxedPtr, modifiers):
+            def definePrimitive(self, ctx, name, cls, modifiers):
                 return self.define(name)
 
             @JOverride
-            def assignMembers(self, cls, ctorMethod, methodList, fieldList):
+            def assignMembers(self, ctx, cls, ctorMethod, methodList, fieldList):
                 return
 
             @JOverride
-            def defineField(self, cls, name, field, fieldType, modifiers):
+            def defineField(self, ctx, cls, name, field, fieldType, modifiers):
                 return self.define(name)
 
             @JOverride
-            def defineMethod(self, cls, name, method, overloadList, modifiers):
+            def defineMethod(self, ctx, cls, name, method, overloadList, modifiers):
                 return self.define(name)
 
             @JOverride
-            def populateMethod(self, method, returnType, argumentTypes):
+            def populateMethod(self, ctx, method, returnType, argumentTypes):
                 return
 
             @JOverride
-            def defineMethodDispatch(self, cls, name, overloadList, modifiers):
+            def defineMethodDispatch(self, ctx, cls, name, overloadList, modifiers):
                 return self.define(name)
 
             @JOverride
-            def destroy(self, resources, sz):
+            def destroy(self, ctx, resources, sz):
+                print("DESTROY", resources)
                 for i in range(sz):
                     del self.entities[resources[i]]
-        manager = TypeManager()
         factory = TF()
-        manager = TypeManager(factory)
+        manager = TypeManager(None, factory)
         manager.init()
 
         # Can only be initialized once
@@ -152,4 +152,5 @@ class JavaCoverageTestCase(common.JPypeTestCase):
         manager.shutdown()
 
         # See if we leaked any entities
+        print(factory.entities)
         self.assertEqual(len(factory.entities), 0)

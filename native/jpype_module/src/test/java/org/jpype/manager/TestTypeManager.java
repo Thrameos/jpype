@@ -42,7 +42,7 @@ public class TestTypeManager
   static public void main(String[] args)
   {
     System.out.println("Create:");
-    TypeManager tm = new TypeManager(null);
+    TypeManager tm = new TypeManager(null, null);
     TypeFactoryHarness tf = new TypeFactoryHarness(tm);
     tm.typeFactory = tf;
     System.out.println("Initialize:");

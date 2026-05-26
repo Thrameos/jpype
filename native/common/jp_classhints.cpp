@@ -338,7 +338,6 @@ public:
 		auto *pyhints = (PyJPClassHints*) cls->getHints(*match.frame);
 		if (pyhints == nullptr)
 		{
-			printf("no hints found for %s\n", cls->getName(*match.frame).c_str());
 			return match.type;
 		}
 		JPClassHints *hints = pyhints->m_Hints;

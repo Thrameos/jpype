@@ -47,7 +47,7 @@ import python.lang.PyObject;
 public class TypeManager
 {
 
-  private final NativeContext context;
+//  private final NativeContext context;
   private final long address;
   public boolean isStarted = false;
   public boolean isShutdown = false;
@@ -58,6 +58,7 @@ public class TypeManager
   // For reasons that are less than clear, this object cannot be created
   // during shutdown
   final private Destroyer destroyer = new Destroyer();
+  final ClassLoader classLoader;
 
   public enum Kind
   {
@@ -66,16 +67,18 @@ public class TypeManager
     PROXY;
   }
 
-  public TypeManager(NativeContext ctx)
-  {
-    this.context = ctx;
-    this.address = ctx.address();
-  }
-
   public TypeManager(NativeContext ctx, TypeFactory typeFactory)
   {
-    this.context = ctx;
-    this.address = ctx.address();
+    if (ctx != null)
+    {
+//      this.context = ctx;
+      this.address = ctx.address();
+      this.classLoader = ctx.getClassLoader();
+    } else
+    {
+      this.address = 0;
+      this.classLoader = ClassLoader.getSystemClassLoader();
+    }
     this.typeFactory = typeFactory;
   }
 
@@ -109,15 +112,15 @@ public class TypeManager
 
       // Create the primitive types
       // Link boxed and primitive types so that the wrappers can find them.
-      createPrimitive("void", Void.TYPE, Void.class);
-      createPrimitive("boolean", Boolean.TYPE, Boolean.class);
-      createPrimitive("byte", Byte.TYPE, Byte.class);
-      createPrimitive("char", Character.TYPE, Character.class);
-      createPrimitive("short", Short.TYPE, Short.class);
-      createPrimitive("int", Integer.TYPE, Integer.class);
-      createPrimitive("long", Long.TYPE, Long.class);
-      createPrimitive("float", Float.TYPE, Float.class);
-      createPrimitive("double", Double.TYPE, Double.class);
+      createPrimitive("void", Void.TYPE);
+      createPrimitive("boolean", Boolean.TYPE);
+      createPrimitive("byte", Byte.TYPE);
+      createPrimitive("char", Character.TYPE);
+      createPrimitive("short", Short.TYPE);
+      createPrimitive("int", Integer.TYPE);
+      createPrimitive("long", Long.TYPE);
+      createPrimitive("float", Float.TYPE);
+      createPrimitive("double", Double.TYPE);
 
       Class<?>[] boxed =
       {
@@ -222,7 +225,6 @@ public class TypeManager
 
   public Class<?> lookupByName(String name)
   {
-    ClassLoader classLoader = context.getClassLoader();
 
     // Handle arrays
     if (name.endsWith("[]"))
@@ -444,8 +446,8 @@ public class TypeManager
     Class<?> superClass = cls.getSuperclass();
     Class<?>[] interfaces = cls.getInterfaces();
 //    ClassDescriptor[] parents = new ClassDescriptor[interfaces.length + 1];
-    long[] interfacesPtr = null;
-    long superClassPtr = 0;
+    long[] interfacesPtr;
+    long superClassPtr;
     superClassPtr = 0;
     if (superClass != null)
     {
@@ -523,7 +525,7 @@ public class TypeManager
   ClassDescriptor createArrayClass(Class<?> cls)
   {
     // Array classes are simple, we just need the component type
-    Class componentType = cls.getComponentType();
+    Class<?> componentType = cls.getComponentType();
     long componentTypePtr = findClass(componentType);
 
     int modifiers = cls.getModifiers() & 0xffff;
@@ -550,19 +552,18 @@ public class TypeManager
    * @param cls
    * @param boxed
    */
-  private void createPrimitive(String name, Class<?> cls, Class<?> boxed)
+  private void createPrimitive(String name, Class<?> cls)
   {
     long classPtr = typeFactory.definePrimitive(
             address, name,
             cls,
-            findClass(boxed),
             cls.getModifiers() & 0xffff);
     this.classMap.put(cls, new ClassDescriptor(cls, classPtr, null));
   }
 
 //</editor-fold>
 //<editor-fold desc="members" defaultstate="collapsed">
-  public synchronized void populateMembers(Class cls)
+  public synchronized void populateMembers(Class<?> cls)
   {
     ClassDescriptor desc = this.classMap.get(cls);
     if (desc == null)
@@ -627,10 +628,10 @@ public class TypeManager
    */
   public void createConstructorDispatch(ClassDescriptor desc)
   {
-    Class cls = desc.cls;
+    Class<?> cls = desc.cls;
 
     // Get the list of declared constructors
-    LinkedList<Constructor> constructors
+    LinkedList<Constructor<?>> constructors
             = filterPublic(cls.getDeclaredConstructors());
 
     if (constructors.isEmpty())
@@ -1014,7 +1015,7 @@ public class TypeManager
         return;
       if (v.length > BLOCK_SIZE / 2)
       {
-        typeFactory.destroy(address,v, v.length);
+        typeFactory.destroy(address, v, v.length);
         return;
       }
       if (index + v.length > BLOCK_SIZE)

@@ -67,19 +67,14 @@ static PyObject *PyJPProxy_new(PyTypeObject *type, PyObject *args, PyObject *kwa
 	// Safely extract the module state using the fixed mro[-2] pattern
     PyJPModuleState* st = nullptr;
     Py_ssize_t mro_size = PyTuple_GET_SIZE(type->tp_mro);
-    // Extract mro[-2]
     PyTypeObject* target_type = (PyTypeObject*)PyTuple_GET_ITEM(type->tp_mro, mro_size - 2);
-            
-    // Just double check it's a heap type to be completely defensive
     if (target_type->tp_flags & Py_TPFLAGS_HEAPTYPE) 
        st = reinterpret_cast<PyJPModuleState*>(PyType_GetModuleState(target_type));
-
     if (st == nullptr)
     {
         PyErr_SetString(PyExc_RuntimeError, "JPype module state is not available from proxy MRO anchor");
         return nullptr;
     }
-
     self->m_State = st;
     JPJavaFrame frame = JPJavaFrame::outer(st->context);
 

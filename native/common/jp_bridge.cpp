@@ -402,12 +402,9 @@ JNIEXPORT void JNICALL Java_org_jpype_bridge_Natives_finish
 	try
 	{
 		JPContext* context = (JPContext*) ctx;
-		printf("A1\n");
 		PyGILState_STATE gstate = PyGILState_Ensure();
 		context->detachJVM();
-		printf("A2\n");
 		Py_Finalize();
-		printf("A3\n");
 	} catch (JPypeException& ex)
 	{
 		convertException(env, ex);

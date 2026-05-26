@@ -18,7 +18,6 @@ import org.jpype.pkg.Package;
 import org.jpype.pkg.PackageManager;
 import org.jpype.ref.NativeReferenceQueue;
 import org.jpype.proxy.ProxyFactory;
-import org.jpype.proxy.ProxyType;
 import org.jpype.annotation.Exported;
 
 /**

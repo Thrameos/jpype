@@ -169,15 +169,29 @@ bool JPContext::isRunning()
  */
 void assertJVMRunning(JPContext* context, const JPStackInfo& info)
 {
-	if (context == nullptr)
-	{
-		throw JPypeException(JPError::_python_exc, context->modulestate->JVMNotRunning, "Java Context is null", info);
-	}
+    // Default fallback to the core, guaranteed-to-exist primitive
+    PyObject* jvm_not_running_exc = PyExc_RuntimeError;
 
-	if (!context->isRunning())
-	{
-		throw JPypeException(JPError::_python_exc, context->modulestate->JVMNotRunning, "Java Virtual Machine is not running", info);
-	}
+    if (context == nullptr)
+    {
+        // Near-fatal system invariant failure
+        throw JPypeException(JPError::_python_exc, jvm_not_running_exc, "Java Context is null", info);
+    }
+
+    if (!context->isRunning())
+    {
+        // Look up the exception class inside the active subinterpreter's module dictionary
+        if (context->modulestate != nullptr && context->modulestate->module_dict != nullptr)
+        {
+            // Note: PyDict_GetItemString returns a borrowed reference
+            PyObject* obj = PyDict_GetItemString(context->modulestate->module_dict, "JVMNotRunning");
+            if (obj != nullptr)
+            {
+                jvm_not_running_exc = obj;
+            }
+        }
+        throw JPypeException(JPError::_python_exc, jvm_not_running_exc, "Java Virtual Machine is not running", info);
+    }
 }
 
 void JPContext::loadEntryPoints(const string& path)
@@ -311,7 +325,6 @@ void JPContext::startJVM(const string& vmPath, const StringVector& args,
 void JPContext::attachJVM(JNIEnv* env)
 {
 	env->GetJavaVM(&m_JavaVM);
-	printf("ATTACH %p\n", _JavaVM);
 	_JavaVM = m_JavaVM;
 #ifndef ANDROID
 	m_Embedded = true;
@@ -321,7 +334,6 @@ void JPContext::attachJVM(JNIEnv* env)
 
 void JPContext::detachJVM()
 {
-	printf("DETACH %p\n", _JavaVM);
 	m_JavaVM = nullptr;
 	m_Running = false;
 	_JavaVM = nullptr;
@@ -387,9 +399,6 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 	jclass classClass = frame.FindClass("java/lang/Class");
 	m_Class_GetNameID = frame.GetMethodID(classClass, "getName", "()Ljava/lang/String;");
 	
-
-	printf("Initialize Class Loader\n");
-
 	// Bootloader needs to go first so we can load classes
 	m_ClassLoader = new JPClassLoader(frame);
 

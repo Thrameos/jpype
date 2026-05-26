@@ -372,7 +372,7 @@ def startJVM(
         # Custom Classloader logic for non-ascii user paths
         from urllib.parse import quote
         extra_jvm_args += [
-            '-Djava.system.class.loader=org.jpype.JPypeClassLoader',
+            '-Djava.system.class.loader=org.jpype.internal.DynamicClassLoader',
             '-Djpype.class.path=%s' % quote(cp_string),
             '-Djava.class.path=', # Keep CP empty to force our loader
             '-Xshare:off'
@@ -500,8 +500,6 @@ def initializeResources():
 
     _jpype.JClass('org.jpype.internal.Keywords').setKeywords(
         list(_pykeywords._KEYWORDS))
-
-    print(type(_jpype.context()))
 
     _jpype.JPypeContext = _jpype.context()
     _jpype.JPypeClassLoader = _jpype.JPypeContext.getClassLoader()

@@ -31,8 +31,8 @@ class JBridgeTestCase(common.JPypeTestCase):
     def setUp(self):
         common.JPypeTestCase.setUp(self)
         self.fixture = JClass("jpype.common.Fixture")()
-        self.Bridge = JClass("org.jpype.bridge.Interpreter")
-        self.Backend = JClass("org.jpype.bridge.Backend")
+        self.Bridge = JClass("org.jpype.MainInterpreter")
+        self.Backend = JClass("org.jpype.Backend")
 
         # Concrete
         self.PyByteArray = JClass("python.lang.PyByteArray")
@@ -61,7 +61,7 @@ class JBridgeTestCase(common.JPypeTestCase):
         self.PyNumber = JClass("python.lang.PyNumber")
         self.PySequence = JClass("python.lang.PySequence")
 
-        self.PyBuiltIn = JClass("python.lang.PyBuiltIn")
+        self.PyBuiltIn = self.Bridge.getInstance().getBuiltIn()
     def testByteArray(self):
         obj = bytearray()
         self.assertEqual(self.PyByteArray._canConvertToJava(obj), "implicit")
@@ -223,7 +223,8 @@ class TestPyBuiltInSuite(common.JPypeTestCase):
 
     def setUp(self):
         common.JPypeTestCase.setUp(self)
-        self.PyBuiltIn = JClass("python.lang.PyBuiltIn")
+        self.Bridge = JClass("org.jpype.MainInterpreter")
+        self.PyBuiltIn = self.Bridge.getInstance().getBuiltIn()
         
         # Add the missing proxy classes your tests need!
         self.PyObject = JClass("python.lang.PyObject")

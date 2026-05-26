@@ -299,7 +299,7 @@ void JPypeException::convertPythonToJava(JPJavaFrame& frame)
 		return;
 	}
 
-#if 1
+#if 0
 	JPPyObject c_repr = JPPyObject::claim(PyObject_Repr((PyObject*) Py_TYPE(exc.get())));
 	JPPyObject v_repr = JPPyObject::claim(PyObject_Repr(exc.get()));
 	printf("DEBUG BOOTSTRAP:\n");
@@ -426,8 +426,11 @@ void JPypeException::toPython()
 		else if (m_Type == JPError::_python_exc)
 		{
 			// All others are Python errors
-			JP_TRACE(Py_TYPE(m_Error.l)->tp_name);
-			PyErr_SetString((PyObject*) m_Error.l, mesg);
+			PyObject* errType = PyExc_RuntimeError;	
+			if (m_Error.l != nullptr)
+				errType = (PyObject*) m_Error.l;
+			JP_TRACE(Py_TYPE(errType)->tp_name);
+			PyErr_SetString((PyObject*) errType, mesg);
 		} else
 		{
 			// This should not be possible unless we failed to cover one of the

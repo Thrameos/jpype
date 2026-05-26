@@ -108,7 +108,6 @@ public interface TypeFactory
    *
    * @param name The name of the primitive type.
    * @param cls The Java class representing the primitive type.
-   * @param boxedPtr A pointer to the JPClass representing the boxed type.
    * @param modifiers The modifiers for the primitive type.
    * @return A pointer to the newly defined primitive type.
    */
@@ -116,7 +115,6 @@ public interface TypeFactory
           long ctx,
           String name,
           Class<?> cls,
-          long boxedPtr,
           int modifiers);
 
   //</editor-fold>

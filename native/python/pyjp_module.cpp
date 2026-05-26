@@ -136,7 +136,6 @@ static void PyJPModule_clearResources(PyObject *module)
 		Py_CLEAR(st->protocol_pipeline[i]);
 	}
 
-	Py_CLEAR(st->JVMNotRunning);
 }
 
 // Run before JVM starts but after jpype has loaded
@@ -185,9 +184,6 @@ void PyJPModule_loadResources(PyObject* module, PyJPModuleState *st)
 			JP_RAISE_PYTHON();
 		}
 		st->collect = loadAttr(module, "_collect");
-
-		// Exceptions
-		st->JVMNotRunning = loadAttr(module, "JVMNotRunning");
 
 		// Guards	
 		st->JObjectKey = PyCapsule_New(module, "constructor key", nullptr);
@@ -1126,8 +1122,6 @@ static int PyJPModule_traverse(PyObject *module, visitproc visit, void *arg)
 		Py_VISIT(st->protocol_pipeline[i]);
 	}
 
-	Py_VISIT(st->JVMNotRunning);
-
 	return 0;
 }
 
@@ -1225,15 +1219,10 @@ PyMODINIT_FUNC PyInit__jpype()
 		PyErr_SetString(PyExc_RuntimeError, "Failed to allocate JPype module state");
 		return nullptr;
 	}
-	st->module_dict = PyModule_GetDict(module);
 
 	// Initialize module state
 	memset(st, 0, sizeof(PyJPModuleState));
-
-	st->trace = 1;
-#ifdef JP_INSTRUMENTATION
-	st->fault_code = (uint32_t) -1;
-#endif
+	st->module_dict = PyModule_GetDict(module);
 
 	// TODO: we should probably pass the version directly from a scikit-build (cmake) defined macro.
 	PyModule_AddStringConstant(module, "__version__", "1.7.2.dev0");

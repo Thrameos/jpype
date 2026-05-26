@@ -57,7 +57,6 @@ public class TypeFactoryNative implements TypeFactory
           long ctx,
           String name,
           Class<?> cls,
-          long boxedPtr,
           int modifiers);
 
   @Override
