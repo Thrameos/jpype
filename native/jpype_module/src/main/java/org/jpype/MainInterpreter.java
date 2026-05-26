@@ -16,7 +16,7 @@
  */
 package org.jpype;
 
-import org.jpype.internal.NativeLauncher;
+import org.jpype.internal.NativeLauncherControl;
 import org.jpype.internal.NativeContext;
 import java.io.BufferedReader;
 import java.io.File;
@@ -103,6 +103,7 @@ public class MainInterpreter implements Interpreter
    */
   private boolean active = false;
   private PyBuiltIn builtin;
+  private NativeContext context;
   private boolean terminated = false;
 
   /**
@@ -232,7 +233,9 @@ public class MainInterpreter implements Interpreter
    */
   public void interactive()
   {
-    NativeLauncher.interactive();
+    if (!isStarted())
+      throw new IllegalStateException("Python interpreter not running");
+    NativeLauncherControl.interactive(context.address());
   }
 
   /**
@@ -345,7 +348,7 @@ public class MainInterpreter implements Interpreter
 
     // 7. Launch
     LOGGER.info("Launching Python Interpreter...");
-    NativeLauncher.start(paths, args,
+    this.context = NativeLauncherControl.start(paths, args,
             programName,
             System.getProperty(CONF_PREFIX),
             home,
@@ -372,7 +375,7 @@ public class MainInterpreter implements Interpreter
     if (terminated)
       throw new IllegalStateException("interpreter is terminated");
 
-    NativeLauncher.finish();
+    NativeLauncherControl.finish(this.context.address());
     backend = null;
     terminated = true;
   }

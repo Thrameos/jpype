@@ -22,16 +22,16 @@ package org.jpype.internal;
  * Loaded by the _jpype module.
  *
  */
-public class NativeLauncher
+public class NativeLauncherControl
 {
 
-  public native static void start(String[] modulePaths, String[] args,
+  public native static NativeContext start(String[] modulePaths, String[] args,
           String name, String prefix, String home, String exec_prefix, String executable,
           boolean isolated, boolean fault_handler, boolean quiet, boolean verbose,
           boolean site_import, boolean user_site, boolean write_bytecode);
 
-  public native static void interactive();
+  public native static void interactive(long context);
 
-  public native static void finish();
+  public native static void finish(long context);
 
 }

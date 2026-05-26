@@ -147,6 +147,8 @@ JPContext::JPContext(PyJPModuleState *state)
 	m_Reflector_CallMethodID = nullptr;
 	m_PyJavaObject_wrap = nullptr;
 
+	interruptState = 0;
+
 }
 
 JPContext::~JPContext()
@@ -449,8 +451,8 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 			frame.CallObjectMethodA(m_JavaContext, getTypeManager, nullptr));
 
 	// Connect the reflector from the new NativeContext field
-	jclass reflectorClass = frame.FindClass("org/jpype/internal/Reflector");
-	jfieldID reflectorField = frame.GetFieldID(contextClass, "reflector", "Lorg/jpype/internal/Reflector;");
+	jclass reflectorClass = frame.FindClass("org/jpype/Reflector");
+	jfieldID reflectorField = frame.GetFieldID(contextClass, "reflector", "Lorg/jpype/Reflector;");
 	m_Reflector = frame.NewGlobalRef(frame.GetObjectField(m_JavaContext, reflectorField));
 	m_Reflector_CallMethodID = frame.GetMethodID(reflectorClass, "callMethod",
 			"(Ljava/lang/reflect/Method;Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
@@ -458,7 +460,7 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 	// NativeContext instance/static methods
 	m_Context_IsPackageID = frame.GetMethodID(contextClass, "isPackage", "(Ljava/lang/String;)Z");
 	m_Context_GetPackageID = frame.GetMethodID(contextClass, "getPackage", "(Ljava/lang/String;)Lorg/jpype/pkg/Package;");
-	m_Context_ClearInterruptID = frame.GetStaticMethodID(contextClass, "clearInterrupt", "(Z)V");
+	m_Context_ClearInterruptID = frame.GetMethodID(contextClass, "clearInterrupt", "(Z)V");
 	m_Context_NewWrapperID = frame.GetMethodID(contextClass, "newWrapper", "(J)V");
 
 	// Package bindings
@@ -731,25 +733,30 @@ extern "C" JNIEXPORT void JNICALL Java_org_jpype_JPypeContext_onShutdown
  *
  */
 
-static int interruptState = 0;
-extern "C" JNIEXPORT void JNICALL Java_org_jpype_JPypeSignal_interruptPy
-(JNIEnv *env, jclass cls, jint signal)
+extern "C" JNIEXPORT void JNICALL Java_org_jpype_internal_Signal_interruptPy
+(JNIEnv *env, jclass cls, jlong ctx, jint signal)
 {
-	interruptState = 1;
-#if PY_MINOR_VERSION<10
-	PyErr_SetInterrupt();
+	JPContext* context = (JPContext*) ctx;
+    context->interruptState = 1;
+
+    // 1. Ensure this thread is bound to Python and holds the GIL
+    PyGILState_STATE gstate = PyGILState_Ensure();
+
+    // 2. Safely trip the engine evaluation loop interrupt flag
+#if PY_VERSION_HEX < 0x030A0000
+    PyErr_SetInterrupt();
 #else
-	PyErr_SetInterruptEx((int) signal);
+    PyErr_SetInterruptEx((int) signal);
 #endif
+
+    // 3. Release immediately so Java doesn't freeze waiting on Python execution
+    PyGILState_Release(gstate);
 }
 
-extern "C" JNIEXPORT void JNICALL Java_org_jpype_JPypeSignal_acknowledgePy
-(JNIEnv *env, jclass cls)
+extern "C" JNIEXPORT void JNICALL Java_org_jpype_internal_Signal_acknowledgePy
+(JNIEnv *env, jclass cls, jlong ctx)
 {
-	interruptState = 0;
+	JPContext* context = (JPContext*) ctx;
+	context->interruptState = 0;
 }
 
-int hasInterrupt()
-{
-	return interruptState != 0;
-}

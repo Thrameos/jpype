@@ -231,7 +231,7 @@ static bool appendModulePathsToSysPath(JNIEnv* env, jobjectArray modulePath)
  * A list of command line arguments so we can execute command line functionality.
  */
 // FIXME CONTEXT MUST COME FROM ABOVE
-JNIEXPORT void JNICALL Java_org_jpype_bridge_Natives_start
+JNIEXPORT jobject JNICALL Java_org_jpype_internal_NativeControl_start
 (JNIEnv *env, jclass cls, jobjectArray modulePath, jobjectArray args, 
 	jstring name, jstring prefix, jstring home, jstring exec_prefix, jstring executable,
 	jboolean isolated, jboolean faulthandler, jboolean quiet, jboolean verbose,
@@ -314,7 +314,7 @@ JNIEXPORT void JNICALL Java_org_jpype_bridge_Natives_start
 error_config:
 		PyConfig_Clear(&config);
 		fail(env, "configuration failed");
-		return;
+		return nullptr;
 
 success_config:
 
@@ -327,7 +327,7 @@ success_config:
 		if (!appendModulePathsToSysPath(env, modulePath))
 		{
 			fail(env, "failed to append module paths to sys.path");
-			return;
+			return nullptr;
 		}
 
 		JPPyObject jpype = JPPyObject::accept(PyImport_ImportModule("jpype"));
@@ -337,7 +337,7 @@ success_config:
 			printf("missing _jpype\n");
 			fflush(stdout);
 			fail(env, "_jpype module not found");
-			return;
+			return nullptr;
 		}
 		
 		// Import the Python side to create the hooks
@@ -346,7 +346,7 @@ success_config:
 			printf("missing jpype\n");
 			fflush(stdout);
 			fail(env, "jpype module not found");
-			return;
+			return nullptr;
 		}
 
 		// Usage in your code:
@@ -369,7 +369,7 @@ success_config:
 		// Next, we need to release the state so we can return to Java.
 		PyGILState_Release(gstate);
 		fflush(stdout);
-		return;
+		return context->getJavaContext();
 
 	} catch (JPypeException& ex)
 	{
@@ -380,12 +380,13 @@ success_config:
 	}
 }
 
-JNIEXPORT void JNICALL Java_org_jpype_bridge_Natives_interactive
-(JNIEnv *env, jclass cls)
+JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_interactive
+(JNIEnv *env, jclass cls, jlong ctx)
 {
+	auto* context = (JPContext*) ctx;
 	try
 	{
-		JPPyCallAcquire callback;
+		JPPyCallAcquire callback(context->modulestate->interp_state);
 		PyRun_InteractiveLoop(stdin, "<stdin>");
 	} catch (JPypeException& ex)
 	{
@@ -396,7 +397,7 @@ JNIEXPORT void JNICALL Java_org_jpype_bridge_Natives_interactive
 	}
 }
 
-JNIEXPORT void JNICALL Java_org_jpype_bridge_Natives_finish
+JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_finish
 (JNIEnv *env, jclass cls, jlong ctx)
 {
 	try

@@ -29,8 +29,13 @@ import java.lang.reflect.Proxy;
 public class Signal
 {
 
-  private Signal()
-  {}
+  static long address =0;
+  private final NativeContext context;
+
+  Signal(NativeContext context)
+  {
+    this.context = context;
+  }
   
   static Thread main;
 
@@ -41,16 +46,21 @@ public class Signal
       signalHandlerClazz
     }, (proxy, method, args) ->
     {
-      main.interrupt();
-      interruptPy(signal);
+      if (address==0)
+        return null;
+      System.out.println("Foo "+ address);
+//      main.interrupt();
+      interruptPy(address, signal);
       return null;
     });
   }
 
-  static void installHandlers()
+  void installHandlers()
   {
     try
     {
+      if (main!=null)
+        return;
       Class<?> Signal = Class.forName("sun.misc.Signal");
       Class<?> SignalHandler = Class.forName("sun.misc.SignalHandler");
       main = Thread.currentThread();
@@ -59,13 +69,14 @@ public class Signal
       method.invoke(null, intr, getSignalHandler(SignalHandler, 2));
       Object intrTerm = Signal.getDeclaredConstructor(String.class).newInstance("TERM");
       method.invoke(null, intrTerm, getSignalHandler(SignalHandler, 15));
+      address = context.address();
     } catch (InvocationTargetException | IllegalArgumentException | IllegalAccessException | InstantiationException | ClassNotFoundException | NoSuchMethodException | SecurityException ex)
     {
       // If we don't get the signal handler run without it.  (ANDROID)
     }
   }
 
-  native static void interruptPy(int signal);
+  native static void interruptPy(long ctx, int signal);
 
-  native static void acknowledgePy();
+  native static void acknowledgePy(long ctx);
 }

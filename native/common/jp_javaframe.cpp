@@ -1291,6 +1291,6 @@ void JPJavaFrame::clearInterrupt(bool throws)
 	JPPyCallRelease call;
 	jvalue jv;
 	jv.z = throws;
-	CallVoidMethodA(context->m_ContextClass,
+	CallVoidMethodA(context->m_JavaContext,
 			context->m_Context_ClearInterruptID, &jv);
 }

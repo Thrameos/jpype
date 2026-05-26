@@ -49,6 +49,7 @@ public class TypeManager
 
 //  private final NativeContext context;
   private final long address;
+  private NativeContext context;
   public boolean isStarted = false;
   public boolean isShutdown = false;
   public HashMap<Class<?>, ClassDescriptor> classMap = new HashMap<>();
@@ -71,11 +72,12 @@ public class TypeManager
   {
     if (ctx != null)
     {
-//      this.context = ctx;
+      this.context = ctx;
       this.address = ctx.address();
       this.classLoader = ctx.getClassLoader();
     } else
     {
+      this.context = null;
       this.address = 0;
       this.classLoader = ClassLoader.getSystemClassLoader();
     }
@@ -368,7 +370,8 @@ public class TypeManager
    */
   public long findClassForObject(Object object) throws InterruptedException
   {
-    NativeContext.clearInterrupt(true);
+    if (context != null)
+      context.clearInterrupt(true);
     if (object == null)
       return 0;
 

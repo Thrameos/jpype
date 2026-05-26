@@ -1,7 +1,7 @@
 // --- file: exclude/org/jpype/Reflector0.java ---
 package org.jpype.internal;
 
-import org.jpype.internal.Reflector;
+import org.jpype.Reflector;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 

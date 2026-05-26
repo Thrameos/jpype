@@ -16,6 +16,7 @@
  *****************************************************************************/
 #include "jpype.h"
 #include "pyjp.h"
+#include <patchlevel.h> // For PY_VERSION_HEX
 
 /****************************************************************************
  * Base object
@@ -391,27 +392,54 @@ void JPPyErr::restore(JPPyObject& exceptionClass, JPPyObject& exceptionValue, JP
 	PyErr_Restore(exceptionClass.keepNull(), exceptionValue.keepNull(), exceptionTrace.keepNull());
 }
 
-JPPyCallAcquire::JPPyCallAcquire()
+
+
+JPPyCallAcquire::JPPyCallAcquire(PyInterpreterState* interp)
 {
-	m_State = (long) PyGILState_Ensure();
+	m_Interp = interp;
+	m_NewState = nullptr;
+	m_OldState = nullptr;
+
+	if (m_Interp != nullptr)
+	{
+#ifndef Py_GIL_DISABLED
+		// Acquire the execution lock or the per-interpreter GIL
+		PyEval_AcquireLock();
+#endif
+		// Create a new thread state structure for this native thread in the target interpreter
+		m_NewState = PyThreadState_New(m_Interp);
+		
+		// Swap it into place, saving whatever thread state was previously active (if any)
+		m_OldState = PyThreadState_Swap(m_NewState);
+	}
 }
 
 JPPyCallAcquire::~JPPyCallAcquire()
 {
-	PyGILState_Release((PyGILState_STATE) m_State);
+	if (m_Interp != nullptr && m_NewState != nullptr)
+	{
+		// Restore the previous thread state back to this native thread
+		PyThreadState_Swap(m_OldState);
+		
+		// Safely free the temporary thread state we generated
+		PyThreadState_Clear(m_NewState);
+		PyThreadState_Delete(m_NewState);
+#ifndef Py_GIL_DISABLED
+		// Release the execution lock
+		PyEval_ReleaseLock();
+#endif
+	}
 }
-
-// This is used when leaving python from to perform some
 
 JPPyCallRelease::JPPyCallRelease()
 {
-	// Release the lock and set the thread state to NULL
+	// Release the lock and set the current thread state to NULL
 	m_State1 = PyEval_SaveThread();
 }
 
 JPPyCallRelease::~JPPyCallRelease()
 {
-	// Re-acquire the lock
+	// Re-acquire the lock and restore the saved thread state
 	PyEval_RestoreThread(m_State1);
 }
 

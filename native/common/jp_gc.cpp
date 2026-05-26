@@ -107,7 +107,7 @@ void JPGarbageCollection::triggered()
 		java_count++;
 
 		// Lock Python so we call trigger a GC
-		JPPyCallAcquire callback;
+		JPPyCallAcquire callback(m_Context->modulestate->interp_state);
 		PyGC_Collect();
 	}
 }

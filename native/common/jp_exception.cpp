@@ -465,7 +465,12 @@ void JPypeException::toPython()
 		JPTracer::trace("Fatal error in exception handling");
 		JPTracer::trace("Handling:", mesg);
 		JPTracer::trace("Type:", m_Error.l);
-		
+
+#if 1
+		printf("Fatal error in exception handling\n");
+		printf("Handling: %s\n", mesg);
+#endif
+
 		if (ex.m_Type == JPError::_python_error)
 		{
 			// 1. Snatch the exception instance cleanly from the stack (Python 3.12 style)
@@ -527,7 +532,7 @@ void JPypeException::toJava(JPJavaFrame& frame)
 
 		if (m_Type == JPError::_python_error)
 		{
-			JPPyCallAcquire callback;
+			JPPyCallAcquire callback(context->modulestate->interp_state);
 			JP_TRACE("Python exception");
 			convertPythonToJava(frame);
 			return;
@@ -535,7 +540,7 @@ void JPypeException::toJava(JPJavaFrame& frame)
 
 		if (m_Type == JPError::_python_exc)
 		{
-			JPPyCallAcquire callback;
+			JPPyCallAcquire callback(context->modulestate->interp_state);
 			// All others are Python errors
 			JP_TRACE(Py_TYPE(m_Error.l)->tp_name);
 			PyErr_SetString((PyObject*) m_Error.l, mesg);

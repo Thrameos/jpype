@@ -51,9 +51,10 @@ static PyObject *PyJPField_get(PyJPField *self, PyObject *obj, PyObject *type)
 	JP_PY_TRY("PyJPField_get");
 	if (!PyJPField_checkContext(self))
 		return nullptr;
-	JPJavaFrame frame = JPJavaFrame::outer(self->m_State->context);
+	JPContext* context = self->m_State->context;
+	JPJavaFrame frame = JPJavaFrame::outer(context);
 	// Clear any pending interrupts if we are on the main thread.
-	if (hasInterrupt())
+	if (context->hasInterrupt())
 		frame.clearInterrupt(false);
 	if (self->m_Field->isStatic())
 		return self->m_Field->getStaticField(frame).keep();

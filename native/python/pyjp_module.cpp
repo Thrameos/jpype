@@ -1223,6 +1223,7 @@ PyMODINIT_FUNC PyInit__jpype()
 	// Initialize module state
 	memset(st, 0, sizeof(PyJPModuleState));
 	st->module_dict = PyModule_GetDict(module);
+	st->interp_state = PyThreadState_Get()->interp; 
 
 	// TODO: we should probably pass the version directly from a scikit-build (cmake) defined macro.
 	PyModule_AddStringConstant(module, "__version__", "1.7.2.dev0");

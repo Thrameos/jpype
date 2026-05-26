@@ -332,7 +332,7 @@ public:
 		return m_Instance;
 	}
 
-    // disallow copying
+	// disallow copying
 	JPPyObjectVector& operator= (const JPPyObjectVector& ) = delete;
 	JPPyObjectVector(const JPPyObjectVector& ) = delete;
 
@@ -375,21 +375,28 @@ public:
 } ;
 
 /** Used to establish a python lock when called from a
- * thread external to python such a java.
+ * thread external to python such as java. Now accepts an explicit
+ * interpreter state pointer to safely route to subinterpreters.
  */
 class JPPyCallAcquire
 {
 public:
-	/** Acquire the lock. */
-	JPPyCallAcquire();
-	/* Release the lock. */
+	/** Acquire the lock for a specific interpreter context. */
+	explicit JPPyCallAcquire(PyInterpreterState* interp);
+	
+	/* Release the lock and destroy temporary thread context. */
 	~JPPyCallAcquire();
+	
 private:
-	long m_State;
-} ;
+	PyInterpreterState* m_Interp;
+	PyThreadState*	  m_NewState;
+	PyThreadState*	  m_OldState;
+};
 
 /** Used when leaving python to an external potentially
- * blocking call
+ * blocking call. This remains correct for subinterpreters because
+ * PyEval_SaveThread saves the active thread state regardless of which
+ * interpreter owns it.
  */
 class JPPyCallRelease
 {
@@ -398,9 +405,10 @@ public:
 	JPPyCallRelease();
 	/** Reacquire the lock. */
 	~JPPyCallRelease();
+	
 private:
-    PyThreadState* m_State1;
-} ;
+	PyThreadState* m_State1;
+};
 
 class JPPyBuffer
 {

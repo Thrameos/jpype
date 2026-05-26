@@ -55,7 +55,7 @@ JNIEXPORT void JNICALL Java_org_jpype_ref_NativeReference_removeHostReference
 		if (context == nullptr || !context->isRunning())
 			return;
 		JPJavaFrame frame = JPJavaFrame::external(env, context);
-		JPPyCallAcquire callback;
+		JPPyCallAcquire callback(context->modulestate->interp_state);
 		if (cleanup != 0)
 		{
 			auto func = (JCleanupHook) cleanup;

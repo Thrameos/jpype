@@ -112,7 +112,7 @@ extern "C" JNIEXPORT jobject JNICALL Java_org_jpype_proxy_ProxyInstance_hostInvo
 	JPJavaFrame frame = JPJavaFrame::external(env, context);
 
 	// We need the resources to be held for the full duration of the proxy.
-	JPPyCallAcquire callback;
+	JPPyCallAcquire callback(context->modulestate->interp_state);
 	try
 	{
 		JP_TRACE_IN("JPype_InvocationHandler_hostInvoke");

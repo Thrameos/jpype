@@ -46,7 +46,7 @@ Java_org_jpype_manager_StringManager_impl(JNIEnv *env, jclass obj, jlong context
 		if (st == nullptr || st->strings_dict == nullptr)
 			return 0;
 
-		JPPyCallAcquire callback;
+		JPPyCallAcquire callback(st->interp_state);
 
 		string str = frame.toStringUTF8(name);
 		auto len = static_cast<Py_ssize_t>(str.size());

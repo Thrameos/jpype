@@ -128,6 +128,7 @@ struct PyJPModuleState
 	PyObject* module;
 	JPContext* context;
 	PyObject* module_dict; // borrowed
+	PyInterpreterState* interp_state;
 
 	// Types (installed by init*)
 	PyTypeObject* PyJPClass_Type;

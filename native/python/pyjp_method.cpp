@@ -102,10 +102,11 @@ static PyObject *PyJPMethod_get(PyJPMethod *self, PyObject *obj, PyObject *type)
 static PyObject *PyJPMethod_call(PyJPMethod *self, PyObject *args, PyObject *kwargs)
 {
 	JP_PY_TRY("PyJPMethod_call");
-	JPJavaFrame frame = JPJavaFrame::outer(self->m_State->context);
+	JPContext* context = self->m_State->context;
+	JPJavaFrame frame = JPJavaFrame::outer(context);
 	JP_TRACE(self->m_Method->getName());
 	// Clear any pending interrupts if we are on the main thread
-	if (hasInterrupt())
+	if (context->hasInterrupt())
 		frame.clearInterrupt(false);
 	PyObject *out = nullptr;
 	if (self->m_Instance == nullptr)

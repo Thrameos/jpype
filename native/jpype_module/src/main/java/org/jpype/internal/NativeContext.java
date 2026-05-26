@@ -1,5 +1,6 @@
 package org.jpype.internal;
 
+import org.jpype.Reflector;
 import org.jpype.manager.StringManager;
 import java.io.File;
 import java.io.IOException;
@@ -61,6 +62,7 @@ public class NativeContext
   private final DynamicClassLoader classLoader;
   private final NativeReferenceQueue referenceQueue;
   private final StringManager stringManager;
+  private final Signal signal;
 
   private final AtomicInteger shutdownFlag = new AtomicInteger();
   private final List<Thread> shutdownHooks = new ArrayList<>();
@@ -85,6 +87,7 @@ public class NativeContext
     this.proxyFactory = new ProxyFactory(this);
     this.stringManager = new StringManager(this);
     this.referenceQueue = new NativeReferenceQueue(this);
+    this.signal = new Signal(this);
 
     PackageManager.setClassLoader(this.classLoader);
 
@@ -134,7 +137,7 @@ public class NativeContext
 
     referenceQueue.start();
     if (!interrupt)
-      Signal.installHandlers();
+      signal.installHandlers();
     Runtime.getRuntime().addShutdownHook(new Thread(() -> shutdown()));
   }
 
@@ -314,35 +317,38 @@ public class NativeContext
    * @throws InterruptedException
    */
   @Exported
-  public static void clearInterrupt(boolean x) throws InterruptedException
+  public void clearInterrupt(boolean x) throws InterruptedException
   {
     try
     {
       Thread th = Thread.currentThread();
 
-      // Only relevant if this is the main thread for signal handling
-      if (th != Signal.main)
-        return;
-
-      // Unconditionally clear the interrupt flag if we are called from 
-      // C++.  This happens when a field get() or method call() is 
-      // invoked.
       if (!x)
-        Signal.acknowledgePy();
+      {
+        Signal.acknowledgePy(this.contextAddress);
+      }
 
-      // Check if this thread is interrupted
+      // Check if the current worker thread has been hit with a Java Thread.interrupt()
       if (th.isInterrupted())
       {
-        // Clear the flag in C++
-        Signal.acknowledgePy();
+        // Clear the flag in C++ for this isolated context block
+        Signal.acknowledgePy(this.contextAddress);
 
-        // Clear the flag in Java
-        Thread.sleep(1);
+        // Clear the standard interrupted status bit on the Java thread.
+        // Thread.interrupted() reads and clears the bit automatically, which is 
+        // cleaner and faster than forcing a Thread.sleep(1) context switch.
+        Thread.interrupted();
       }
-    } catch (InterruptedException ex)
+    } catch (Exception ex)
     {
-      if (x)
-        throw ex;
+      // Catch-all to insulate the call path
+    }
+
+    // If the check was meant to explicitly assert and propagate an interrupt,
+    // synthesize the throw here if we detected it.
+    if (x && Thread.currentThread().isInterrupted())
+    {
+      throw new InterruptedException("Java execution interrupted by Python context signal");
     }
   }
 

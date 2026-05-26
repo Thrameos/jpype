@@ -23,8 +23,6 @@ class JPGarbageCollection;
 
 void assertJVMRunning(JPContext* context, const JPStackInfo& info);
 
-int hasInterrupt();
-
 struct PyJPModuleState;
 /**
  * A Context encapsulates the Java virtual machine, the Java classes required
@@ -224,12 +222,20 @@ private:
 	bool m_Running{};
 	bool m_ConvertStrings{};
 	bool m_Embedded;
+
+
 public:
 	JPGarbageCollection *m_GC;
 
 	// This will gather C++ resources to clean up after shutdown.
 	std::list<JPResource*> m_Resources;
 	PyObject* m_PyExcConvert{};
+
+	int interruptState;
+	bool hasInterrupt()
+	{
+		return interruptState!=0;
+	}
 
 };
 
