@@ -112,7 +112,7 @@ extern "C" JNIEXPORT jobject JNICALL Java_org_jpype_proxy_ProxyInstance_hostInvo
 	JPJavaFrame frame = JPJavaFrame::external(env, context);
 
 	// We need the resources to be held for the full duration of the proxy.
-	JPPyCallAcquire callback(context->modulestate->interp_state);
+	JPPyCallAcquire callback(context->modulestate);
 	try
 	{
 		JP_TRACE_IN("JPype_InvocationHandler_hostInvoke");
@@ -231,6 +231,8 @@ JPProxy::JPProxy(JPJavaFrame& frame, PyJPProxy* inst, JPClassList& intf, bool co
 	jvalue v_factory[2];
 	v_factory[0].j = (jlong) &JPProxy::releaseProxyPython; // Cleanup pointer
 	v_factory[1].l = ar;
+
+	JPPyCallRelease release;
 
 	// Corrected JNI call for the static method
 	jobject proxyType = frame.CallObjectMethodA(

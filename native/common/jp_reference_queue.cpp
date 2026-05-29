@@ -55,7 +55,7 @@ JNIEXPORT void JNICALL Java_org_jpype_ref_NativeReference_removeHostReference
 		if (context == nullptr || !context->isRunning())
 			return;
 		JPJavaFrame frame = JPJavaFrame::external(env, context);
-		JPPyCallAcquire callback(context->modulestate->interp_state);
+		JPPyCallAcquire callback(context->modulestate);
 		if (cleanup != 0)
 		{
 			auto func = (JCleanupHook) cleanup;
@@ -77,6 +77,7 @@ JNIEXPORT void JNICALL Java_org_jpype_ref_NativeReference_wake
 		auto *context = (JPContext*) ctx;
 		if (context == nullptr || !context->isRunning())
 			return;
+		JPPyCallAcquire callback(context->modulestate);
 		context->m_GC->triggered();
 	} catch (...) // GCOVR_EXCL_LINE
 	{

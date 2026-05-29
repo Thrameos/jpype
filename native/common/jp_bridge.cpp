@@ -386,7 +386,7 @@ JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_interactive
 	auto* context = (JPContext*) ctx;
 	try
 	{
-		JPPyCallAcquire callback(context->modulestate->interp_state);
+		JPPyCallAcquire callback(context->modulestate);
 		PyRun_InteractiveLoop(stdin, "<stdin>");
 	} catch (JPypeException& ex)
 	{

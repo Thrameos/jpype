@@ -374,40 +374,43 @@ public:
 	void normalize();
 } ;
 
-/** Used to establish a python lock when called from a
- * thread external to python such as java. Now accepts an explicit
- * interpreter state pointer to safely route to subinterpreters.
+struct PyJPModuleState;
+
+/** * Used to establish a Python execution context when called from a
+ * thread external to Python (such as a Java/JPype background thread).
+ * Properly maps to isolated subinterpreters and respects free-threaded builds.
  */
 class JPPyCallAcquire
 {
 public:
-	/** Acquire the lock for a specific interpreter context. */
-	explicit JPPyCallAcquire(PyInterpreterState* interp);
-	
-	/* Release the lock and destroy temporary thread context. */
-	~JPPyCallAcquire();
-	
+    explicit JPPyCallAcquire(PyJPModuleState* st);
+    ~JPPyCallAcquire();
+
+    JPPyCallAcquire(const JPPyCallAcquire&) = delete;
+    JPPyCallAcquire& operator=(const JPPyCallAcquire&) = delete;
+
 private:
-	PyInterpreterState* m_Interp;
-	PyThreadState*	  m_NewState;
-	PyThreadState*	  m_OldState;
+    PyThreadState* m_NewState;
 };
 
-/** Used when leaving python to an external potentially
- * blocking call. This remains correct for subinterpreters because
- * PyEval_SaveThread saves the active thread state regardless of which
- * interpreter owns it.
+/** * Used when leaving Python to enter a potentially blocking external call (like Java).
+ * Releases the active interpreter's GIL, allowing other Python threads to execute.
  */
 class JPPyCallRelease
 {
 public:
-	/** Release the lock. */
-	JPPyCallRelease();
-	/** Reacquire the lock. */
-	~JPPyCallRelease();
-	
+    /** Release the current interpreter's GIL and detach the thread state. */
+    JPPyCallRelease();
+    
+    /** Re-register the thread state and reacquire the interpreter's GIL. */
+    ~JPPyCallRelease();
+
+    // Prevent copying
+    JPPyCallRelease(const JPPyCallRelease&) = delete;
+    JPPyCallRelease& operator=(const JPPyCallRelease&) = delete;
+
 private:
-	PyThreadState* m_State1;
+    PyThreadState* m_SavedState; 
 };
 
 class JPPyBuffer

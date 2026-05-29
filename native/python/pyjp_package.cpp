@@ -95,7 +95,6 @@ static int PyJPPackage_init(PyObject *self, PyObject *args, PyObject *kwargs)
 		return -1;
 	}
 
-printf("Init\n");
 	return PyModule_Type.tp_init(self, args, nullptr);
 	
 	JP_PY_CATCH(-1);

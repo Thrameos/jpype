@@ -1189,6 +1189,7 @@ PyObject* JPJavaFrame::getFunctional(jclass c)
 	v.l = (jobject) c;
 	if (context->m_JavaContext == nullptr)
 		return nullptr;
+	JPPyCallRelease release;
 	return reinterpret_cast<PyObject*>(CallLongMethodA(
 			context->m_JavaContext,
 			context->m_Context_GetFunctionalID, &v));

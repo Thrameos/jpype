@@ -98,8 +98,9 @@ JNIEXPORT void JNICALL Java_org_jpype_manager_TypeFactoryNative_newWrapper(
 {
 	auto *context = (JPContext*) ctx;
 	JPJavaFrame frame = JPJavaFrame::external(env, context);
+	JPPyCallAcquire callback(context->modulestate);
+
 	JP_JAVA_TRY("JPTypeFactory_newWrapper");
-	JPPyCallAcquire callback(context->modulestate->interp_state);
 	auto* cls = (JPClass*) jcls;
 	PyJPClass_hook(frame, cls);
 	JP_JAVA_CATCH();  // GCOVR_EXCL_LINE
@@ -113,6 +114,8 @@ JNIEXPORT void JNICALL Java_org_jpype_manager_TypeFactoryNative_destroy(
 {
 	auto *context = (JPContext*) ctx;
 	JPJavaFrame frame = JPJavaFrame::external(env, context);
+	JPPyCallAcquire callback(context->modulestate);
+
 	JP_JAVA_TRY("JPTypeFactory_destroy");
 	JPPrimitiveArrayAccessor<jlongArray, jlong*> accessor(frame, resources,
 			&JPJavaFrame::GetLongArrayElements, &JPJavaFrame::ReleaseLongArrayElements);
@@ -157,6 +160,8 @@ JNIEXPORT jlong JNICALL Java_org_jpype_manager_TypeFactoryNative_defineArrayClas
 {
 	auto *context = (JPContext*) ctx;
 	JPJavaFrame frame = JPJavaFrame::external(env, context);
+	JPPyCallAcquire callback(context->modulestate);
+
 	JP_JAVA_TRY("JPTypeFactory_defineArrayClass");
 	string cname = frame.toStringUTF8(name);
 	JP_TRACE(cname);
@@ -178,11 +183,14 @@ JNIEXPORT jlong JNICALL Java_org_jpype_manager_TypeFactoryNative_defineObjectCla
 		jlongArray interfacePtrs,
 		jint modifiers)
 {
+	// All resources are created here are owned by Java and deleted by Java shutdown routine
 	auto *context = (JPContext*) ctx;
 	JPJavaFrame frame = JPJavaFrame::external(env, context);
-	// All resources are created here are owned by Java and deleted by Java shutdown routine
-	JP_JAVA_TRY("JPTypeFactory_defineObjectClass");
 	string className = frame.toStringUTF8(name);
+
+	JPPyCallAcquire callback(context->modulestate);
+
+	JP_JAVA_TRY("JPTypeFactory_defineObjectClass");
 	JP_TRACE(className);
 	JPClassList interfaces;
 	if (interfacePtrs != nullptr)

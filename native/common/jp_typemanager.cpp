@@ -38,6 +38,7 @@ JPClass* JPTypeManager::findClass(JPJavaFrame &frame, jclass obj)
 	JP_TRACE_IN("JPTypeManager::findClass");
 	jvalue val;
 	val.l = obj;
+	JPPyCallRelease release;
 	return (JPClass*) (frame.CallLongMethodA(m_JavaTypeManager, m_FindClass, &val));
 	JP_TRACE_OUT;
 }
@@ -47,6 +48,7 @@ JPClass* JPTypeManager::findClassByName(JPJavaFrame& frame, const string& name)
 	JP_TRACE_IN("JPTypeManager::findClassByName");
 	jvalue val;
 	val.l = (jobject) frame.fromStringUTF8(name);
+	JPPyCallRelease release;
 	auto* out = (JPClass*) (frame.CallLongMethodA(m_JavaTypeManager, m_FindClassByName, &val));
 	if (out == nullptr)
 	{
@@ -63,6 +65,7 @@ JPClass* JPTypeManager::findClassForObject(JPJavaFrame &frame, jobject obj)
 	JP_TRACE_IN("JPTypeManager::findClassForObject");
 	jvalue val;
 	val.l = obj;
+	JPPyCallRelease release;
 	auto *cls = (JPClass*) (frame.CallLongMethodA(m_JavaTypeManager, m_FindClassForObject, &val));
 	frame.check();
 	JP_TRACE("ClassName", cls == NULL ? "null" : cls->getCanonicalName());
@@ -77,6 +80,7 @@ void JPTypeManager::populateMethod(JPJavaFrame& frame, void* method, jobject obj
 	val[0].j = (jlong) method;
 	val[1].l = obj;
 	JP_TRACE("Method", method);
+	JPPyCallRelease release;
 	frame.CallVoidMethodA(m_JavaTypeManager, m_PopulateMethod, val);
 	JP_TRACE_OUT;
 }
@@ -86,6 +90,7 @@ void JPTypeManager::populateMembers(JPJavaFrame& frame, JPClass* cls)
 	JP_TRACE_IN("JPTypeManager::populateMembers");
 	jvalue val[1];
 	val[0].l = (jobject) cls->getJavaClass();
+	JPPyCallRelease release;
 	frame.CallVoidMethodA(m_JavaTypeManager, m_PopulateMembers, val);
 	JP_TRACE_OUT;
 }

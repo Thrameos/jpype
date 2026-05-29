@@ -107,12 +107,11 @@ void JPGarbageCollection::triggered()
 		java_count++;
 
 		// Lock Python so we call trigger a GC
-		JPPyCallAcquire callback(m_Context->modulestate->interp_state);
 		PyGC_Collect();
 	}
 }
 
-JPGarbageCollection::JPGarbageCollection()
+JPGarbageCollection::JPGarbageCollection(JPContext* context)
 {
 	running = false;
 	in_python_gc = false;
@@ -120,6 +119,7 @@ JPGarbageCollection::JPGarbageCollection()
 	python_gc = nullptr;
 	_SystemClass = nullptr;
 	_gcMethodID = nullptr;
+	m_Context = context;
 
 	last_python = 0;
 	last_java = 0;

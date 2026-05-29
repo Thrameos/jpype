@@ -30,7 +30,7 @@ class JPGarbageCollection
 {
 public:
 
-	explicit JPGarbageCollection();
+	explicit JPGarbageCollection(JPContext* context);
 
 	void init(JPJavaFrame& frame);
 

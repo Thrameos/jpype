@@ -56,7 +56,7 @@ JPContext::JPContext(PyJPModuleState *state)
 	m_JavaVM = nullptr;
 	m_TypeManager = nullptr;
 	m_ClassLoader = nullptr;
-	m_GC = new JPGarbageCollection();
+	m_GC = new JPGarbageCollection(this);
 	m_PyExcConvert = nullptr;
 
 	// --- JNI Function Pointers ---
@@ -373,6 +373,7 @@ std::string getShared()
 
 void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 {
+	JPPyCallRelease release;
 	JPJavaFrame frame = JPJavaFrame::external(env, this);
 	// This is the only frame that we can use until the system
 	// is initialized.  Any other frame creation will result in an error.
@@ -440,7 +441,7 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 
 	// Instantiate the core context hub
 	m_JavaContext = frame.NewGlobalRef(frame.CallStaticObjectMethodA(contextClass, startMethod, val));
-
+fflush(stdout)
 	// Post launch bindings
 	JP_TRACE("Connect resources");
 	
@@ -738,7 +739,7 @@ extern "C" JNIEXPORT void JNICALL Java_org_jpype_internal_Signal_interruptPy
 {
 	JPContext* context = (JPContext*) ctx;
     context->interruptState = 1;
-	JPPyCallAcquire callback(context->modulestate->interp_state);
+	JPPyCallAcquire callback(context->modulestate);
     // 2. Safely trip the engine evaluation loop interrupt flag
 #if PY_VERSION_HEX < 0x030A0000
     PyErr_SetInterrupt();
