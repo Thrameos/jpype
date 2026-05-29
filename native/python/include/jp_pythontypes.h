@@ -390,8 +390,12 @@ public:
     JPPyCallAcquire& operator=(const JPPyCallAcquire&) = delete;
 
 private:
+#if PY_VERSION_HEX<0x030c0000
+	long m_NewState;
+#else
     PyThreadState* m_NewState;
     PyThreadState* m_PriorState;
+#endif
 };
 
 /** * Used when leaving Python to enter a potentially blocking external call (like Java).

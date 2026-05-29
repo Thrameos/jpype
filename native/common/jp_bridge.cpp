@@ -427,7 +427,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_internal_NativeControl_startSubInterpre
 #if PY_VERSION_HEX<0x030c0000
 	fail(env, "Subinterpreters not supported");
 	return nullptr;
-#endif
+#else
 
 	try
 	{
@@ -460,6 +460,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_internal_NativeControl_startSubInterpre
 		fail(env, "C++ exception during interactive");
 	}
 	return nullptr;
+#endif
 }
 
 
@@ -485,6 +486,9 @@ extern "C" PyThreadState* _PyThreadState_GetCurrent(void);
 JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_finishSub
 (JNIEnv *env, jclass cls, jlong ctx)
 {
+#if PY_VERSION_HEX<0x030c0000
+	fail(env, "Subinterpreters not supported");
+#else
 	JPContext* context = (JPContext*) ctx;
 	PyJPModuleState* st = context->modulestate;
 	// It is not clear it we can safely clear the state.  What happens to the current state and GIL when we ened the interpreter
@@ -526,6 +530,7 @@ JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_finishSub
 	{
 		fail(env, "Error during subinterpreter shutdown");
 	}
+#endif
 }
 
 JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_finishMain
