@@ -398,22 +398,30 @@ extern "C" PyThreadState* _PyThreadState_GetCurrent(void);
 JPPyCallAcquire::JPPyCallAcquire(PyJPModuleState* st)
 {
     PyThreadState *tstate = _PyThreadState_GetCurrent();
-	if (tstate == nullptr)
-	{
-		m_NewState = PyThreadState_New(st->interp_state);
-		PyThreadState_Swap(m_NewState);
-	}
-	else 
-		m_NewState = nullptr;
+    
+    // Check if the current thread state belongs to the target interpreter
+    if (tstate != nullptr && tstate->interp == st->interp_state)
+    {
+        // You are already in the correct interpreter. Do nothing.
+        m_NewState = nullptr;
+    }
+    else
+    {
+        // Either tstate is null, or it belongs to a different interpreter.
+        // Swap to a state owned by st->interp_state.
+        m_NewState = PyThreadState_New(st->interp_state);
+        m_PriorState = PyThreadState_Swap(m_NewState);
+    }
 }
 
 JPPyCallAcquire::~JPPyCallAcquire()
 {
-	if (m_NewState != nullptr)
-	{
-		PyThreadState_Clear(m_NewState);
-		PyThreadState_DeleteCurrent();
-	}
+    if (m_NewState != nullptr)
+    {
+        PyThreadState_Clear(m_NewState);
+        PyThreadState_DeleteCurrent(); // Releases the GIL so something else can go
+        PyThreadState_Swap(m_PriorState);  // Reacquires the prior state so we don't bust someone else
+    }
 }
 
 JPPyCallRelease::JPPyCallRelease()

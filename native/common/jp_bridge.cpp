@@ -480,20 +480,31 @@ JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_interactive
 	}
 }
 
+extern "C" PyThreadState* _PyThreadState_GetCurrent(void);
+
 JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_finishSub
 (JNIEnv *env, jclass cls, jlong ctx)
 {
 	JPContext* context = (JPContext*) ctx;
-	PyThreadState *tstate = (PyThreadState*)context->modulestate->interp_state;
-	if (tstate == nullptr) {
-		return;
-	}
+	PyJPModuleState* st = context->modulestate;
+	// It is not clear it we can safely clear the state.  What happens to the current state and GIL when we ened the interpreter
+    PyThreadState *pstate = _PyThreadState_GetCurrent();
+    PyThreadState *tstate = nullptr;
+
+	// If we endup here with another threadstate then we must do a forced context jump
+    if (pstate != nullptr && pstate->interp == st->interp_state)
+        pstate = nullptr;
+	else
+    {
+        // Either tstate is null, or it belongs to a different interpreter.
+        // Swap to a state owned by st->interp_state.
+        tstate = PyThreadState_New(st->interp_state);
+        pstate = PyThreadState_Swap(tstate);
+    }
+	// No matter what I have it now
 
 	try
 	{
-		// 1. Switch to the subinterpreter to make it the active interpreter
-		PyThreadState *pstate = PyThreadState_Swap(tstate);
-
 		// Boot all resources held by Python objects
 		PyUnstable_GC_VisitObjects(jpype_eject_visitor, (void*)env);
 
@@ -505,8 +516,8 @@ JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_finishSub
 		// initialized in this interpreter (including _jpype)
 		Py_EndInterpreter(tstate);
 
-		// 3. Clear the thread state swap to return to a neutral state
-		if (pstate == tstate)
+		// Restore ONLY if ti belongs to yoi
+		if (pstate == nullptr)
 			PyThreadState_Swap(nullptr);
 		else
 			PyThreadState_Swap(pstate);

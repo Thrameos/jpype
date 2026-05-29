@@ -391,6 +391,7 @@ public:
 
 private:
     PyThreadState* m_NewState;
+    PyThreadState* m_PriorState;
 };
 
 /** * Used when leaving Python to enter a potentially blocking external call (like Java).
