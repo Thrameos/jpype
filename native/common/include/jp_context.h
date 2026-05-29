@@ -160,6 +160,7 @@ private:
 	JPClassLoader *m_ClassLoader{};
 
 public:
+	jobject m_Interpreter;
 	jclass m_RuntimeException;
 	jclass m_Array;
 

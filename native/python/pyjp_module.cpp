@@ -1045,6 +1045,18 @@ static PyObject *PyJPModule_context(PyObject* module, PyObject *obj)
 	return context->_java_lang_Object->convertToPythonObject(frame, v, false).keep();
 }
 
+static PyObject *PyJPModule_interpreter(PyObject* module, PyObject *obj)
+{
+	JPContext *context = PyJPModule_getContext(module);
+	if (context == nullptr)
+		return nullptr;
+	JPJavaFrame frame = JPJavaFrame::outer(context);
+	jvalue v;
+	v.l = context->m_Interpreter;
+	return context->_java_lang_Object->convertToPythonObject(frame, v, false).keep();
+}
+
+
 static int PyJPModule_traverse(PyObject *module, visitproc visit, void *arg)
 {
 	PyJPModuleState *st = reinterpret_cast<PyJPModuleState*>(PyModule_GetState(module));
@@ -1159,6 +1171,7 @@ static PyMethodDef moduleMethods[] = {
 	{"_collect", (PyCFunction) PyJPModule_collect, METH_VARARGS, ""},
 	{"gcStats", (PyCFunction) PyJPModule_gcStats, METH_NOARGS, ""},
 	{"context", (PyCFunction) PyJPModule_context, METH_NOARGS, ""},
+	{"interpreter", (PyCFunction) PyJPModule_interpreter, METH_NOARGS, ""},
 
 	// Threading
 	{"isThreadAttachedToJVM", (PyCFunction) PyJPModule_isThreadAttached, METH_NOARGS, ""},

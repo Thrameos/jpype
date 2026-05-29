@@ -17,6 +17,38 @@
 extern "C" {
 #endif
 
+// gcvisitproc callback matching CPython's functional signature
+//   rc=1 is keep going
+static int jpype_eject_visitor(PyObject* obj, void* arg)
+{
+    // The void* argument acts as our closure payload holding the JNIEnv pointer
+    JNIEnv* env = (JNIEnv*)arg;
+
+    if (obj == NULL)
+        return 1;
+
+    // Your safe-by-design lookup screens out native objects instantly
+    JPValue* value = PyJPValue_getJavaSlot(obj);
+    if (value == NULL)
+        return 1; // Return 0 to continue the heap sweep traversal
+
+    JPClass* cls = value->getClass();
+    if (cls == NULL || cls->isPrimitive())
+        return 1;
+
+    jobject global_ref = (jobject)value->getValue().l;
+    if (global_ref == NULL)
+        return 1;
+
+    // Safely disconnect the reference from the JVM
+    env->DeleteGlobalRef(global_ref);
+
+    // Invalidate the slot structure so that if CPython hits a normal 
+    // destructor cycle later during finalization, it becomes a safe no-op.
+    *value = JPValue();
+    return 1; // Standard Py_VISIT success signal to keep going
+}
+
 static void fail(JNIEnv *env, const char* msg)
 {
 	// This is a low frequency path so we don't need efficiency.
@@ -225,19 +257,62 @@ static bool appendModulePathsToSysPath(JNIEnv* env, jobjectArray modulePath)
 	return true;
 }
 
+JPContext* launch(jobject interpreter)
+{
+	JPContext* context;
+
+	// We need the interpeter copy of these resources
+	JPPyObject jpype = JPPyObject::accept(PyImport_ImportModule("jpype"));
+	JPPyObject jpypep = JPPyObject::accept(PyImport_ImportModule("_jpype"));
+	if (!jpypep.isValid())
+	{
+		printf("missing _jpype\n");
+		fflush(stdout);
+		fail(env, "_jpype module not found");
+		return nullptr;
+	}
+	
+	// Import the Python side to create the hooks
+	if (!jpype.isValid())
+	{
+		printf("missing jpype\n");
+		fflush(stdout);
+		fail(env, "jpype module not found");
+		return nullptr;
+	}
+
+	// The interpreter specific context will contain our fresh JPContext
+	PyJPModuleState* st = reinterpret_cast<PyJPModuleState*>(PyModule_GetState(jpypep.get()));
+
+	// Then attach the private module to the JVM
+	context = st->context;
+
+	// JContext needs a back reference to the starting interpreter
+	context->m_Interpreter = env->NewGlobalRef(interpreter);
+
+	// It needs to be told Java is already running
+	context->attachJVM(env);
+	JPJavaFrame frame = JPJavaFrame::external(env, context);
+	
+	// Initialize the resources in the jpype module
+	JPPyObject obj = JPPyObject::call(PyObject_GetAttrString(jpype.get(), "_core"));
+	JPPyObject obj2 = JPPyObject::call(PyObject_GetAttrString(obj.get(), "initializeResources"));
+	JPPyObject obj3 = JPPyObject::call(PyTuple_New(0));
+	JPPyObject out = JPPyObject::call(PyObject_Call(obj2.get(), obj3.get(), NULL));
+	return context;
+}
+
 /* Arguments we need to push in.
  * 
  * A list of module_search_paths so this can be used of limited/embedded deployments.
  * A list of command line arguments so we can execute command line functionality.
  */
-// FIXME CONTEXT MUST COME FROM ABOVE
-JNIEXPORT jobject JNICALL Java_org_jpype_internal_NativeControl_start
+JNIEXPORT jobject JNICALL Java_org_jpype_internal_NativeControl_startMain
 (JNIEnv *env, jclass cls, jobjectArray modulePath, jobjectArray args, 
 	jstring name, jstring prefix, jstring home, jstring exec_prefix, jstring executable,
 	jboolean isolated, jboolean faulthandler, jboolean quiet, jboolean verbose,
-	jboolean site_import, jboolean user_site, jboolean bytecode)
+	jboolean site_import, jboolean user_site, jboolean bytecode, jobject interpreter)
 {
-	JPContext* context;
 	PyStatus status;
 	PyConfig config;
 
@@ -330,42 +405,7 @@ success_config:
 			return nullptr;
 		}
 
-		JPPyObject jpype = JPPyObject::accept(PyImport_ImportModule("jpype"));
-		JPPyObject jpypep = JPPyObject::accept(PyImport_ImportModule("_jpype"));
-		if (!jpypep.isValid())
-		{
-			printf("missing _jpype\n");
-			fflush(stdout);
-			fail(env, "_jpype module not found");
-			return nullptr;
-		}
-		
-		// Import the Python side to create the hooks
-		if (!jpype.isValid())
-		{
-			printf("missing jpype\n");
-			fflush(stdout);
-			fail(env, "jpype module not found");
-			return nullptr;
-		}
-
-		// Usage in your code:
-		//print_module_path("jpype", jpype);
-		//print_module_path("_jpype", jpypep);
-
-		PyJPModuleState* st = reinterpret_cast<PyJPModuleState*>(PyModule_GetState(jpypep.get()));
-
-		// Then attach the private module to the JVM
-		context = st->context;
-		context->attachJVM(env);
-		JPJavaFrame frame = JPJavaFrame::external(env, context);
-		
-		// Initialize the resources in the jpype module
-		JPPyObject obj = JPPyObject::call(PyObject_GetAttrString(jpype.get(), "_core"));
-		JPPyObject obj2 = JPPyObject::call(PyObject_GetAttrString(obj.get(), "initializeResources"));
-		JPPyObject obj3 = JPPyObject::call(PyTuple_New(0));
-		JPPyObject out = JPPyObject::call(PyObject_Call(obj2.get(), obj3.get(), NULL));
-
+		JPContext* context = launch(interpreter);
 		// Next, we need to release the state so we can return to Java.
 		PyGILState_Release(gstate);
 		fflush(stdout);
@@ -379,6 +419,34 @@ success_config:
 		fail(env, "C++ exception during start");
 	}
 }
+
+JNIEXPORT jlong JNICALL Java_org_jpype_internal_NativeControl_startSubInterpreter
+(JNIEnv *env, jclass cls, jobject interpreter)
+{
+#if PY_VERSION_HEX<0x030c0000
+	fail(env, "Subinterpreters not supported");
+	return 0;
+#endif
+
+	try
+	{
+		PyInterpreterConfig config = PyInterpreterConfig_INIT;
+		PyThreadState *tstate = NULL;
+		
+		// Create the subinterpreter
+		PyStatus status = Py_NewInterpreterFromConfig(&tstate, &config);
+		if (PyStatus_Exception(status)) {
+			fail(env, "Failed to create subinterpreter");
+			return 0;
+		}
+
+		JPContext* context = launch(interpreter);
+		// Next, we need to release the state so we can return to Java.
+		PyThreadState_Swap(nullptr);
+		fflush(stdout);
+		return context->getJavaContext();
+}
+
 
 JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_interactive
 (JNIEnv *env, jclass cls, jlong ctx)
@@ -397,7 +465,43 @@ JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_interactive
 	}
 }
 
-JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_finish
+extern "C" PyThreadState* _PyThreadState_GetCurrent(void);
+	
+JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_endSubInterpreter
+(JNIEnv *env, jclass cls, jlong ctxt)
+{
+	JPContext* context = (JPContext*) ctx;
+    PyThreadState *tstate = (PyThreadState*)context->modulestate->interp_state;
+    if (tstate == nullptr) {
+        return;
+    }
+
+    try
+    {
+        // 1. Switch to the subinterpreter to make it the active interpreter
+        PyThreadState *pstate = PyThreadState_Swap(tstate);
+
+		// Boot all resources held by Python objects
+    	PyUnstable_GC_VisitObjects(jpype_eject_visitor, (void*)env);
+
+        // 2. Perform any required Python-side cleanup
+        // Note: Py_EndInterpreter will automatically clear modules 
+        // initialized in this interpreter (including _jpype)
+        Py_EndInterpreter(tstate);
+
+        // 3. Clear the thread state swap to return to a neutral state
+		if (pstate == tstate)
+        	PyThreadState_Swap(nullptr);
+		else
+        	PyThreadState_Swap(pstate);
+    }
+    catch (...)
+    {
+        fail(env, "Error during subinterpreter shutdown");
+    }
+}
+
+JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_finishMain
 (JNIEnv *env, jclass cls, jlong ctx)
 {
 	try

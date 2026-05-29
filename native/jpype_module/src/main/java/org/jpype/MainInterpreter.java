@@ -350,7 +350,7 @@ public class MainInterpreter implements Interpreter
 
     // 7. Launch
     LOGGER.info("Launching Python Interpreter...");
-    this.context = NativeLauncherControl.start(paths, args,
+    this.context = NativeLauncherControl.startMain(paths, args,
             programName,
             System.getProperty(CONF_PREFIX),
             home,
@@ -362,7 +362,8 @@ public class MainInterpreter implements Interpreter
             getBool(CONF_VERBOSE, "false"),
             getBool(CONF_SITEIMPORT, "true"),
             getBool(CONF_USERSITE, "true"),
-            getBool(CONF_WRITEBC, "true"));
+            getBool(CONF_WRITEBC, "true"),
+            this);
     LOGGER.info("Python launched");
   }
 
@@ -377,7 +378,7 @@ public class MainInterpreter implements Interpreter
     if (terminated)
       throw new IllegalStateException("interpreter is terminated");
 
-    NativeLauncherControl.finish(this.context.address());
+    NativeLauncherControl.finishMain(this.context.address());
     backend = null;
     terminated = true;
   }

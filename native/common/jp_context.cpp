@@ -53,6 +53,7 @@ JPContext::JPContext(PyJPModuleState *state)
 	m_Embedded = false;
 
 	// --- Core Services & Framework ---
+	m_Interpreter = nullptr;
 	m_JavaVM = nullptr;
 	m_TypeManager = nullptr;
 	m_ClassLoader = nullptr;
@@ -213,6 +214,7 @@ void JPContext::loadEntryPoints(const string& path)
 	JP_TRACE_OUT;
 }
 
+// This call is used to establish the main interpreter when started from within Python
 JavaVM* _JavaVM = nullptr;
 void JPContext::startJVM(const string& vmPath, const StringVector& args,
 		bool ignoreUnrecognized, bool convertStrings, bool interrupt)
@@ -319,6 +321,14 @@ void JPContext::startJVM(const string& vmPath, const StringVector& args,
 	{
 		JP_RAISE(PyExc_RuntimeError, "Java version too old. Java 9 or later is required");
 	}
+
+	{
+		JPJavaFrame frame = JPJavaFrame::external(env, this);
+		jclass interpreterClass = (jclass) frame.FindClass("org/jpype/MainInterpreter");
+		jmethodID instance = frame.GetStaticMethodID(interpreterClass, "getInstance", "()Lorg/jpype/MainInterpreter;");
+		m_Interpreter = frame.NewGlobalRef( frame.CallStaticObjectMethodA(interpreterClass, instance, nullptr));
+	}
+
 	initializeResources(env, interrupt);
 	JP_TRACE_OUT;
 }
@@ -326,6 +336,10 @@ void JPContext::startJVM(const string& vmPath, const StringVector& args,
 
 void JPContext::attachJVM(JNIEnv* env)
 {
+	if (m_Interpreter == nullptr)
+	{
+		printf("Interpreter not set\n");
+	}
 	env->GetJavaVM(&m_JavaVM);
 	_JavaVM = m_JavaVM;
 #ifndef ANDROID
@@ -336,9 +350,17 @@ void JPContext::attachJVM(JNIEnv* env)
 
 void JPContext::detachJVM()
 {
+	ReleaseGlobalRef(m_Interpreter);
 	m_JavaVM = nullptr;
 	m_Running = false;
 	_JavaVM = nullptr;
+
+	JP_TRACE("Delete resources");
+	for (auto & m_Resource : m_Resources)
+	{
+		delete m_Resource;
+	}
+	m_Resources.clear();
 }
 
 std::string getShared() 
@@ -441,7 +463,6 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 
 	// Instantiate the core context hub
 	m_JavaContext = frame.NewGlobalRef(frame.CallStaticObjectMethodA(contextClass, startMethod, val));
-fflush(stdout)
 	// Post launch bindings
 	JP_TRACE("Connect resources");
 	
@@ -592,7 +613,9 @@ void JPContext::shutdownJVM(bool destroyJVM, bool freeJVM)
 	}
 
 	// unload the jvm library
-	detachJVM();
+	m_JavaVM = nullptr;
+	m_Running = false;
+	_JavaVM = nullptr;
 	if (freeJVM)
 	{
 		JP_TRACE("Unload JVM");

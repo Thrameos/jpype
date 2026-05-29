@@ -25,13 +25,13 @@ package org.jpype.internal;
 public class NativeLauncherControl
 {
 
-  public native static NativeContext start(String[] modulePaths, String[] args,
+  public native static NativeContext startMain(String[] modulePaths, String[] args,
           String name, String prefix, String home, String exec_prefix, String executable,
           boolean isolated, boolean fault_handler, boolean quiet, boolean verbose,
-          boolean site_import, boolean user_site, boolean write_bytecode);
+          boolean site_import, boolean user_site, boolean write_bytecode, Object interpreter);
 
   public native static void interactive(long context);
 
-  public native static void finish(long context);
+  public native static void finishMain(long context);
 
 }
