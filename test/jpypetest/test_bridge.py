@@ -457,7 +457,7 @@ class TestPyBuiltInSuite(common.JPypeTestCase):
         subscript2 = self.PySubscript@self.PyBuiltIn.slice(self.Integer@1, self.Integer@5)
 
         j_indices = self.PyBuiltIn.indices(subscript1, subscript2)
-        self.assertIsInstance(j_indices, self.PyTuple)
+        self.assertIsInstance(j_indices, tuple)
         self.assertEqual(len(j_indices), 2)
 
     def test_memoryview_and_bytes(self):

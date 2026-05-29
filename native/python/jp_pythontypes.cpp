@@ -392,10 +392,19 @@ void JPPyErr::restore(JPPyObject& exceptionClass, JPPyObject& exceptionValue, JP
 	PyErr_Restore(exceptionClass.keepNull(), exceptionValue.keepNull(), exceptionTrace.keepNull());
 }
 
+// FIXME 3.13+ introduced a public method
+extern "C" PyThreadState* _PyThreadState_GetCurrent(void);
+
 JPPyCallAcquire::JPPyCallAcquire(PyJPModuleState* st)
 {
-	m_NewState = PyThreadState_New(st->interp_state);
-	PyThreadState_Swap(m_NewState);
+    PyThreadState *tstate = _PyThreadState_GetCurrent();
+	if (tstate == nullptr)
+	{
+		m_NewState = PyThreadState_New(st->interp_state);
+		PyThreadState_Swap(m_NewState);
+	}
+	else 
+		m_NewState = nullptr;
 }
 
 JPPyCallAcquire::~JPPyCallAcquire()

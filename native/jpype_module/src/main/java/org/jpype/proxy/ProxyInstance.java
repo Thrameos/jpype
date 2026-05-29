@@ -3,8 +3,9 @@ package org.jpype.proxy;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import org.jpype.internal.NativeContext;
-import org.jpype.manager.TypeManager;
+import python.lang.PyBuiltIn;
 
 public class ProxyInstance implements InvocationHandler
 {
@@ -104,5 +105,11 @@ public class ProxyInstance implements InvocationHandler
    */
   private static native Object hostInvoke(long name, long pyObject,
           long returnType, long[] argsTypes, Object[] args, int len);
+
+    
+  public static PyBuiltIn get(Object obj)
+  {
+    return ((ProxyInstance) Proxy.getInvocationHandler(obj)).type.builtin;
+  }
 
 }

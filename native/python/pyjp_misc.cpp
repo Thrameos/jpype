@@ -33,20 +33,14 @@ JNIEXPORT jlong JNICALL
 Java_org_jpype_manager_StringManager_impl(JNIEnv *env, jclass obj, jlong contextPtr, jstring name)
 {
 	JPContext* context = reinterpret_cast<JPContext*>(contextPtr);
+	PyJPModuleState* st = context->modulestate;
 	JPJavaFrame frame = JPJavaFrame::external(env, context);
+	JPPyCallAcquire callback(st);
 	try
 	{
-		if (name == nullptr)
+		if (st->strings_dict == nullptr)
 			return 0;
 
-		if (context == nullptr)
-			return 0;
-
-		PyJPModuleState* st = context->modulestate;
-		if (st == nullptr || st->strings_dict == nullptr)
-			return 0;
-
-		JPPyCallAcquire callback(st);
 
 		string str = frame.toStringUTF8(name);
 		auto len = static_cast<Py_ssize_t>(str.size());
@@ -62,7 +56,6 @@ Java_org_jpype_manager_StringManager_impl(JNIEnv *env, jclass obj, jlong context
 		PyObject* canonical = PyDict_SetDefault(st->strings_dict, pyStr, pyStr);
 		Py_XINCREF(canonical);
 		Py_DECREF(pyStr);
-
 		return reinterpret_cast<jlong>(canonical);
 	}
 	catch (JPypeException& ex)
@@ -77,7 +70,6 @@ Java_org_jpype_manager_StringManager_impl(JNIEnv *env, jclass obj, jlong context
 	}
 	return 0;
 }
-
 
 void PyJPModule_rethrow(const JPStackInfo& info)
 {
@@ -231,8 +223,6 @@ void PyJPModuleFault_throw(uint32_t code)
 	}
 }
 #endif
-
-
 
 #ifdef JP_INSTRUMENTATION
 

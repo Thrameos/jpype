@@ -164,9 +164,10 @@ public class MainInterpreter implements Interpreter
    * This method is called during the initialization process to establish the
    * backend connection.</p>
    *
+   * @param ctx
    * @param entry The {@link Backend} instance to set.
    */
-  public void setBackend(Backend entry)
+  public void setBackend(NativeContext ctx, Backend entry)
   {
     if (backend != null)
       throw new RuntimeException("Backend reconfigured");
@@ -174,6 +175,7 @@ public class MainInterpreter implements Interpreter
     backend = entry;
     this.builtin = new InterpreterBuiltIn(backend);
 //    stop = backend.object();
+    ctx.setBuiltIn(this.builtin);
   }
   
   @Override

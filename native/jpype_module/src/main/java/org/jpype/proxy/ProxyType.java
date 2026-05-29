@@ -1,51 +1,56 @@
 // --- file: org/jpype/proxy/JPypeProxyType.java ---
 package org.jpype.proxy;
 
-import java.lang.invoke.MethodHandle;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import org.jpype.annotation.Builtin;
 import org.jpype.internal.NativeContext;
 import org.jpype.manager.StringManager;
 import org.jpype.manager.TypeManager;
 import org.jpype.annotation.Bypass;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import python.lang.PyBuiltIn;
 
 public final class ProxyType
 {
 
+  final PyBuiltIn builtin;
   final NativeContext context;
   final StringManager stringManager;
   final TypeManager typeManager;
 
   // Static cache for standard Object methods to avoid re-resolving them
-
   private final Class<?>[] interfaces;
   private final ClassLoader cl;
   final long cleanup;
   final Map<Method, MethodDescriptor> methodCache;
-  
+
   /**
    * Initializes the static cache for Object methods. This happens once when the
    * class is loaded.
    *
    * @param tm
    */
-  public  void init(TypeManager tm)
+  public void init(TypeManager tm)
   {
 
   }
 
   public ProxyType(ProxyFactory factory, long cleanup, Class<?>[] interfaces)
   {
-    
+
     this.context = factory.context;
     this.typeManager = context.getTypeManager();
     this.stringManager = context.getStringManager();
     this.interfaces = interfaces;
     this.cleanup = cleanup;
+    this.builtin = factory.context.getBuildIn();
 
     // Pin the loader to the org.jpype module loader as the baseline default
     ClassLoader tempCl = ProxyType.class.getClassLoader();
@@ -96,6 +101,20 @@ public final class ProxyType
         paramTypes[i] = tm.findClass(params[i]);
 
       boolean bypass = (method.isAnnotationPresent(Bypass.class));
+      if (method.isAnnotationPresent(Builtin.class))
+      {
+        // Install a magic backdoor for builtin() so that Interface can find its support backend.
+        try
+        {
+           MethodHandle defaultHandle = MethodHandles.lookup().findStatic(ProxyInstance.class, "get", MethodType.methodType(PyBuiltIn.class, Object.class));
+           map.put(method, new MethodDescriptor(this.stringManager.get(method.getName()), returnType, paramTypes, defaultHandle, true));
+           return;
+        } catch (NoSuchMethodException | IllegalAccessException ex)
+        {
+          System.getLogger(ProxyType.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+        }
+      }
+
       MethodHandle defaultHandle = null;
       if (method.isDefault())
         defaultHandle = getDefaultHandle(method.getDeclaringClass(), method, java.lang.invoke.MethodHandles.class);

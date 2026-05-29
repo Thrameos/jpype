@@ -20,6 +20,7 @@ import org.jpype.pkg.PackageManager;
 import org.jpype.ref.NativeReferenceQueue;
 import org.jpype.proxy.ProxyFactory;
 import org.jpype.annotation.Exported;
+import python.lang.PyBuiltIn;
 
 /**
  * Context for JPype.
@@ -54,6 +55,7 @@ public class NativeContext
 {
 
   public static final String VERSION = "1.7.2.dev0";
+  private PyBuiltIn builtin;
   private long contextAddress;
 
   private final TypeFactory typeFactory;
@@ -127,6 +129,16 @@ public class NativeContext
   public long address()
   {
     return contextAddress;
+  }
+
+  public void setBuiltIn(PyBuiltIn builtin)
+  {
+    this.builtin = builtin;
+  }
+  
+  public PyBuiltIn getBuildIn()
+  {
+    return this.builtin;
   }
 
   private void initialize(boolean interrupt)

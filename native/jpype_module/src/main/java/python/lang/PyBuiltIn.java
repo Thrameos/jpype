@@ -157,21 +157,21 @@ public class PyBuiltIn
   {
     return backend.bytesFromHex(str);
   }
-
-  /**
-   * Creates a new Python `bytes` object from an iterable of Python objects.
-   *
-   * Each object in the iterable must be convertible to a byte.
-   *
-   * @param iterable the iterable containing {@link PyObject} instances to
-   * include in the `bytes` object.
-   * @return a new {@link PyBytes} instance containing the bytes derived from
-   * the iterable.
-   */
-  public PyBytes bytes(Iterable<PyObject> iterable)
-  {
-    return backend.newBytesFromIterator(iterable);
-  }
+//
+//  /**
+//   * Creates a new Python `bytes` object from an iterable of Python objects.
+//   *
+//   * Each object in the iterable must be convertible to a byte.
+//   *
+//   * @param iterable the iterable containing {@link PyObject} instances to
+//   * include in the `bytes` object.
+//   * @return a new {@link PyBytes} instance containing the bytes derived from
+//   * the iterable.
+//   */
+//  public PyBytes bytes(Iterable<PyObject> iterable)
+//  {
+//    return backend.newBytesFromIterator(iterable);
+//  }
 
   /**
    * Creates a new Python `bytes` object from a {@link PyBuffer}.

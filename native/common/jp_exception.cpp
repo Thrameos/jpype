@@ -532,7 +532,6 @@ void JPypeException::toJava(JPJavaFrame& frame)
 
 		if (m_Type == JPError::_python_error)
 		{
-			JPPyCallAcquire callback(context->modulestate);
 			JP_TRACE("Python exception");
 			convertPythonToJava(frame);
 			return;
@@ -540,7 +539,6 @@ void JPypeException::toJava(JPJavaFrame& frame)
 
 		if (m_Type == JPError::_python_exc)
 		{
-			JPPyCallAcquire callback(context->modulestate);
 			// All others are Python errors
 			JP_TRACE(Py_TYPE(m_Error.l)->tp_name);
 			PyErr_SetString((PyObject*) m_Error.l, mesg);

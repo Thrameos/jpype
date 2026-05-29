@@ -19,6 +19,8 @@
 #include "jp_primitive_accessor.h"
 #include "jp_gc.h"
 #include "jp_proxy.h"
+#include <set>
+#include <vector>
 
 #ifdef WIN32
 #include <Windows.h>
@@ -195,6 +197,33 @@ bool finalizeMethods(PyJPModuleState* st, JPPyObject& existing_methods, JPPyObje
 	return true;
 }
 
+
+// Helper function to recursively crawl the interface tree
+void collectInterfacesRecursive(JPClass* currentClass, std::set<JPClass*>& visited, std::vector<JPClass*>& orderedList)
+{
+	if (currentClass == nullptr)
+		return;
+
+	// Fetch the explicit list of interfaces declared directly by this class/interface
+	const std::vector<JPClass*>& intf_list = currentClass->getInterfaces();
+	
+	for (JPClass* intf : intf_list)
+	{
+		if (visited.find(intf) != visited.end())
+			continue;
+		if (!intf->isPython())
+			continue;
+		// Mark it as visited to avoid infinite recursion loops 
+		visited.insert(intf);
+		
+		// Push it to our flat ordered collection list
+		orderedList.push_back(intf);
+		
+		// Recursively collect all parents/extended interfaces of THIS interface
+		collectInterfacesRecursive(intf, visited, orderedList);
+	}
+}
+
 // Returns a new reference and can set exceptions
 PyObject* PyJP_probe(PyJPModuleState* st, PyTypeObject *type)
 {
@@ -223,7 +252,6 @@ PyObject* PyJP_probe(PyJPModuleState* st, PyTypeObject *type)
 	// 2. SHORT-CIRCUIT MECHANISM: Scan MRO for an exact concrete match
 	// Skip the very last element, which is always object
 	PyObject *concrete_match = nullptr;
-#if 0
 	for (Py_ssize_t i = 0; i < sz - 1; ++i)
 	{
 		PyObject *mro_class = PyTuple_GetItem(mro, i); // borrowed
@@ -235,11 +263,11 @@ PyObject* PyJP_probe(PyJPModuleState* st, PyTypeObject *type)
 			break;
 		}
 	}
-#endif
 
 	if (concrete_match != nullptr)
 	{
-		JPClass* targetClass = PyJPClass_getJPClass((PyObject*) type);
+		JPJavaFrame frame = JPJavaFrame::outer(st->context);
+		JPClass* targetClass = PyJPClass_getJPClass((PyObject*) concrete_match);
 		if (targetClass == nullptr)
 		{
 			// If the type mapping data isn't initialized yet, clear error and force fallback
@@ -248,20 +276,29 @@ PyObject* PyJP_probe(PyJPModuleState* st, PyTypeObject *type)
 		}
 		else
 		{
-			// Append the concrete base interface behavior we matched in the MRO
+			// 1. Append the concrete base interface behavior we matched in the MRO
 			PyList_Append(interfaces.get(), concrete_match);
 
-			// Fetch the explicit list of Java interfaces this class is specified to support
-			const vector<JPClass*>& intf_list = targetClass->getInterfaces();
-			for (JPClass* intf : intf_list)
+			// 2. Set up collections to capture the deep dependency graph
+			std::set<JPClass*> visitedInterfaces;
+			std::vector<JPClass*> deepInterfaceList;
+
+			// 3. Crawl recursively up the tree starting from our matched class context
+			collectInterfacesRecursive(targetClass, visitedInterfaces, deepInterfaceList);
+
+			// 4. Safely convert and append all discovered interfaces back into Python space
+			for (JPClass* intf : deepInterfaceList)
 			{
-				// Convert the native JPClass pointer back into its corresponding PyObject container
 				PyTypeObject* py_intf = intf->getHost();
-				PyList_Append(interfaces.get(), (PyObject*) py_intf);
+				if (py_intf != nullptr)
+				{
+					PyList_Append(interfaces.get(), (PyObject*) py_intf);
+				}
 			}
 		}
 	}
-	else
+
+	if (concrete_match == nullptr)
 	{
 		// Fallback to structural duck-typing analysis
 		interrogate(st, interfaces, type);

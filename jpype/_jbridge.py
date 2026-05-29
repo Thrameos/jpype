@@ -876,6 +876,7 @@ def initialize():
 
 
     # Install the handler
+    # FIXME we need to figure out how to the interpreter to here
     bridge = JClass("org.jpype.MainInterpreter").getInstance()
     Backend = JClass("org.jpype.Backend")
     backend = Backend@JProxy(Backend, dict=_PyJPBackendMethods)
@@ -994,4 +995,4 @@ def initialize():
 
     # We have everything setup 
     _jpype.ready()
-    bridge.setBackend(backend)
+    bridge.setBackend(_jpype.context(), backend)
