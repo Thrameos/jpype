@@ -38,8 +38,9 @@ import java.util.TreeSet;
 import org.jpype.internal.NativeContext;
 import org.jpype.internal.Functional;
 import org.jpype.proxy.ProxyInstance;
-import java.util.logging.Level;
 import python.lang.PyObject;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -47,6 +48,7 @@ import python.lang.PyObject;
 public class TypeManager
 {
 
+  final static Logger LOGGER = Logger.getLogger(TypeManager.class.getName());
 //  private final NativeContext context;
   private final long address;
   private NativeContext context;
@@ -70,16 +72,17 @@ public class TypeManager
 
   public TypeManager(NativeContext ctx, TypeFactory typeFactory)
   {
-    if (ctx != null)
+    this.context = ctx;
+    if (ctx !=null)
     {
-      this.context = ctx;
-      this.address = ctx.address();
-      this.classLoader = ctx.getClassLoader();
-    } else
+    this.address = ctx.address();
+    this.classLoader = ctx.getClassLoader();
+    }
+    else
     {
-      this.context = null;
-      this.address = 0;
-      this.classLoader = ClassLoader.getSystemClassLoader();
+      // This is used in unittesting, but it avoids all methods that call context.
+      this.address = 0L;
+      this.classLoader = null;
     }
     this.typeFactory = typeFactory;
   }
@@ -88,6 +91,7 @@ public class TypeManager
   @SuppressWarnings("UseSpecificCatch")
   public synchronized void init()
   {
+    LOGGER.log(Level.INFO, "Initializing TypeManager for native address: 0x{0}", Long.toHexString(this.address));
     try
     {
       if (isStarted)
@@ -137,7 +141,7 @@ public class TypeManager
     } catch (Throwable ex)
     {
       // We can't get debugging information at this point in the process.
-      NativeContext.LOGGER.log(Level.SEVERE, "error in init", ex);
+      LOGGER.log(Level.SEVERE, "error in init", ex);
       throw ex;
     }
   }
@@ -343,7 +347,7 @@ public class TypeManager
       typeFactory.populateMethod(address, wrapper, returnType, paramPtrs);
     } catch (Exception ex)
     {
-      NativeContext.LOGGER.log(Level.SEVERE, "error in populateMethod", ex);
+      LOGGER.log(Level.SEVERE, "error in populateMethod", ex);
     }
   }
 
@@ -370,7 +374,7 @@ public class TypeManager
    */
   public long findClassForObject(Object object) throws InterruptedException
   {
-    if (context != null)
+    if (Thread.currentThread().isInterrupted())
       context.clearInterrupt(true);
     if (object == null)
       return 0;
@@ -438,6 +442,10 @@ public class TypeManager
 
   private ClassDescriptor createOrdinaryClass(Class<?> cls, EnumSet<Kind> kind)
   {
+    if (LOGGER.isLoggable(Level.FINE))
+    {
+      LOGGER.log(Level.FINE, "Creating ordinary class wrapper for: {0}", cls.getName());
+    }
     // Verify the class will be loadable prior to creating the class.
     // If we fail to do this then the class may end up crashing later when the
     // members get populated which could leave us in a bad state.
@@ -578,7 +586,7 @@ public class TypeManager
       createMembers(desc);
     } catch (Exception ex)
     {
-      NativeContext.LOGGER.log(Level.SEVERE, "error in populate members", ex);
+      LOGGER.log(Level.SEVERE, "error in populate members", ex);
       throw ex;
     }
   }

@@ -10,10 +10,13 @@ import org.jpype.manager.TypeManager;
 import org.jpype.manager.StringManager;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 
 public class ProxyFactory
 {
 
+  final static Logger LOGGER = Logger.getLogger(ProxyFactory.class.getName());
   final NativeContext context;
 
   // Define a common interface for both keys
@@ -52,6 +55,12 @@ public class ProxyFactory
 
     if (existing != null)
       return existing;
+
+    // Only log if FINE is enabled to protect performance
+    if (LOGGER.isLoggable(Level.FINE))
+    {
+      LOGGER.log(Level.FINE, "Cache miss for proxy interfaces: {0}", Arrays.toString(interfaces));
+    }
 
     // 2. Cache Miss (Allocation tax)
     Class<?>[] permanentArray = interfaces.clone();
@@ -134,6 +143,7 @@ public class ProxyFactory
 
   public void init()
   {
+    LOGGER.info("Initializing ProxyFactory method cache.");
     TypeManager tm = context.getTypeManager();
     StringManager sm = context.getStringManager();
     synchronized (tm)

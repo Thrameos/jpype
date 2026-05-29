@@ -68,7 +68,7 @@ import python.lang.PyObject;
 public class MainInterpreter implements Interpreter
 {
 
-  final static Logger LOGGER = Logger.getLogger(MainInterpreter.class.getName());
+  final static Logger LOGGER = Logger.getLogger(NativeContext.class.getName());
   final static String PROBE = "/org/jpype/resources/probe.py";
 
   // Configuration variables
@@ -174,7 +174,7 @@ public class MainInterpreter implements Interpreter
     LOGGER.log(Level.INFO, "Backend installed");
     backend = entry;
     this.builtin = new InterpreterBuiltIn(backend);
-//    stop = backend.object();
+    stop = backend.object();
     ctx.setBuiltIn(this.builtin);
   }
   
@@ -183,7 +183,7 @@ public class MainInterpreter implements Interpreter
   {
     return this.builtin;
   }
-
+     
   /**
    * Returns the singleton instance of the {@code Interpreter}.
    *

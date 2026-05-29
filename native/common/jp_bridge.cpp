@@ -21,32 +21,32 @@ extern "C" {
 //   rc=1 is keep going
 static int jpype_eject_visitor(PyObject* obj, void* arg)
 {
-    // The void* argument acts as our closure payload holding the JNIEnv pointer
-    JNIEnv* env = (JNIEnv*)arg;
+	// The void* argument acts as our closure payload holding the JNIEnv pointer
+	JNIEnv* env = (JNIEnv*)arg;
 
-    if (obj == NULL)
-        return 1;
+	if (obj == NULL)
+		return 1;
 
-    // Your safe-by-design lookup screens out native objects instantly
-    JPValue* value = PyJPValue_getJavaSlot(obj);
-    if (value == NULL)
-        return 1; // Return 0 to continue the heap sweep traversal
+	// Your safe-by-design lookup screens out native objects instantly
+	JPValue* value = PyJPValue_getJavaSlot(obj);
+	if (value == NULL)
+		return 1; // Return 0 to continue the heap sweep traversal
 
-    JPClass* cls = value->getClass();
-    if (cls == NULL || cls->isPrimitive())
-        return 1;
+	JPClass* cls = value->getClass();
+	if (cls == NULL || cls->isPrimitive())
+		return 1;
 
-    jobject global_ref = (jobject)value->getValue().l;
-    if (global_ref == NULL)
-        return 1;
+	jobject global_ref = (jobject)value->getValue().l;
+	if (global_ref == NULL)
+		return 1;
 
-    // Safely disconnect the reference from the JVM
-    env->DeleteGlobalRef(global_ref);
+	// Safely disconnect the reference from the JVM
+	env->DeleteGlobalRef(global_ref);
 
-    // Invalidate the slot structure so that if CPython hits a normal 
-    // destructor cycle later during finalization, it becomes a safe no-op.
-    *value = JPValue();
-    return 1; // Standard Py_VISIT success signal to keep going
+	// Invalidate the slot structure so that if CPython hits a normal 
+	// destructor cycle later during finalization, it becomes a safe no-op.
+	*value = JPValue();
+	return 1; // Standard Py_VISIT success signal to keep going
 }
 
 static void fail(JNIEnv *env, const char* msg)
@@ -257,7 +257,7 @@ static bool appendModulePathsToSysPath(JNIEnv* env, jobjectArray modulePath)
 	return true;
 }
 
-JPContext* launch(jobject interpreter)
+JPContext* launch(JNIEnv* env, jobject interpreter)
 {
 	JPContext* context;
 
@@ -405,7 +405,7 @@ success_config:
 			return nullptr;
 		}
 
-		JPContext* context = launch(interpreter);
+		JPContext* context = launch(env, interpreter);
 		// Next, we need to release the state so we can return to Java.
 		PyGILState_Release(gstate);
 		fflush(stdout);
@@ -418,19 +418,28 @@ success_config:
 	{
 		fail(env, "C++ exception during start");
 	}
+	return nullptr;
 }
 
-JNIEXPORT jlong JNICALL Java_org_jpype_internal_NativeControl_startSubInterpreter
+JNIEXPORT jobject JNICALL Java_org_jpype_internal_NativeControl_startSubInterpreter
 (JNIEnv *env, jclass cls, jobject interpreter)
 {
 #if PY_VERSION_HEX<0x030c0000
 	fail(env, "Subinterpreters not supported");
-	return 0;
+	return nullptr;
 #endif
 
 	try
 	{
-		PyInterpreterConfig config = PyInterpreterConfig_INIT;
+		PyInterpreterConfig config = {
+			.use_main_obmalloc = 0,
+			.allow_fork = 0,
+			.allow_exec = 0,
+			.allow_threads = 1,
+			.allow_daemon_threads = 0,
+			.check_multi_interp_extensions = 1,
+			.gil = 0
+		};
 		PyThreadState *tstate = NULL;
 		
 		// Create the subinterpreter
@@ -440,11 +449,17 @@ JNIEXPORT jlong JNICALL Java_org_jpype_internal_NativeControl_startSubInterprete
 			return 0;
 		}
 
-		JPContext* context = launch(interpreter);
+		JPContext* context = launch(env, interpreter);
 		// Next, we need to release the state so we can return to Java.
 		PyThreadState_Swap(nullptr);
 		fflush(stdout);
 		return context->getJavaContext();
+	}
+	catch (...)
+	{
+		fail(env, "C++ exception during interactive");
+	}
+	return nullptr;
 }
 
 
@@ -465,40 +480,41 @@ JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_interactive
 	}
 }
 
-extern "C" PyThreadState* _PyThreadState_GetCurrent(void);
-	
-JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_endSubInterpreter
-(JNIEnv *env, jclass cls, jlong ctxt)
+JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_finishSub
+(JNIEnv *env, jclass cls, jlong ctx)
 {
 	JPContext* context = (JPContext*) ctx;
-    PyThreadState *tstate = (PyThreadState*)context->modulestate->interp_state;
-    if (tstate == nullptr) {
-        return;
-    }
+	PyThreadState *tstate = (PyThreadState*)context->modulestate->interp_state;
+	if (tstate == nullptr) {
+		return;
+	}
 
-    try
-    {
-        // 1. Switch to the subinterpreter to make it the active interpreter
-        PyThreadState *pstate = PyThreadState_Swap(tstate);
+	try
+	{
+		// 1. Switch to the subinterpreter to make it the active interpreter
+		PyThreadState *pstate = PyThreadState_Swap(tstate);
 
 		// Boot all resources held by Python objects
-    	PyUnstable_GC_VisitObjects(jpype_eject_visitor, (void*)env);
+		PyUnstable_GC_VisitObjects(jpype_eject_visitor, (void*)env);
 
-        // 2. Perform any required Python-side cleanup
-        // Note: Py_EndInterpreter will automatically clear modules 
-        // initialized in this interpreter (including _jpype)
-        Py_EndInterpreter(tstate);
+		// Boot all class references
+		context->detachJVM();
 
-        // 3. Clear the thread state swap to return to a neutral state
+		// 2. Perform any required Python-side cleanup
+		// Note: Py_EndInterpreter will automatically clear modules 
+		// initialized in this interpreter (including _jpype)
+		Py_EndInterpreter(tstate);
+
+		// 3. Clear the thread state swap to return to a neutral state
 		if (pstate == tstate)
-        	PyThreadState_Swap(nullptr);
+			PyThreadState_Swap(nullptr);
 		else
-        	PyThreadState_Swap(pstate);
-    }
-    catch (...)
-    {
-        fail(env, "Error during subinterpreter shutdown");
-    }
+			PyThreadState_Swap(pstate);
+	}
+	catch (...)
+	{
+		fail(env, "Error during subinterpreter shutdown");
+	}
 }
 
 JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_finishMain

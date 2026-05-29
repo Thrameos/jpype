@@ -26,12 +26,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
 
 public class Html
 {
-
+  final static Logger LOGGER = Logger.getLogger(Html.class.getName());
   public final static HashSet<String> VOID_ELEMENTS = new HashSet<>();
   public final static HashSet<String> OPTIONAL_ELEMENTS = new HashSet<>();
   public final static HashSet<String> OPTIONAL_CLOSE = new HashSet<>();
@@ -99,7 +101,7 @@ public class Html
       }
     } catch (IOException ex)
     {
-      throw new RuntimeException("Failed to load HTML entities", ex);
+      LOGGER.log(Level.SEVERE, "Failed to load HTML entities", ex);
     }
   }
 

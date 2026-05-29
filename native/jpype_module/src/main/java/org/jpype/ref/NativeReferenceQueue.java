@@ -17,9 +17,10 @@
 package org.jpype.ref;
 
 import java.lang.ref.ReferenceQueue;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 import org.jpype.MainInterpreter;
 import org.jpype.internal.NativeContext;
-
 
 /**
  * A reference queue that binds the lifetime of Python objects to Java objects.
@@ -49,7 +50,8 @@ import org.jpype.internal.NativeContext;
 public final class NativeReferenceQueue extends ReferenceQueue<Object>
 {
 
-  
+  final static Logger LOGGER = Logger.getLogger(NativeReferenceQueue.class.getName());
+
   /**
    * A set of active references to Python objects.
    */
@@ -69,14 +71,14 @@ public final class NativeReferenceQueue extends ReferenceQueue<Object>
    * Mutex used to synchronize stopping the queue thread.
    */
   private final Object queueStopMutex = new Object();
-  
+
   private final long address;
-  
+
   /**
    * Sentinel reference used to wake up the queue thread periodically.
    */
   NativeReference sentinel;
- 
+
   /**
    * Private constructor to initialize the reference queue.
    *
@@ -142,6 +144,7 @@ public final class NativeReferenceQueue extends ReferenceQueue<Object>
     queueThread = new Thread(new Worker(), "Python Reference Queue");
     queueThread.setDaemon(true);
     queueThread.start();
+    LOGGER.info("NativeReferenceQueue worker thread started.");
   }
 
   /**
@@ -153,6 +156,7 @@ public final class NativeReferenceQueue extends ReferenceQueue<Object>
    */
   public void stop()
   {
+    LOGGER.info("NativeReferenceQueue worker thread shutting down.");
     try
     {
       synchronized (queueStopMutex)
@@ -169,6 +173,7 @@ public final class NativeReferenceQueue extends ReferenceQueue<Object>
     } catch (InterruptedException ex)
     {
       // Ignore interruptions
+      LOGGER.log(Level.WARNING, "Interrupted worker stop", ex);
     }
 
     // Empty the queue
@@ -176,6 +181,7 @@ public final class NativeReferenceQueue extends ReferenceQueue<Object>
     {
       hostReferences.flush();
     }
+    LOGGER.info("NativeReferenceQueue worker thread stopped.");
   }
 
   /**
@@ -242,6 +248,9 @@ public final class NativeReferenceQueue extends ReferenceQueue<Object>
         } catch (InterruptedException ex)
         {
           // Ignore interruptions
+        } catch (Exception ex)
+        {
+          LOGGER.log(Level.SEVERE, "Critical error in ReferenceQueue worker", ex);
         }
       }
 

@@ -350,7 +350,8 @@ def startJVM(
 
     # Native Access (JDK 21+)
     extra_jvm_args.append("--enable-native-access=org.jpype")
-
+    if os.path.exists("logging.jpype"):
+        extra_jvm_args.append("-Djava.util.logging.config.file=logging.jpype")
 
     # --- 4. Classpath Handling ---
     # Retrieve user-defined classpath
@@ -454,6 +455,8 @@ def initializeResources():
     _jtypes.JLong.class_ = _jpype._java_lang_Long.TYPE
     _jtypes.JFloat.class_ = _jpype._java_lang_Float.TYPE
     _jtypes.JDouble.class_ = _jpype._java_lang_Double.TYPE
+
+    # Update hints
     _jtypes.JBoolean._hints = _jcustomizer.getClassHints("boolean")
     _jtypes.JByte._hints = _jcustomizer.getClassHints("byte")
     _jtypes.JChar._hints = _jcustomizer.getClassHints("char")
@@ -465,7 +468,6 @@ def initializeResources():
 
     # Table for automatic conversion to objects "JObject(value, type)"
     _jpype._object_classes = {}
-    # These need to be deprecated so that we can support casting Python objects
     _jpype._object_classes[bool] = _jpype._java_lang_Boolean
     _jpype._object_classes[int] = _jpype._java_lang_Long
     _jpype._object_classes[float] = _jpype._java_lang_Double
@@ -496,7 +498,6 @@ def initializeResources():
     _jpype._type_classes[_jpype.JString] = _jpype._java_lang_String
     _jpype._type_classes[_jpype.JObject] = _jpype._java_lang_Object
     _jpype._type_classes[_jpype.JClass] = _jpype._java_lang_Class
-    _jinit.runJVMInitializers()
 
     _jpype.JClass('org.jpype.internal.Keywords').setKeywords(
         list(_pykeywords._KEYWORDS))
@@ -505,6 +506,7 @@ def initializeResources():
     _jpype.JPypeClassLoader = _jpype.JPypeContext.getClassLoader()
 
     _jbridge.initialize()
+    _jinit.runJVMInitializers()
 
     # Everything succeeded so started is now true.
     _JVM_started = True

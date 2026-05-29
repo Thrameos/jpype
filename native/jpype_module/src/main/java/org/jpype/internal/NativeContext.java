@@ -1,7 +1,5 @@
 package org.jpype.internal;
 
-import org.jpype.Reflector;
-import org.jpype.manager.StringManager;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -12,14 +10,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
+import java.util.logging.Level;
+import org.jpype.MainInterpreter;
+import org.jpype.Reflector;
+import org.jpype.annotation.Exported;
+import org.jpype.manager.StringManager;
 import org.jpype.manager.TypeFactory;
 import org.jpype.manager.TypeFactoryNative;
 import org.jpype.manager.TypeManager;
 import org.jpype.pkg.Package;
 import org.jpype.pkg.PackageManager;
-import org.jpype.ref.NativeReferenceQueue;
 import org.jpype.proxy.ProxyFactory;
-import org.jpype.annotation.Exported;
+import org.jpype.ref.NativeReferenceQueue;
 import python.lang.PyBuiltIn;
 
 /**
@@ -54,6 +56,7 @@ import python.lang.PyBuiltIn;
 public class NativeContext
 {
 
+  final static Logger LOGGER = Logger.getLogger(MainInterpreter.class.getName());
   public static final String VERSION = "1.7.2.dev0";
   private PyBuiltIn builtin;
   private long contextAddress;
@@ -71,8 +74,6 @@ public class NativeContext
   private final List<Runnable> postHooks = new ArrayList<>();
   public static boolean freeResources = true;
   public final Reflector reflector;
-
-  public static final Logger LOGGER = Logger.getLogger(NativeContext.class.getName());
 
   public static Logger getLogger()
   {
@@ -110,10 +111,19 @@ public class NativeContext
   @SuppressWarnings("unused")
   private static NativeContext createContext(long nativeContext, DynamicClassLoader loader, String nativeLib, boolean interrupt) throws Throwable
   {
+    if (System.getProperty("java.util.logging.config.file") == null)
+    {
+      // Increase level to WARNING to prevent interpreter messages from leaking out
+      java.util.logging.Logger.getLogger("org.jpype").setLevel(java.util.logging.Level.WARNING);
+    }
+    LOGGER.log(Level.INFO, "Initializing NativeContext for native address: 0x{0}", Long.toHexString(nativeContext));
     try
     {
       if (nativeLib != null)
+      {
+        LOGGER.log(Level.INFO, "Loading library {0}", nativeLib);
         System.load(nativeLib);
+      }
 
       NativeContext ctx = new NativeContext(nativeContext, loader);
       ctx.initialize(interrupt);
@@ -135,7 +145,7 @@ public class NativeContext
   {
     this.builtin = builtin;
   }
-  
+
   public PyBuiltIn getBuildIn()
   {
     return this.builtin;
@@ -143,6 +153,7 @@ public class NativeContext
 
   private void initialize(boolean interrupt)
   {
+    LOGGER.info("Starting JPype subsystems...");
     // Okay everything is setup so lets give it a go.
     this.typeManager.init();
     this.proxyFactory.init();
@@ -151,6 +162,7 @@ public class NativeContext
     if (!interrupt)
       signal.installHandlers();
     Runtime.getRuntime().addShutdownHook(new Thread(() -> shutdown()));
+    LOGGER.info("JPype context initialized successfully.");
   }
 
   /**
@@ -171,6 +183,7 @@ public class NativeContext
           })
   private void shutdown()
   {
+    LOGGER.info("JPype shutdown sequence initiated.");
     try
     {
       // Try to yield in case there is a race condition.  The user
@@ -227,10 +240,12 @@ public class NativeContext
 
       // Inform Python no more calls are permitted
       onShutdown();
+      LOGGER.info("JPype shutdown completed successfully.");
       Thread.yield();
 
     } catch (Throwable th)
     {
+      LOGGER.log(Level.SEVERE, "Error during JPype shutdown", th);
     }
 
     if (freeResources)
@@ -269,11 +284,13 @@ public class NativeContext
 
   public void addShutdownHook(Thread th)
   {
+    LOGGER.fine("JPype shutdown hook installed.");
     this.shutdownHooks.add(th);
   }
 
   public boolean removeShutdownHook(Thread th)
   {
+    LOGGER.fine("JPype shutdown hook removed.");
     if (this.shutdownHooks.contains(th))
     {
       this.shutdownHooks.remove(th);
@@ -331,6 +348,7 @@ public class NativeContext
   @Exported
   public void clearInterrupt(boolean x) throws InterruptedException
   {
+    LOGGER.info("Clear interrupt");
     try
     {
       Thread th = Thread.currentThread();
@@ -374,6 +392,7 @@ public class NativeContext
   @Exported
   public Package getPackage(String s)
   {
+    LOGGER.log(Level.FINER, "Package request for {0}", s);
     s = Keywords.safepkg(s);
     if (!PackageManager.isPackage(s))
       return null;
@@ -394,6 +413,7 @@ public class NativeContext
     String[] paths = System.getProperty("java.class.path").split(File.pathSeparator);
     for (String path : paths)
     {
+      LOGGER.log(Level.FINER, "Sanning jar: {0}", path);
       this.classLoader.scanJar(Paths.get(path));
     }
   }
