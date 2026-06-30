@@ -395,6 +395,7 @@ private:
 #else
     PyThreadState* m_NewState;
     PyThreadState* m_PriorState;
+    bool m_UseGILState;
 #endif
 };
 

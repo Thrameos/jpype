@@ -129,6 +129,7 @@ struct PyJPModuleState
 	JPContext* context;
 	PyObject* module_dict; // borrowed
 	PyInterpreterState* interp_state;
+	bool is_main_interpreter;  // true if this is the main Python interpreter
 	int count;
 	int held;
 

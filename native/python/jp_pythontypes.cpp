@@ -394,6 +394,7 @@ void JPPyErr::restore(JPPyObject& exceptionClass, JPPyObject& exceptionValue, JP
 
 
 #if PY_VERSION_HEX<0x030c0000
+// Python < 3.12: Simple GIL state API works for everything
 JPPyCallAcquire::JPPyCallAcquire(PyJPModuleState* st)
 {
 	m_NewState = (long) PyGILState_Ensure();
@@ -405,64 +406,52 @@ JPPyCallAcquire::~JPPyCallAcquire()
 }
 
 #else
-// FIXME 3.13+ introduced a public method
+// Python 3.12+: Need different approaches for main vs subinterpreter
 extern "C" PyThreadState* _PyThreadState_GetCurrent(void);
 
 JPPyCallAcquire::JPPyCallAcquire(PyJPModuleState* st)
 {
-    PyThreadState *tstate = _PyThreadState_GetCurrent();
-
-    printf("[DEBUG] JPPyCallAcquire: tstate=%p, st=%p, st->interp_state=%p\n",
-           (void*)tstate, (void*)st, (void*)(st ? st->interp_state : nullptr));
-    fflush(stdout);
-
-    if (tstate != nullptr) {
-        printf("[DEBUG]   tstate->interp=%p\n", (void*)tstate->interp);
-        fflush(stdout);
+    // For main interpreter, use simple GIL state API (works reliably)
+    if (st->is_main_interpreter)
+    {
+        m_NewState = (PyThreadState*)(long) PyGILState_Ensure();
+        m_UseGILState = true;
+        return;
     }
 
-    // Check if the current thread state belongs to the target interpreter
+    // For subinterpreter: manual thread state management
+    PyThreadState *tstate = _PyThreadState_GetCurrent();
+
+    // Check if we already have the right interpreter
     if (tstate != nullptr && tstate->interp == st->interp_state)
     {
-        // You are already in the correct interpreter. Do nothing.
-        printf("[DEBUG]   Already in correct interpreter, no swap needed\n");
-        fflush(stdout);
+        // Already in correct interpreter, do nothing
         m_NewState = nullptr;
+        m_UseGILState = false;
     }
     else
     {
-        // Either tstate is null, or it belongs to a different interpreter.
-        // Swap to a state owned by st->interp_state.
-        printf("[DEBUG]   Creating new thread state and swapping\n");
-        fflush(stdout);
+        // Need to create a thread state for this subinterpreter
+        // The quirk: we must hold a valid state while creating the new one
         m_NewState = PyThreadState_New(st->interp_state);
-        printf("[DEBUG]   Created new state: %p\n", (void*)m_NewState);
-        fflush(stdout);
         m_PriorState = PyThreadState_Swap(m_NewState);
-        printf("[DEBUG]   Swapped, prior state: %p\n", (void*)m_PriorState);
-        fflush(stdout);
+        m_UseGILState = false;
     }
 }
 
 JPPyCallAcquire::~JPPyCallAcquire()
 {
-    printf("[DEBUG] ~JPPyCallAcquire: m_NewState=%p\n", (void*)m_NewState);
-    fflush(stdout);
-
-    if (m_NewState != nullptr)
+    if (m_UseGILState)
     {
-        printf("[DEBUG]   Clearing and deleting thread state\n");
-        fflush(stdout);
-        PyThreadState_Clear(m_NewState);
-        printf("[DEBUG]   Swapping back to prior state: %p\n", (void*)m_PriorState);
-        fflush(stdout);
-        PyThreadState_Swap(m_PriorState);  // Swap back FIRST
-        printf("[DEBUG]   Deleting thread state\n");
-        fflush(stdout);
-        PyThreadState_Delete(m_NewState); // Then delete (not DeleteCurrent which affects the active state)
+        PyGILState_Release((PyGILState_STATE)(long)m_NewState);
     }
-    printf("[DEBUG] ~JPPyCallAcquire done\n");
-    fflush(stdout);
+    else if (m_NewState != nullptr)
+    {
+        // The quirk: swap back BEFORE clearing/deleting
+        PyThreadState_Swap(m_PriorState);
+        PyThreadState_Clear(m_NewState);
+        PyThreadState_Delete(m_NewState);
+    }
 }
 #endif
 

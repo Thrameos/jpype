@@ -1236,7 +1236,13 @@ PyMODINIT_FUNC PyInit__jpype()
 	// Initialize module state
 	memset(st, 0, sizeof(PyJPModuleState));
 	st->module_dict = PyModule_GetDict(module);
-	st->interp_state = PyThreadState_Get()->interp; 
+	st->interp_state = PyThreadState_Get()->interp;
+#if PY_VERSION_HEX>=0x030c0000
+	// Mark if this is the main interpreter for Python 3.12+
+	st->is_main_interpreter = (st->interp_state == PyInterpreterState_Main());
+#else
+	st->is_main_interpreter = true;  // Python < 3.12 only has main interpreter
+#endif
 	st->count = 1;
 	st->held = 1;
 
