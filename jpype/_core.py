@@ -649,9 +649,12 @@ _jpype.JVMNotRunning = JVMNotRunning
 
 # Support for Java bridge code
 # Dictionary of Python types to Java Interfaces
+# These are created here as placeholders, then populated in _jbridge.initialize()
+print("[INIT] _core.py: Creating placeholder dicts")
 _jpype._concrete = {}
-# Dictionary of String to Java Interfaces
 _jpype._protocol = {}
+_jpype._methods = {}
+print(f"[INIT] _core.py: Created dicts - _concrete id={id(_jpype._concrete)}, len={len(_jpype._concrete)}")
 # Dictionary of Type to Tuple(Interface[], Dict)
 _jpype._cache = weakref.WeakKeyDictionary()
 # Dictionary of Tuple(Interface[]) to Tuple(Interface[])

@@ -279,6 +279,7 @@ JPPyObject PyTrace_FromJavaException(JPJavaFrame& frame, jthrowable th, jthrowab
 void	   PyJPException_normalize(JPJavaFrame frame, JPPyObject exc, jthrowable th, jthrowable enclosing);
 
 void PyJPModule_installGC(PyObject* module);
+void PyJPModule_loadResources(PyObject* module, PyJPModuleState* st);
 
 void PyJPArray_initType(PyObject* module, PyJPModuleState* st);
 void PyJPBuffer_initType(PyObject* module, PyJPModuleState* st);

@@ -235,9 +235,9 @@ def initialize():
         "asDouble": float,
         "asLong": int,
         "bytearray": bytearray,
-        "bytearrayFromHex": bytearray.fromhex,
+        "bytearrayFromHex": lambda s: bytearray.fromhex(str(s)),
         "bytes": bytes,
-        "bytesFromHex": bytes.fromhex,
+        "bytesFromHex": lambda s: bytes.fromhex(str(s)),
         "call": _call,
         "callAsync": _call_async,
         "callAsyncWithTimeout": _call_async_with_timeout,
@@ -881,7 +881,9 @@ def initialize():
     backend = Backend@JProxy(Backend, dict=_PyJPBackendMethods)
 
     #############################################################################
+    # Populate the concrete dictionaries (created as placeholders in _core.py)
     # Add all of the concrete types to the _concrete interfaces list.
+    print(f"[INIT] _jbridge.initialize(): Populating _concrete dict id={id(_jpype._concrete)}, current len={len(_jpype._concrete)}")
     _jpype._concrete[bytearray] = _PyByteArray
     _jpype._concrete[bytes] = _PyBytes
     _jpype._concrete[complex] = _PyComplex
@@ -903,6 +905,7 @@ def initialize():
     _jpype._concrete[zip] = _PyZip
     _jpype._concrete[range] = _PyRange
     _jpype._concrete[type] = _PyType
+    print(f"[INIT] _jbridge.initialize(): Populated _concrete, len={len(_jpype._concrete)}, tuple in dict={tuple in _jpype._concrete}")
 
     #############################################################################
     # Add all of the abstract types to the _protocol interfaces list

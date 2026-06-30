@@ -1208,13 +1208,23 @@ JPPyObject PyJPClass_create(JPJavaFrame &frame, JPClass* cls)
 
 void PyJPClass_hook(JPJavaFrame &frame, JPClass* cls)
 {
+	printf("[DEBUG] PyJPClass_hook START for class: %p\n", (void*)cls);
+	fflush(stdout);
+
 	JPContext *context = frame.getContext();
 	auto *host = (PyObject*) cls->getHost();
-	if (host != nullptr)
+	if (host != nullptr) {
+		printf("[DEBUG] PyJPClass_hook: class already has host, returning\n");
+		fflush(stdout);
 		return;
+	}
 
-
+	printf("[DEBUG] Creating members dict\n");
+	fflush(stdout);
 	JPPyObject members = JPPyObject::call(PyDict_New());
+
+	printf("[DEBUG] Getting canonical name\n");
+	fflush(stdout);
 	JPPyObject args = JPPyTuple_Pack(
 			JPPyString::fromStringUTF8(cls->getCanonicalName(frame)).get(),
 			PyJPClass_getBases(frame, cls).get(),
@@ -1222,15 +1232,23 @@ void PyJPClass_hook(JPJavaFrame &frame, JPClass* cls)
 
 	// Catch creation loop,  the process of creating our parent
 	host = (PyObject*) cls->getHost();
-	if (host != nullptr)
+	if (host != nullptr) {
+		printf("[DEBUG] PyJPClass_hook: class got host during setup, returning\n");
+		fflush(stdout);
 		return;
+	}
 
+	printf("[DEBUG] Adding fields\n");
+	fflush(stdout);
 	const JPFieldList & instFields = cls->getFields();
 	for (auto instField : instFields)
 	{
 		JPPyObject fieldName(JPPyString::fromStringUTF8(instField->getName()));
 		PyDict_SetItem(members.get(), fieldName.get(), PyJPField_create(frame, instField).get());
 	}
+
+	printf("[DEBUG] Adding methods\n");
+	fflush(stdout);
 	const JPMethodDispatchList& m_Methods = cls->getMethods();
 	for (auto m_Method : m_Methods)
 	{
@@ -1241,6 +1259,8 @@ void PyJPClass_hook(JPJavaFrame &frame, JPClass* cls)
 
 	if (cls->isInterface())
 	{
+		printf("[DEBUG] Adding interface methods\n");
+		fflush(stdout);
 		const JPMethodDispatchList& m_Methods2 = context->_java_lang_Object->getMethods();
 		for (auto m_Method : m_Methods2)
 		{
@@ -1252,12 +1272,34 @@ void PyJPClass_hook(JPJavaFrame &frame, JPClass* cls)
 
 	// Call the customizer to make any required changes to the tables.
 	JP_TRACE("call pre");
-	JPPyObject rc = JPPyObject::call(PyObject_Call(context->modulestate->JClassPre, args.get(), nullptr));
+	printf("[DEBUG] Calling JClassPre: %p with args: %p\n",
+	       (void*)context->modulestate->JClassPre, args.get());
+	fflush(stdout);
+
+	// JClassPre may not be available during early initialization (when loading resources)
+	// In that case, we use the args directly without customization
+	JPPyObject rc;
+	if (context->modulestate->JClassPre != nullptr) {
+		rc = JPPyObject::call(PyObject_Call(context->modulestate->JClassPre, args.get(), nullptr));
+		printf("[DEBUG] JClassPre returned: %p\n", rc.get());
+		fflush(stdout);
+	} else {
+		printf("[DEBUG] JClassPre is NULL, skipping customization (early init)\n");
+		fflush(stdout);
+		rc = args; // Use args directly as the "result"
+	}
 
 	JP_TRACE("type new");
 	PyJPModuleState* st = frame.getContext()->modulestate;
+	printf("[DEBUG] Creating type via tp_call, PyJPClass_Type=%p, class_magic=%p\n",
+	       (void*)st->PyJPClass_Type, (void*)st->class_magic);
+	fflush(stdout);
 	// Create the type using the meta class magic
+	printf("[DEBUG] About to call tp_call\n");
+	fflush(stdout);
 	JPPyObject vself = JPPyObject::call(st->PyJPClass_Type->tp_call((PyObject*) st->PyJPClass_Type, rc.get(), st->class_magic));
+	printf("[DEBUG] tp_call returned: %p\n", vself.get());
+	fflush(stdout);
 	auto *self = (PyJPClass*) vself.get();
 
 	// Attach the javaSlot
@@ -1272,8 +1314,13 @@ void PyJPClass_hook(JPJavaFrame &frame, JPClass* cls)
 
 	// Call the post load routine to attach inner classes
 	JP_TRACE("call post");
-	args = JPPyTuple_Pack(self);
-	JPPyObject rc2 = JPPyObject::call(PyObject_Call(context->modulestate->JClassPost, args.get(), nullptr));
+	if (context->modulestate->JClassPost != nullptr) {
+		args = JPPyTuple_Pack(self);
+		JPPyObject rc2 = JPPyObject::call(PyObject_Call(context->modulestate->JClassPost, args.get(), nullptr));
+	} else {
+		printf("[DEBUG] JClassPost is NULL, skipping post-processing (early init)\n");
+		fflush(stdout);
+	}
 }
 
 #ifdef __cplusplus

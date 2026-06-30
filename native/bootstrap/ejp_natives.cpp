@@ -27,7 +27,7 @@ void* PyInit__jpypeb()
    shared library with local flags.  We need a load which supports shared
    used with all Python modules.
 */
-JNIEXPORT jlong JNICALL Java_org_jpype_bridge_BootstrapLoader_loadLibrary
+JNIEXPORT void JNICALL Java_org_jpype_BootstrapLoader_loadLibrary
 (JNIEnv *env, jclass clazz, jstring lib)
 {
     const char *path = env->GetStringUTFChars(lib, nullptr);
@@ -38,10 +38,11 @@ JNIEXPORT jlong JNICALL Java_org_jpype_bridge_BootstrapLoader_loadLibrary
 #if defined(_HPUX) && !defined(_IA64)
 	handle = shl_load(path, BIND_DEFERRED | BIND_VERBOSE, 0L);
 #else
-    handle = dlopen(path, RTLD_GLOBAL | RTLD_LAZY); 
+    handle = dlopen(path, RTLD_GLOBAL | RTLD_LAZY);
 #endif
 #endif
-	return (jlong) handle;
+	env->ReleaseStringUTFChars(lib, path);
+	// Note: void return, handle is intentionally discarded after loading
 }
 
 #ifdef __cplusplus

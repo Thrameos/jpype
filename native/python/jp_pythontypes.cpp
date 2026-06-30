@@ -411,30 +411,58 @@ extern "C" PyThreadState* _PyThreadState_GetCurrent(void);
 JPPyCallAcquire::JPPyCallAcquire(PyJPModuleState* st)
 {
     PyThreadState *tstate = _PyThreadState_GetCurrent();
-    
+
+    printf("[DEBUG] JPPyCallAcquire: tstate=%p, st=%p, st->interp_state=%p\n",
+           (void*)tstate, (void*)st, (void*)(st ? st->interp_state : nullptr));
+    fflush(stdout);
+
+    if (tstate != nullptr) {
+        printf("[DEBUG]   tstate->interp=%p\n", (void*)tstate->interp);
+        fflush(stdout);
+    }
+
     // Check if the current thread state belongs to the target interpreter
     if (tstate != nullptr && tstate->interp == st->interp_state)
     {
         // You are already in the correct interpreter. Do nothing.
+        printf("[DEBUG]   Already in correct interpreter, no swap needed\n");
+        fflush(stdout);
         m_NewState = nullptr;
     }
     else
     {
         // Either tstate is null, or it belongs to a different interpreter.
         // Swap to a state owned by st->interp_state.
+        printf("[DEBUG]   Creating new thread state and swapping\n");
+        fflush(stdout);
         m_NewState = PyThreadState_New(st->interp_state);
+        printf("[DEBUG]   Created new state: %p\n", (void*)m_NewState);
+        fflush(stdout);
         m_PriorState = PyThreadState_Swap(m_NewState);
+        printf("[DEBUG]   Swapped, prior state: %p\n", (void*)m_PriorState);
+        fflush(stdout);
     }
 }
 
 JPPyCallAcquire::~JPPyCallAcquire()
 {
+    printf("[DEBUG] ~JPPyCallAcquire: m_NewState=%p\n", (void*)m_NewState);
+    fflush(stdout);
+
     if (m_NewState != nullptr)
     {
+        printf("[DEBUG]   Clearing and deleting thread state\n");
+        fflush(stdout);
         PyThreadState_Clear(m_NewState);
-        PyThreadState_DeleteCurrent(); // Releases the GIL so something else can go
-        PyThreadState_Swap(m_PriorState);  // Reacquires the prior state so we don't bust someone else
+        printf("[DEBUG]   Swapping back to prior state: %p\n", (void*)m_PriorState);
+        fflush(stdout);
+        PyThreadState_Swap(m_PriorState);  // Swap back FIRST
+        printf("[DEBUG]   Deleting thread state\n");
+        fflush(stdout);
+        PyThreadState_Delete(m_NewState); // Then delete (not DeleteCurrent which affects the active state)
     }
+    printf("[DEBUG] ~JPPyCallAcquire done\n");
+    fflush(stdout);
 }
 #endif
 

@@ -261,9 +261,18 @@ JPContext* launch(JNIEnv* env, jobject interpreter)
 {
 	JPContext* context;
 
+	printf("[DEBUG] launch() starting\n");
+	fflush(stdout);
+
 	// We need the interpeter copy of these resources
 	JPPyObject jpype = JPPyObject::accept(PyImport_ImportModule("jpype"));
+	printf("[DEBUG] imported jpype module: %p\n", jpype.get());
+	fflush(stdout);
+
 	JPPyObject jpypep = JPPyObject::accept(PyImport_ImportModule("_jpype"));
+	printf("[DEBUG] imported _jpype module: %p\n", jpypep.get());
+	fflush(stdout);
+
 	if (!jpypep.isValid())
 	{
 		printf("missing _jpype\n");
@@ -271,7 +280,7 @@ JPContext* launch(JNIEnv* env, jobject interpreter)
 		fail(env, "_jpype module not found");
 		return nullptr;
 	}
-	
+
 	// Import the Python side to create the hooks
 	if (!jpype.isValid())
 	{
@@ -283,22 +292,46 @@ JPContext* launch(JNIEnv* env, jobject interpreter)
 
 	// The interpreter specific context will contain our fresh JPContext
 	PyJPModuleState* st = reinterpret_cast<PyJPModuleState*>(PyModule_GetState(jpypep.get()));
+	printf("[DEBUG] got module state: %p, interp_state: %p\n", (void*)st, (void*)(st ? st->interp_state : nullptr));
+	fflush(stdout);
 
 	// Then attach the private module to the JVM
 	context = st->context;
+	printf("[DEBUG] got context: %p\n", (void*)context);
+	fflush(stdout);
 
 	// JContext needs a back reference to the starting interpreter
 	context->m_Interpreter = env->NewGlobalRef(interpreter);
 
 	// It needs to be told Java is already running
+	printf("[DEBUG] attaching JVM\n");
+	fflush(stdout);
 	context->attachJVM(env);
 	JPJavaFrame frame = JPJavaFrame::external(env, context);
-	
+
+	// CRITICAL: Load resources from _jpype module BEFORE calling initializeResources
+	// At this point, jpype._core has created empty placeholder dicts: _jpype._concrete, _protocol, _methods
+	// This loads references to those (empty) dicts into the C module state
+	printf("[DEBUG] calling PyJPModule_loadResources\n");
+	fflush(stdout);
+	PyJPModule_loadResources(jpypep.get(), st);
+	printf("[DEBUG] PyJPModule_loadResources done\n");
+	fflush(stdout);
+
 	// Initialize the resources in the jpype module
+	// This calls _jbridge.initialize() which POPULATES the _concrete, _protocol, _methods dicts
+	// Since C module holds references to the same dict objects, it sees the populated entries
+	printf("[DEBUG] calling initializeResources()\n");
+	fflush(stdout);
 	JPPyObject obj = JPPyObject::call(PyObject_GetAttrString(jpype.get(), "_core"));
 	JPPyObject obj2 = JPPyObject::call(PyObject_GetAttrString(obj.get(), "initializeResources"));
 	JPPyObject obj3 = JPPyObject::call(PyTuple_New(0));
 	JPPyObject out = JPPyObject::call(PyObject_Call(obj2.get(), obj3.get(), NULL));
+	printf("[DEBUG] initializeResources() done: %p\n", out.get());
+	fflush(stdout);
+
+	printf("[DEBUG] launch() done\n");
+	fflush(stdout);
 	return context;
 }
 
@@ -307,7 +340,7 @@ JPContext* launch(JNIEnv* env, jobject interpreter)
  * A list of module_search_paths so this can be used of limited/embedded deployments.
  * A list of command line arguments so we can execute command line functionality.
  */
-JNIEXPORT jobject JNICALL Java_org_jpype_internal_NativeControl_startMain
+JNIEXPORT jobject JNICALL Java_org_jpype_internal_NativeLauncherControl_startMain
 (JNIEnv *env, jclass cls, jobjectArray modulePath, jobjectArray args, 
 	jstring name, jstring prefix, jstring home, jstring exec_prefix, jstring executable,
 	jboolean isolated, jboolean faulthandler, jboolean quiet, jboolean verbose,
@@ -421,7 +454,7 @@ success_config:
 	return nullptr;
 }
 
-JNIEXPORT jobject JNICALL Java_org_jpype_internal_NativeControl_startSubInterpreter
+JNIEXPORT jobject JNICALL Java_org_jpype_internal_NativeLauncherControl_startSubInterpreter
 (JNIEnv *env, jclass cls, jobject interpreter)
 {
 #if PY_VERSION_HEX<0x030c0000
@@ -464,7 +497,7 @@ JNIEXPORT jobject JNICALL Java_org_jpype_internal_NativeControl_startSubInterpre
 }
 
 
-JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_interactive
+JNIEXPORT void JNICALL Java_org_jpype_internal_NativeLauncherControl_interactive
 (JNIEnv *env, jclass cls, jlong ctx)
 {
 	auto* context = (JPContext*) ctx;
@@ -483,7 +516,7 @@ JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_interactive
 
 extern "C" PyThreadState* _PyThreadState_GetCurrent(void);
 
-JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_finishSub
+JNIEXPORT void JNICALL Java_org_jpype_internal_NativeLauncherControl_finishSub
 (JNIEnv *env, jclass cls, jlong ctx)
 {
 #if PY_VERSION_HEX<0x030c0000
@@ -533,7 +566,7 @@ JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_finishSub
 #endif
 }
 
-JNIEXPORT void JNICALL Java_org_jpype_internal_NativeControl_finishMain
+JNIEXPORT void JNICALL Java_org_jpype_internal_NativeLauncherControl_finishMain
 (JNIEnv *env, jclass cls, jlong ctx)
 {
 	try
