@@ -33,11 +33,11 @@ public class PyDictItemsIterator<K, V> implements Iterator<Map.Entry<K, V>>
   private final PyBuiltIn builtin;
   private boolean check = false;
   private boolean done = false;
-  private final PyIter<PyTuple> iter;
+  private final PyIter<?> iter;
   private final BiFunction<K, V, V> setter;
-  private PyTuple yield;
+  private PyObject yield;
 
-  public PyDictItemsIterator(PyIter<PyTuple> iter, BiFunction<K, V, V> setter)
+  public PyDictItemsIterator(PyIter<?> iter, BiFunction<K, V, V> setter)
   {
     this.builtin = iter.builtin();
     this.iter = iter;
@@ -54,8 +54,8 @@ public class PyDictItemsIterator<K, V> implements Iterator<Map.Entry<K, V>>
       return !done;
     check = true;
     if (yield == null)
-      yield = (PyTuple) builtin.backend.next(iter, MainInterpreter.stop);
-    done = (yield == MainInterpreter.stop);
+      yield = builtin.backend.next(iter, MainInterpreter.stop);
+    done = yield.equals(MainInterpreter.stop);
     return !done;
   }
 
@@ -69,8 +69,8 @@ public class PyDictItemsIterator<K, V> implements Iterator<Map.Entry<K, V>>
       throw new NoSuchElementException();
     check = false;
 
-    K key = (K) yield.get(0);
-    V value = (V) yield.get(1);
+    K key = (K) builtin.backend.getitemSequence(yield, 0);
+    V value = (V) builtin.backend.getitemSequence(yield, 1);
     return new FunctionalAdapters.MapEntryWithSet<>(key, value, setter);
   }
 

@@ -125,4 +125,5 @@ project/clgc.c
 project/input.sh
 x64/
 RelWithDebInfo/
-
+ai/
+.codexrc
