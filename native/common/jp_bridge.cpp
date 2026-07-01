@@ -518,6 +518,9 @@ JNIEXPORT void JNICALL Java_org_jpype_internal_NativeLauncherControl_finishSub
 
 	try
 	{
+		// Mark interpreter as shutting down - prevents JPPyCallAcquire from trying to acquire GIL
+		st->is_shutting_down = true;
+
 		// Boot all resources held by Python objects
 		PyUnstable_GC_VisitObjects(jpype_eject_visitor, (void*)env);
 
@@ -525,7 +528,7 @@ JNIEXPORT void JNICALL Java_org_jpype_internal_NativeLauncherControl_finishSub
 		context->detachJVM();
 
 		// 2. Perform any required Python-side cleanup
-		// Note: Py_EndInterpreter will automatically clear modules 
+		// Note: Py_EndInterpreter will automatically clear modules
 		// initialized in this interpreter (including _jpype)
 		Py_EndInterpreter(tstate);
 
@@ -549,6 +552,8 @@ JNIEXPORT void JNICALL Java_org_jpype_internal_NativeLauncherControl_finishMain
 	{
 		JPContext* context = (JPContext*) ctx;
 		PyGILState_STATE gstate = PyGILState_Ensure();
+		// Mark interpreter as shutting down - prevents JPPyCallAcquire from trying to acquire GIL
+		context->modulestate->is_shutting_down = true;
 		context->detachJVM();
 		Py_Finalize();
 	} catch (JPypeException& ex)

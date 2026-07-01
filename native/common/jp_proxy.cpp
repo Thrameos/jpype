@@ -102,11 +102,11 @@ extern "C" JNIEXPORT jobject JNICALL Java_org_jpype_proxy_ProxyInstance_hostInvo
 {
 	JPProxy* proxy = (JPProxy*) hostObj;
 	JPContext* context = proxy->m_Context;
-	if (context == nullptr || !context->isRunning())
+	if (context == nullptr || !context->isRunning() || context->modulestate->is_shutting_down)
 	{
 		jclass ise = env->FindClass("java/lang/IllegalStateException");
 		env->ThrowNew(ise, "JPype Proxy invoked after the Python Interpreter was terminated.");
-		return nullptr; 
+		return nullptr;
 	}
 
 	JPJavaFrame frame = JPJavaFrame::external(env, context);

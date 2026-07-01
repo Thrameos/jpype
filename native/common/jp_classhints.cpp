@@ -1006,7 +1006,7 @@ public:
 		JPPyObject probe_result = JPPyObject::accept(PyJP_probe(match.st, Py_TYPE(match.object)));
 		if (!probe_result.isValid())
 			return match.type = JPMatch::_none;
-			
+
 		JPPyObject intf = JPPyObject::use(PyTuple_GetItem(probe_result.get(), 0));
 		PyObject* target = (PyObject*) cls->getHost();
 
@@ -1014,15 +1014,41 @@ public:
 			return match.type = JPMatch::_none;
 
 		Py_ssize_t size = PyTuple_Size(intf.get());
+		printf("JPConversionPython: target=%s, intf count=%zd\n", cls->getCanonicalName(*match.frame).c_str(), size);
 		for (Py_ssize_t i = 0; i < size; ++i)
 		{
-			if (PyTuple_GetItem(intf.get(), i) == (PyObject*)target)
+			PyObject* probed_interface = PyTuple_GetItem(intf.get(), i);
+
+			// Check for exact match first
+			if (probed_interface == target)
 			{
-				JP_TRACE("implicit python");
+				printf("  [%zd] EXACT MATCH\n", i);
+				JP_TRACE("implicit python exact");
 				match.conversion = this;
 				return match.type = JPMatch::_implicit;
 			}
+
+			// Check if probed interface is assignable to target (inheritance check)
+			JPClass* probed_cls = PyJPClass_getJPClass(probed_interface);
+			if (probed_cls != nullptr)
+			{
+				printf("  [%zd] probed=%s, checking assignability...\n", i, probed_cls->getCanonicalName(*match.frame).c_str());
+				bool assignable = match.frame->IsAssignableFrom(probed_cls->getJavaClass(), cls->getJavaClass()) != 0;
+				printf("      assignable=%d\n", assignable);
+				if (assignable)
+				{
+					printf("      MATCHED!\n");
+					JP_TRACE("implicit python assignable", probed_cls->getCanonicalName(*match.frame), cls->getCanonicalName(*match.frame));
+					match.conversion = this;
+					return match.type = JPMatch::_implicit;
+				}
+			}
+			else
+			{
+				printf("  [%zd] PyJPClass_getJPClass returned nullptr\n", i);
+			}
 		}
+		printf("  NO MATCH FOUND\n");
 		return match.type = JPMatch::_none;
 		JP_TRACE_OUT;
 	}

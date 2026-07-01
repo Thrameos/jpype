@@ -389,6 +389,10 @@ public:
     JPPyCallAcquire(const JPPyCallAcquire&) = delete;
     JPPyCallAcquire& operator=(const JPPyCallAcquire&) = delete;
 
+    // Cancel the RAII - don't release resources in destructor
+    // Used when Python is shutting down and we can't safely call Python APIs
+    void cancel();
+
 private:
 #if PY_VERSION_HEX<0x030c0000
 	long m_NewState;

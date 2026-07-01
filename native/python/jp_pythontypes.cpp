@@ -397,12 +397,25 @@ void JPPyErr::restore(JPPyObject& exceptionClass, JPPyObject& exceptionValue, JP
 // Python < 3.12: Simple GIL state API works for everything
 JPPyCallAcquire::JPPyCallAcquire(PyJPModuleState* st)
 {
+	// If interpreter is shutting down, don't acquire GIL - mark as cancelled
+	if (st->is_shutting_down)
+	{
+		m_NewState = -1;
+		return;
+	}
 	m_NewState = (long) PyGILState_Ensure();
+}
+
+void JPPyCallAcquire::cancel()
+{
+	m_NewState = -1; // Sentinel value to skip release
 }
 
 JPPyCallAcquire::~JPPyCallAcquire()
 {
-	PyGILState_Release((PyGILState_STATE)m_NewState);
+	// If cancelled (m_NewState == -1), don't call Python API
+	if (m_NewState != -1)
+		PyGILState_Release((PyGILState_STATE)m_NewState);
 }
 
 #else
@@ -411,6 +424,14 @@ extern "C" PyThreadState* _PyThreadState_GetCurrent(void);
 
 JPPyCallAcquire::JPPyCallAcquire(PyJPModuleState* st)
 {
+    // If interpreter is shutting down, don't acquire GIL - mark as cancelled
+    if (st->is_shutting_down)
+    {
+        m_NewState = nullptr;
+        m_UseGILState = false;
+        return;
+    }
+
     // For main interpreter, use simple GIL state API (works reliably)
     if (st->is_main_interpreter)
     {
@@ -439,8 +460,16 @@ JPPyCallAcquire::JPPyCallAcquire(PyJPModuleState* st)
     }
 }
 
+void JPPyCallAcquire::cancel()
+{
+    // Set sentinel values to skip release in destructor
+    m_NewState = nullptr;
+    m_UseGILState = false;
+}
+
 JPPyCallAcquire::~JPPyCallAcquire()
 {
+    // If cancelled (m_NewState set by cancel()), skip Python API calls
     if (m_UseGILState)
     {
         PyGILState_Release((PyGILState_STATE)(long)m_NewState);

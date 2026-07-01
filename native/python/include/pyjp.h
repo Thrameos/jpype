@@ -130,6 +130,7 @@ struct PyJPModuleState
 	PyObject* module_dict; // borrowed
 	PyInterpreterState* interp_state;
 	bool is_main_interpreter;  // true if this is the main Python interpreter
+	bool is_shutting_down;     // true when interpreter is finalizing - don't call Python APIs
 	int count;
 	int held;
 

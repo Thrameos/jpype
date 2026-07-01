@@ -443,14 +443,22 @@ def initialize():
 
 
     ### Memory like
+    def _bytes_decode(b, encoding='utf-8', errors='strict'):
+        # Convert Java String/PyObject to Python str
+        return bytes.decode(b, str(encoding) if encoding else 'utf-8', str(errors) if errors else 'strict')
+
+    def _bytearray_decode(b, encoding='utf-8', errors='strict'):
+        # Convert Java String/PyObject to Python str
+        return bytearray.decode(b, str(encoding) if encoding else 'utf-8', str(errors) if errors else 'strict')
+
     _PyBufferMethods: MutableMapping[str, Callable] = {}
     _PyBytesMethods: MutableMapping[str, Callable] = {
-        "decode": bytes.decode,
+        "decode": _bytes_decode,
         "translate": bytes.translate,
     }
 
     _PyByteArrayMethods: MutableMapping[str, Callable] = {
-        "decode": bytearray.decode,
+        "decode": _bytearray_decode,
         "translate": bytearray.translate,
     }
 

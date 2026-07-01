@@ -54,6 +54,9 @@ JNIEXPORT void JNICALL Java_org_jpype_ref_NativeReference_removeHostReference
 		auto *context = (JPContext*) ctx;
 		if (context == nullptr || !context->isRunning())
 			return;
+		// Skip cleanup if Python is shutting down - phantom refs fire during JVM shutdown
+		if (context->modulestate->is_shutting_down)
+			return;
 		JPJavaFrame frame = JPJavaFrame::external(env, context);
 		JPPyCallAcquire callback(context->modulestate);
 		if (cleanup != 0)
@@ -76,6 +79,9 @@ JNIEXPORT void JNICALL Java_org_jpype_ref_NativeReference_wake
 	{
 		auto *context = (JPContext*) ctx;
 		if (context == nullptr || !context->isRunning())
+			return;
+		// Skip GC trigger if Python is shutting down
+		if (context->modulestate->is_shutting_down)
 			return;
 		JPPyCallAcquire callback(context->modulestate);
 		context->m_GC->triggered();
