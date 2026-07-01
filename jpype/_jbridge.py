@@ -400,8 +400,8 @@ def initialize():
     }
 
     _PyComplexMethods: MutableMapping[str, Callable] = {
-        "real": lambda x: x.real(),
-        "imag": lambda x: x.imag(),
+        "real": lambda x: x.real,
+        "imag": lambda x: x.imag,
         "conjugate": complex.conjugate
     }
 
