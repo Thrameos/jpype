@@ -54,13 +54,8 @@ def jvm_session(request):
     logger = logging.getLogger(__name__)
 
     assert not jpype.isJVMStarted()
-    try:
-        import faulthandler
-        faulthandler.enable()
-        faulthandler.disable()
-    except:
-        pass
-
+    import faulthandler
+    faulthandler.enable()
 
     classpath = request.config.getoption("--classpath")
     convertStrings = request.config.getoption("--convertStrings")
@@ -72,7 +67,9 @@ def jvm_session(request):
     jvm_path = jpype.getDefaultJVMPath()
     logger.info("Running testsuite using JVM %s" % jvm_path)
     classpath_arg = "-Djava.class.path=%s"
-    args = ["-ea", "-Xmx256M", "-Xms16M"]
+    args = ["-ea", "-Xmx256M", "-Xms16M",
+            "-Xrs"  # disable signal handler for sigsegv, sigabrt
+            ]
     if checkjni:
         args.append("-Xcheck:jni")
     if classpath:
