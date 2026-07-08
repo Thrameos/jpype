@@ -488,9 +488,9 @@ void JPPyErrFrame::normalize()
 	auto excValue = m_ExceptionValue.get();
 	if (excValue && !PyExceptionInstance_Check(excValue))
 	{
-		JPPyObject args = JPPyTuple_Pack(m_ExceptionValue.get());
+		JPPyObject args = JPPyTuple_Pack(excValue);
 		m_ExceptionValue = JPPyObject::call(PyObject_Call(m_ExceptionClass.get(), args.get(), nullptr));
-		PyException_SetTraceback(m_ExceptionValue.get(), m_ExceptionTrace.get());
+		PyException_SetTraceback(excValue, m_ExceptionTrace.get());
 		JPPyErr::restore(m_ExceptionClass, m_ExceptionValue, m_ExceptionTrace);
 		JPPyErr::fetch(m_ExceptionClass, m_ExceptionValue, m_ExceptionTrace);
 	}
