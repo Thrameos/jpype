@@ -16,8 +16,22 @@ public class PyDictItemsIteratorNGTest extends PyTestHarness
   {
     PyDict dict = context.dict();
     for (int i = 0; i < items.length; i += 2)
-      dict.putAny(items[i], items[i + 1]);
+      dict.putAny(toPyObject(items[i]), toPyObject(items[i + 1]));
     return dict;
+  }
+
+  // Raw Java values (String, Integer, ...) never become native Python
+  // objects when passed through the bridge (convertStrings defaults to
+  // false), so round-tripping them through the dict (e.g. via an iterator's
+  // setValue()) hits mismatched wrapper types on the way back. Build real
+  // PyObjects up front instead.
+  private Object toPyObject(Object value)
+  {
+    if (value instanceof String)
+      return context.str((String) value);
+    if (value instanceof Integer)
+      return context.$int((Integer) value);
+    return value;
   }
 
   @SuppressWarnings("unchecked")
