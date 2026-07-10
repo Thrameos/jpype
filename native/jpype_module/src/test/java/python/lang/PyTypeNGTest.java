@@ -17,6 +17,7 @@
 package python.lang;
 
 import org.jpype.Script;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 import static org.testng.Assert.*;
 
@@ -30,6 +31,16 @@ public class PyTypeNGTest extends PyTestHarness
   static PyType objectType;
   static PyType dictType;
   static PyType rangeType;
+
+  @BeforeClass
+  public static void setUpTypes()
+  {
+    // context.type(x) returns type(x), the metaclass of x - not x itself.
+    // object/dict/range are already type objects, so eval them directly.
+    objectType = (PyType) context.eval("object");
+    dictType = (PyType) context.eval("dict");
+    rangeType = (PyType) context.eval("range");
+  }
 
 
   @Test
@@ -84,8 +95,7 @@ public class PyTypeNGTest extends PyTestHarness
   public void testIsAbstract()
   {
     context.importModule("collections");
-    PyObject obj = context.eval("collections.abc.Mapping");
-    PyType type = context.type(obj);
+    PyType type = (PyType) context.eval("collections.abc.Mapping");
     assertTrue(type.isAbstract());
     PyType concreteType = dictType;
     assertFalse(concreteType.isAbstract());
@@ -95,7 +105,7 @@ public class PyTypeNGTest extends PyTestHarness
   public void testGetSubclasses()
   {
     PyType type = dictType;
-    assertEquals(((PyType) type.getSubclasses().get(0)).getName(), "<class 'collections.OrderedDict'>");
+    assertEquals(((PyType) type.getSubclasses().get(0)).getName(), "OrderedDict");
   }
 
 }
