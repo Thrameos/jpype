@@ -204,14 +204,75 @@ unwired, zero references elsewhere in the tree, no
   `WrapperProvider` already shards services by module name
   (`moduleToServiceMap`, keyed by the string before the last `.` in the
   Python qualified name) — the batch method just needs to be called from the
-  `__missing__` hook via a new `Backend.spiResolveModule(String)` bridge
-  entry point instead of always going through `getInterfaces` one class at a
-  time.
+  `__missing__` hook via a dedicated SPI-resolution entry point (see "Mini-
+  backends" below — **not** a new method on `Backend` itself, same
+  restriction as everything else here).
 
 This also folds in cleanly as the loader for `io` becoming an actual SPI
 provider itself (see `plan/IO.md`) rather than a hardcoded factory — `io`
 proves the `Installer`/`WrapperService` contract works for a real,
 non-trivial class hierarchy before any third party depends on it.
+
+### Mini-backends: providers can't extend `Backend`, so they get their own
+
+Resolved 2026-07-10, first implemented in `python.io`: `Backend` is one
+fixed, compiled interface, constructed once as a single `JProxy` bound to
+`_PyJPBackendMethods` (`_jbridge.py`). An SPI provider cannot add methods to
+it — there's no per-provider extension point on a single shared interface
+and single shared dict. The original `python.io` first cut got this wrong,
+bolting `newBytesIO()`/`newStringIO()`-style construction hooks directly
+onto `Backend` (and a matching `PyBuiltIn.bytesIO()` convenience method) —
+that would require editing core `org.jpype.Backend` and core
+`python.lang.PyBuiltIn` for every new SPI provider, exactly the coupling the
+SPI is supposed to avoid.
+
+Fixed shape: each provider that needs its own module-level hooks (mostly
+construction — a provider's factory functions have nowhere else to live)
+declares its own small backend-shaped interface, builds its own `JProxy`
+bound to its own dict, and registers the instance in a new
+`org.jpype.BackendRegistry` (`Map<Class<?>, Object>`, `register`/`get`) —
+independent of `Backend` and independent of every other provider's
+mini-backend. The provider's interface exposes a `static instance()`
+accessor that looks itself up in the registry, and **is** the user-facing
+entry point (there is deliberately no `PyBuiltIn`-style wrapper layer on
+top — core `python.lang` should not gain per-provider knowledge).
+
+`python.io.IO` is the worked example:
+
+```java
+public interface IO {
+  static IO instance() { return BackendRegistry.get(IO.class); }
+  PyBytesIO bytesIO();
+  PyBytesIO bytesIO(PyBuffer initial);
+  PyStringIO stringIO();
+  PyStringIO stringIO(CharSequence initial);
+}
+```
+```python
+_io_backend = _IO@JProxy(_IO, dict=_PyIOBackendMethods)
+_BackendRegistry.register(_IO, _io_backend)
+```
+
+Called as `IO.instance().bytesIO()`, not `context.bytesIO()`. The same
+mini-backend/registry pattern is the answer for the `__missing__` hook's
+module-resolution call above: it should go through a provider-agnostic SPI
+entry point (e.g. a small fixed interface for "resolve a module manifest",
+itself registered the same way) rather than a method hung directly on
+`Backend`.
+
+`@Bypass` note: none of `IO`'s own methods need it — they're plain,
+dict-resolved abstract methods, same as `Backend`'s (which also carries no
+`@Bypass` methods). `@Bypass` only matters on `python.lang`/`python.io`
+*object*-family interfaces (`PyObject` and friends) where a method's real
+implementation must never go through the per-instance Python dict lookup —
+e.g. it constructs a Java-side helper directly (`PyObject.getAttributes()`)
+or collides in signature with an unrelated JDK interface method the proxy
+also implements (`PyBytes.get(int)` vs. `List.get(int)`). Keep watching for
+this as `python.io` grows — e.g. if `PyIOBase` ever implements
+`java.lang.AutoCloseable` for try-with-resources support (part of the
+`InputStream`/`OutputStream` promotion work in `plan/IO.md`), `close()`
+would collide with `AutoCloseable.close()` the same way and need `@Bypass`
+then. No current `python.io` method needs it yet.
 
 ### The Java-method-name dispatch side (`$foo`)
 

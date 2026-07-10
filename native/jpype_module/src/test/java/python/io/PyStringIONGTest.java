@@ -12,7 +12,7 @@ public class PyStringIONGTest extends PyTestHarness
   @Test
   public void testCreateEmpty()
   {
-    PyStringIO instance = context.stringIO();
+    PyStringIO instance = IO.instance().stringIO();
 
     assertNotNull(instance);
     assertFalse(instance.closed());
@@ -21,7 +21,7 @@ public class PyStringIONGTest extends PyTestHarness
   @Test
   public void testWriteAndGetvalue()
   {
-    PyStringIO instance = context.stringIO();
+    PyStringIO instance = IO.instance().stringIO();
 
     int written = instance.write("hello");
 
@@ -33,7 +33,7 @@ public class PyStringIONGTest extends PyTestHarness
   @Test
   public void testCreateWithInitialString()
   {
-    PyStringIO instance = context.stringIO("abc");
+    PyStringIO instance = IO.instance().stringIO("abc");
 
     PyString value = instance.getvalue();
     assertEquals(value.toString(), "abc");
@@ -42,7 +42,7 @@ public class PyStringIONGTest extends PyTestHarness
   @Test
   public void testReadAll()
   {
-    PyStringIO instance = context.stringIO("abcdef");
+    PyStringIO instance = IO.instance().stringIO("abcdef");
 
     PyString read = instance.read();
 
@@ -52,7 +52,7 @@ public class PyStringIONGTest extends PyTestHarness
   @Test
   public void testReadWithSize()
   {
-    PyStringIO instance = context.stringIO("abcdef");
+    PyStringIO instance = IO.instance().stringIO("abcdef");
 
     PyString read = instance.read(3);
 
@@ -62,7 +62,7 @@ public class PyStringIONGTest extends PyTestHarness
   @Test
   public void testReadline()
   {
-    PyStringIO instance = context.stringIO("first\nsecond\n");
+    PyStringIO instance = IO.instance().stringIO("first\nsecond\n");
 
     PyString line = instance.readline();
 
@@ -72,7 +72,7 @@ public class PyStringIONGTest extends PyTestHarness
   @Test
   public void testSeekAndTell()
   {
-    PyStringIO instance = context.stringIO("abcdef");
+    PyStringIO instance = IO.instance().stringIO("abcdef");
 
     instance.seek(2);
 
@@ -83,7 +83,7 @@ public class PyStringIONGTest extends PyTestHarness
   @Test
   public void testClose()
   {
-    PyStringIO instance = context.stringIO();
+    PyStringIO instance = IO.instance().stringIO();
 
     instance.close();
 

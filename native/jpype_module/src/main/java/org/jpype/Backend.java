@@ -41,8 +41,6 @@ import python.lang.PyZip;
 import python.lang.PyBuffer;
 import python.lang.PyCallable;
 import python.lang.PyIter;
-import python.io.PyBytesIO;
-import python.io.PyStringIO;
 
 /**
  * Backend for all Python entry points.
@@ -215,18 +213,6 @@ public interface Backend
 
   // Create a Python `bytes` object from a buffer.
   PyBytes newBytesFromBuffer(PyBuffer bytes);
-
-  // Create an empty Python `io.BytesIO`.
-  PyBytesIO newBytesIO();
-
-  // Create a Python `io.BytesIO` pre-populated from a buffer.
-  PyBytesIO newBytesIOFromBuffer(PyBuffer initial);
-
-  // Create an empty Python `io.StringIO`.
-  PyStringIO newStringIO();
-
-  // Create a Python `io.StringIO` pre-populated from a string.
-  PyStringIO newStringIOFromString(CharSequence initial);
 
   // Create a Python `bytes` object from an iterator.
   PyBytes newBytesFromIterator(Iterable<PyObject> iter);

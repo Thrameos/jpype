@@ -92,6 +92,8 @@ def initialize():
     _PyTextIOBase = JClass("python.io.PyTextIOBase")
     _PyBytesIO = JClass("python.io.PyBytesIO")
     _PyStringIO = JClass("python.io.PyStringIO")
+    _IO = JClass("python.io.IO")
+    _BackendRegistry = JClass("org.jpype.BackendRegistry")
 
     # Protocols
     _PyCallable = JClass("python.lang.PyCallable")
@@ -314,10 +316,6 @@ def initialize():
         "newBytesFromBuffer": bytes,
         "newBytesFromIterator": bytes,
         "newBytesOfSize": bytes,
-        "newBytesIO": lambda: io.BytesIO(),
-        "newBytesIOFromBuffer": lambda b: io.BytesIO(bytes(b)),
-        "newStringIO": lambda: io.StringIO(),
-        "newStringIOFromString": lambda s: io.StringIO(str(s)),
         "newComplex": lambda r,i: complex(r,i),
         "newDict": lambda *m: dict(*m),
         "newDictFromIterable": dict,
@@ -548,6 +546,22 @@ def initialize():
 
     _PyStringIOMethods: MutableMapping[str, Callable] = {
         "getvalue": lambda x: x.getvalue(),
+    }
+
+    # python.io's mini-backend (python.io.IO) - module-level construction
+    # hooks that can't live on the shared Backend, since SPI providers
+    # can't add methods to it. Both overloads of each name (no-arg vs.
+    # with-initial-value) resolve to the same dict entry by name only, same
+    # as the read()/read(int) pattern above.
+    def _new_bytes_io(initial=None):
+        return io.BytesIO(bytes(initial)) if initial is not None else io.BytesIO()
+
+    def _new_string_io(initial=None):
+        return io.StringIO(str(initial)) if initial is not None else io.StringIO()
+
+    _PyIOBackendMethods: MutableMapping[str, Callable] = {
+        "bytesIO": _new_bytes_io,
+        "stringIO": _new_string_io,
     }
 
     ### String
@@ -996,6 +1010,12 @@ def initialize():
 
     # DEBUG: Log dict state BEFORE Backend creation
     backend = Backend@JProxy(Backend, dict=_PyJPBackendMethods)
+
+    # SPI mini-backends: each provider gets its own proxy, bound to its own
+    # dispatch dict, registered by interface class rather than folded into
+    # the shared Backend (see plan/SPI.md).
+    _io_backend = _IO@JProxy(_IO, dict=_PyIOBackendMethods)
+    _BackendRegistry.register(_IO, _io_backend)
 
     #############################################################################
     # Populate the concrete dictionaries (created as placeholders in _core.py)

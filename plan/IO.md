@@ -150,11 +150,15 @@ Bridge wiring in `_jbridge.py`:
   `io` classes — those get populated lazily by the `_cache.__missing__`
   hook consulting `PyIoWrapperService`'s module manifest the first time any
   `_io`/`io` class is probed, per `plan/SPI.md`.
-- Factory functions (`"bytesIO": io.BytesIO`, `"stringIO": io.StringIO`,
-  `"fileIO": lambda path, mode='r': io.FileIO(str(path), str(mode))`, ...)
-  still added to `PyBuiltIn`'s backend the same way `bytes`/`memoryview`/
-  `frozenset` are exposed today (`_jbridge.py:257-319`) — factories are
-  orthogonal to how membership gets resolved.
+- Factory functions do **not** go on `Backend`/`PyBuiltIn` — resolved
+  2026-07-10 (see `plan/SPI.md`'s "Mini-backends" section): an SPI provider
+  can't add methods to the shared `Backend`, and core `python.lang` shouldn't
+  gain per-provider knowledge either. Instead `python.io.IO` is its own
+  mini-backend interface, its own `JProxy` bound to its own `_jbridge.py`
+  dict (`_PyIOBackendMethods`), registered via `org.jpype.BackendRegistry`.
+  Called as `IO.instance().bytesIO()` / `.bytesIO(PyBuffer initial)` /
+  `.stringIO()` / `.stringIO(CharSequence initial)` — implemented for
+  `BytesIO`/`StringIO`; `fileIO`/etc. follow the same pattern once added.
 
 ## Extraction script: drafting the manifest instead of hand-writing it
 
