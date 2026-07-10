@@ -143,7 +143,7 @@ class PyMappingEntrySetIterator<K extends PyObject, V extends PyObject> implemen
     check = true;
     if (yield == null)
       yield = builtin.next(iter, MainInterpreter.stop);
-    done = (yield == MainInterpreter.stop);
+    done = (yield != null && yield.equals(MainInterpreter.stop));
     return !done;
   }
 
@@ -171,6 +171,7 @@ class PyMappingEntrySetIterator<K extends PyObject, V extends PyObject> implemen
     PyTuple tuple = (PyTuple) yield;
     PyObject key = tuple.get(0);
     PyObject value = tuple.get(1);
+    yield = null;
     return new FunctionalAdapters.MapEntryWithSet(key, value, setter);
   }
 }

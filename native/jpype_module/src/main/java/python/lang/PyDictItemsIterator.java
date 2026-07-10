@@ -71,6 +71,7 @@ public class PyDictItemsIterator<K, V> implements Iterator<Map.Entry<K, V>>
 
     K key = (K) builtin.backend.getitemSequence(yield, 0);
     V value = (V) builtin.backend.getitemSequence(yield, 1);
+    yield = null;
     return new FunctionalAdapters.MapEntryWithSet<>(key, value, setter);
   }
 
