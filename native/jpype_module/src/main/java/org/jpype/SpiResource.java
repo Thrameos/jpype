@@ -24,7 +24,7 @@ import java.util.Map;
  * line containing only {@code ---}, then a blob of Python source. One
  * resource per Python class (or per mini-backend). See {@code plan/SPI.md}.
  *
- * Example (class registration):
+ * Example (class registration, eager - replayed immediately at startup):
  * <pre>
  * kind: class
  * module: _io
@@ -36,7 +36,21 @@ import java.util.Map;
  * }
  * </pre>
  *
- * Example (mini-backend registration):
+ * Example (class registration, lazy - only imported/registered the first
+ * time an instance of it is actually seen crossing into Java):
+ * <pre>
+ * kind: class
+ * module: _io
+ * class: StringIO
+ * interface: python.io.PyStringIO
+ * lazy: true
+ * ---
+ * METHODS = {
+ *     "getvalue": lambda x: x.getvalue(),
+ * }
+ * </pre>
+ *
+ * Example (mini-backend registration - always eager, see {@link SpiLoader}):
  * <pre>
  * kind: backend
  * interface: python.io.IO
@@ -53,14 +67,16 @@ final class SpiResource
   final String module;     // null when kind=backend
   final String className;  // null when kind=backend
   final String javaInterface;
+  final boolean lazy;      // always false when kind=backend
   final String body;
 
-  private SpiResource(String kind, String module, String className, String javaInterface, String body)
+  private SpiResource(String kind, String module, String className, String javaInterface, boolean lazy, String body)
   {
     this.kind = kind;
     this.module = module;
     this.className = className;
     this.javaInterface = javaInterface;
+    this.lazy = lazy;
     this.body = body;
   }
 
@@ -88,9 +104,14 @@ final class SpiResource
     String javaInterface = fields.get("interface");
     if (javaInterface == null)
       throw new IllegalArgumentException("Missing 'interface:' in .pyspi header");
+    boolean lazy = "true".equals(fields.getOrDefault("lazy", "false"));
 
     if ("backend".equals(kind))
-      return new SpiResource(kind, null, null, javaInterface, body);
+    {
+      if (lazy)
+        throw new IllegalArgumentException("mini-backends must be eager (interface=" + javaInterface + ")");
+      return new SpiResource(kind, null, null, javaInterface, false, body);
+    }
 
     String module = fields.get("module");
     String className = fields.get("class");
@@ -98,7 +119,7 @@ final class SpiResource
       throw new IllegalArgumentException(
               "Missing 'module:'/'class:' in .pyspi header for kind=class (interface="
               + javaInterface + ")");
-    return new SpiResource(kind, module, className, javaInterface, body);
+    return new SpiResource(kind, module, className, javaInterface, lazy, body);
   }
 
 }

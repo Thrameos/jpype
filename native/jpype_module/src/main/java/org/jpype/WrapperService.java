@@ -1,6 +1,7 @@
 // --- file: org/jpype/bridge/WrapperService.java ---
 package org.jpype;
 
+import java.util.Collections;
 
 /**
  * Service provider interface for extending the Java view of Python types.
@@ -24,15 +25,6 @@ public interface WrapperService {
     String getVersion();
 
     /**
-     * Returns the set of Java interfaces that should be added to the 
-     * generated wrapper for this Python type.
-     * 
-     * @param clsName a fully qualified class name with module prefix.
-     * @return An array of interfaces, or null if only default wrapping is needed.
-     */
-    Class<?>[] getInterfaces(String clsName);
-
-    /**
      * Optional: Provides specialized logic for the backend to handle
      * this specific type (e.g., custom memory mapping for buffers).
      */
@@ -42,15 +34,24 @@ public interface WrapperService {
 
     /**
      * Classpath paths (resolved relative to this service's own class, e.g.
-     * via {@code getClass().getResourceAsStream(path)}) to this provider's
-     * {@code .pyspi} resources — one per Python class it registers eagerly,
-     * plus one per mini-backend it needs. Read and replayed into the
-     * {@link Installer} by {@link SpiLoader} at startup.
+     * via {@code getClass().getResourceAsStream(path)}) to every one of
+     * this provider's {@code .pyspi} resources — one per Python class it
+     * registers, plus one per mini-backend it needs. Read by
+     * {@link SpiLoader} at startup and replayed into the {@link Installer}.
      *
-     * Default empty: providers that only support the (not yet implemented)
-     * lazy per-class lookup via {@link #getInterfaces} need not supply any.
+     * Each resource declares its own {@code kind:} ({@code class} or
+     * {@code backend}) and, for classes, whether it should resolve eagerly
+     * (replayed immediately) or lazily (only imported/executed the first
+     * time a matching Python type is actually seen crossing into Java, via
+     * {@code lazy: true} in its header) — see {@code SpiResource} and
+     * {@code plan/SPI.md}. A provider does not need separate methods for
+     * eager vs. lazy; it just needs to list every resource here, typically
+     * by scanning its own resource directory rather than hardcoding each
+     * path (see {@code python.io.PyIoWrapperService} for a worked example).
+     *
+     * Default empty.
      */
-    default String[] getEagerResources() {
-        return new String[0];
+    default Iterable<String> getResources() {
+        return Collections.emptyList();
     }
 }

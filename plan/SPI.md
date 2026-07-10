@@ -1,5 +1,65 @@
 # SPI: Java-registered Python dispatch hooks
 
+## Status (2026-07-10, still later): lazy per-module resolution implemented and live
+
+The lazy `_cache.__missing__` hook sketched below is no longer a design —
+implemented and exercised by `python.io` (475/475 tests passing on branch
+`spi`, 473 prior + `PyLazySpiNGTest`'s 2 new tests):
+
+- `WrapperService.getResources()` replaces the old
+  `getEagerResources()`/`getLazyResources()` split — one method returning
+  every `.pyspi` resource path a provider has; each resource now declares
+  its own eager-vs-lazy behavior via a `lazy: true` header field
+  (`SpiResource`), rather than which method's return value it appeared in.
+  `Installer` gained `registerLazyClass(pyModule, pyClass, javaInterface,
+  methodsSource)` alongside `registerClass`/`registerBackend` — it only
+  stashes the ingredients (no import, no exec); mini-backends (`kind:
+  backend`) must stay eager (`SpiResource.parse` throws if `lazy: true` is
+  combined with `kind: backend`).
+- All the actual cross-language work happens once, at boot:
+  `SpiLoader.load()` reads every resource's header (cheap - no `exec`, no
+  Python import) and, for lazy ones, calls
+  `_jbridge._installer_register_lazy_class` (hoisted to module level so
+  it's reachable outside `initialize()`'s closure), which just stashes
+  `(javaInterface, methodsSource)` into `_jpype._lazy_pending[pyModule][pyClass]`.
+  The actual `_cache.__missing__`-equivalent hook (`_core.py`'s
+  `_LazyCache`, replacing `_jpype._cache`'s plain
+  `weakref.WeakKeyDictionary`) does **zero** cross-language round trips on
+  a miss — it's pure Python, draining `_lazy_pending` for the missed
+  type's `__mro__` module set and calling the same
+  `_jbridge._installer_register_class` the eager path already uses. This
+  is a deliberate simplification over the `Backend.spiResolveModule`
+  per-module-round-trip sketch below: the round trip already happened at
+  boot (reading headers), so the hot miss path pays nothing but a Python
+  dict/set operation.
+- Confirmed empirically (not just by reading `pyjp_probe.cpp`): `_cache`
+  is read via `PyObject_GetItem`, a genuine miss `PyErr_Clear()`s and
+  falls through unchanged to the existing `concreteDict` MRO scan and
+  tuple-building — so `_LazyCache.__getitem__` only has to get
+  `_jpype._concrete`/`_jpype._methods` populated before re-raising
+  `KeyError`; it never builds the probe's result tuple itself. One
+  correction from the sketch below: `WeakKeyDictionary.__getitem__` does
+  its own dict lookup and raises `KeyError` directly - it does **not**
+  consult a subclass's `__missing__` - so the hook overrides
+  `__getitem__`, not `__missing__`.
+- `SpiLoader.listPyspiResources(Class<?> anchor, String dir)` — new
+  classpath-directory scanner (handles both an exploded `target/classes`
+  dir, as under `mvn test`, and a packaged jar, as the real `ant`-built
+  `org.jpype.jar`; both verified this pass) so a provider's
+  `getResources()` can just point at its resource directory once instead
+  of hardcoding every file name. `python.io.PyIoWrapperService` now does
+  exactly that — `_io.StringIO.pyspi` picked up `lazy: true` as the
+  worked lazy example; everything else in `python.io` stays eager.
+- Cleanup: `WrapperProvider.java` and `WrapperService.getInterfaces(String)`
+  (confirmed dead — zero references anywhere in the tree, an abandoned
+  earlier sketch this design supersedes) were deleted.
+- Tests: `PyLazySpiNGTest` (Java-triggered direction — constructs a raw
+  `_io.StringIO` via `context.eval(...)`, never touching `IO.using(...)`,
+  and casts it straight to `PyStringIO`) and `test_lazy_spi.py` at the
+  repo root (Python-launched-script direction — asserts
+  `_jpype._lazy_pending` is populated before first use and drained after,
+  via `jpype.JObject(io.StringIO(...), "python.io.PyStringIO")`).
+
 ## Status (2026-07-10, later same day): BackendRegistry moved off a static, InputStream/OutputStream added
 
 Two follow-ups after the eager path below went live:
@@ -56,12 +116,12 @@ implemented and exercised by `python.io` (466/466 tests passing on branch
   module ignores `META-INF/services` for providers in that same module;
   only the module descriptor's `provides...with` is consulted.
 
-**Not yet implemented:** the lazy per-module `_cache.__missing__` hook
-below is still a design, not code — `python.io` only exercises the eager
-path (`io`/`_io` are stdlib, always already importable, so eager is
-sufficient for it). `WrapperService.getInterfaces(String)` / the
-`PyIoWrapperService.MANIFEST` map are the drafted-but-unused shape for when
-that lands.
+**Update:** the lazy per-module `_cache.__missing__` hook below is now
+implemented and live — see the "lazy per-module resolution" status section
+at the top of this file. `WrapperService.getInterfaces(String)` /
+`PyIoWrapperService.MANIFEST` (the drafted-but-unused shape this paragraph
+used to point at) were dead code and have been deleted; the real
+implementation took a different, simpler shape (see top status section).
 
 ## TL;DR
 

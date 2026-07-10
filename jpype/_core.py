@@ -653,8 +653,41 @@ _jpype.JVMNotRunning = JVMNotRunning
 _jpype._concrete = {}
 _jpype._protocol = {}
 _jpype._methods = {}
+
+# SPI lazy registration (see plan/SPI.md): dict[str module -> dict[str
+# className -> (javaInterface, methodsSource)]], populated at startup by
+# _jbridge._installer_register_lazy_class from each provider's
+# getLazyResources(), and drained by _LazyCache below the first time a
+# matching type is actually probed.
+_jpype._lazy_pending = {}
+
+
+class _LazyCache(weakref.WeakKeyDictionary):
+    """_jpype._cache, extended to resolve SPI lazy registrations on miss.
+
+    WeakKeyDictionary.__getitem__ does its own dict lookup and raises
+    KeyError directly - it does not consult a subclass's __missing__ - so
+    the hook has to override __getitem__ itself. PyJP_probe (pyjp_probe.cpp)
+    reads this via PyObject_GetItem, catches the KeyError, and falls
+    through unchanged to its normal _concrete MRO scan - so all this needs
+    to do is get _jpype._concrete/_jpype._methods populated for `type_`
+    before re-raising; it never builds the probe's result tuple itself.
+    """
+
+    def __getitem__(self, type_):
+        try:
+            return weakref.WeakKeyDictionary.__getitem__(self, type_)
+        except KeyError:
+            pending = _jpype._lazy_pending
+            if pending:
+                for modname in {c.__module__ for c in type_.__mro__} & pending.keys():
+                    for clsname, (javaInterface, methodsSource) in pending.pop(modname).items():
+                        _jbridge._installer_register_class(modname, clsname, javaInterface, methodsSource)
+            raise
+
+
 # Dictionary of Type to Tuple(Interface[], Dict)
-_jpype._cache = weakref.WeakKeyDictionary()
+_jpype._cache = _LazyCache()
 # Dictionary of Tuple(Interface[]) to Tuple(Interface[])
 _jpype._cache_interfaces = {}
 _jpype._cache_methods = {}

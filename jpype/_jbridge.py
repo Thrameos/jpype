@@ -44,10 +44,33 @@ JPackage = _jpackage.JPackage
 ###################################################################################
 # Set up methods binds from Java to Python
 
-# DO NOT INTRODUCE NEW MEMBERS THAT DO THE SAME THING 
+# DO NOT INTRODUCE NEW MEMBERS THAT DO THE SAME THING
 # USE _attr for simple member access
 # FOLLOW THE NAMING SCHEME
 # USE A DIRECT BUILTIN IF IT HAS THE RIGHT LOGIC
+
+
+# SPI Installer callbacks (see plan/SPI.md). Module-level, not nested in
+# initialize(), so _core.py's lazy _cache hook can call
+# _installer_register_class directly the first time a lazily-registered
+# type is actually seen, without needing a closure captured at init time.
+
+def _installer_register_class(pyModule, pyClass, javaInterface, methodsSource):
+    ns: MutableMapping[str, object] = {}
+    exec(str(methodsSource), ns)
+    methods = ns["METHODS"]
+    mod = importlib.import_module(str(pyModule))
+    pyType = getattr(mod, str(pyClass))
+    iface = JClass(str(javaInterface))
+    _jpype._concrete[pyType] = iface
+    _jpype._methods[iface] = methods
+
+
+def _installer_register_lazy_class(pyModule, pyClass, javaInterface, methodsSource):
+    # Only stashes the ingredients - no import, no exec. Replayed later by
+    # _core.py's _LazyCache the first time a matching type is actually seen.
+    _jpype._lazy_pending.setdefault(str(pyModule), {})[str(pyClass)] = \
+        (str(javaInterface), str(methodsSource))
 
 
 def initialize():
@@ -1082,19 +1105,10 @@ def initialize():
     ###################################################################################
     # SPI: implement Installer and hand it to Java, which immediately walks
     # every discovered WrapperService's .pyspi resources and calls back into
-    # _installer_register_class/_installer_register_backend below - see
-    # plan/SPI.md. This replaces hand-written per-provider dicts in this
-    # file (python.io was the first, now removed from here entirely).
-
-    def _installer_register_class(pyModule, pyClass, javaInterface, methodsSource):
-        ns: MutableMapping[str, object] = {}
-        exec(str(methodsSource), ns)
-        methods = ns["METHODS"]
-        mod = importlib.import_module(str(pyModule))
-        pyType = getattr(mod, str(pyClass))
-        iface = JClass(str(javaInterface))
-        _jpype._concrete[pyType] = iface
-        _jpype._methods[iface] = methods
+    # _installer_register_class/_installer_register_lazy_class/
+    # _installer_register_backend (module-level, above) - see plan/SPI.md.
+    # This replaces hand-written per-provider dicts in this file
+    # (python.io was the first, now removed from here entirely).
 
     def _installer_register_backend(javaInterface, methodsSource):
         ns: MutableMapping[str, object] = {}
@@ -1109,6 +1123,7 @@ def initialize():
 
     _PyInstallerMethods: MutableMapping[str, Callable] = {
         "registerClass": _installer_register_class,
+        "registerLazyClass": _installer_register_lazy_class,
         "registerBackend": _installer_register_backend,
     }
 

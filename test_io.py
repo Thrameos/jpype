@@ -7,7 +7,7 @@ started *from* Python, and the SPI's eager Installer/.pyspi
 registration has to have already run by the time this script does
 anything, since nothing here drives it manually.
 
-python.io.IO.instance() (the mini-backend, used to *construct*
+python.io.IO.using(context) (the mini-backend, used to *construct*
 python.io objects) is deliberately not exercised here: it's a Java
 entry point meant to be called from Java, and is already covered by
 the NGTest suite (PyBytesIONGTest, PyStringIONGTest,

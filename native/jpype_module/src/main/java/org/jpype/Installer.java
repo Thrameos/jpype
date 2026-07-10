@@ -52,6 +52,23 @@ public interface Installer
   void registerClass(String pyModule, String pyClass, String javaInterface, String methodsSource);
 
   /**
+   * Record a class registration to be replayed lazily, the first time a
+   * Python instance of {@code pyClass} is actually seen crossing into Java
+   * (via the {@code _jpype._cache} probe-miss hook), rather than
+   * immediately. Unlike {@link #registerClass}, this must not import
+   * {@code pyModule} or {@code exec} {@code methodsSource} — it only
+   * stores the ingredients for later.
+   *
+   * @param pyModule the Python module the class lives in, same convention
+   * as {@link #registerClass}.
+   * @param pyClass the class's name within that module.
+   * @param javaInterface fully qualified Java interface name.
+   * @param methodsSource Python source text; deferred {@code exec} target,
+   * same contract as {@link #registerClass}.
+   */
+  void registerLazyClass(String pyModule, String pyClass, String javaInterface, String methodsSource);
+
+  /**
    * Register a provider's own mini-backend (see {@code plan/SPI.md}'s
    * "Mini-backends" section) — a small, provider-owned interface (like
    * {@code python.io.IO}) that needs its own {@code JProxy} and dispatch
