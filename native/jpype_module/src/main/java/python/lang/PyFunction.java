@@ -17,6 +17,8 @@
 package python.lang;
 
 /**
+ * Represents a Python function object (one defined with {@code def}).
+ * Invoke it with {@link PyCallable}'s call methods.
  *
  * @author nelson85
  */

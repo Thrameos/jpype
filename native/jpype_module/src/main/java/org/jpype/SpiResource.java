@@ -20,45 +20,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Parses one {@code .pyspi} resource: a small {@code key: value} header, a
- * line containing only {@code ---}, then a blob of Python source. One
- * resource per Python class (or per mini-backend). See {@code plan/SPI.md}.
- *
- * Example (class registration, eager - replayed immediately at startup):
- * <pre>
- * kind: class
- * module: _io
- * class: BytesIO
- * interface: python.io.PyBytesIO
- * ---
- * METHODS = {
- *     "getvalue": lambda x: x.getvalue(),
- * }
- * </pre>
- *
- * Example (class registration, lazy - only imported/registered the first
- * time an instance of it is actually seen crossing into Java):
- * <pre>
- * kind: class
- * module: _io
- * class: StringIO
- * interface: python.io.PyStringIO
- * lazy: true
- * ---
- * METHODS = {
- *     "getvalue": lambda x: x.getvalue(),
- * }
- * </pre>
- *
- * Example (mini-backend registration - always eager, see {@link SpiLoader}):
- * <pre>
- * kind: backend
- * interface: python.io.IO
- * ---
- * METHODS = {
- *     "bytesIO": lambda: __import__("io").BytesIO(),
- * }
- * </pre>
+ * Parses one {@code .pyspi} resource into its header fields and Python
+ * source body. The format itself is documented on
+ * {@link WrapperService#getResources()}, the public contract this class
+ * serves.
  */
 final class SpiResource
 {

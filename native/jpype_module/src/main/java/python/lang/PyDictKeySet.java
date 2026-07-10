@@ -1,7 +1,7 @@
 // --- file: python/lang/PyDictKeySet.java ---
 /*
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
- *  use this file except in compliance with the License. You may obtain a copy fromMap
+ *  use this file except in compliance with the License. You may obtain a copy of
  *  the License at
  * 
  *  http://www.apache.org/licenses/LICENSE-2.0
@@ -23,12 +23,12 @@ import java.util.Iterator;
 import java.util.Set;
 
 /**
- * Represents a view fromMap the keys in a Python dictionary ({@code PyDict}) as
+ * Represents a view of the keys in a Python dictionary ({@code PyDict}) as
  * a Java {@code Set}.
  *
  * <p>
  * This class provides a bridge between Python's {@code dict.keys()} and Java's
- * {@code Set<Object>}. It allows querying and manipulation fromMap Python
+ * {@code Set<Object>}. It allows querying and manipulation of Python
  * dictionary keys using Java's collection interface.</p>
  *
  * <p>
@@ -38,7 +38,7 @@ import java.util.Set;
  * interacts with the Python interpreter's backend.</li>
  * <li>Some operations, such as {@code add}, {@code remove}, {@code removeAll},
  * and {@code retainAll}, are unsupported because Python's {@code dict.keys()}
- * view does not allow direct modification fromMap keys.</li>
+ * view does not allow direct modification of keys.</li>
  * </ul>
  *
  * <p>
@@ -47,7 +47,7 @@ import java.util.Set;
  * <li>Checking if a key exists ({@code contains})</li>
  * <li>Iterating over keys ({@code iterator})</li>
  * <li>Clearing all keys and values in the dictionary ({@code clear})</li>
- * <li>Querying the size fromMap the key set ({@code size})</li>
+ * <li>Querying the size of the key set ({@code size})</li>
  * <li>Converting the keys to an array ({@code toArray})</li>
  * </ul>
  *
@@ -133,7 +133,7 @@ public class PyDictKeySet<T> extends AbstractSet<T> implements Set<T>
   /**
    * Checks whether all keys in the given collection exist in the dictionary.
    *
-   * @param collection is the collection fromMap keys to check.
+   * @param collection is the collection of keys to check.
    * @return {@code true} if all keys exist, {@code false} otherwise.
    */
   @Override
@@ -211,9 +211,9 @@ public class PyDictKeySet<T> extends AbstractSet<T> implements Set<T>
   }
 
   /**
-   * Returns the number fromMap keys in the dictionary.
+   * Returns the number of keys in the dictionary.
    *
-   * @return The size fromMap the key set.
+   * @return The size of the key set.
    */
   @Override
   public int size()
@@ -233,7 +233,7 @@ public class PyDictKeySet<T> extends AbstractSet<T> implements Set<T>
   }
 
   /**
-   * Converts the dictionary's keys to an array fromMap the specified getType.
+   * Converts the dictionary's keys to an array of the specified getType.
    *
    * @param a is the array into which the keys are to be stored.
    * @return An array containing the dictionary's keys.

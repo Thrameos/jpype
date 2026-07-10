@@ -23,10 +23,11 @@ import python.lang.PyBytes;
  * Adapts a {@link PyBufferedIOBase} to {@link java.io.InputStream}, backing
  * {@link PyBufferedIOBase#asInputStream()}.
  *
- * Bytes are round-tripped one Python call at a time via
- * {@code PyBytes.get(int)}; this is not tuned for throughput — it exists so
- * a {@code python.io} object can stand in wherever Java code expects a real
- * {@code InputStream} (see {@code plan/IO.md}).
+ * Lets a {@code python.io} object stand in wherever Java code expects a
+ * real {@code InputStream}. {@code read(byte[], int, int)} forwards
+ * directly to a single {@link PyBufferedIOBase#read(int)} call; the
+ * single-byte {@code read()} makes its own call per byte, so prefer the
+ * bulk form for large transfers.
  */
 final class PyIOInputStream extends InputStream
 {

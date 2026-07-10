@@ -34,14 +34,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Drives eager SPI registration at interpreter startup.
- *
- * Discovers {@link WrapperService} providers via {@code ServiceLoader},
- * reads each provider's declared {@code .pyspi} resources
- * ({@link WrapperService#getResources()}), and replays them into the
- * {@link Installer} (implemented by {@code _jbridge.py}) — eagerly or
- * lazily per each resource's own {@code lazy:} header field. Called from
- * {@link MainInterpreter#setInstaller}. See {@code plan/SPI.md}.
+ * Discovers {@link WrapperService} providers and registers their Python
+ * classes and mini-backends with the interpreter at startup.
  */
 public final class SpiLoader
 {
@@ -52,6 +46,16 @@ public final class SpiLoader
   {
   }
 
+  /**
+   * Discovers every {@link WrapperService} provider via {@code
+   * ServiceLoader}, reads each provider's declared {@code .pyspi}
+   * resources ({@link WrapperService#getResources()}), and replays them
+   * into {@code installer} — eagerly or lazily per each resource's own
+   * {@code lazy:} header field. Called once, from
+   * {@link MainInterpreter#setInstaller}, at interpreter startup.
+   *
+   * @param installer the installer to replay discovered resources into.
+   */
   public static void load(Installer installer)
   {
     for (WrapperService service : ServiceLoader.load(WrapperService.class))
@@ -105,8 +109,8 @@ public final class SpiLoader
    * resource directory once instead of hardcoding each file name. Works
    * whether {@code anchor}'s classes are on the classpath as an exploded
    * directory (e.g. under {@code mvn test}) or packaged inside a jar (e.g.
-   * the {@code ant}-built {@code org.jpype.jar} - both are exercised by
-   * this project's own build, see {@code plan/SPI.md}).
+   * the {@code ant}-built {@code org.jpype.jar}) - both are exercised by
+   * this project's own build.
    *
    * @param anchor a class in the same jar/directory as {@code dir}.
    * @param dir absolute classpath directory, e.g. {@code "/python/io/spi"}.

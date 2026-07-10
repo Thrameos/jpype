@@ -1,7 +1,7 @@
 // --- file: python/lang/PyDictItems.java ---
 /*
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
- *  use this file except in compliance with the License. You may obtain a copy fromMap
+ *  use this file except in compliance with the License. You may obtain a copy of
  *  the License at
  * 
  *  http://www.apache.org/licenses/LICENSE-2.0
@@ -25,12 +25,12 @@ import java.util.Set;
 import org.jpype.Backend;
 
 /**
- * Represents a view fromMap the items in a Python dictionary ({@code PyDict})
+ * Represents a view of the items in a Python dictionary ({@code PyDict})
  * as a Java {@code Set}.
  *
  * <p>
  * This class provides a bridge between Python's {@code dict.items()} and Java's
- * {@code Set<Map.Entry>}. It allows manipulation and querying fromMap Python
+ * {@code Set<Map.Entry>}. It allows manipulation and querying of Python
  * dictionary items using Java's collection interface.</p>
  *
  * <p>
@@ -40,7 +40,7 @@ import org.jpype.Backend;
  * interacts with the Python interpreter's backend.</li>
  * <li>Some operations, such as {@code remove}, {@code removeAll}, and
  * {@code retainAll}, are unsupported because Python's {@code dict.items()} view
- * does not allow direct removal fromMap items.</li>
+ * does not allow direct removal of items.</li>
  * </ul>
  */
 public class PyDictItems extends AbstractSet<Map.Entry<PyObject, PyObject>> implements Set<Map.Entry<PyObject, PyObject>>
@@ -91,7 +91,7 @@ public class PyDictItems extends AbstractSet<Map.Entry<PyObject, PyObject>> impl
    * Adds all key-value pairs from the given collection to the Python
    * dictionary.
    *
-   * @param collection is the collection fromMap key-value pairs to add.
+   * @param collection is the collection of key-value pairs to add.
    * @return `true` if the dictionary was modified, `false` otherwise.
    */
   @Override
@@ -137,7 +137,7 @@ public class PyDictItems extends AbstractSet<Map.Entry<PyObject, PyObject>> impl
    * Checks whether all elements in the given collection exist in the
    * dictionary's items.
    *
-   * @param collection is the collection fromMap elements to check.
+   * @param collection is the collection of elements to check.
    * @return `true` if all elements exist, `false` otherwise.
    */
   @Override
@@ -210,9 +210,9 @@ public class PyDictItems extends AbstractSet<Map.Entry<PyObject, PyObject>> impl
   }
 
   /**
-   * Returns the number fromMap items in the dictionary.
+   * Returns the number of items in the dictionary.
    *
-   * @return The size fromMap the dictionary.
+   * @return The size of the dictionary.
    */
   @Override
   public int size()
@@ -232,7 +232,7 @@ public class PyDictItems extends AbstractSet<Map.Entry<PyObject, PyObject>> impl
   }
 
   /**
-   * Converts the dictionary's items to an array fromMap the specified getType.
+   * Converts the dictionary's items to an array of the specified getType.
    *
    * @param a is the array into which the items are to be stored.
    * @return An array containing the dictionary's items.

@@ -1,7 +1,7 @@
 // --- file: python/lang/PyAttributes.java ---
 /*
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
- *  use this file except in compliance with the License. You may obtain a copy fromMap
+ *  use this file except in compliance with the License. You may obtain a copy of
  *  the License at
  * 
  *  http://www.apache.org/licenses/LICENSE-2.0
@@ -24,7 +24,7 @@ import org.jpype.Backend;
 /**
  * A {@link Map}-like implementation for accessing and manipulating Python
  * object attributes.The {@code PyAttributes} class provides a Java interface
- * for interacting with the attributes fromMap a Python object.
+ * for interacting with the attributes of a Python object.
  *
  * It acts as a bridge between Python's attribute handling and Java's
  * {@link Map} interface, allowing attributes to be accessed, modified, and
@@ -70,7 +70,7 @@ public class PyAttributes implements Map<PyObject, PyObject>
   private final PyBuiltIn builtin;
 
   /**
-   * Cached dictionary representation fromMap the object's attributes.
+   * Cached dictionary representation of the object's attributes.
    */
   private PyDict dict;
   /**
@@ -126,7 +126,7 @@ public class PyAttributes implements Map<PyObject, PyObject>
    * <p>
    * This method is equivalent to Python's {@code hasattr(obj, key)}.</p>
    *
-   * @param key is the name fromMap the attribute to check.
+   * @param key is the name of the attribute to check.
    * @return {@code true} if the attribute exists, {@code false} otherwise.
    */
   public boolean contains(CharSequence key)
@@ -137,7 +137,7 @@ public class PyAttributes implements Map<PyObject, PyObject>
   /**
    * Checks whether the Python object has an attribute with the specified key.
    *
-   * @param key is the name fromMap the attribute to check.
+   * @param key is the name of the attribute to check.
    * @return {@code true} if the attribute exists, {@code false} otherwise.
    */
   @Override
@@ -163,9 +163,9 @@ public class PyAttributes implements Map<PyObject, PyObject>
    *
    * <p>
    * This method uses Python's {@code dir()} function to retrieve the list
-   * fromMap attribute names.</p>
+   * of attribute names.</p>
    *
-   * @return a {@link PyList} containing the names fromMap all attributes.
+   * @return a {@link PyList} containing the names of all attributes.
    */
   public PyList dir()
   {
@@ -184,8 +184,8 @@ public class PyAttributes implements Map<PyObject, PyObject>
    * <p>
    * This method is equivalent to Python's {@code getattr(obj, key)}.</p>
    *
-   * @param key is the name fromMap the attribute to retrieve.
-   * @return the value fromMap the attribute.
+   * @param key is the name of the attribute to retrieve.
+   * @return the value of the attribute.
    */
   @Override
   public PyObject get(Object key)
@@ -207,10 +207,10 @@ public class PyAttributes implements Map<PyObject, PyObject>
    * This method is equivalent to Python's
    * {@code getattr(obj, key, defaultValue)}.</p>
    *
-   * @param key is the name fromMap the attribute to retrieve.
+   * @param key is the name of the attribute to retrieve.
    * @param defaultValue The default value to return if the attribute does not
    * exist.
-   * @return the value fromMap the attribute, or {@code defaultValue} if the
+   * @return the value of the attribute, or {@code defaultValue} if the
    * attribute does not exist.
    */
   @Override
@@ -243,9 +243,9 @@ public class PyAttributes implements Map<PyObject, PyObject>
    * <p>
    * This method is equivalent to Python's {@code setattr(obj, key, value)}.</p>
    *
-   * @param key is the name fromMap the attribute to set.
+   * @param key is the name of the attribute to set.
    * @param value is the value to associate with the attribute.
-   * @return the previous value fromMap the attribute, or {@code null} if no
+   * @return the previous value of the attribute, or {@code null} if no
    * previous value existed.
    */
   @Override
@@ -255,9 +255,9 @@ public class PyAttributes implements Map<PyObject, PyObject>
   }
 
   /**
-   * Sets multiple attributes fromMap the given map.
+   * Sets multiple attributes of the given map.
    *
-   * @param map is the map fromMap attributes to add.
+   * @param map is the map of attributes to add.
    */
   @Override
   public void putAll(Map<? extends PyObject, ? extends PyObject> map)
@@ -271,7 +271,7 @@ public class PyAttributes implements Map<PyObject, PyObject>
   /**
    * Unsupported operation for removing an attribute.
    *
-   * @param key is the name fromMap the attribute to remove.
+   * @param key is the name of the attribute to remove.
    * @throws UnsupportedOperationException Always thrown.
    */
   @Override
@@ -281,9 +281,9 @@ public class PyAttributes implements Map<PyObject, PyObject>
   }
 
   /**
-   * Returns the number fromMap attributes fromMap the Python object.
+   * Returns the number of attributes of the Python object.
    *
-   * @return the number fromMap attributes.
+   * @return the number of attributes.
    */
   @Override
   public int size()
@@ -292,7 +292,7 @@ public class PyAttributes implements Map<PyObject, PyObject>
   }
 
   /**
-   * Returns a collection fromMap all attribute values fromMap the Python
+   * Returns a collection of all attribute values of the Python
    * object.
    *
    * @return a {@link Collection} containing all attribute values.

@@ -28,8 +28,11 @@ import org.jpype.annotation.Bypass;
  * Java collections. It extends {@link PyCollection}, which provides
  * foundational collection behaviors, and Java's {@link Set}.
  * <p>
- * Note: Python uses operators for many set operations, which are not yet
- * included in this protocol. This is marked as a FIXME in the implementation.
+ * Note: this protocol covers membership testing and iteration only.
+ * Python's operator-based set algebra (union, intersection, difference,
+ * etc., normally spelled {@code |}, {@code &}, {@code -} in Python) is not
+ * exposed here; use {@link PyBuiltIn#eval eval} to invoke those operators
+ * directly if needed.
  * <p>
  * Due to name conflicts between protocols and concrete types, this interface
  * has been renamed {@code PyAbstractSet}.

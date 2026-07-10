@@ -23,9 +23,11 @@ import python.lang.PyBytes;
  * Adapts a {@link PyBufferedIOBase} to {@link java.io.OutputStream}, backing
  * {@link PyBufferedIOBase#asOutputStream()}.
  *
- * Each {@code write} builds a fresh Python {@code bytes} object from the
- * given range and hands it to {@link PyBufferedIOBase#write(python.lang.PyBuffer)};
- * this is not tuned for throughput — see {@link PyIOInputStream}.
+ * Each {@code write(byte[], int, int)} builds a fresh Python {@code bytes}
+ * object from the given range and hands it to a single
+ * {@link PyBufferedIOBase#write(python.lang.PyBuffer)} call; the
+ * single-byte {@code write(int)} makes its own call per byte, so prefer the
+ * bulk form for large transfers.
  */
 final class PyIOOutputStream extends java.io.OutputStream
 {

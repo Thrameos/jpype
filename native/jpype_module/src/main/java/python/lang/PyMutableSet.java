@@ -19,8 +19,10 @@ package python.lang;
 import org.jpype.annotation.Bypass;
 
 /**
+ * A Python mutable {@code set}: supports adding and removing elements in
+ * addition to the read-only operations of {@link PyAbstractSet}.
  *
- * @param <T>
+ * @param <T> the element type.
  */
 public interface PyMutableSet<T extends PyObject> extends PyAbstractSet<T>
 {

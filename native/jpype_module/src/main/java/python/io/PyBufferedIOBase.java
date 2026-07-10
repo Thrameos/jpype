@@ -55,9 +55,10 @@ public interface PyBufferedIOBase extends PyIOBase
 
   /**
    * Wraps this stream as a standard {@link java.io.InputStream}, so it can be
-   * passed to Java APIs that expect one. Reads are round-tripped through
-   * {@link #read(int)} one Java-side call at a time — not tuned for
-   * throughput; see {@code plan/IO.md}.
+   * passed to Java APIs that expect one. Each single-byte {@code read()} call
+   * makes its own call into {@link #read(int)}; for large transfers, prefer
+   * {@code read(byte[], int, int)} on the returned stream, which forwards
+   * directly to a single {@link #read(int)} call sized to the request.
    *
    * @return an {@code InputStream} view of this stream.
    */
@@ -68,9 +69,11 @@ public interface PyBufferedIOBase extends PyIOBase
 
   /**
    * Wraps this stream as a standard {@link java.io.OutputStream}, so it can
-   * be passed to Java APIs that expect one. Writes are round-tripped through
-   * {@link #write(PyBuffer)} one Java-side call at a time — not tuned for
-   * throughput; see {@code plan/IO.md}.
+   * be passed to Java APIs that expect one. Each single-byte {@code write()}
+   * call makes its own call into {@link #write(PyBuffer)}; for large
+   * transfers, prefer {@code write(byte[], int, int)} on the returned
+   * stream, which forwards directly to a single {@link #write(PyBuffer)}
+   * call sized to the request.
    *
    * @return an {@code OutputStream} view of this stream.
    */

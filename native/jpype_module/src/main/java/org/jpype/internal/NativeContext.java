@@ -67,8 +67,7 @@ public class NativeContext
    * Registry for SPI-provided "mini-backends" (e.g. {@code python.io.IO}),
    * scoped to this interpreter instance rather than kept as a JVM-wide
    * static — a second, independent interpreter running in the same JVM
-   * must not see (or clobber) another interpreter's registrations. See
-   * {@code plan/SPI.md}'s "Mini-backends" section.
+   * must not see (or clobber) another interpreter's registrations.
    */
   private final Map<Class<?>, Object> backendRegistry = new ConcurrentHashMap<>();
 

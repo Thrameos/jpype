@@ -17,18 +17,12 @@
 package org.jpype;
 
 /**
- * Implemented by {@code _jbridge.py} (a {@code JProxy}, same pattern as
- * {@link Backend}) and installed on {@link MainInterpreter} at startup.
- *
- * This is the write side of the SPI: {@link SpiLoader} discovers
- * {@link WrapperService} providers, reads each provider's declared
- * {@code .pyspi} resources, and replays them here. Every hook the
- * {@code python.io} first cut hand-wired directly in {@code _jbridge.py} —
- * a Python class's method dict, a mini-backend's dispatch dict — becomes one
- * of these two calls instead, driven by data (resource files) rather than
- * hardcoded per-provider Python source living in core {@code _jbridge.py}.
- *
- * See {@code plan/SPI.md}.
+ * Internal: registers a {@link WrapperService} provider's Python classes
+ * and mini-backends with the running interpreter. Implemented by
+ * {@code _jbridge.py} and installed on {@link MainInterpreter} at startup;
+ * a provider never constructs or calls this type directly — its methods
+ * are invoked automatically, once per declared resource, after
+ * {@link WrapperService#getResources()} runs.
  */
 public interface Installer
 {
@@ -38,8 +32,7 @@ public interface Installer
    *
    * @param pyModule the Python module the class lives in, e.g. {@code "_io"}
    * (matching the class's real {@code __module__} — not necessarily the
-   * "friendly" package name, see the {@code _io}/{@code io} split in
-   * {@code plan/SPI.md}).
+   * "friendly" package name a provider's own module list reports).
    * @param pyClass the class's name within that module, e.g. {@code
    * "BytesIO"}.
    * @param javaInterface fully qualified Java interface name, e.g.
@@ -69,11 +62,10 @@ public interface Installer
   void registerLazyClass(String pyModule, String pyClass, String javaInterface, String methodsSource);
 
   /**
-   * Register a provider's own mini-backend (see {@code plan/SPI.md}'s
-   * "Mini-backends" section) — a small, provider-owned interface (like
-   * {@code python.io.IO}) that needs its own {@code JProxy} and dispatch
-   * dict, independent of the shared {@link Backend}, which providers cannot
-   * extend.
+   * Register a provider's own mini-backend — a small, provider-owned
+   * interface (like {@code python.io.IO}) that needs its own
+   * {@code JProxy} and dispatch dict, independent of the shared
+   * {@link Backend}, which providers cannot extend.
    *
    * @param javaInterface fully qualified Java interface name for the
    * mini-backend, e.g. {@code "python.io.IO"}.

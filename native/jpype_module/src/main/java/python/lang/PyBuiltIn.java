@@ -55,7 +55,6 @@ public class PyBuiltIn
    * {@code python.io.IO}), reached through this same per-interpreter
    * {@code PyBuiltIn} instance rather than any JVM-wide static — any live
    * {@link PyObject} can reach this via {@code obj.builtin().getBackend(...)}.
-   * See {@code plan/SPI.md}'s "Mini-backends" section.
    *
    * @param <T> the mini-backend interface type.
    * @param iface the mini-backend interface.

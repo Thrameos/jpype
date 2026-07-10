@@ -24,6 +24,8 @@ import org.jpype.MainInterpreter;
 import org.jpype.internal.FunctionalAdapters;
 
 /**
+ * Iterates over the (key, value) pairs of a Python {@code dict}, backing
+ * {@link PyDictItems}'s {@code iterator()}.
  *
  * @author nelson85
  */

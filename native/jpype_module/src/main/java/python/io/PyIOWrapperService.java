@@ -21,33 +21,23 @@ import org.jpype.WrapperService;
 
 /**
  * SPI provider mapping Python's {@code io}/{@code _io} classes onto the
- * {@code python.io} interfaces.
+ * {@code python.io} interfaces — a worked example of {@link WrapperService},
+ * whose Javadoc documents the general mechanism.
  *
- * This is the first real, non-hardcoded {@link WrapperService}: it is the
- * worked example for how a third-party package (numpy-shaped or otherwise)
- * would expose its own types, per {@code plan/SPI.md}/{@code plan/IO.md}.
- * It deliberately covers two module names — {@code "io"} (the public
- * facade, where the abstract base classes report their {@code __module__})
- * and {@code "_io"} (the C accelerator module, where every concrete class
- * actually lives) — a split every provider that wraps a C-extension-backed
- * package will hit.
+ * Covers two module names — {@code "io"} (the public facade, where the
+ * abstract base classes report their {@code __module__}) and {@code "_io"}
+ * (the C accelerator module, where every concrete class actually lives).
  *
- * Only {@code BytesIO}/{@code StringIO} and their abstract bases are
- * mapped in this first cut; the remaining classes ({@code FileIO},
- * {@code BufferedReader/Writer/Random}, {@code TextIOWrapper},
- * {@code BufferedRWPair}) are deferred to the next implementation step in
- * {@code plan/IO.md}.
+ * Currently exposes {@code BytesIO}, {@code StringIO}, and their abstract
+ * base classes ({@code IOBase}, {@code BufferedIOBase}, {@code TextIOBase}).
+ * {@code BytesIO} and the abstract bases resolve eagerly (at interpreter
+ * startup); {@code StringIO} resolves lazily, the first time an instance
+ * of it actually crosses into Java.
  *
- * {@link #getResources()} just scans this provider's own resource
- * directory ({@link SpiLoader#listPyspiResources}) — adding a class means
- * dropping a new {@code .pyspi} file under {@code python/io/spi/}, nothing
- * else here needs to change. Each resource declares its own eager/lazy
- * behavior in its header: {@code IOBase}/{@code BufferedIOBase}/
- * {@code TextIOBase}/{@code BytesIO} and the {@code IO} mini-backend are
- * eager (replayed immediately at startup); {@code StringIO} has
- * {@code lazy: true} — only imported/registered the first time a
- * {@code StringIO} instance actually crosses into Java, via the
- * {@code _jpype._cache} probe-miss hook (see {@code plan/SPI.md}).
+ * {@link #getResources()} scans this provider's own resource directory
+ * ({@link SpiLoader#listPyspiResources}) — adding a class means dropping a
+ * new {@code .pyspi} file under {@code python/io/spi/}, nothing else here
+ * needs to change.
  */
 public final class PyIOWrapperService implements WrapperService
 {

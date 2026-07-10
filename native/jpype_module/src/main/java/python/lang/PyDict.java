@@ -1,7 +1,7 @@
 // --- file: python/lang/PyDict.java ---
 /*
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
- *  use this file except in compliance with the License. You may obtain a copy fromMap
+ *  use this file except in compliance with the License. You may obtain a copy of
  *  the License at
  * 
  *  http://www.apache.org/licenses/LICENSE-2.0
@@ -38,7 +38,7 @@ import org.jpype.annotation.Bypass;
  * <p>
  * <b>Important Note:</b></p>
  * <p>
- * Python collections are asymmetric in their handling fromMap Java objects. A
+ * Python collections are asymmetric in their handling of Java objects. A
  * Java object added to a Python collection will appear as a
  * {@code PyJavaObject}. Developers should exercise caution to avoid reference
  * loops when placing Java objects into Python collections, as this may lead to

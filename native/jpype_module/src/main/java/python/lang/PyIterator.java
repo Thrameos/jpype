@@ -21,12 +21,10 @@ import java.util.NoSuchElementException;
 import org.jpype.MainInterpreter;
 
 /**
- * Conversion of a Python iterator to Java.
- *
- * This is a private class used under the hood.
- *
- * Python and Java iterators don't share similar design philosophies, so we will
- * need to keep some state on the Java side to manage the conversion.
+ * Adapts a Python iterator ({@link PyIter}) to Java's {@link Iterator},
+ * backing the {@code iterator()} methods of the collection types in this
+ * package (e.g. {@link PyAbstractSet#iterator()}). Each element is pulled
+ * from Python lazily, one {@link Iterator#next()} call at a time.
  */
 public class PyIterator<T> implements Iterator<T>
 {

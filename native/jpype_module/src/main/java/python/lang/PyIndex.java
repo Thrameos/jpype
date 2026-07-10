@@ -17,7 +17,9 @@
 package python.lang;
 
 /**
- * Protocol for "__index__"
+ * A Python object that implements {@code __index__}, i.e. one that can be
+ * used as an integer wherever Python expects one (e.g. as a slice bound or
+ * subscript).
  *
  * @author nelson85
  */

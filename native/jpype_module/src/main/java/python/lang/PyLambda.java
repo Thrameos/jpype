@@ -17,6 +17,8 @@
 package python.lang;
 
 /**
+ * Represents a Python {@code lambda} expression. Invoke it with
+ * {@link PyCallable}'s call methods.
  *
  * @author nelson85
  */

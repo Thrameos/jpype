@@ -20,22 +20,17 @@ package python.io;
  * Java front-end for Python's {@code io} module, following the same
  * conventions as {@link python.lang}.
  *
- * This package is also the first real consumer of the SPI
- * ({@code org.jpype.WrapperService}/{@code org.jpype.Installer}): nothing
- * here is hand-wired into {@code _jbridge.py} the way {@code python.lang}'s
- * builtin types are. {@link PyIOWrapperService#getResources()} scans this
- * package's {@code .pyspi} resource directory ({@code
- * src/main/resources/python/io/spi/}); each resource names a Python class
- * (module + name) or mini-backend, its Java interface, a blob of Python
- * source, and whether it resolves eagerly or lazily ({@code lazy: true}
- * in its header). {@code org.jpype.SpiLoader} reads them at startup and
- * replays them into {@code Installer}, implemented by {@code _jbridge.py}.
- * This is the same mechanism a third-party package would use to expose its
- * own types. See {@code plan/SPI.md} and {@code plan/IO.md} in the
- * repository root.
+ * Start from {@link IO#using(python.lang.PyBuiltIn) IO.using(context)} to
+ * construct instances of the concrete types in this package, e.g.
+ * {@link IO#bytesIO() IO.using(context).bytesIO()} for an in-memory
+ * {@code io.BytesIO}, or {@link IO#stringIO() stringIO()} for
+ * {@code io.StringIO}. Each returned object is a normal Java interface
+ * ({@link PyBytesIO}, {@link PyStringIO}, ...) backed by the real Python
+ * object, so its methods behave exactly as they would in Python.
  *
- * Both registration paths are live and exercised here: eager (most of this
- * package) and lazy ({@code _io.StringIO}, resolved on first use via the
- * {@code _jpype._cache.__missing__} probe-miss hook) — see
- * {@code plan/SPI.md}'s "lazy per-module" section.
+ * Binary streams can be promoted to standard {@code java.io} types where
+ * that's more convenient: {@link PyBufferedIOBase#asInputStream()} and
+ * {@link PyBufferedIOBase#asOutputStream()} wrap a Python binary stream as
+ * a {@link java.io.InputStream}/{@link java.io.OutputStream}, so it can be
+ * handed to any Java API that expects one.
  */

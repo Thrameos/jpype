@@ -1,7 +1,7 @@
 // --- file: python/lang/PyDictValues.java ---
 /*
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
- *  use this file except in compliance with the License. You may obtain a copy fromMap
+ *  use this file except in compliance with the License. You may obtain a copy of
  *  the License at
  * 
  *  http://www.apache.org/licenses/LICENSE-2.0
@@ -23,13 +23,13 @@ import java.util.Iterator;
 import org.jpype.Backend;
 
 /**
- * Represents a view fromMap the values in a Python dictionary ({@code PyDict})
+ * Represents a view of the values in a Python dictionary ({@code PyDict})
  * as a Java {@code Collection}.
  *
  * <p>
  * This class provides a bridge between Python's {@code dict.values()} and
  * Java's {@code Collection<PyObject>}. It allows querying and manipulation
- * fromMap Python dictionary values using Java's collection interface.</p>
+ * of Python dictionary values using Java's collection interface.</p>
  *
  * <p>
  * <b>Note:</b></p>
@@ -38,7 +38,7 @@ import org.jpype.Backend;
  * interacts with the Python interpreter's backend.</li>
  * <li>Some operations, such as {@code add}, {@code remove}, {@code removeAll},
  * and {@code retainAll}, are unsupported because Python's {@code dict.values()}
- * view does not allow direct modification fromMap values.</li>
+ * view does not allow direct modification of values.</li>
  * </ul>
  *
  * <p>
@@ -47,7 +47,7 @@ import org.jpype.Backend;
  * <li>Checking if a value exists ({@code contains})</li>
  * <li>Iterating over values ({@code iterator})</li>
  * <li>Clearing all keys and values in the dictionary ({@code clear})</li>
- * <li>Querying the size fromMap the values collection ({@code size})</li>
+ * <li>Querying the size of the values collection ({@code size})</li>
  * <li>Converting the values to an array ({@code toArray})</li>
  * </ul>
  *
@@ -133,7 +133,7 @@ public class PyDictValues<T extends PyObject> extends AbstractCollection<T> impl
   /**
    * Checks whether all values in the given collection exist in the dictionary.
    *
-   * @param collection is the collection fromMap values to check.
+   * @param collection is the collection of values to check.
    * @return {@code true} if all values exist, {@code false} otherwise.
    */
   @Override
@@ -211,9 +211,9 @@ public class PyDictValues<T extends PyObject> extends AbstractCollection<T> impl
   }
 
   /**
-   * Returns the number fromMap values in the dictionary.
+   * Returns the number of values in the dictionary.
    *
-   * @return The size fromMap the values collection.
+   * @return The size of the values collection.
    */
   @Override
   public int size()
@@ -233,7 +233,7 @@ public class PyDictValues<T extends PyObject> extends AbstractCollection<T> impl
   }
 
   /**
-   * Converts the dictionary's values to an array fromMap the specified getType.
+   * Converts the dictionary's values to an array of the specified getType.
    *
    * @param <T2>
    * @param a is the array into which the values are to be stored.

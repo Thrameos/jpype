@@ -35,8 +35,11 @@ import org.jpype.annotation.Bypass;
  * It also provides utility methods for retrieving metadata about the callable,
  * such as its documentation string and signature.
  *
- * To allow for method overloading, the entry point for calls must remain
- * private.
+ * Use one of the {@code call(...)} overloads for a fixed set of positional
+ * and/or keyword arguments, {@link #call()} to build up a call incrementally
+ * via {@link CallBuilder}, or {@code callAsync(...)}/
+ * {@code callAsyncWithTimeout(...)} to invoke without blocking the current
+ * thread.
  */
 public interface PyCallable extends PyObject
 {

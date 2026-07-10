@@ -20,24 +20,19 @@ import python.lang.PyBuffer;
 import python.lang.PyBuiltIn;
 
 /**
- * Module-level hooks for {@code python.io} — the mini-backend for this
- * package, playing the same role {@link org.jpype.Backend} plays for
- * {@code python.lang}, scoped to this SPI provider.
+ * Entry point for constructing {@code python.io} objects.
  *
- * {@code _jbridge.py} builds this interface's proxy (bound to its own
- * Python-side dispatch dict, independent from {@code Backend}'s) and
- * registers it on the current interpreter's {@code NativeContext} at init
- * time (scoped per-interpreter, not a JVM-wide static — see
- * {@code NativeContext#registerBackend}) — this is the user-facing entry
- * point for constructing {@code python.io} objects; there is deliberately no
- * {@code python.lang.PyBuiltIn} equivalent, since core {@code python.lang}
- * should not need to know about any given SPI provider.
+ * Call {@link #using(PyBuiltIn)} with the interpreter's {@code PyBuiltIn}
+ * (e.g. {@code obj.builtin()} for a live {@code PyObject}, or the
+ * {@code PyBuiltIn}/{@code Script} already in hand) to get an {@code IO}
+ * instance, then use its factory methods to create {@code python.io}
+ * objects:
  *
- * {@link #using(PyBuiltIn)} takes the interpreter's {@code PyBuiltIn}
- * explicitly (e.g. {@code obj.builtin()} for a live {@code PyObject}, or the
- * {@code PyBuiltIn}/{@code Script} a caller already has in hand) rather than
- * reaching for a JVM-wide singleton, so this mini-backend never depends on
- * {@code MainInterpreter}.
+ * <pre>{@code
+ * IO io = IO.using(context);
+ * PyBytesIO buf = io.bytesIO();
+ * PyStringIO text = io.stringIO("hello");
+ * }</pre>
  */
 public interface IO
 {
