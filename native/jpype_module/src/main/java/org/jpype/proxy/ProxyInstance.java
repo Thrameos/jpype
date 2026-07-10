@@ -68,7 +68,6 @@ public class ProxyInstance implements InvocationHandler
     throw new NoSuchMethodError(method.getName());
   }
 
-
   private static final int INITIAL_SIZE = 16;
 
   private static final ThreadLocal<long[]> CACHE = ThreadLocal.withInitial(() -> new long[INITIAL_SIZE]);

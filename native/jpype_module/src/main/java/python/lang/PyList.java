@@ -168,15 +168,6 @@ public interface PyList extends PySequence<PyObject>
   void extend(Collection<? extends PyObject> c);
 
   /**
-   * Retrieves the element at the specified position in the list.
-   *
-   * @param index the position of the element to retrieve.
-   * @return the {@link PyObject} at the specified position.
-   */
-  @Override
-  PyObject get(int index);
-
-  /**
    * Finds the index of the first occurrence of the specified object in the
    * list.
    *

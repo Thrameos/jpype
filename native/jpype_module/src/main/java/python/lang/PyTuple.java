@@ -165,16 +165,6 @@ public interface PyTuple extends PySequence<PyObject>
   }
 
   /**
-   * Returns the element at the specified index.
-   *
-   * @param index the index of the element to retrieve.
-   * @return the element at the specified index.
-   * @throws IndexOutOfBoundsException if the index is out of range
-   */
-  @Override
-  PyObject get(int index);
-
-  /**
    * Returns the index of the first occurrence of the specified object in the
    * tuple.
    *

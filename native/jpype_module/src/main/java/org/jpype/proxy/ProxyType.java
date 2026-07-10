@@ -80,45 +80,110 @@ public final class ProxyType
     TypeManager tm = context.getTypeManager();
     synchronized (tm)
     {
+      // A method signature (name + parameter types) can be reached through
+      // several interfaces in this proxy's interface list (e.g. an abstract
+      // declaration inherited from java.util.List alongside a @Bypass default
+      // override declared directly on PyTuple). java.lang.reflect.Proxy picks
+      // one canonical Method per signature to hand to InvocationHandler.invoke,
+      // and it is not guaranteed to be the most-derived/most-specific one - it
+      // may be the plain abstract List-declared Method, which carries neither
+      // @Bypass nor a default MethodHandle. Track the best descriptor per
+      // signature first, then register it under every Method sharing that
+      // signature so lookup succeeds regardless of which one the JVM passes.
+      Map<MethodKey, Method> bestBySignature = new HashMap<>();
       for (Class<?> iface : interfaces)
-        populateCache(tm, iface.getMethods(), tempMap);
+      {
+        for (Method method : iface.getMethods())
+        {
+          MethodKey key = new MethodKey(method);
+          Method existing = bestBySignature.get(key);
+          if (existing == null || isBetter(method, existing))
+            bestBySignature.put(key, method);
+        }
+      }
+
+      Map<MethodKey, MethodDescriptor> descriptors = new HashMap<>();
+      for (Map.Entry<MethodKey, Method> entry : bestBySignature.entrySet())
+        descriptors.put(entry.getKey(), buildDescriptor(tm, entry.getValue()));
+
+      for (Class<?> iface : interfaces)
+        for (Method method : iface.getMethods())
+          tempMap.putIfAbsent(method, descriptors.get(new MethodKey(method)));
     }
 
     this.methodCache = Collections.unmodifiableMap(tempMap);
   }
 
-  private void populateCache(TypeManager tm, Method[] methods, Map<Method, MethodDescriptor> map)
+  // Prefer a @Bypass or default method over a plain abstract declaration, and
+  // never settle on a compiler-generated covariant-return bridge (e.g. the
+  // synthetic `Object get(int)` bridge javac emits alongside PySequence's
+  // real `PyObject get(int)` override - MethodKey ignores return type so the
+  // two collide here). A bridge's default body just re-invokes the covariant
+  // method via a normal interface call, which routes back through this same
+  // proxy dispatch and recurses forever if picked as the "real" descriptor.
+  private static boolean isBetter(Method candidate, Method current)
   {
-    for (Method method : methods)
+    if (current.isBridge() && !candidate.isBridge())
+      return true;
+    if (candidate.isBridge() && !current.isBridge())
+      return false;
+    boolean candidateGood = candidate.isAnnotationPresent(Bypass.class) || candidate.isDefault();
+    boolean currentGood = current.isAnnotationPresent(Bypass.class) || current.isDefault();
+    return candidateGood && !currentGood;
+  }
+
+  private MethodDescriptor buildDescriptor(TypeManager tm, Method method)
+  {
+    long returnType = tm.findClass(method.getReturnType());
+    Class<?>[] params = method.getParameterTypes();
+    long[] paramTypes = new long[params.length];
+    for (int i = 0; i < params.length; i++)
+      paramTypes[i] = tm.findClass(params[i]);
+
+    boolean bypass = (method.isAnnotationPresent(Bypass.class));
+    if (method.isAnnotationPresent(Builtin.class))
     {
-      if (map.containsKey(method))
-        continue;
-
-      long returnType = tm.findClass(method.getReturnType());
-      Class<?>[] params = method.getParameterTypes();
-      long[] paramTypes = new long[params.length];
-      for (int i = 0; i < params.length; i++)
-        paramTypes[i] = tm.findClass(params[i]);
-
-      boolean bypass = (method.isAnnotationPresent(Bypass.class));
-      if (method.isAnnotationPresent(Builtin.class))
+      // Install a magic backdoor for builtin() so that Interface can find its support backend.
+      try
       {
-        // Install a magic backdoor for builtin() so that Interface can find its support backend.
-        try
-        {
-           MethodHandle defaultHandle = MethodHandles.lookup().findStatic(ProxyInstance.class, "get", MethodType.methodType(PyBuiltIn.class, Object.class));
-           map.put(method, new MethodDescriptor(this.stringManager.get(method.getName()), returnType, paramTypes, defaultHandle, true));
-           return;
-        } catch (NoSuchMethodException | IllegalAccessException ex)
-        {
-          System.getLogger(ProxyType.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
-        }
+        MethodHandle defaultHandle = MethodHandles.lookup().findStatic(ProxyInstance.class, "get", MethodType.methodType(PyBuiltIn.class, Object.class));
+        return new MethodDescriptor(this.stringManager.get(method.getName()), returnType, paramTypes, defaultHandle, true);
+      } catch (NoSuchMethodException | IllegalAccessException ex)
+      {
+        System.getLogger(ProxyType.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
       }
+    }
 
-      MethodHandle defaultHandle = null;
-      if (method.isDefault())
-        defaultHandle = getDefaultHandle(method.getDeclaringClass(), method, java.lang.invoke.MethodHandles.class);
-      map.put(method, new MethodDescriptor(this.stringManager.get(method.getName()), returnType, paramTypes, defaultHandle, bypass));
+    MethodHandle defaultHandle = null;
+    if (method.isDefault())
+      defaultHandle = getDefaultHandle(method.getDeclaringClass(), method, java.lang.invoke.MethodHandles.class);
+    return new MethodDescriptor(this.stringManager.get(method.getName()), returnType, paramTypes, defaultHandle, bypass);
+  }
+
+  private static final class MethodKey
+  {
+    private final String name;
+    private final Class<?>[] paramTypes;
+
+    MethodKey(Method method)
+    {
+      this.name = method.getName();
+      this.paramTypes = method.getParameterTypes();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+      if (!(o instanceof MethodKey))
+        return false;
+      MethodKey other = (MethodKey) o;
+      return name.equals(other.name) && java.util.Arrays.equals(paramTypes, other.paramTypes);
+    }
+
+    @Override
+    public int hashCode()
+    {
+      return name.hashCode() * 31 + java.util.Arrays.hashCode(paramTypes);
     }
   }
 
