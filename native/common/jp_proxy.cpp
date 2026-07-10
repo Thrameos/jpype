@@ -52,6 +52,40 @@ JPPyObject getArgs(JPJavaFrame& frame, jlongArray parameterTypePtrs,
 	JP_TRACE_OUT;
 }
 
+// Builds a PyDict from the flattened (key, value) tail of args, i.e.
+// args[posCount], args[posCount+1], ..., args[posCount+2*kwCount-1].
+// Keys are always java.lang.String (see PyKeyArgs/ProxyInstance.invoke on
+// the Java side); values are converted the same way as positional args.
+JPPyObject getKwArgs(JPJavaFrame& frame, jlongArray parameterTypePtrs,
+		jobjectArray args, jsize posCount, jsize kwCount)
+{
+	JP_TRACE_IN("JProxy::getKwArgs");
+	JPPyObject pykwargs = JPPyObject::call(PyDict_New());
+	JPPrimitiveArrayAccessor<jlongArray, jlong*> accessor(frame, parameterTypePtrs,
+			&JPJavaFrame::GetLongArrayElements, &JPJavaFrame::ReleaseLongArrayElements);
+	JPContext *context = frame.getContext();
+
+	jlong* types = accessor.get();
+	for (jsize i = 0; i < kwCount; i++)
+	{
+		jsize keyIdx = posCount + 2 * i;
+		jsize valIdx = keyIdx + 1;
+
+		auto key = (jstring) frame.GetObjectArrayElement(args, keyIdx);
+		string keyStr = frame.toStringUTF8(key);
+		frame.DeleteLocalRef(key);
+
+		jobject obj = frame.GetObjectArrayElement(args, valIdx);
+		JPClass* type = reinterpret_cast<JPClass*> (types[valIdx]);
+		JPValue val = type->getValueFromObject(frame, JPValue(type, obj));
+		JPPyObject pyval = type->convertToPythonObject(frame, val, type != (JPClass*) (context->_java_lang_String));
+		PyDict_SetItemString(pykwargs.get(), keyStr.c_str(), pyval.get());
+		frame.DeleteLocalRef(obj);
+	}
+	return pykwargs;
+	JP_TRACE_OUT;
+}
+
 
 // Consider using a Multirelease Jar to skip this starting in 16
 extern "C" JNIEXPORT jobject JNICALL Java_org_jpype_proxy_ProxyType_getDefaultHandle(
@@ -98,7 +132,8 @@ extern "C" JNIEXPORT jobject JNICALL Java_org_jpype_proxy_ProxyInstance_hostInvo
 		jlong returnTypePtr,
 		jlongArray parameterTypePtrs,
 		jobjectArray args,
-		jsize sz)
+		jsize numPositional,
+		jsize numKeyword)
 {
 	JPProxy* proxy = (JPProxy*) hostObj;
 	JPContext* context = proxy->m_Context;
@@ -153,10 +188,18 @@ extern "C" JNIEXPORT jobject JNICALL Java_org_jpype_proxy_ProxyInstance_hostInvo
 
 			// convert the arguments into a python list
 			JP_TRACE("Convert arguments");
-			JPPyObject pyargs = getArgs(frame, parameterTypePtrs, args, proxy->m_Instance->m_Target, addSelf, sz);
+			JPPyObject pyargs = getArgs(frame, parameterTypePtrs, args, proxy->m_Instance->m_Target, addSelf, numPositional);
+
+			JPPyObject pykwargs;
+			if (numKeyword > 0)
+			{
+				JP_TRACE("Convert keyword arguments");
+				pykwargs = getKwArgs(frame, parameterTypePtrs, args, numPositional, numKeyword);
+			}
 
 			JP_TRACE("Call Python");
-			JPPyObject returnValue = JPPyObject::call(PyObject_Call(callable.get(), pyargs.get(), nullptr));
+			JPPyObject returnValue = JPPyObject::call(
+					PyObject_Call(callable.get(), pyargs.get(), numKeyword > 0 ? pykwargs.get() : nullptr));
 
 			JP_TRACE("Handle return", Py_TYPE(returnValue.get())->tp_name);
 			if (returnClass == context->_void)
