@@ -20,10 +20,8 @@
 
         <copy todir="${build}/classes" failonerror="false">
             <fileset dir="${resources}">
-                <include name="**/*.class"/>
-                <include name="**/*.properties"/>
-                <include name="**/*.txt"/>
-                <exclude name="**/*.java"/> </fileset>
+                <exclude name="**/*.java"/>
+            </fileset>
         </copy>
 		<javac destdir="${build}/classes"
 			source="${JAVA_VERSION}"
