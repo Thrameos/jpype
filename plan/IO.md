@@ -15,6 +15,51 @@ Python file-like object without learning the Python-flavored API.
 Deferred per user (2026-07-10): scope only, no implementation this session.
 See [[jpype_python_io_port_todo]] memory for the original ask.
 
+## Status (2026-07-10, later same day): asInputStream()/asOutputStream() implemented, unbuffered MVP
+
+`PyBufferedIOBase.asInputStream()`/`asOutputStream()` are implemented and
+tested (`native/jpype_module/src/main/java/python/io/PyIOInputStream.java`,
+`PyIOOutputStream.java`; `PyIOStreamAdapterNGTest`), plus a
+`java.io.InputStream`/`OutputStream` `JConversion` in `jpype/protocol.py`
+so a plain `io.BytesIO` can be passed straight into a Java API expecting a
+stream. Verified end-to-end from a plain launched script (`jpype.startJVM()`,
+not the NGTest harness) via `test_io.py` at the repo root.
+
+This is intentionally the simple/MVP version of the "Chunked buffering
+(required, not optional)" design below, not the full thing:
+
+- **No internal Java-side buffering.** Every `InputStream.read(byte[])`
+  issues exactly one bridge round-trip (`stream.read(len)`), and every byte
+  within that chunk is extracted via a separate `PyBytes.get(i)` +
+  `asLong(...)` round-trip — i.e. still O(N) bridge calls per N bytes read,
+  not O(N / bufferSize). Single-byte `read()`/`write(int)` are equally
+  unbuffered. Explicitly not tuned for throughput (see the classes'
+  javadoc) — this exists to prove the SPI wiring end-to-end, not for
+  production use.
+- **No `Reader`/`Writer` promotion for `PyTextIOBase`** — only the binary
+  `PyBufferedIOBase` got `asInputStream()`/`asOutputStream()`. Text
+  promotion (`asReader()`/`asWriter()`) is still just this plan's design,
+  unimplemented.
+- **No GIL/multi-thread stress test** — the "GIL / threading concerns"
+  section's dedicated background-thread test wasn't written.
+
+If real throughput matters later, revisit "Chunked buffering" below and
+replace `PyIOInputStream`/`PyIOOutputStream`'s per-element extraction with
+proper bulk byte-array marshalling (there's no existing bulk `PyBytes` ->
+`byte[]` conversion helper anywhere in the codebase yet — worth checking
+whether the buffer-protocol path used for `byte[]` -> `PyBytes`, see
+`PyBuiltIn.bytes(Object)`, has a symmetric reverse that's just not exposed
+yet, before building one from scratch).
+
+Also fixed in passing: `native/build.xml` (the `ant`-based jar the actual
+`project/dev.mk`/`pip install -e .` build ships) was silently dropping
+`.pyspi` resources and `META-INF/services/*` from `org.jpype.jar` — its
+resource-copy step only whitelisted `*.class`/`*.properties`/`*.txt`. This
+meant the SPI's eager registration would never have worked outside the
+Maven test build. Broadened to copy everything under `src/main/resources`
+except `.java`. This is how `test_io.py` was actually able to run against
+a real launched-script jar in the first place.
+
 ## What already exists to build on
 
 The codebase has two precedents that cover almost everything this needs —

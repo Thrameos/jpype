@@ -1,5 +1,25 @@
 # SPI: Java-registered Python dispatch hooks
 
+## Status (2026-07-10, later same day): BackendRegistry moved off a static, InputStream/OutputStream added
+
+Two follow-ups after the eager path below went live:
+
+- `org.jpype.BackendRegistry` (a bare static `Map`) was replaced —
+  mini-backend registration now lives on `NativeContext` (the true
+  per-interpreter object) as `registerBackend`/`getBackend`, reached from
+  Python via `_jpype.context().registerBackend(...)` and from Java via
+  `PyBuiltIn.getBackend(Class<T>)` (added to `python.lang.PyBuiltIn`,
+  reachable from any live `PyObject` via the existing `builtin()` backdoor —
+  no statics needed once you have any `PyObject` in hand).
+  `python.io.IO.instance()` still has one `MainInterpreter.getInstance()`
+  hop as a bootstrap convenience for when no `PyObject` exists yet, matching
+  the existing `getBackend()`/`getInstaller()` precedent — this only works
+  when called from **Java**; see `plan/IO.md`'s new status section for why
+  calling it from a plain launched Python script doesn't work the same way
+  (an unrelated jpype forward-marshalling quirk, not an SPI bug).
+- `native/build.xml` (the real `ant`-built jar `pip install -e .` ships) was
+  silently dropping `.pyspi` resources — fixed, see `plan/IO.md`.
+
 ## Status (2026-07-10): eager path implemented and live
 
 The eager registration path described below is no longer a sketch — it's
