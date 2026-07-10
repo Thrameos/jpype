@@ -233,7 +233,7 @@ public class Package
   void checkCache()
   {
     ClassLoader classLoader = PackageManager.classloader;
-    if (!(classLoader instanceof ClassLoader))
+    if (!(classLoader instanceof org.jpype.internal.DynamicClassLoader))
       return;
     int current = ((org.jpype.internal.DynamicClassLoader) classLoader).getCode();
     if (this.code == current)
