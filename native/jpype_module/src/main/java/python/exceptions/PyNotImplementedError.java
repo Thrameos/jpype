@@ -1,4 +1,4 @@
-// --- file: python/exception/PyNotImplementedError.java ---
+// --- file: python/exceptions/PyNotImplementedError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

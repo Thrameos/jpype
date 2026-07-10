@@ -1,4 +1,4 @@
-// --- file: python/exception/PyNameError.java ---
+// --- file: python/exceptions/PyNameError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

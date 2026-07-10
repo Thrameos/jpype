@@ -1,4 +1,4 @@
-// --- file: python/exception/PyADirectionError.java ---
+// --- file: python/exceptions/PyIsADirectoryError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

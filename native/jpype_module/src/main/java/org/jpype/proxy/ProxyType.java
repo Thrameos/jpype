@@ -1,4 +1,4 @@
-// --- file: org/jpype/proxy/JPypeProxyType.java ---
+// --- file: org/jpype/proxy/ProxyType.java ---
 package org.jpype.proxy;
 
 import java.lang.reflect.InvocationHandler;
@@ -50,7 +50,7 @@ public final class ProxyType
     this.stringManager = context.getStringManager();
     this.interfaces = interfaces;
     this.cleanup = cleanup;
-    this.builtin = factory.context.getBuildIn();
+    this.builtin = factory.context.getBuiltIn();
 
     // Pin the loader to the org.jpype module loader as the baseline default
     ClassLoader tempCl = ProxyType.class.getClassLoader();

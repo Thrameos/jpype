@@ -1,4 +1,4 @@
-// --- file: org/jpype/bridge/Interpreter.java ---
+// --- file: org/jpype/MainInterpreter.java ---
 /*
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
  *  use this file except in compliance with the License. You may obtain a copy of
@@ -59,7 +59,7 @@ import python.lang.PyObject;
  * With logging.properties file:
  * <pre>
  *   handlers=java.util.logging.ConsoleHandler
- *   org.jpype.bridge.Interpreter.level=INFO
+ *   org.jpype.MainInterpreter.level=INFO
  *   java.util.logging.ConsoleHandler.level=INFO
  *   java.util.logging.ConsoleHandler.formatter=java.util.logging.SimpleFormatter
  * </pre>
@@ -204,14 +204,14 @@ public class MainInterpreter implements Interpreter
    * {@code initialize()}, after {@link #setBackend} (SPI-registered classes
    * may need the backend to already exist).
    *
-   * @param entry The {@link Installer} instance to set.
+   * @param installer The {@link Installer} instance to set.
    */
-  public void setInstaller(Installer entry)
+  public void setInstaller(Installer installer)
   {
-    if (installer != null)
+    if (this.installer != null)
       throw new RuntimeException("Installer reconfigured");
     LOGGER.log(Level.INFO, "Installer installed");
-    installer = entry;
+    this.installer = installer;
     SpiLoader.load(installer);
   }
 

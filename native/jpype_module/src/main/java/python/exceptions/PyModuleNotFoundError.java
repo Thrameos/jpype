@@ -1,4 +1,4 @@
-// --- file: python/exception/PyModuleNotFoundError.java ---
+// --- file: python/exceptions/PyModuleNotFoundError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

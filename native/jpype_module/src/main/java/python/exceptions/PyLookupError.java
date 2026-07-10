@@ -1,4 +1,4 @@
-// --- file: python/exception/PyLookupError.java ---
+// --- file: python/exceptions/PyLookupError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

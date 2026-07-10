@@ -1,4 +1,4 @@
-// --- file: python/exception/PyRuntimeError.java ---
+// --- file: python/exceptions/PyRuntimeError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

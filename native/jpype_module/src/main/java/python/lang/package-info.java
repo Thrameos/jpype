@@ -31,7 +31,7 @@ package python.lang;
  *
  * Some methods or combination of arguments may not be available in Java on
  * these wrappers but can be accessed using the
- * {@link org.jpype.bridge.BuiltIn#eval eval} method. Thus type restrictions can
+ * {@link PyBuiltIn#eval eval} method. Thus type restrictions can
  * generally be avoided when they are burdensome.
  *
  * Not every protocol will be available on every object as Python objects may

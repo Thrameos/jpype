@@ -1,3 +1,4 @@
+// --- file: org/jpype/internal/NativeContext.java ---
 package org.jpype.internal;
 
 import java.io.File;
@@ -156,7 +157,7 @@ public class NativeContext
     this.builtin = builtin;
   }
 
-  public PyBuiltIn getBuildIn()
+  public PyBuiltIn getBuiltIn()
   {
     return this.builtin;
   }
@@ -452,7 +453,7 @@ public class NativeContext
     String[] paths = System.getProperty("java.class.path").split(File.pathSeparator);
     for (String path : paths)
     {
-      LOGGER.log(Level.FINER, "Sanning jar: {0}", path);
+      LOGGER.log(Level.FINER, "Scanning jar: {0}", path);
       this.classLoader.scanJar(Paths.get(path));
     }
   }

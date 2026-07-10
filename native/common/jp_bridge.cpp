@@ -261,7 +261,7 @@ JPContext* launch(JNIEnv* env, jobject interpreter)
 {
 	JPContext* context;
 
-	// We need the interpeter copy of these resources
+	// We need the interpreter copy of these resources
 	JPPyObject jpype = JPPyObject::accept(PyImport_ImportModule("jpype"));
 	JPPyObject jpypep = JPPyObject::accept(PyImport_ImportModule("_jpype"));
 

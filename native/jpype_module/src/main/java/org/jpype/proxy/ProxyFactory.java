@@ -1,4 +1,4 @@
-// --- file: org/jpype/proxy/JPypeProxyFactory.java ---
+// --- file: org/jpype/proxy/ProxyFactory.java ---
 package org.jpype.proxy;
 
 import java.lang.reflect.Method;

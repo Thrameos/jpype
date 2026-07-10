@@ -54,7 +54,7 @@ JPPyObject getArgs(JPJavaFrame& frame, jlongArray parameterTypePtrs,
 
 // Builds a PyDict from the flattened (key, value) tail of args, i.e.
 // args[posCount], args[posCount+1], ..., args[posCount+2*kwCount-1].
-// Keys are always java.lang.String (see PyKeyArgs/ProxyInstance.invoke on
+// Keys are always java.lang.String (see PyKwArgs/ProxyInstance.invoke on
 // the Java side); values are converted the same way as positional args.
 JPPyObject getKwArgs(JPJavaFrame& frame, jlongArray parameterTypePtrs,
 		jobjectArray args, jsize posCount, jsize kwCount)

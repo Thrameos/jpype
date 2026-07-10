@@ -1,4 +1,4 @@
-// --- file: python/exception/PyInterruptedError.java ---
+// --- file: python/exceptions/PyInterruptedError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

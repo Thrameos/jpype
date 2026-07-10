@@ -23,7 +23,7 @@ package python.io;
  * This package is also the first real consumer of the SPI
  * ({@code org.jpype.WrapperService}/{@code org.jpype.Installer}): nothing
  * here is hand-wired into {@code _jbridge.py} the way {@code python.lang}'s
- * builtin types are. {@link PyIoWrapperService#getResources()} scans this
+ * builtin types are. {@link PyIOWrapperService#getResources()} scans this
  * package's {@code .pyspi} resource directory ({@code
  * src/main/resources/python/io/spi/}); each resource names a Python class
  * (module + name) or mini-backend, its Java interface, a blob of Python

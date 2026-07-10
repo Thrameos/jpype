@@ -1,4 +1,4 @@
-// --- file: python/exception/PyAttributeError.java ---
+// --- file: python/exceptions/PyAttributeError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

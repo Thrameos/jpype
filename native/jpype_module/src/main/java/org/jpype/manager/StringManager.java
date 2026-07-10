@@ -1,4 +1,4 @@
-// --- file: org/jpype/internal/JPypeStringManager.java ---
+// --- file: org/jpype/manager/StringManager.java ---
 package org.jpype.manager;
 
 import org.jpype.internal.NativeContext;

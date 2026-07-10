@@ -1,4 +1,4 @@
-// --- file: python/exception/PyZeroDivisionError.java ---
+// --- file: python/exceptions/PyZeroDivisionError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

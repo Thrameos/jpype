@@ -1,4 +1,4 @@
-// --- file: python/exception/PyTimeoutError.java ---
+// --- file: python/exceptions/PyTimeoutError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

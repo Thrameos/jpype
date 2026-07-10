@@ -1,4 +1,4 @@
-// --- file: python/exception/PyFileNotFoundError.java ---
+// --- file: python/exceptions/PyFileNotFoundError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

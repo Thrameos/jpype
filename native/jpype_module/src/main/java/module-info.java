@@ -44,7 +44,7 @@ module org.jpype {
   // SPI
   // ==========================================
   uses org.jpype.WrapperService;
-  provides org.jpype.WrapperService with python.io.PyIoWrapperService;
+  provides org.jpype.WrapperService with python.io.PyIOWrapperService;
 
   // ==========================================
   // REFLECTION / REFLECTIVE ACCESS

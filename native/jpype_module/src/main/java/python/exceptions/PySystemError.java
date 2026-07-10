@@ -1,4 +1,4 @@
-// --- file: python/exception/PySystemError.java ---
+// --- file: python/exceptions/PySystemError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

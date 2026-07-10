@@ -1,4 +1,4 @@
-// --- file: exclude/org/jpype/Reflector0.java ---
+// --- file: exclude/org/jpype/internal/Reflector0.java ---
 package org.jpype.internal;
 
 import org.jpype.Reflector;

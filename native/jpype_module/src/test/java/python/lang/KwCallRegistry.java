@@ -17,14 +17,14 @@
 package python.lang;
 
 /**
- * Test-only support class for {@link PyKeyArgsNGTest}.
+ * Test-only support class for {@link PyKwArgsNGTest}.
  *
  * A Python lambda is registered here from Python source executed by the
  * test (via {@code jpype.JClass(...).register(...)}), which forces JPype's
  * automatic functional-interface conversion to wrap it as a {@link KwCall}
  * proxy - the same reverse-bridge machinery (ProxyInstance/hostInvoke) used
  * by any Python object implementing a Java interface. The test then calls
- * {@link #captured} directly from Java to exercise varargs + PyKeyArgs
+ * {@link #captured} directly from Java to exercise varargs + PyKwArgs
  * handling.
  */
 public class KwCallRegistry

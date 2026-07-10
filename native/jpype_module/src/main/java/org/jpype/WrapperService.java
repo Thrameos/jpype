@@ -1,4 +1,4 @@
-// --- file: org/jpype/bridge/WrapperService.java ---
+// --- file: org/jpype/WrapperService.java ---
 package org.jpype;
 
 import java.util.Collections;
@@ -6,7 +6,7 @@ import java.util.Collections;
 /**
  * Service provider interface for extending the Java view of Python types.
  * * Registered via Jigsaw: 
- * provides org.jpype.bridge.WrapperService with my.package.NumpyWrapperService;
+ * provides org.jpype.WrapperService with my.package.NumpyWrapperService;
  */
 public interface WrapperService {
 
@@ -47,7 +47,7 @@ public interface WrapperService {
      * {@code plan/SPI.md}. A provider does not need separate methods for
      * eager vs. lazy; it just needs to list every resource here, typically
      * by scanning its own resource directory rather than hardcoding each
-     * path (see {@code python.io.PyIoWrapperService} for a worked example).
+     * path (see {@code python.io.PyIOWrapperService} for a worked example).
      *
      * Default empty.
      */

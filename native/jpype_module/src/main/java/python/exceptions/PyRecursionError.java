@@ -1,4 +1,4 @@
-// --- file: python/exception/PyRecursionError.java ---
+// --- file: python/exceptions/PyRecursionError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

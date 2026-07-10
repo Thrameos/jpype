@@ -1,4 +1,4 @@
-// --- file: org/jpype/JPypeUtilities.java ---
+// --- file: org/jpype/internal/Support.java ---
 package org.jpype.internal;
 
 import java.net.URISyntaxException;

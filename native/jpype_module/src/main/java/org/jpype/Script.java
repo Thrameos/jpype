@@ -1,4 +1,4 @@
-// --- file: org/jpype/bridge/Context.java ---
+// --- file: org/jpype/Script.java ---
 /*
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
  *  use this file except in compliance with the License. You may obtain a copy of
@@ -38,16 +38,16 @@ public class Script extends PyBuiltIn
   private final PyObject localsDict;
        
 
-  public Script(Interpreter interpeter)
+  public Script(Interpreter interpreter)
   {
-    super(interpeter.getBuiltIn().getContext(), interpeter.getBuiltIn().getBackend());
+    super(interpreter.getBuiltIn().getContext(), interpreter.getBuiltIn().getBackend());
     this.globalsDict = MainInterpreter.backend.newDict();
     this.localsDict = globalsDict;
   }
 
- public Script(Interpreter interpeter, PyDict globals, PyObject locals)
+ public Script(Interpreter interpreter, PyDict globals, PyObject locals)
   {
-    super(interpeter.getBuiltIn().getContext(), interpeter.getBuiltIn().getBackend());
+    super(interpreter.getBuiltIn().getContext(), interpreter.getBuiltIn().getBackend());
     this.globalsDict = globals;
     this.localsDict = locals;
   }

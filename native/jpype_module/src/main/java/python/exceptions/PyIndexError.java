@@ -1,4 +1,4 @@
-// --- file: python/exception/PyIndexError.java ---
+// --- file: python/exceptions/PyIndexError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

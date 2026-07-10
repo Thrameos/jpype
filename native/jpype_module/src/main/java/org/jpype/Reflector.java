@@ -1,4 +1,4 @@
-// --- file: org/jpype/JPypeReflector.java ---
+// --- file: org/jpype/Reflector.java ---
 package org.jpype;
 
 import java.lang.reflect.Method;

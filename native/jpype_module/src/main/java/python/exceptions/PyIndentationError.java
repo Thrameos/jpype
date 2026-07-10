@@ -1,4 +1,4 @@
-// --- file: python/exception/PyIndentationError.java ---
+// --- file: python/exceptions/PyIndentationError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

@@ -1,4 +1,4 @@
-// --- file: org/jpype/proxy/JPypeProxyInstance.java ---
+// --- file: org/jpype/proxy/ProxyInstance.java ---
 package org.jpype.proxy;
 
 import java.lang.reflect.InvocationHandler;
@@ -7,7 +7,7 @@ import java.lang.reflect.Proxy;
 import java.util.Map;
 import org.jpype.internal.NativeContext;
 import python.lang.PyBuiltIn;
-import python.lang.PyKeyArgs;
+import python.lang.PyKwArgs;
 
 public class ProxyInstance implements InvocationHandler
 {
@@ -38,7 +38,7 @@ public class ProxyInstance implements InvocationHandler
     if (md.bypass)
       return md.defaultHandler.bindTo(proxy).invokeWithArguments(args);
 
-    // Flatten varargs and split off a trailing PyKeyArgs marker (if any) so
+    // Flatten varargs and split off a trailing PyKwArgs marker (if any) so
     // the downcall array is [positional..., key0, value0, key1, value1, ...].
     Object[] flat = args;
     int posCount = 0;
@@ -50,7 +50,7 @@ public class ProxyInstance implements InvocationHandler
       if (method.isVarArgs() && posCount > 0 && args[posCount - 1] instanceof Object[])
       {
         // Reflect.Proxy packs the varargs tail into a single Object[]
-        // element; unpack it so a caller-supplied PyKeyArgs (always the
+        // element; unpack it so a caller-supplied PyKwArgs (always the
         // last variadic element) can be found and spliced out below.
         Object[] varargs = (Object[]) args[posCount - 1];
         int fixedCount = posCount - 1;
@@ -60,9 +60,9 @@ public class ProxyInstance implements InvocationHandler
         System.arraycopy(varargs, 0, flat, fixedCount, varargs.length);
       }
 
-      if (posCount > 0 && flat[posCount - 1] instanceof PyKeyArgs)
+      if (posCount > 0 && flat[posCount - 1] instanceof PyKwArgs)
       {
-        PyKeyArgs kw = (PyKeyArgs) flat[posCount - 1];
+        PyKwArgs kw = (PyKwArgs) flat[posCount - 1];
         posCount--;
         kwCount = kw.size();
         Object[] combined = new Object[posCount + 2 * kwCount];

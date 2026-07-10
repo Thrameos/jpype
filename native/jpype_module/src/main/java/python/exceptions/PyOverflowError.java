@@ -1,4 +1,4 @@
-// --- file: python/exception/PyOverflowError.java ---
+// --- file: python/exceptions/PyOverflowError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

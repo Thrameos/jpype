@@ -1,4 +1,4 @@
-// --- file: python/exception/PyAssertionError.java ---
+// --- file: python/exceptions/PyAssertionError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

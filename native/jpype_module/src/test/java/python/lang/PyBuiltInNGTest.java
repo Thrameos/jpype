@@ -1,4 +1,4 @@
-// --- file: python/lang/contextNGTest.java ---
+// --- file: python/lang/PyBuiltInNGTest.java ---
 package python.lang;
 
 import static org.testng.Assert.*;

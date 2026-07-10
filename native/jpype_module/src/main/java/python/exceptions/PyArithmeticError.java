@@ -1,4 +1,4 @@
-// --- file: python/exception/PyArithmeticError.java ---
+// --- file: python/exceptions/PyArithmeticError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

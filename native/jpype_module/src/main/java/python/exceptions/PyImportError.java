@@ -1,4 +1,4 @@
-// --- file: python/exception/PyImportError.java ---
+// --- file: python/exceptions/PyImportError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

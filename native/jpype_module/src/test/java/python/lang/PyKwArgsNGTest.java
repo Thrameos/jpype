@@ -1,4 +1,4 @@
-// --- file: python/lang/PyKeyArgsNGTest.java ---
+// --- file: python/lang/PyKwArgsNGTest.java ---
 /*
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
  *  use this file except in compliance with the License. You may obtain a copy of
@@ -22,11 +22,11 @@ import org.testng.annotations.Test;
 
 /**
  * Exercises keyword-argument support on the reverse proxy bridge (Java
- * calling into a Python-implemented interface): {@link PyKeyArgs} appended
+ * calling into a Python-implemented interface): {@link PyKwArgs} appended
  * as the trailing element of a varargs call, flattened and passed through
  * {@code ProxyInstance.invoke()}/{@code hostInvoke} as {@code **kwargs}.
  */
-public class PyKeyArgsNGTest extends PyTestHarness
+public class PyKwArgsNGTest extends PyTestHarness
 {
 
   @BeforeMethod
@@ -47,13 +47,13 @@ public class PyKeyArgsNGTest extends PyTestHarness
   public void testKeywordArgumentsPassThroughProxy()
   {
     PyObject result = KwCallRegistry.captured.call(1, 2, "three",
-            PyKeyArgs.of().kw("verbose", true).kw("limit", 10));
+            PyKwArgs.of().kw("verbose", true).kw("limit", 10));
     assertEquals(result.toString(),
             "((1, 2, 'three'), {'verbose': True, 'limit': 10})");
   }
 
   @Test
-  public void testNoKeywordArgumentsWhenNoPyKeyArgsMarker()
+  public void testNoKeywordArgumentsWhenNoPyKwArgsMarker()
   {
     PyObject result = KwCallRegistry.captured.call(1, 2, "three");
     assertEquals(result.toString(),
@@ -61,9 +61,9 @@ public class PyKeyArgsNGTest extends PyTestHarness
   }
 
   @Test
-  public void testEmptyPyKeyArgsMarkerIsDroppedNotPassedPositionally()
+  public void testEmptyPyKwArgsMarkerIsDroppedNotPassedPositionally()
   {
-    PyObject result = KwCallRegistry.captured.call(1, 2, PyKeyArgs.of());
+    PyObject result = KwCallRegistry.captured.call(1, 2, PyKwArgs.of());
     assertEquals(result.toString(),
             "((1, 2), {})");
   }
@@ -72,7 +72,7 @@ public class PyKeyArgsNGTest extends PyTestHarness
   public void testOnlyKeywordArguments()
   {
     PyObject result = KwCallRegistry.captured.call(
-            PyKeyArgs.of().kw("a", 1).kw("b", 2));
+            PyKwArgs.of().kw("a", 1).kw("b", 2));
     assertEquals(result.toString(),
             "((), {'a': 1, 'b': 2})");
   }

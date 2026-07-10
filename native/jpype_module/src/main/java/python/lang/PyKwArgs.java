@@ -1,4 +1,4 @@
-// --- file: python/lang/PyKeyArgs.java ---
+// --- file: python/lang/PyKwArgs.java ---
 /*
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
  *  use this file except in compliance with the License. You may obtain a copy of
@@ -23,7 +23,7 @@ import java.util.LinkedHashMap;
  *
  * When Java code invokes a varargs method on a Python-backed proxy (a
  * Python object implementing a Java interface declared as
- * {@code Object someMethod(Object... args)}), appending a {@code PyKeyArgs}
+ * {@code Object someMethod(Object... args)}), appending a {@code PyKwArgs}
  * as the last element signals that its entries should be passed to the
  * underlying Python callable as {@code **kwargs} rather than as a positional
  * argument. {@link org.jpype.proxy.ProxyInstance} recognizes and strips this
@@ -32,20 +32,20 @@ import java.util.LinkedHashMap;
  * <p>
  * Usage example:</p>
  * <pre>
- * proxy.someMethod(1, 2, PyKeyArgs.of().kw("verbose", true).kw("limit", 10));
+ * proxy.someMethod(1, 2, PyKwArgs.of().kw("verbose", true).kw("limit", 10));
  * </pre>
  */
-public final class PyKeyArgs extends LinkedHashMap<String, Object>
+public final class PyKwArgs extends LinkedHashMap<String, Object>
 {
 
   /**
-   * Creates a new, empty {@code PyKeyArgs}.
+   * Creates a new, empty {@code PyKwArgs}.
    *
-   * @return a new {@code PyKeyArgs} instance.
+   * @return a new {@code PyKwArgs} instance.
    */
-  public static PyKeyArgs of()
+  public static PyKwArgs of()
   {
-    return new PyKeyArgs();
+    return new PyKwArgs();
   }
 
   /**
@@ -55,7 +55,7 @@ public final class PyKeyArgs extends LinkedHashMap<String, Object>
    * @param value is the keyword argument value.
    * @return this instance for chaining.
    */
-  public PyKeyArgs kw(String name, Object value)
+  public PyKwArgs kw(String name, Object value)
   {
     put(name, value);
     return this;

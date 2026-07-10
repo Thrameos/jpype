@@ -1,4 +1,4 @@
-// --- file: python/exception/PyFloatingPointError.java ---
+// --- file: python/exceptions/PyFloatingPointError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

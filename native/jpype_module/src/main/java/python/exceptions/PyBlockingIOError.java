@@ -1,4 +1,4 @@
-// --- file: python/exception/PyBlockingIOError.java ---
+// --- file: python/exceptions/PyBlockingIOError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

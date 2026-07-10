@@ -1,4 +1,4 @@
-// --- file: python/exception/PyEOFError.java ---
+// --- file: python/exceptions/PyEOFError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

@@ -1,4 +1,4 @@
-// --- file: python/exception/PyProcessLookupError.java ---
+// --- file: python/exceptions/PyProcessLookupError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

@@ -1,4 +1,4 @@
-// --- file: python/exception/PyConnectionError.java ---
+// --- file: python/exceptions/PyConnectionError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

@@ -1,4 +1,4 @@
-// --- file: python/exception/PyBufferError.java ---
+// --- file: python/exceptions/PyBufferError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

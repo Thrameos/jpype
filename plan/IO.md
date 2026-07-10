@@ -1,5 +1,77 @@
 # python.io: porting Python's `io` module with InputStream/OutputStream promotion
 
+## Status (2026-07-10, later): remaining-work punch list, scoped and not started
+
+Scope confirmed with user: **`$foo` method-dispatch (`plan/SPI.md`) is
+explicitly out of scope** — no concrete consumer yet. Everything below is
+additive `python.io` work on top of the lazy SPI mechanism (`plan/SPI.md`,
+implemented and live). Grounded in an Explore survey of the current
+`native/jpype_module/src/main/java/python/io/` tree this session.
+
+**A. Remaining concrete classes** (pattern: `PyBytesIO.java`/`PyStringIO.java`
+are the template — a bare interface extending the right abstract base,
+zero Java method bodies, all behavior in a matching `.pyspi` file; see
+`native/jpype_module/src/main/resources/python/io/spi/_io.BytesIO.pyspi`
+for the resource-file template):
+- New `PyRawIOBase.java` interface (`extends PyIOBase`) — `read(size)`,
+  `readall()`, `readinto(buffer)`, `write(buffer)` — needed as the base for
+  `PyFileIO`. Plus `io.RawIOBase.pyspi` (abstract, eager, mirrors
+  `io.BufferedIOBase.pyspi`'s shape).
+- `PyFileIO.java` (`extends PyRawIOBase`, adds `name()`, `mode()`) +
+  `_io.FileIO.pyspi` (`lazy: true`, matching `_io.StringIO.pyspi`'s
+  header style).
+- `PyBufferedReader.java`, `PyBufferedWriter.java`, `PyBufferedRandom.java`
+  (all `extends PyBufferedIOBase`, no extra methods needed beyond the base
+  surface) + matching `_io.BufferedReader.pyspi` /
+  `_io.BufferedWriter.pyspi` / `_io.BufferedRandom.pyspi` (`lazy: true`).
+- `PyTextIOWrapper.java` (`extends PyTextIOBase`, adds `line_buffering()`,
+  `write_through()`) + `_io.TextIOWrapper.pyspi` (`lazy: true`).
+- `IO` mini-backend (`python/io/IO.java`) gains `fileIO(CharSequence path,
+  CharSequence mode)` delegating to Python `open(path, mode)`, following
+  the existing `bytesIO()`/`stringIO()` pattern; add the matching entry to
+  `python.io.IO.pyspi`'s `METHODS` dict.
+- All new resources default to `lazy: true` (consistent with `StringIO`,
+  the established precedent, and cheaper at boot).
+
+**B. `asReader()`/`asWriter()` promotion**:
+- New package-private `PyIOReader.java` (`extends java.io.Reader`) /
+  `PyIOWriter.java` (`extends java.io.Writer`), mirroring
+  `PyIOInputStream.java`/`PyIOOutputStream.java`'s exact shape, built on
+  `PyTextIOBase.read(size)`/`write(CharSequence)`, using
+  `PyBuiltIn.str(Object)` for the Java→Python direction (no bulk
+  `PyString`→`char[]` helper exists — confirmed none in `python/lang` —
+  so extraction is via `PyString.toString()` once per internal-buffer
+  refill).
+- Add `default Reader asReader() { ... }` / `default Writer asWriter() { ... }`
+  to `PyTextIOBase.java`, matching `PyBufferedIOBase.java`'s existing
+  `asInputStream()`/`asOutputStream()` pattern.
+
+**C. Buffered rewrite of the binary adapters** — current
+`PyIOInputStream`/`PyIOOutputStream` are confirmed unbuffered (every
+`read()`/`write(int)` single-byte call is its own Python round trip). Give
+them (and the new Reader/Writer) an internal buffer (default 8KB),
+refilled/flushed via a single bulk Python call; large requests bypass the
+buffer. No new native/`Backend` helper needed or in scope — no bulk
+`PyBytes`→`byte[]` primitive exists anywhere in `Backend`/`python.lang`,
+and the buffering change alone (reducing round trips, not per-element
+extraction cost) delivers the win the original design asked for.
+
+**D. Tests** — new `PyFileIONGTest`, `PyReaderAdapterNGTest`/
+`PyWriterAdapterNGTest` (real temp files via `Files.createTempFile`),
+extend `PyIOStreamAdapterNGTest` with a round-trip-count assertion, a
+smoke test per new concrete class — all following the existing
+`PyTestHarness`/`IO.using(context)` style.
+
+**E. Still deferred, not part of this pass**: `$foo` dispatch; the
+GIL/threading stress test for the adapters; a real third-party
+(numpy-shaped) lazy provider.
+
+**Verification**: `mvn -q test -Dpython.executable=python3.10` (expect
+475 + new tests, zero regressions); rebuild the real `ant` jar and rerun
+`test_io.py` standalone; add a `test_io_reader_writer.py`-style standalone
+script exercising `asReader()`/`asWriter()` and the new concrete classes
+from a plain launched script, matching `test_io.py`'s existing pattern.
+
 ## Goal
 
 Add a `python.io` package (parallel to `python.lang`/`python.exceptions`) that

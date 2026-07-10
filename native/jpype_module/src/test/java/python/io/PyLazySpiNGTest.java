@@ -25,7 +25,7 @@ import python.lang.PyTestHarness;
 /**
  * Proves the lazy SPI hook (see {@code plan/SPI.md}) fires with no
  * explicit invocation: {@code _io.StringIO} is registered under
- * {@code python.io.PyIoWrapperService#getResources()} with
+ * {@code python.io.PyIOWrapperService#getResources()} with
  * {@code lazy: true}, so nothing on the Java side ever calls
  * {@code IO.using(context).stringIO()} here - a raw Python value built
  * entirely on the Python side is cast straight to {@link PyStringIO}, and

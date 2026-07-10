@@ -1,4 +1,4 @@
-// --- file: python/io/PyIoWrapperService.java ---
+// --- file: python/io/PyIOWrapperService.java ---
 /*
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
  *  use this file except in compliance with the License. You may obtain a copy of
@@ -49,7 +49,7 @@ import org.jpype.WrapperService;
  * {@code StringIO} instance actually crosses into Java, via the
  * {@code _jpype._cache} probe-miss hook (see {@code plan/SPI.md}).
  */
-public final class PyIoWrapperService implements WrapperService
+public final class PyIOWrapperService implements WrapperService
 {
 
   @Override
@@ -70,7 +70,7 @@ public final class PyIoWrapperService implements WrapperService
   @Override
   public Iterable<String> getResources()
   {
-    return SpiLoader.listPyspiResources(PyIoWrapperService.class, "/python/io/spi");
+    return SpiLoader.listPyspiResources(PyIOWrapperService.class, "/python/io/spi");
   }
 
 }

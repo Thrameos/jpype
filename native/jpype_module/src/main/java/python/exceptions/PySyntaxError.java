@@ -1,4 +1,4 @@
-// --- file: python/exception/PySyntaxError.java ---
+// --- file: python/exceptions/PySyntaxError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

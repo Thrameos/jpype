@@ -1,4 +1,4 @@
-// --- file: python/exception/PyPermissionError.java ---
+// --- file: python/exceptions/PyPermissionError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

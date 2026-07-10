@@ -1,4 +1,4 @@
-// --- file: python/exception/PyReferenceError.java ---
+// --- file: python/exceptions/PyReferenceError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

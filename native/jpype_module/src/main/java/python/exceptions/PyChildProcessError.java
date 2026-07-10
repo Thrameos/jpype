@@ -1,4 +1,4 @@
-// --- file: python/exception/PyChildProcessError.java ---
+// --- file: python/exceptions/PyChildProcessError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

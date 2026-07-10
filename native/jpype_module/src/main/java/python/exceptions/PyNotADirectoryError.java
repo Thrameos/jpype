@@ -1,4 +1,4 @@
-// --- file: python/exception/PyNotADirectoryError.java ---
+// --- file: python/exceptions/PyNotADirectoryError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

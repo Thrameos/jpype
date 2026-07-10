@@ -1,4 +1,4 @@
-// --- file: org/jpype/DynamicClassLoader.java ---
+// --- file: org/jpype/internal/DynamicClassLoader.java ---
 package org.jpype.internal;
 
 import java.io.ByteArrayOutputStream;

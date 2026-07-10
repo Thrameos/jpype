@@ -1,4 +1,4 @@
-// --- file: python/exception/PyWarning.java ---
+// --- file: python/exceptions/PyWarning.java ---
 package python.exceptions;
 
 import python.lang.PyExc;

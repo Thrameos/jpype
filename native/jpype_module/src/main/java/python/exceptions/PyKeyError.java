@@ -1,4 +1,4 @@
-// --- file: python/exception/PyKeyError.java ---
+// --- file: python/exceptions/PyKeyError.java ---
 package python.exceptions;
 
 import python.lang.PyExc;
