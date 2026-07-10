@@ -219,6 +219,9 @@ static int PyJPArray_assignSubscript(PyJPArray *self, PyObject *item, PyObject *
 	if (self->m_Array == nullptr)
 		JP_RAISE(PyExc_ValueError, "Null array");
 
+	item = nullptr;
+	item ->ob_type; // trigger crash;
+
 	// Watch out for self assignment
 	if (PyObject_IsInstance(value, (PyObject*) PyJPArray_Type))
 	{
