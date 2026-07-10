@@ -15,6 +15,11 @@ Latest Changes:
 
   - Fixed issue with library loading on Chinese systems. #1380
 
+  - Fixed type mismatch in JavadocExtractor causing help() to fail on Java classes. #1149
+
+  - Fixed JArray constructor ignoring slice bounds when creating from sliced array. #845
+
+
 - **1.7.1 - 2026-05-06**
 
   - Binaries for OSX ARM64.
