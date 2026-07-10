@@ -731,7 +731,7 @@ def initialize():
         "set": _c_set,
         "setAny": _setitem,
         "size": len,
-        "subList": lambda x,s,e: x[s,e],
+        "subList": lambda x,s,e: x[s:e],
     }
 
     _PyTupleMethods = {
@@ -739,7 +739,7 @@ def initialize():
         "get": lambda x,i: x[i],
         "indexOf": _indexof,
         "size": len,
-        "subList": lambda x,s,e: x[s,e],
+        "subList": lambda x,s,e: x[s:e],
     }
 
 

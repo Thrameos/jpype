@@ -44,9 +44,9 @@ public class PyTupleNGTest extends PyTestHarness
     PyTuple tuple = context.tuple("a", "b", "c");
     assertNotNull(tuple, "Tuple should not be null.");
     assertEquals(tuple.size(), 3, "Tuple size should be 3.");
-    assertEquals(tuple.get(0), "a", "First element should be 'a'.");
-    assertEquals(tuple.get(1), "b", "Second element should be 'b'.");
-    assertEquals(tuple.get(2), "c", "Third element should be 'c'.");
+    assertEquals(tuple.get(0).toString(), "a", "First element should be 'a'.");
+    assertEquals(tuple.get(1).toString(), "b", "Second element should be 'b'.");
+    assertEquals(tuple.get(2).toString(), "c", "Third element should be 'c'.");
   }
 
   @Test
