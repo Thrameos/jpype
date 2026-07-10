@@ -19,7 +19,12 @@ package python.lang;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.jpype.annotation.Bypass;
 
 /**
@@ -91,17 +96,46 @@ public interface PyCallable extends PyObject
   }
 
   /**
+   * Thread pool used to service {@link #callAsync(PyTuple, PyDict)} and
+   * {@link #callAsyncWithTimeout(PyTuple, PyDict, long)}. Bounded to 32
+   * threads so a burst of async calls cannot spawn unbounded native GIL
+   * acquisitions; threads are daemon so they never keep the JVM alive.
+   * <p>
+   * This relies on the main thread actually releasing the GIL after
+   * interpreter startup (see the {@code PyEval_SaveThread()} fix in
+   * {@code jp_bridge.cpp}) - previously the main thread held the GIL
+   * permanently, so any background thread's first
+   * {@code PyGILState_Ensure()} blocked forever. With that fixed, each of
+   * these worker threads can acquire/release the GIL per call exactly like
+   * {@code JPPyCallAcquire} already does for synchronous calls.
+   */
+  static final ExecutorService ASYNC_POOL = Executors.newFixedThreadPool(32, new ThreadFactory()
+  {
+    private int count = 0;
+
+    @Override
+    public Thread newThread(Runnable r)
+    {
+      Thread t = new Thread(r, "jpype-py-async-worker-" + (count++));
+      t.setDaemon(true);
+      return t;
+    }
+  });
+
+  /**
    * Invokes the callable Python object asynchronously with the specified
    * arguments.
    *
    * @param args the positional arguments as a {@link PyTuple}
    * @param kwargs the keyword arguments as a {@link PyDict}
-   * @return a {@link Future} representing the result of the asynchronous call
+   * @return a {@link Future} that resolves to the result of the call
    */
     @Bypass
   default Future<PyObject> callAsync(PyTuple args, PyDict kwargs)
   {
-    return builtin().backend.callAsync(this, args, kwargs);
+    PyCallable self = this;
+    PyBuiltIn builtin = builtin();
+    return ASYNC_POOL.submit(() -> builtin.backend.call(self, args, kwargs));
   }
 
   /**
@@ -111,12 +145,24 @@ public interface PyCallable extends PyObject
    * @param kwargs the keyword arguments as a {@link PyDict}
    * @param timeout the maximum time (in milliseconds) to wait for the call to
    * complete
-   * @return a {@link Future} representing the result of the asynchronous call
+   * @return a {@link Future} that resolves to the result of the call, or
+   * fails with a {@link TimeoutException} if the timeout elapses first
    */
     @Bypass
   default Future<PyObject> callAsyncWithTimeout(PyTuple args, PyDict kwargs, long timeout)
   {
-    return builtin().backend.callAsyncWithTimeout(this, args, kwargs, timeout);
+    Future<PyObject> inner = callAsync(args, kwargs);
+    return ASYNC_POOL.submit(() ->
+    {
+      try
+      {
+        return inner.get(timeout, TimeUnit.MILLISECONDS);
+      } catch (TimeoutException e)
+      {
+        inner.cancel(true);
+        throw e;
+      }
+    });
   }
 
   /**

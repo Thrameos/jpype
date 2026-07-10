@@ -84,7 +84,7 @@ public class PyDictItems extends AbstractSet<Map.Entry<PyObject, PyObject>> impl
   public boolean add(Map.Entry<PyObject, PyObject> e)
   {
     PyObject o = this.dict.putAny(e.getKey(), e.getValue());
-    return !o.equals(e);
+    return o == null || !o.equals(e.getValue());
   }
 
   /**
@@ -101,7 +101,7 @@ public class PyDictItems extends AbstractSet<Map.Entry<PyObject, PyObject>> impl
     for (Map.Entry<PyObject, PyObject> v : collection)
     {
       PyObject o = this.dict.putAny(v.getKey(), v.getValue());
-      changed |= (o.equals(v.getValue()));
+      changed |= (o == null || !o.equals(v.getValue()));
     }
     return changed;
   }
@@ -125,6 +125,11 @@ public class PyDictItems extends AbstractSet<Map.Entry<PyObject, PyObject>> impl
   @Override
   public boolean contains(Object o)
   {
+    if (o instanceof Map.Entry)
+    {
+      Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
+      return this.builtin.backend.contains(this.items, this.builtin.tuple(e.getKey(), e.getValue()));
+    }
     return this.builtin.backend.contains(this.items, o);
   }
 

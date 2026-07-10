@@ -25,6 +25,7 @@ from collections.abc import Mapping, Sequence, MutableSequence
 import itertools
 import inspect
 import functools
+import types
 from typing import MutableMapping, Callable, List
 import builtins
 
@@ -73,6 +74,13 @@ def initialize():
     _PyInt = JClass("python.lang.PyInt")
     _PyFloat = JClass("python.lang.PyFloat")
     _PyFrozenSet = JClass("python.lang.PyFrozenSet")
+    _PyEllipsis = JClass("python.lang.PyEllipsis")
+    _PyNotImplemented = JClass("python.lang.PyNotImplemented")
+    # types.FunctionType covers both `def` and `lambda` in CPython - there is
+    # no separate runtime type for a lambda to key PyLambda off of, so only
+    # PyFunction is concretely registered; PyLambda is left unregistered.
+    _PyFunction = JClass("python.lang.PyFunction")
+    _PyFilter = JClass("python.lang.PyFilter")
 
     # Protocols
     _PyCallable = JClass("python.lang.PyCallable")
@@ -158,12 +166,6 @@ def initialize():
             return x(*v)
         return x(*v, **k)
 
-    def _call_async(*args, **kwargs):
-        raise NotImplementedError("callAsync is not implemented in the uploaded Python bridge code")
-
-    def _call_async_with_timeout(*args, **kwargs):
-        raise NotImplementedError("callAsyncWithTimeout is not implemented in the uploaded Python bridge code")
-
     def _get_signature(x):
         return str(inspect.signature(x))
 
@@ -181,8 +183,25 @@ def initialize():
         a, b = itertools.tee(iterator)
         return a
 
+    def _unwrap_optional_int(v):
+        # Java always passes exactly 3 arguments to backend.slice(), so a
+        # caller-supplied null doesn't hit this function's own start=None
+        # default - it arrives as a boxed java.lang.Integer proxy whose
+        # underlying reference is null. That proxy reprs as "None" but is
+        # not the real Py_None singleton, so `is None` never matches it, and
+        # slice's own C-level indices() computation misbehaves if it's
+        # stored as-is (int() conversion on it raises instead of producing
+        # a value). Convert eagerly here so slice.start/.stop/.step always
+        # hold either a real int or real None.
+        if v is None:
+            return None
+        try:
+            return int(v)
+        except TypeError:
+            return None
+
     def _slice_dispatch(start=None, stop=None, step=None):
-        return slice(start, stop, step)
+        return slice(_unwrap_optional_int(start), _unwrap_optional_int(stop), _unwrap_optional_int(step))
 
     def _next_with_stop(iterator, stop):
         return next(iterator, stop)
@@ -239,8 +258,6 @@ def initialize():
         "bytes": bytes,
         "bytesFromHex": lambda s: bytes.fromhex(str(s)),
         "call": _call,
-        "callAsync": _call_async,
-        "callAsyncWithTimeout": _call_async_with_timeout,
         "contains": lambda x,v: v in x,
         "delitemByIndex": _delitem,
         "delitemByObject": _delitem,
@@ -291,6 +308,7 @@ def initialize():
         "newDictFromIterable": dict,
         "newEnumerate": enumerate,
         "newFloat": float,
+        "frozenset": frozenset,
         "newFrozenSet": frozenset,
         "newInt": int,
         "newList": lambda: [],
@@ -428,7 +446,7 @@ def initialize():
         "getStart": _attr("start"),
         "getStop": _attr("stop"),
         "getStep": _attr("step"),
-        "indices": slice.indices,
+        "indices": lambda x, length: x.indices(int(length)),
         "isValid": lambda x: x.step !=0,
     }
 
@@ -621,8 +639,8 @@ def initialize():
         "join": str.join,
         "length": len,
         "paddedCenter": _padded_center,
-        "removePrefix": str.removeprefix,
-        "removeSuffix": str.removesuffix,
+        "removePrefix": lambda x, s: x.removeprefix(str(s)),
+        "removeSuffix": lambda x, s: x.removesuffix(str(s)),
         "replaceSubstring": _replace_substring,
         "splitInto": _split_into,
         "splitIntoLines": _split_into_lines,
@@ -678,14 +696,22 @@ def initialize():
     def _removeall(x, c):
         c = set(c)
         nl = [i for i in x if not i in c]
+        changed = len(nl) != len(x)
         x.clear()
         x.extend(nl)
+        return changed
 
     def _retainall(x, c):
         c = set(c)
         nl = [i for i in x if i in c]
+        changed = len(nl) != len(x)
         x.clear()
         x.extend(nl)
+        return changed
+
+    def _c_insert_all(x, i, c):
+        for j, v in enumerate(c):
+            x.insert(i + j, v)
 
     def _indexof(x, v):
         try:
@@ -723,7 +749,7 @@ def initialize():
         "extend": list.extend,
         "get": lambda x,i: x[i],
         "indexOf": _indexof,
-        "insert": list.insert,
+        "insert": _c_insert_all,
         "remove": _c_remove_index,
         "removeAny": _c_remove_object,
         "removeAll": _removeall,
@@ -821,17 +847,27 @@ def initialize():
         s.add(v)
         return len(s) != before
 
+    # NOTE: PySet/PyFrozenSet declare their multi-set operations as Java
+    # varargs (Collection<?>... set). When called with exactly one argument
+    # (the overwhelmingly common case, e.g. `a.difference(b)`), the bridge
+    # delivers that argument directly as `v` rather than wrapped in an
+    # array - so these lambdas must NOT unpack `v`'s own elements via
+    # `tuple(v)` (that was a real bug: it silently discarded the intended
+    # operand and fell through to Python's iterable-of-characters behavior
+    # on the operand's own contents). Multiple varargs arguments are not
+    # exercised anywhere in this codebase; if that path is added later it
+    # will need its own handling here.
     _PySetMethods = {
         "add": _set_add,
         "addAny": _set_add_any,
         "clear": set.clear,
         "contains": lambda x,v: v in x,
         "copy": set.copy,
-        "difference": lambda x,v: x.difference(*tuple(v)),
-        "differenceUpdate": lambda x,v: x.difference_update(*tuple(v)),
+        "difference": lambda x,v: x.difference(v),
+        "differenceUpdate": lambda x,v: x.difference_update(v),
         "discard": set.discard,
-        "intersect": lambda x,v: x.intersect(*tuple(v)),
-        "intersectionUpdate": lambda x,s: x.intersection_update(*tuple(s)),
+        "intersection": lambda x,v: x.intersection(v),
+        "intersectionUpdate": lambda x,s: x.intersection_update(s),
         "isDisjoint": set.isdisjoint,
         "isSubset": set.issubset,
         "isSuperset": set.issuperset,
@@ -840,21 +876,23 @@ def initialize():
         "symmetricDifference": lambda x,s: x.symmetric_difference(s),
         "symmetricDifferenceUpdate": lambda x,s: x.symmetric_difference_update(s),
         "toList": list,
-        "union": lambda x,s: x.union(*tuple(s)),
-        "unionUpdate": lambda x,s: x.union(*tuple(s)),
+        "union": lambda x,s: x.union(s),
+        "unionUpdate": lambda x,s: x.update(s),
         "update": set.update,
     }
     _PyAbstractSetMethods: MutableMapping[str, Callable] = {}
     _PyMutableSetMethods: MutableMapping[str, Callable] = {}
     _PyFrozenSetMethods: MutableMapping[str, Callable] = {
+        "contains": lambda x,v: v in x,
         "copy": frozenset.copy,
-        "difference": lambda x,v: x.difference(*tuple(v)),
-        "intersect": lambda x,v: x.intersect(*tuple(v)),
+        "difference": lambda x,v: x.difference(v),
+        "intersection": lambda x,v: x.intersection(v),
         "isDisjoint": frozenset.isdisjoint,
         "isSubset": frozenset.issubset,
         "isSuperset": frozenset.issuperset,
-        "symmetricDifference": lambda x,s: x.symmetric_difference(*tuple(s)),
-        "union": lambda x,v: x.union(*tuple(v)),
+        "size": len,
+        "symmetricDifference": lambda x,s: x.symmetric_difference(s),
+        "union": lambda x,v: x.union(v),
     }
 
 
@@ -934,6 +972,10 @@ def initialize():
     _jpype._concrete[zip] = _PyZip
     _jpype._concrete[range] = _PyRange
     _jpype._concrete[type] = _PyType
+    _jpype._concrete[type(Ellipsis)] = _PyEllipsis
+    _jpype._concrete[type(NotImplemented)] = _PyNotImplemented
+    _jpype._concrete[types.FunctionType] = _PyFunction
+    _jpype._concrete[filter] = _PyFilter
 
     #############################################################################
     # Add all of the abstract types to the _protocol interfaces list

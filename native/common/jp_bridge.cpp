@@ -415,8 +415,18 @@ success_config:
 		}
 
 		JPContext* context = launch(env, interpreter);
-		// Next, we need to release the state so we can return to Java.
-		PyGILState_Release(gstate);
+		// Py_InitializeFromConfig() leaves the calling thread already holding
+		// the GIL, so the PyGILState_Ensure() above found it already locked
+		// and returned PyGILState_LOCKED. Per the GILState API contract,
+		// PyGILState_Release(PyGILState_LOCKED) is a deliberate no-op - it
+		// restores "prior state," and prior state was locked - so it can
+		// never undo the implicit hold from initialization. We must instead
+		// explicitly drop the GIL with PyEval_SaveThread() so control
+		// actually returns to Java without holding it; otherwise this thread
+		// holds the GIL forever and any other thread's first
+		// PyGILState_Ensure() blocks indefinitely.
+		(void) gstate;
+		PyEval_SaveThread();
 		fflush(stdout);
 		return context->getJavaContext();
 
@@ -563,6 +573,16 @@ JNIEXPORT void JNICALL Java_org_jpype_internal_NativeLauncherControl_finishMain
 	{
 		fail(env, "C++ exception during finish");
 	}
+}
+
+// Reports whether the calling thread currently holds the GIL. Callable from
+// Java at any point (does not require the GIL itself) so leaked or
+// double-released holds on undiscovered code paths can be asserted against
+// from a point where Java is guaranteed to already have control back.
+JNIEXPORT jboolean JNICALL Java_org_jpype_internal_NativeLauncherControl_isGilHeld
+(JNIEnv *env, jclass cls)
+{
+	return PyGILState_Check() ? JNI_TRUE : JNI_FALSE;
 }
 
 #ifdef __cplusplus

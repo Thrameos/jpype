@@ -34,4 +34,17 @@ public class NativeLauncherControl
 
   public native static void finishMain(long context);
 
+  /**
+   * Check whether the calling thread currently holds the Python GIL.
+   *
+   * This is intended to be asserted from Java code at points where the
+   * calling thread is guaranteed to have already returned control to Java
+   * (e.g. after any bridge call, or in test teardown) so that a leaked or
+   * double-released GIL hold on some invisible, ungrepped code path can be
+   * caught close to its source rather than surfacing later as a hang.
+   *
+   * Safe to call whether or not the calling thread currently holds the GIL.
+   */
+  public native static boolean isGilHeld();
+
 }

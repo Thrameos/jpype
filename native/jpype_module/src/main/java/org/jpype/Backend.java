@@ -20,7 +20,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Future;
 import python.lang.PyByteArray;
 import python.lang.PyBytes;
 import python.lang.PyComplex;
@@ -85,11 +84,6 @@ public interface Backend
   // Call a Python callable with positional and keyword arguments.
   PyObject call(PyCallable obj, PyTuple args, PyDict kwargs);
 
-  // Call a Python callable asynchronously with positional and keyword arguments.
-  Future<PyObject> callAsync(PyCallable callable, PyTuple args, PyDict kwargs);
-
-  // Call a Python callable asynchronously with a timeout.
-  Future<PyObject> callAsyncWithTimeout(PyCallable callable, PyTuple args, PyDict kwargs, long timeout);
 
   // Check if the specified value is contained within the given Python object.
   boolean contains(Object obj, Object value);

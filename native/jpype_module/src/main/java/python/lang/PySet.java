@@ -16,10 +16,8 @@
  */
 package python.lang;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Set;
 import java.util.Spliterator;
 import java.util.Spliterators;
@@ -177,7 +175,7 @@ public interface PySet extends PyAbstractSet<PyObject>
    * @param set the sets to intersect with this set
    * @return a new {@code PySet} containing the intersection
    */
-  PySet intersect(Collection<?>... set);
+  PySet intersection(Collection<?>... set);
 
   /**
    * Updates this set to contain the intersection of itself and the specified
@@ -301,7 +299,7 @@ public interface PySet extends PyAbstractSet<PyObject>
   default boolean retainAll(Collection<?> collection)
   {
     int initialSize = this.size();
-    PySet delta = this.intersect(builtin().set(collection));
+    PySet delta = this.intersection(builtin().set(collection));
     this.clear();
     this.update(delta);
     return this.size() != initialSize;
@@ -365,7 +363,14 @@ public interface PySet extends PyAbstractSet<PyObject>
   @Override
   default Object[] toArray()
   {
-    return new ArrayList<>(this).toArray();
+    // Do not route through `new ArrayList<>(this)` - its constructor calls
+    // this.toArray() internally, recursing into this same default method
+    // and overflowing the stack.
+    Object[] result = new Object[size()];
+    int i = 0;
+    for (Object o : this)
+      result[i++] = o;
+    return result;
   }
 
   /**
@@ -378,18 +383,28 @@ public interface PySet extends PyAbstractSet<PyObject>
    */
   @Bypass
   @Override
+  @SuppressWarnings("unchecked")
   default <T> T[] toArray(T[] a)
   {
-    return new ArrayList<>(this).toArray(a);
+    int size = size();
+    if (a.length < size)
+      a = (T[]) java.lang.reflect.Array.newInstance(a.getClass().getComponentType(), size);
+    int i = 0;
+    Object[] result = a;
+    for (Object o : this)
+      result[i++] = o;
+    if (a.length > size)
+      a[size] = null;
+    return a;
   }
 
   /**
-   * Returns a {@link List} containing all elements in this set, using Python
-   * semantics.
+   * Returns a {@link PyList} containing all elements in this set, using
+   * Python semantics.
    *
    * @return a Python-style list containing the set's elements
    */
-  List<PyObject> toList();
+  PyList toList();
 
   /**
    * Returns a new set containing the union of this set and the specified sets.

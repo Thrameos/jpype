@@ -18,7 +18,9 @@ package python.lang;
 
 import org.jpype.Script;
 import org.jpype.MainInterpreter;
+import org.jpype.internal.NativeLauncherControl;
 import org.testng.annotations.*;
+import static org.testng.Assert.assertFalse;
 
 /**
  *
@@ -53,6 +55,16 @@ public class PyTestHarness
     // Standard out is often more reliable than loggers during a hard native crash
     System.out.println(">>> RUNNING TEST: " + method.getName());
     System.out.flush();
+  }
+
+  @AfterMethod
+  public void checkGilReleased(java.lang.reflect.Method method)
+  {
+    // Java is guaranteed to have control back here. If the GIL is still
+    // held, some call in this test crossed back into Java on a path that
+    // didn't release it - a leak invisible to grep, only catchable this way.
+    assertFalse(NativeLauncherControl.isGilHeld(),
+            "GIL still held on test thread after " + method.getName() + " - leaked GIL acquire somewhere in this test's call path.");
   }
 
   @AfterSuite(alwaysRun = true)

@@ -16,7 +16,6 @@
  */
 package python.lang;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
@@ -78,7 +77,7 @@ public interface PyFrozenSet extends PyObject, Set<PyObject>
    * set.
    * @return a new {@link PyFrozenSet} containing elements common to all sets.
    */
-  PyFrozenSet intersect(Collection<?>... set);
+  PyFrozenSet intersection(Collection<?>... set);
 
   /**
    * Checks whether this `frozenset` and the specified set are disjoint. Two
@@ -158,7 +157,14 @@ public interface PyFrozenSet extends PyObject, Set<PyObject>
   @Override
   default Object[] toArray()
   {
-    return new ArrayList<>(this).toArray();
+    // Do not route through `new ArrayList<>(this)` - its constructor calls
+    // this.toArray() internally, recursing into this same default method
+    // and overflowing the stack.
+    Object[] result = new Object[size()];
+    int i = 0;
+    for (Object o : this)
+      result[i++] = o;
+    return result;
   }
 
   /**
@@ -171,9 +177,19 @@ public interface PyFrozenSet extends PyObject, Set<PyObject>
    */
     @Bypass
   @Override
+  @SuppressWarnings("unchecked")
   default <T> T[] toArray(T[] reference)
   {
-    return new ArrayList<>(this).toArray(reference);
+    int size = size();
+    if (reference.length < size)
+      reference = (T[]) java.lang.reflect.Array.newInstance(reference.getClass().getComponentType(), size);
+    int i = 0;
+    Object[] result = reference;
+    for (Object o : this)
+      result[i++] = o;
+    if (reference.length > size)
+      reference[size] = null;
+    return reference;
   }
 
 }

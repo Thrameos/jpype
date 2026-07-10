@@ -250,7 +250,11 @@ public interface PyList extends PySequence<PyObject>
   @Override
   default boolean remove(Object o)
   {
-    return builtin().backend.delattrReturn(this, this.indexOf(o)) != null;
+    int idx = this.indexOf(o);
+    if (idx < 0)
+      return false;
+    builtin().backend.delitemByIndex(this, idx);
+    return true;
   }
 
   /**

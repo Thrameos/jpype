@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.TreeSet;
 import org.jpype.internal.NativeContext;
 import org.jpype.internal.Functional;
+import org.jpype.internal.NativeLauncherControl;
 import org.jpype.proxy.ProxyInstance;
 import python.lang.PyObject;
 import java.util.logging.Level;
@@ -143,6 +144,16 @@ public class TypeManager
       // We can't get debugging information at this point in the process.
       LOGGER.log(Level.SEVERE, "error in init", ex);
       throw ex;
+    }
+
+    // Control is back on the Java thread here. Every class creation above
+    // crossed into native code and back (typeFactory.defineObjectClass et
+    // al.), each a potential GIL acquire/release boundary. A leak here is
+    // invisible to grep and would only otherwise surface as a hang when a
+    // second thread later tries to acquire the GIL.
+    if (NativeLauncherControl.isGilHeld())
+    {
+      LOGGER.severe("GIL still held on calling thread after TypeManager.init() - leaked GIL acquire in class definition path.");
     }
   }
 

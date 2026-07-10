@@ -365,6 +365,14 @@ public class MainInterpreter implements Interpreter
             getBool(CONF_WRITEBC, "true"),
             this);
     LOGGER.info("Python launched");
+
+    // Control is back on the Java thread here. Confirm the launch didn't
+    // leave the GIL held - a leak on this path would be invisible to grep
+    // and would only otherwise surface later as a hang on some other thread.
+    if (NativeLauncherControl.isGilHeld())
+    {
+      LOGGER.severe("GIL still held on calling thread after Python interpreter launch - leaked GIL acquire during startup.");
+    }
   }
 
   /**

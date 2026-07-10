@@ -153,7 +153,9 @@ public interface PyRange extends PyIter<PyInt>
   @Override
   default PyIterator<PyInt> iterator()
   {
-    return new PyIterator<>(this);
+    // A range object is only iterable (supports __iter__), not itself an
+    // iterator (no __next__) - it must be wrapped through iter() first.
+    return new PyIterator<>(builtin().iter(this));
   }
 
 }
