@@ -16,6 +16,7 @@
  */
 package python.lang;
 
+import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -42,7 +43,7 @@ import org.jpype.Backend;
  * does not allow direct removal fromMap items.</li>
  * </ul>
  */
-public class PyDictItems implements Set<Map.Entry<PyObject, PyObject>>
+public class PyDictItems extends AbstractSet<Map.Entry<PyObject, PyObject>> implements Set<Map.Entry<PyObject, PyObject>>
 {
 
   /**

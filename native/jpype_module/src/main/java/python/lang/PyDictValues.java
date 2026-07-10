@@ -16,6 +16,7 @@
  */
 package python.lang;
 
+import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -51,7 +52,7 @@ import org.jpype.Backend;
  * </ul>
  *
  */
-public class PyDictValues<T extends PyObject> implements Collection<T>
+public class PyDictValues<T extends PyObject> extends AbstractCollection<T> implements Collection<T>
 {
 
   /**

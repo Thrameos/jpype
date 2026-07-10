@@ -16,6 +16,7 @@
  */
 package python.lang;
 
+import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -51,7 +52,7 @@ import java.util.Set;
  * </ul>
  *
  */
-public class PyDictKeySet<T> implements Set<T>
+public class PyDictKeySet<T> extends AbstractSet<T> implements Set<T>
 {
 
   /**
