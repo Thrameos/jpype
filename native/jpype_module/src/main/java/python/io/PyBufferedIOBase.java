@@ -16,6 +16,8 @@
  */
 package python.io;
 
+import java.io.InputStream;
+import java.io.OutputStream;
 import python.lang.PyBytes;
 import python.lang.PyBuffer;
 
@@ -50,5 +52,31 @@ public interface PyBufferedIOBase extends PyIOBase
    * @return the number of bytes written.
    */
   int write(PyBuffer buffer);
+
+  /**
+   * Wraps this stream as a standard {@link java.io.InputStream}, so it can be
+   * passed to Java APIs that expect one. Reads are round-tripped through
+   * {@link #read(int)} one Java-side call at a time — not tuned for
+   * throughput; see {@code plan/IO.md}.
+   *
+   * @return an {@code InputStream} view of this stream.
+   */
+  default InputStream asInputStream()
+  {
+    return new PyIOInputStream(this);
+  }
+
+  /**
+   * Wraps this stream as a standard {@link java.io.OutputStream}, so it can
+   * be passed to Java APIs that expect one. Writes are round-tripped through
+   * {@link #write(PyBuffer)} one Java-side call at a time — not tuned for
+   * throughput; see {@code plan/IO.md}.
+   *
+   * @return an {@code OutputStream} view of this stream.
+   */
+  default OutputStream asOutputStream()
+  {
+    return new PyIOOutputStream(this);
+  }
 
 }
