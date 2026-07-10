@@ -114,19 +114,44 @@ public final class ProxyType
     this.methodCache = Collections.unmodifiableMap(tempMap);
   }
 
-  // Prefer a @Bypass or default method over a plain abstract declaration, and
-  // never settle on a compiler-generated covariant-return bridge (e.g. the
+  // Never settle on a compiler-generated covariant-return bridge (e.g. the
   // synthetic `Object get(int)` bridge javac emits alongside PySequence's
   // real `PyObject get(int)` override - MethodKey ignores return type so the
   // two collide here). A bridge's default body just re-invokes the covariant
   // method via a normal interface call, which routes back through this same
   // proxy dispatch and recurses forever if picked as the "real" descriptor.
+  //
+  // Otherwise prefer whichever declaring interface is more specific (a
+  // subinterface extending the other), matching normal Java override
+  // resolution: a subinterface that re-declares a method - whether adding a
+  // new default or deliberately reverting to abstract to change dispatch -
+  // always wins over an ancestor interface's declaration. For example
+  // PyDict.get(Object) is abstract on purpose (routes to Python's real
+  // dict.get(), None-returning) and must win over PyMapping's @Bypass
+  // default get(Object) (raw `x[key]`, raises on a missing key) even though
+  // the latter "looks" more usable by a default/bypass-only heuristic.
+  //
+  // Only for genuinely unrelated interfaces (a real diamond, e.g. an
+  // abstract method inherited unmodified from java.util.List alongside a
+  // subinterface's own default) fall back to preferring @Bypass/default
+  // over plain abstract.
   private static boolean isBetter(Method candidate, Method current)
   {
     if (current.isBridge() && !candidate.isBridge())
       return true;
     if (candidate.isBridge() && !current.isBridge())
       return false;
+
+    Class<?> candidateClass = candidate.getDeclaringClass();
+    Class<?> currentClass = current.getDeclaringClass();
+    if (candidateClass != currentClass)
+    {
+      if (currentClass.isAssignableFrom(candidateClass))
+        return true;
+      if (candidateClass.isAssignableFrom(currentClass))
+        return false;
+    }
+
     boolean candidateGood = candidate.isAnnotationPresent(Bypass.class) || candidate.isDefault();
     boolean currentGood = current.isAnnotationPresent(Bypass.class) || current.isDefault();
     return candidateGood && !currentGood;

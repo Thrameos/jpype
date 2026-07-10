@@ -286,7 +286,7 @@ def initialize():
         "newBytesFromIterator": bytes,
         "newBytesOfSize": bytes,
         "newComplex": lambda r,i: complex(r,i),
-        "newDict": lambda: {},
+        "newDict": lambda *m: dict(*m),
         "newDictFromIterable": dict,
         "newEnumerate": enumerate,
         "newFloat": float,
@@ -760,6 +760,14 @@ def initialize():
             return True
         return False
 
+    # PyDict declares both remove(Object) and remove(Object,Object); both
+    # cross the bridge under the same name (there is no overload-aware name
+    # mangling on the Java side), so dispatch on arity here.
+    def _dict_remove(x, k, *value):
+        if value:
+            return _dict_remove_key_value(x, k, value[0])
+        return _delitem_return(x, k)
+
     def _putall(x, m):
         for p,v in m.entrySet():
             x[p] = v
@@ -776,8 +784,7 @@ def initialize():
         "put": _dict_put,
         "putAny": _setitem_from_object,
         "putAll": _putall,
-        "remove": _delitem_return,
-        "remove$Object$Object": _dict_remove_key_value,
+        "remove": _dict_remove,
         "setDefault": _dict_setdefault,
         "update": _dict_update,
     }
@@ -786,7 +793,11 @@ def initialize():
         "containsKey": lambda x,v: v in x,
         "containsValue": lambda x,v: v in x.values(),
         "putAll": _putall,
-        "remove": _delitem_return,
+        # PyMapping itself only declares remove(Object), but this dispatch
+        # table can end up merged over PyDict's (which also declares
+        # remove(Object,Object)) depending on interface merge order, so it
+        # must handle both arities too - see _dict_remove.
+        "remove": _dict_remove,
     }
 
     ### Sets
