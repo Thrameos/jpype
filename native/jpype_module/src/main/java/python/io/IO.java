@@ -16,8 +16,8 @@
  */
 package python.io;
 
-import org.jpype.MainInterpreter;
 import python.lang.PyBuffer;
+import python.lang.PyBuiltIn;
 
 /**
  * Module-level hooks for {@code python.io} — the mini-backend for this
@@ -33,22 +33,18 @@ import python.lang.PyBuffer;
  * {@code python.lang.PyBuiltIn} equivalent, since core {@code python.lang}
  * should not need to know about any given SPI provider.
  *
- * {@link #instance()} is a convenience for when no live {@code PyObject} is
- * already in hand (it still bottoms out at the single {@code MainInterpreter}
- * singleton, same as {@link org.jpype.MainInterpreter#getBackend()} /
- * {@code getInstaller()} elsewhere). Given any existing {@code PyObject},
- * prefer {@code obj.builtin().getBackend(IO.class)} instead — that reaches
- * the same per-interpreter registry through the same no-statics path
- * {@link python.lang.PyObject#builtin()} already uses (each proxy carries
- * its own interpreter-bound {@code PyBuiltIn}), so it works without ever
- * touching {@code MainInterpreter}.
+ * {@link #using(PyBuiltIn)} takes the interpreter's {@code PyBuiltIn}
+ * explicitly (e.g. {@code obj.builtin()} for a live {@code PyObject}, or the
+ * {@code PyBuiltIn}/{@code Script} a caller already has in hand) rather than
+ * reaching for a JVM-wide singleton, so this mini-backend never depends on
+ * {@code MainInterpreter}.
  */
 public interface IO
 {
 
-  static IO instance()
+  static IO using(PyBuiltIn context)
   {
-    return MainInterpreter.getInstance().getBuiltIn().getBackend(IO.class);
+    return context.getBackend(IO.class);
   }
 
   /**

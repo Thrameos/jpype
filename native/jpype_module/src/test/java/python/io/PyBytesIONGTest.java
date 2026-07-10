@@ -12,7 +12,7 @@ public class PyBytesIONGTest extends PyTestHarness
   @Test
   public void testCreateEmpty()
   {
-    PyBytesIO instance = IO.instance().bytesIO();
+    PyBytesIO instance = IO.using(context).bytesIO();
 
     assertNotNull(instance);
     assertFalse(instance.closed());
@@ -24,7 +24,7 @@ public class PyBytesIONGTest extends PyTestHarness
   @Test
   public void testWriteAndGetvalue()
   {
-    PyBytesIO instance = IO.instance().bytesIO();
+    PyBytesIO instance = IO.using(context).bytesIO();
 
     int written = instance.write(context.bytesFromHex("68656c6c6f"));
 
@@ -36,7 +36,7 @@ public class PyBytesIONGTest extends PyTestHarness
   @Test
   public void testCreateWithInitialBuffer()
   {
-    PyBytesIO instance = IO.instance().bytesIO(context.bytesFromHex("616263"));
+    PyBytesIO instance = IO.using(context).bytesIO(context.bytesFromHex("616263"));
 
     PyBytes value = instance.getvalue();
     assertEquals(value.decode("utf-8", null).toString(), "abc");
@@ -45,7 +45,7 @@ public class PyBytesIONGTest extends PyTestHarness
   @Test
   public void testReadAll()
   {
-    PyBytesIO instance = IO.instance().bytesIO(context.bytesFromHex("616263646566"));
+    PyBytesIO instance = IO.using(context).bytesIO(context.bytesFromHex("616263646566"));
 
     PyBytes read = instance.read();
 
@@ -55,7 +55,7 @@ public class PyBytesIONGTest extends PyTestHarness
   @Test
   public void testReadWithSize()
   {
-    PyBytesIO instance = IO.instance().bytesIO(context.bytesFromHex("616263646566"));
+    PyBytesIO instance = IO.using(context).bytesIO(context.bytesFromHex("616263646566"));
 
     PyBytes read = instance.read(3);
 
@@ -65,7 +65,7 @@ public class PyBytesIONGTest extends PyTestHarness
   @Test
   public void testSeekAndTell()
   {
-    PyBytesIO instance = IO.instance().bytesIO(context.bytesFromHex("616263646566"));
+    PyBytesIO instance = IO.using(context).bytesIO(context.bytesFromHex("616263646566"));
 
     instance.seek(2);
 
@@ -76,7 +76,7 @@ public class PyBytesIONGTest extends PyTestHarness
   @Test
   public void testClose()
   {
-    PyBytesIO instance = IO.instance().bytesIO();
+    PyBytesIO instance = IO.using(context).bytesIO();
 
     instance.close();
 

@@ -14,7 +14,7 @@ public class PyIOStreamAdapterNGTest extends PyTestHarness
   @Test
   public void testInputStreamReadsWholeContent() throws IOException
   {
-    PyBytesIO instance = IO.instance().bytesIO(context.bytesFromHex("68656c6c6f"));
+    PyBytesIO instance = IO.using(context).bytesIO(context.bytesFromHex("68656c6c6f"));
 
     InputStream in = instance.asInputStream();
     byte[] buf = new byte[5];
@@ -28,7 +28,7 @@ public class PyIOStreamAdapterNGTest extends PyTestHarness
   @Test
   public void testInputStreamSingleByteReads() throws IOException
   {
-    PyBytesIO instance = IO.instance().bytesIO(context.bytesFromHex("616263"));
+    PyBytesIO instance = IO.using(context).bytesIO(context.bytesFromHex("616263"));
 
     InputStream in = instance.asInputStream();
 
@@ -41,7 +41,7 @@ public class PyIOStreamAdapterNGTest extends PyTestHarness
   @Test
   public void testInputStreamCloseClosesStream() throws IOException
   {
-    PyBytesIO instance = IO.instance().bytesIO();
+    PyBytesIO instance = IO.using(context).bytesIO();
 
     instance.asInputStream().close();
 
@@ -51,7 +51,7 @@ public class PyIOStreamAdapterNGTest extends PyTestHarness
   @Test
   public void testOutputStreamWriteBulk() throws IOException
   {
-    PyBytesIO instance = IO.instance().bytesIO();
+    PyBytesIO instance = IO.using(context).bytesIO();
 
     OutputStream out = instance.asOutputStream();
     out.write("hello".getBytes("UTF-8"));
@@ -62,7 +62,7 @@ public class PyIOStreamAdapterNGTest extends PyTestHarness
   @Test
   public void testOutputStreamWriteSingleBytes() throws IOException
   {
-    PyBytesIO instance = IO.instance().bytesIO();
+    PyBytesIO instance = IO.using(context).bytesIO();
 
     OutputStream out = instance.asOutputStream();
     out.write('a');
@@ -75,7 +75,7 @@ public class PyIOStreamAdapterNGTest extends PyTestHarness
   @Test
   public void testOutputStreamFlushAndClose() throws IOException
   {
-    PyBytesIO instance = IO.instance().bytesIO();
+    PyBytesIO instance = IO.using(context).bytesIO();
 
     OutputStream out = instance.asOutputStream();
     out.write('x');
@@ -88,8 +88,8 @@ public class PyIOStreamAdapterNGTest extends PyTestHarness
   @Test
   public void testRoundTripThroughBothAdapters() throws IOException
   {
-    PyBytesIO source = IO.instance().bytesIO(context.bytesFromHex("74657374"));
-    PyBytesIO dest = IO.instance().bytesIO();
+    PyBytesIO source = IO.using(context).bytesIO(context.bytesFromHex("74657374"));
+    PyBytesIO dest = IO.using(context).bytesIO();
 
     InputStream in = source.asInputStream();
     OutputStream out = dest.asOutputStream();
