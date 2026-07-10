@@ -498,7 +498,10 @@ public class TypeManager
       modifiers |= ModifierCode.PROXY.value;
 
     // Check if is Functional class
-    Method method = Functional.getFunctionalInterfaceMethod(cls);
+    // PyObject is excluded: it structurally has a single non-Object abstract
+    // method (builtin()), which would otherwise misclassify it as functional
+    // and bypass the dedicated JPPybaseType conversion rules it requires.
+    Method method = (cls == PyObject.class) ? null : Functional.getFunctionalInterfaceMethod(cls);
     if (method != null)
       modifiers |= ModifierCode.FUNCTIONAL.value | ModifierCode.SPECIAL.value;
 
