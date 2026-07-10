@@ -41,12 +41,18 @@ import org.jpype.WrapperService;
  * {@code TextIOWrapper}, {@code BufferedRWPair}) are deferred to the next
  * implementation step in {@code plan/IO.md}.
  *
- * <b>Not yet wired into {@code _jbridge.py}.</b> The lazy runtime hook
- * ({@code _jpype._cache.__missing__}, see {@code plan/SPI.md}) that would
- * consult this service on a cache miss does not exist yet; this class is
- * the drafted shape of the provider side only. Today, {@code io}'s classes
- * are registered eagerly and directly in {@code _jbridge.py} as a stand-in
- * — see the note there.
+ * Two independent registration paths, serving different purposes:
+ * <ul>
+ * <li>{@link #getEagerResources()} — wired and live: lists this provider's
+ * {@code .pyspi} resources (under {@code python/io/spi/}), read and replayed
+ * into the {@code Installer} by {@code SpiLoader} at startup. This is how
+ * {@code io}'s classes and the {@code IO} mini-backend actually get
+ * registered today.</li>
+ * <li>{@link #getInterfaces(String)} / {@link #MANIFEST} — the lazy,
+ * per-class lookup path for the (not yet implemented)
+ * {@code _cache.__missing__} runtime hook, see {@code plan/SPI.md}. Kept in
+ * sync with the {@code .pyspi} resources by hand for now.</li>
+ * </ul>
  */
 public final class PyIoWrapperService implements WrapperService
 {
@@ -99,6 +105,20 @@ public final class PyIoWrapperService implements WrapperService
   public Class<?>[] getInterfaces(String clsName)
   {
     return MANIFEST.get(clsName);
+  }
+
+  @Override
+  public String[] getEagerResources()
+  {
+    return new String[]
+    {
+      "/python/io/spi/io.IOBase.pyspi",
+      "/python/io/spi/io.BufferedIOBase.pyspi",
+      "/python/io/spi/io.TextIOBase.pyspi",
+      "/python/io/spi/_io.BytesIO.pyspi",
+      "/python/io/spi/_io.StringIO.pyspi",
+      "/python/io/spi/python.io.IO.pyspi",
+    };
   }
 
 }

@@ -34,15 +34,22 @@ module org.jpype {
   exports python.lang;
   exports python.exceptions;
   exports python.collections;           // Added: Lets users use PyDeque, PyCounter, etc.
+  exports python.io;
 
   // Documentation and Tooling
   exports org.jpype.html;
   exports org.jpype.javadoc;
-  
- 
+
+  // ==========================================
+  // SPI
+  // ==========================================
+  uses org.jpype.WrapperService;
+  provides org.jpype.WrapperService with python.io.PyIoWrapperService;
+
   // ==========================================
   // REFLECTION / REFLECTIVE ACCESS
   // ==========================================
   opens python.lang;
+  opens python.io;
   exports org.jpype.internal to java.base;
 }

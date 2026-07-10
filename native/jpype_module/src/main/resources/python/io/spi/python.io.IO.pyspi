@@ -1,0 +1,15 @@
+kind: backend
+interface: python.io.IO
+---
+import io
+
+def _new_bytes_io(initial=None):
+    return io.BytesIO(bytes(initial)) if initial is not None else io.BytesIO()
+
+def _new_string_io(initial=None):
+    return io.StringIO(str(initial)) if initial is not None else io.StringIO()
+
+METHODS = {
+    "bytesIO": _new_bytes_io,
+    "stringIO": _new_string_io,
+}

@@ -138,6 +138,12 @@ public class MainInterpreter implements Interpreter
   static Backend backend = null;
 
   /**
+   * The SPI installer implemented by {@code _jbridge.py}. See
+   * {@link Installer}, {@link SpiLoader}.
+   */
+  static Installer installer = null;
+
+  /**
    * Singleton instance of the {@code Interpreter}.
    */
   static MainInterpreter INSTANCE = new MainInterpreter();
@@ -177,7 +183,38 @@ public class MainInterpreter implements Interpreter
     stop = backend.object();
     ctx.setBuiltIn(this.builtin);
   }
-  
+
+  /**
+   * Returns the SPI installer used to register Python-class/interface
+   * bindings and provider mini-backends.
+   *
+   * @return The {@link Installer} instance.
+   */
+  public Installer getInstaller()
+  {
+    return installer;
+  }
+
+  /**
+   * Sets the SPI installer and immediately drives eager SPI registration
+   * ({@link SpiLoader#load}) — every {@code WrapperService} discovered via
+   * {@code ServiceLoader} gets its declared {@code .pyspi} resources read
+   * and replayed into it. Called once from {@code _jbridge.py}'s
+   * {@code initialize()}, after {@link #setBackend} (SPI-registered classes
+   * may need the backend to already exist).
+   *
+   * @param entry The {@link Installer} instance to set.
+   */
+  public void setInstaller(Installer entry)
+  {
+    if (installer != null)
+      throw new RuntimeException("Installer reconfigured");
+    LOGGER.log(Level.INFO, "Installer installed");
+    installer = entry;
+    SpiLoader.load(installer);
+  }
+
+
   @Override
   public PyBuiltIn getBuiltIn()
   {

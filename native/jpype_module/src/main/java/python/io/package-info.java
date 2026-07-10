@@ -21,18 +21,22 @@ package python.io;
  * conventions as {@link python.lang}.
  *
  * This package is also the first real consumer of the SPI
- * ({@code org.jpype.WrapperService}): the mapping from a concrete Python
- * {@code io}/{@code _io} class (e.g. {@code _io.BytesIO}) to the interfaces
- * declared here is not hand-listed the way {@code python.lang}'s builtin
- * types are; it is discovered through {@link org.jpype.WrapperService}, the
+ * ({@code org.jpype.WrapperService}/{@code org.jpype.Installer}): nothing
+ * here is hand-wired into {@code _jbridge.py} the way {@code python.lang}'s
+ * builtin types are. {@link PyIoWrapperService#getEagerResources()} lists
+ * this package's {@code .pyspi} resources (under
+ * {@code src/main/resources/python/io/spi/}), each naming a Python class
+ * (module + name) or mini-backend, its Java interface, and a blob of Python
+ * source; {@code org.jpype.SpiLoader} reads them at startup and replays them
+ * into {@code Installer}, implemented by {@code _jbridge.py}. This is the
  * same mechanism a third-party package would use to expose its own types.
  * See {@code plan/SPI.md} and {@code plan/IO.md} in the repository root.
  *
- * As of this first cut, the SPI's lazy runtime hook
- * ({@code _jpype._cache.__missing__}) does not exist yet, so
- * {@code python.io.PyIoWrapperService}'s manifest is applied eagerly at
- * {@code _jbridge.initialize()} time as a stand-in — {@code io}/{@code _io}
- * are stdlib and normally already imported, so this is honest and
- * functional today, but should be switched to the lazy hook once it lands
- * rather than treated as the permanent mechanism.
+ * Two registration paths exist and serve different purposes: the eager one
+ * above (live, used by every class in this package today) and a lazy
+ * per-class lookup ({@code org.jpype.WrapperService#getInterfaces}) for a
+ * {@code _jpype._cache.__missing__} runtime hook that does not exist yet —
+ * see {@code plan/SPI.md}'s "Lazy granularity: by module, not by class"
+ * section. {@code python.io} only exercises the eager path so far, since
+ * {@code io}/{@code _io} are stdlib and normally already imported.
  */

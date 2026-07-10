@@ -1,0 +1,68 @@
+// --- file: org/jpype/Installer.java ---
+/*
+ *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ *  use this file except in compliance with the License. You may obtain a copy of
+ *  the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ *  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ *  License for the specific language governing permissions and limitations under
+ *  the License.
+ *
+ *  See NOTICE file for details.
+ */
+package org.jpype;
+
+/**
+ * Implemented by {@code _jbridge.py} (a {@code JProxy}, same pattern as
+ * {@link Backend}) and installed on {@link MainInterpreter} at startup.
+ *
+ * This is the write side of the SPI: {@link SpiLoader} discovers
+ * {@link WrapperService} providers, reads each provider's declared
+ * {@code .pyspi} resources, and replays them here. Every hook the
+ * {@code python.io} first cut hand-wired directly in {@code _jbridge.py} —
+ * a Python class's method dict, a mini-backend's dispatch dict — becomes one
+ * of these two calls instead, driven by data (resource files) rather than
+ * hardcoded per-provider Python source living in core {@code _jbridge.py}.
+ *
+ * See {@code plan/SPI.md}.
+ */
+public interface Installer
+{
+
+  /**
+   * Register a concrete Python class as satisfying a Java interface.
+   *
+   * @param pyModule the Python module the class lives in, e.g. {@code "_io"}
+   * (matching the class's real {@code __module__} — not necessarily the
+   * "friendly" package name, see the {@code _io}/{@code io} split in
+   * {@code plan/SPI.md}).
+   * @param pyClass the class's name within that module, e.g. {@code
+   * "BytesIO"}.
+   * @param javaInterface fully qualified Java interface name, e.g.
+   * {@code "python.io.PyBytesIO"}.
+   * @param methodsSource Python source text; when {@code exec}'d, must bind
+   * a top-level name {@code METHODS} to a {@code dict[str, Callable]} in the
+   * same shape as the hand-written {@code _PyXxxMethods} dicts this
+   * replaces.
+   */
+  void registerClass(String pyModule, String pyClass, String javaInterface, String methodsSource);
+
+  /**
+   * Register a provider's own mini-backend (see {@code plan/SPI.md}'s
+   * "Mini-backends" section) — a small, provider-owned interface (like
+   * {@code python.io.IO}) that needs its own {@code JProxy} and dispatch
+   * dict, independent of the shared {@link Backend}, which providers cannot
+   * extend.
+   *
+   * @param javaInterface fully qualified Java interface name for the
+   * mini-backend, e.g. {@code "python.io.IO"}.
+   * @param methodsSource Python source text; when {@code exec}'d, must bind
+   * a top-level name {@code METHODS} to a {@code dict[str, Callable]}.
+   */
+  void registerBackend(String javaInterface, String methodsSource);
+
+}

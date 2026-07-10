@@ -1,5 +1,48 @@
 # SPI: Java-registered Python dispatch hooks
 
+## Status (2026-07-10): eager path implemented and live
+
+The eager registration path described below is no longer a sketch — it's
+implemented and exercised by `python.io` (466/466 tests passing on branch
+`spi`):
+
+- `org.jpype.Installer` — `registerClass(pyModule, pyClass, javaInterface,
+  methodsSource)` / `registerBackend(javaInterface, methodsSource)`.
+  Implemented by `_jbridge.py` (`_installer_register_class` /
+  `_installer_register_backend`, a `JProxy` same as `Backend`) and installed
+  via `MainInterpreter.setInstaller(Installer)`, which immediately calls
+  `org.jpype.SpiLoader.load(installer)`.
+- `org.jpype.SpiLoader` — `ServiceLoader.load(WrapperService.class)`, then
+  for each provider reads every path in the new
+  `WrapperService.getEagerResources()` (default empty array) and replays it
+  into the installer.
+- **`.pyspi` resource format** (`org.jpype.SpiResource`), one file per
+  Python class or per mini-backend: a `key: value` header (`kind: class` +
+  `module:`/`class:`/`interface:`, or `kind: backend` + `interface:`), a
+  line containing only `---`, then a blob of Python source that must bind a
+  top-level `METHODS` dict when `exec`'d. `_installer_register_class` execs
+  it and writes into `_jpype._concrete[pyType]` / `_jpype._methods[iface]`;
+  `_installer_register_backend` execs it, builds a `JProxy`, and registers
+  it in `org.jpype.BackendRegistry` (see "Mini-backends" below).
+- Worked example: `native/jpype_module/src/main/resources/python/io/spi/*.pyspi`
+  (6 files) + `python.io.PyIoWrapperService.getEagerResources()`. This fully
+  replaced the hand-written `_PyIOBaseMethods`-style dicts and the manual
+  `_jpype._concrete[io.IOBase] = _PyIOBase`-style lines that used to live
+  directly in `_jbridge.py` — core `_jbridge.py` now has zero
+  `python.io`-specific code left in it.
+- Required a `module-info.java` fix along the way: `uses
+  org.jpype.WrapperService;` + `provides org.jpype.WrapperService with
+  python.io.PyIoWrapperService;` — `ServiceLoader` inside a named JPMS
+  module ignores `META-INF/services` for providers in that same module;
+  only the module descriptor's `provides...with` is consulted.
+
+**Not yet implemented:** the lazy per-module `_cache.__missing__` hook
+below is still a design, not code — `python.io` only exercises the eager
+path (`io`/`_io` are stdlib, always already importable, so eager is
+sufficient for it). `WrapperService.getInterfaces(String)` / the
+`PyIoWrapperService.MANIFEST` map are the drafted-but-unused shape for when
+that lands.
+
 ## TL;DR
 
 The cost of this feature is much lower than it looks. There is no new

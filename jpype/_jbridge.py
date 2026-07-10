@@ -16,7 +16,6 @@
 #
 # *****************************************************************************
 import _jpype
-import io
 from . import _jclass
 from . import _jpackage
 from . import _jproxy
@@ -27,6 +26,7 @@ import itertools
 import inspect
 import functools
 import types
+import importlib
 from typing import MutableMapping, Callable, List
 import builtins
 
@@ -82,18 +82,6 @@ def initialize():
     # PyFunction is concretely registered; PyLambda is left unregistered.
     _PyFunction = JClass("python.lang.PyFunction")
     _PyFilter = JClass("python.lang.PyFilter")
-
-    # python.io - first cut, eagerly registered as a stand-in for the SPI's
-    # lazy _cache.__missing__ hook (plan/SPI.md), which doesn't exist yet.
-    # See python.io.PyIoWrapperService for the SPI-shaped manifest this
-    # mirrors by hand.
-    _PyIOBase = JClass("python.io.PyIOBase")
-    _PyBufferedIOBase = JClass("python.io.PyBufferedIOBase")
-    _PyTextIOBase = JClass("python.io.PyTextIOBase")
-    _PyBytesIO = JClass("python.io.PyBytesIO")
-    _PyStringIO = JClass("python.io.PyStringIO")
-    _IO = JClass("python.io.IO")
-    _BackendRegistry = JClass("org.jpype.BackendRegistry")
 
     # Protocols
     _PyCallable = JClass("python.lang.PyCallable")
@@ -514,55 +502,9 @@ def initialize():
         "release": memoryview.release,
     }
 
-    ### python.io (first cut - see plan/IO.md, plan/SPI.md)
-    def _io_seek(x, offset, whence=0):
-        return x.seek(offset, whence)
-
-    _PyIOBaseMethods: MutableMapping[str, Callable] = {
-        "close": lambda x: x.close(),
-        "closed": _attr("closed"),
-        "flush": lambda x: x.flush(),
-        "readable": lambda x: x.readable(),
-        "writable": lambda x: x.writable(),
-        "seekable": lambda x: x.seekable(),
-        "seek": _io_seek,
-        "tell": lambda x: x.tell(),
-    }
-
-    _PyBufferedIOBaseMethods: MutableMapping[str, Callable] = {
-        "read": lambda x, size=-1: x.read(size),
-        "write": lambda x, b: x.write(b),
-    }
-
-    _PyTextIOBaseMethods: MutableMapping[str, Callable] = {
-        "read": lambda x, size=-1: x.read(size),
-        "readline": lambda x: x.readline(),
-        "write": lambda x, s: x.write(str(s)),
-    }
-
-    _PyBytesIOMethods: MutableMapping[str, Callable] = {
-        "getvalue": lambda x: x.getvalue(),
-    }
-
-    _PyStringIOMethods: MutableMapping[str, Callable] = {
-        "getvalue": lambda x: x.getvalue(),
-    }
-
-    # python.io's mini-backend (python.io.IO) - module-level construction
-    # hooks that can't live on the shared Backend, since SPI providers
-    # can't add methods to it. Both overloads of each name (no-arg vs.
-    # with-initial-value) resolve to the same dict entry by name only, same
-    # as the read()/read(int) pattern above.
-    def _new_bytes_io(initial=None):
-        return io.BytesIO(bytes(initial)) if initial is not None else io.BytesIO()
-
-    def _new_string_io(initial=None):
-        return io.StringIO(str(initial)) if initial is not None else io.StringIO()
-
-    _PyIOBackendMethods: MutableMapping[str, Callable] = {
-        "bytesIO": _new_bytes_io,
-        "stringIO": _new_string_io,
-    }
+    # python.io (and every other SPI provider) is no longer hand-wired here
+    # at all - see the Installer implementation below (_installer_register_*)
+    # and the .pyspi resources under native/.../resources/python/io/spi/.
 
     ### String
     def _count_occurrences(x, sub, start=None, end=None):
@@ -1011,12 +953,6 @@ def initialize():
     # DEBUG: Log dict state BEFORE Backend creation
     backend = Backend@JProxy(Backend, dict=_PyJPBackendMethods)
 
-    # SPI mini-backends: each provider gets its own proxy, bound to its own
-    # dispatch dict, registered by interface class rather than folded into
-    # the shared Backend (see plan/SPI.md).
-    _io_backend = _IO@JProxy(_IO, dict=_PyIOBackendMethods)
-    _BackendRegistry.register(_IO, _io_backend)
-
     #############################################################################
     # Populate the concrete dictionaries (created as placeholders in _core.py)
     # Add all of the concrete types to the _concrete interfaces list.
@@ -1046,16 +982,10 @@ def initialize():
     _jpype._concrete[types.FunctionType] = _PyFunction
     _jpype._concrete[filter] = _PyFilter
 
-    # python.io - eager stand-in for the SPI's lazy _cache.__missing__ hook
-    # (plan/SPI.md; not implemented yet). Mirrors python.io.PyIoWrapperService's
-    # manifest by hand; registering the abstract bases too (not just the
-    # concrete BytesIO/StringIO) lets PyJP_probe's MRO scan resolve any
-    # unlisted io.IOBase subclass via its nearest registered ancestor.
-    _jpype._concrete[io.IOBase] = _PyIOBase
-    _jpype._concrete[io.BufferedIOBase] = _PyBufferedIOBase
-    _jpype._concrete[io.TextIOBase] = _PyTextIOBase
-    _jpype._concrete[io.BytesIO] = _PyBytesIO
-    _jpype._concrete[io.StringIO] = _PyStringIO
+    # python.io and every other SPI provider's classes are no longer
+    # hardcoded here - see the Installer wiring below, which drives
+    # SpiLoader (Java) reading each provider's .pyspi resources and calling
+    # back into _installer_register_class/_installer_register_backend.
 
     #############################################################################
     # Add all of the abstract types to the _protocol interfaces list
@@ -1083,11 +1013,6 @@ def initialize():
     # Bind the method tables
 
     # Define the method tables for each type here
-    _jpype._methods[_PyIOBase] = _PyIOBaseMethods
-    _jpype._methods[_PyBufferedIOBase] = _PyBufferedIOBaseMethods
-    _jpype._methods[_PyTextIOBase] = _PyTextIOBaseMethods
-    _jpype._methods[_PyBytesIO] = _PyBytesIOMethods
-    _jpype._methods[_PyStringIO] = _PyStringIOMethods
     _jpype._methods[_PyBytes] = _PyBytesMethods
     _jpype._methods[_PyByteArray] = _PyByteArrayMethods
     _jpype._methods[_PyDict] = _PyDictMethods
@@ -1150,6 +1075,41 @@ def initialize():
         return _pyexc_convert(AssertionError(f"JPype Internal Error: Exception type '{type(value).__name__}' bypassed upstream guards but matches no registered Java exception proxy."))
     _jpype._pyexc_convert = _pyexc_convert
 
-    # We have everything setup 
+    # We have everything setup
     _jpype.ready()
     bridge.setBackend(_jpype.context(), backend)
+
+    ###################################################################################
+    # SPI: implement Installer and hand it to Java, which immediately walks
+    # every discovered WrapperService's .pyspi resources and calls back into
+    # _installer_register_class/_installer_register_backend below - see
+    # plan/SPI.md. This replaces hand-written per-provider dicts in this
+    # file (python.io was the first, now removed from here entirely).
+
+    def _installer_register_class(pyModule, pyClass, javaInterface, methodsSource):
+        ns: MutableMapping[str, object] = {}
+        exec(str(methodsSource), ns)
+        methods = ns["METHODS"]
+        mod = importlib.import_module(str(pyModule))
+        pyType = getattr(mod, str(pyClass))
+        iface = JClass(str(javaInterface))
+        _jpype._concrete[pyType] = iface
+        _jpype._methods[iface] = methods
+
+    def _installer_register_backend(javaInterface, methodsSource):
+        ns: MutableMapping[str, object] = {}
+        exec(str(methodsSource), ns)
+        methods = ns["METHODS"]
+        iface = JClass(str(javaInterface))
+        proxy = iface@JProxy(iface, dict=methods)
+        _BackendRegistry.register(iface, proxy)
+
+    _PyInstallerMethods: MutableMapping[str, Callable] = {
+        "registerClass": _installer_register_class,
+        "registerBackend": _installer_register_backend,
+    }
+
+    Installer = JClass("org.jpype.Installer")
+    _BackendRegistry = JClass("org.jpype.BackendRegistry")
+    installer = Installer@JProxy(Installer, dict=_PyInstallerMethods)
+    bridge.setInstaller(installer)
