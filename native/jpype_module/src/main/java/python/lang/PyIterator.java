@@ -54,7 +54,11 @@ public class PyIterator<T> implements Iterator<T>
     check = true;
     if (yield == null)
       yield = (T) builtin.next(iter, MainInterpreter.stop);
-    done = (yield == MainInterpreter.stop);
+    // Each Python->Java round trip allocates a fresh proxy wrapper, so
+    // reference identity (==) never matches even for the same underlying
+    // Python object. equals() routes to Python's `==`, which for the
+    // plain object() sentinel falls back to identity on the Python side.
+    done = (yield != null && ((PyObject) yield).equals(MainInterpreter.stop));
     return !done;
   }
 
@@ -66,7 +70,9 @@ public class PyIterator<T> implements Iterator<T>
     if (done)
       throw new NoSuchElementException();
     check = false;
-    return yield;
+    T result = yield;
+    yield = null;
+    return result;
   }
 
 }
