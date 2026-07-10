@@ -16,9 +16,9 @@
  */
 package python.lang;
 
-import org.jpype.MainInterpreter;
+import java.util.Arrays;
+import java.util.List;
 import static org.testng.Assert.*;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
@@ -32,21 +32,16 @@ public class PyEnumerateNGTest extends PyTestHarness
   {
   }
 
-  @BeforeClass
-  public static void setUpClass() throws Exception
-  {
-    MainInterpreter.getInstance().start(new String[0]);
-  }
-
   @Test
   public void testOf()
   {
-    System.out.println("of");
-    Iterable<?> iterable = null;
-    PyEnumerate expResult = null;
-    PyEnumerate result = context.enumerate(iterable);
-    assertEquals(result, expResult);
-    fail("The test case is a prototype.");
+    List<String> items = Arrays.asList("a", "b", "c");
+    PyEnumerate result = context.enumerate(items);
+    PyList list = result.toList();
+    assertEquals(list.size(), 3);
+    assertEquals(list.get(0).toString(), "(0, 'a')");
+    assertEquals(list.get(1).toString(), "(1, 'b')");
+    assertEquals(list.get(2).toString(), "(2, 'c')");
   }
 
 }

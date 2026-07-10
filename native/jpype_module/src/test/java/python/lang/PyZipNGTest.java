@@ -42,9 +42,9 @@ public class PyZipNGTest extends PyTestHarness
     PyList result = pyZip.toList();
 
     assertEquals(result.size(), 3);
-    assertEquals(result.get(0).toString(), "[1, a]");
-    assertEquals(result.get(1).toString(), "[2, b]");
-    assertEquals(result.get(2).toString(), "[3, c]");
+    assertEquals(result.get(0).toString(), "(1, 'a')");
+    assertEquals(result.get(1).toString(), "(2, 'b')");
+    assertEquals(result.get(2).toString(), "(3, 'c')");
   }
 
   @Test
@@ -60,10 +60,11 @@ public class PyZipNGTest extends PyTestHarness
     // Convert to list and verify zipped items
     PyList result = pyZip.toList();
 
-    assertEquals(result.size(), 3);
-    assertEquals(result.get(0).toString(), "[1, a]");
-    assertEquals(result.get(1).toString(), "[2, b]");
-    assertEquals(result.get(2).toString(), "[null, c]");
+    // Python's zip() stops at the shortest iterable (no padding),
+    // so only 2 pairs are produced, not 3.
+    assertEquals(result.size(), 2);
+    assertEquals(result.get(0).toString(), "(1, 'a')");
+    assertEquals(result.get(1).toString(), "(2, 'b')");
   }
 
   @Test
@@ -80,8 +81,8 @@ public class PyZipNGTest extends PyTestHarness
     PyList result = pyZip.toList();
 
     assertEquals(result.size(), 3);
-    assertEquals(result.get(0).toString(), "[1, a]");
-    assertEquals(result.get(1).toString(), "[2, b]");
-    assertEquals(result.get(2).toString(), "[3, c]");
+    assertEquals(result.get(0).toString(), "(1, 'a')");
+    assertEquals(result.get(1).toString(), "(2, 'b')");
+    assertEquals(result.get(2).toString(), "(3, 'c')");
   }
 }

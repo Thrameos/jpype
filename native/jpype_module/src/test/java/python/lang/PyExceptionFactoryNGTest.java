@@ -16,9 +16,10 @@
  */
 package python.lang;
 
-import org.jpype.MainInterpreter;
+import python.exceptions.PyKeyError;
+import python.exceptions.PyTypeError;
+import python.exceptions.PyValueError;
 import static org.testng.Assert.*;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
@@ -32,16 +33,18 @@ public class PyExceptionFactoryNGTest extends PyTestHarness
   {
   }
 
-  @BeforeClass
-  public static void setUpClass() throws Exception
+  @Test
+  public void testLookupMapsPythonNamesToJavaExceptions()
   {
-    MainInterpreter.getInstance().start(new String[0]);
+    assertEquals(PyExceptionFactory.LOOKUP.get("KeyError"), PyKeyError.class);
+    assertEquals(PyExceptionFactory.LOOKUP.get("TypeError"), PyTypeError.class);
+    assertEquals(PyExceptionFactory.LOOKUP.get("ValueError"), PyValueError.class);
   }
 
   @Test
-  public void testSomeMethod()
+  public void testLookupHasNoEntryForUnknownName()
   {
-    fail("The test case is a prototype.");
+    assertNull(PyExceptionFactory.LOOKUP.get("NotARealPythonException"));
   }
 
 }
