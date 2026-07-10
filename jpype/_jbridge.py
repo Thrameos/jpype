@@ -16,6 +16,7 @@
 #
 # *****************************************************************************
 import _jpype
+import io
 from . import _jclass
 from . import _jpackage
 from . import _jproxy
@@ -81,6 +82,16 @@ def initialize():
     # PyFunction is concretely registered; PyLambda is left unregistered.
     _PyFunction = JClass("python.lang.PyFunction")
     _PyFilter = JClass("python.lang.PyFilter")
+
+    # python.io - first cut, eagerly registered as a stand-in for the SPI's
+    # lazy _cache.__missing__ hook (plan/SPI.md), which doesn't exist yet.
+    # See python.io.PyIoWrapperService for the SPI-shaped manifest this
+    # mirrors by hand.
+    _PyIOBase = JClass("python.io.PyIOBase")
+    _PyBufferedIOBase = JClass("python.io.PyBufferedIOBase")
+    _PyTextIOBase = JClass("python.io.PyTextIOBase")
+    _PyBytesIO = JClass("python.io.PyBytesIO")
+    _PyStringIO = JClass("python.io.PyStringIO")
 
     # Protocols
     _PyCallable = JClass("python.lang.PyCallable")
@@ -303,6 +314,10 @@ def initialize():
         "newBytesFromBuffer": bytes,
         "newBytesFromIterator": bytes,
         "newBytesOfSize": bytes,
+        "newBytesIO": lambda: io.BytesIO(),
+        "newBytesIOFromBuffer": lambda b: io.BytesIO(bytes(b)),
+        "newStringIO": lambda: io.StringIO(),
+        "newStringIOFromString": lambda s: io.StringIO(str(s)),
         "newComplex": lambda r,i: complex(r,i),
         "newDict": lambda *m: dict(*m),
         "newDictFromIterable": dict,
@@ -499,6 +514,40 @@ def initialize():
         "getSubOffsets": _attr("suboffsets"),
         "isReadOnly": _attr("readonly"),
         "release": memoryview.release,
+    }
+
+    ### python.io (first cut - see plan/IO.md, plan/SPI.md)
+    def _io_seek(x, offset, whence=0):
+        return x.seek(offset, whence)
+
+    _PyIOBaseMethods: MutableMapping[str, Callable] = {
+        "close": lambda x: x.close(),
+        "closed": _attr("closed"),
+        "flush": lambda x: x.flush(),
+        "readable": lambda x: x.readable(),
+        "writable": lambda x: x.writable(),
+        "seekable": lambda x: x.seekable(),
+        "seek": _io_seek,
+        "tell": lambda x: x.tell(),
+    }
+
+    _PyBufferedIOBaseMethods: MutableMapping[str, Callable] = {
+        "read": lambda x, size=-1: x.read(size),
+        "write": lambda x, b: x.write(b),
+    }
+
+    _PyTextIOBaseMethods: MutableMapping[str, Callable] = {
+        "read": lambda x, size=-1: x.read(size),
+        "readline": lambda x: x.readline(),
+        "write": lambda x, s: x.write(str(s)),
+    }
+
+    _PyBytesIOMethods: MutableMapping[str, Callable] = {
+        "getvalue": lambda x: x.getvalue(),
+    }
+
+    _PyStringIOMethods: MutableMapping[str, Callable] = {
+        "getvalue": lambda x: x.getvalue(),
     }
 
     ### String
@@ -977,6 +1026,17 @@ def initialize():
     _jpype._concrete[types.FunctionType] = _PyFunction
     _jpype._concrete[filter] = _PyFilter
 
+    # python.io - eager stand-in for the SPI's lazy _cache.__missing__ hook
+    # (plan/SPI.md; not implemented yet). Mirrors python.io.PyIoWrapperService's
+    # manifest by hand; registering the abstract bases too (not just the
+    # concrete BytesIO/StringIO) lets PyJP_probe's MRO scan resolve any
+    # unlisted io.IOBase subclass via its nearest registered ancestor.
+    _jpype._concrete[io.IOBase] = _PyIOBase
+    _jpype._concrete[io.BufferedIOBase] = _PyBufferedIOBase
+    _jpype._concrete[io.TextIOBase] = _PyTextIOBase
+    _jpype._concrete[io.BytesIO] = _PyBytesIO
+    _jpype._concrete[io.StringIO] = _PyStringIO
+
     #############################################################################
     # Add all of the abstract types to the _protocol interfaces list
     # The key must be a string and the value a Java class
@@ -1003,6 +1063,11 @@ def initialize():
     # Bind the method tables
 
     # Define the method tables for each type here
+    _jpype._methods[_PyIOBase] = _PyIOBaseMethods
+    _jpype._methods[_PyBufferedIOBase] = _PyBufferedIOBaseMethods
+    _jpype._methods[_PyTextIOBase] = _PyTextIOBaseMethods
+    _jpype._methods[_PyBytesIO] = _PyBytesIOMethods
+    _jpype._methods[_PyStringIO] = _PyStringIOMethods
     _jpype._methods[_PyBytes] = _PyBytesMethods
     _jpype._methods[_PyByteArray] = _PyByteArrayMethods
     _jpype._methods[_PyDict] = _PyDictMethods

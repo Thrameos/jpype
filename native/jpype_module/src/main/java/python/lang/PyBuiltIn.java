@@ -19,6 +19,8 @@ package python.lang;
 import java.util.Arrays;
 import java.util.Map;
 import org.jpype.Backend;
+import python.io.PyBytesIO;
+import python.io.PyStringIO;
 
 /**
  * Utility class providing built-in functions similar to Python's built-in
@@ -88,6 +90,50 @@ public class PyBuiltIn
   public PyByteArray bytearray(int size)
   {
     return backend.bytearray(size);
+  }
+
+  /**
+   * Creates a new, empty Python {@code io.BytesIO} in-memory binary stream.
+   *
+   * @return a new {@link PyBytesIO} instance.
+   */
+  public PyBytesIO bytesIO()
+  {
+    return backend.newBytesIO();
+  }
+
+  /**
+   * Creates a new Python {@code io.BytesIO} pre-populated with the contents
+   * of {@code initial}.
+   *
+   * @param initial the initial contents of the stream.
+   * @return a new {@link PyBytesIO} instance.
+   */
+  public PyBytesIO bytesIO(PyBuffer initial)
+  {
+    return backend.newBytesIOFromBuffer(initial);
+  }
+
+  /**
+   * Creates a new, empty Python {@code io.StringIO} in-memory text stream.
+   *
+   * @return a new {@link PyStringIO} instance.
+   */
+  public PyStringIO stringIO()
+  {
+    return backend.newStringIO();
+  }
+
+  /**
+   * Creates a new Python {@code io.StringIO} pre-populated with
+   * {@code initial}.
+   *
+   * @param initial the initial contents of the stream.
+   * @return a new {@link PyStringIO} instance.
+   */
+  public PyStringIO stringIO(CharSequence initial)
+  {
+    return backend.newStringIOFromString(initial);
   }
   
   /**
