@@ -16,7 +16,6 @@
  */
 package python.lang;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -377,7 +376,14 @@ public interface PyList extends PySequence<PyObject>
   @Override
   default Object[] toArray()
   {
-    return new ArrayList<>(this).toArray();
+    // Do not route through `new ArrayList<>(this)` - its constructor calls
+    // this.toArray() internally, recursing into this same default method
+    // and overflowing the stack.
+    Object[] result = new Object[size()];
+    int i = 0;
+    for (Object o : this)
+      result[i++] = o;
+    return result;
   }
 
   /**
@@ -400,9 +406,19 @@ public interface PyList extends PySequence<PyObject>
    */
     @Bypass
   @Override
+  @SuppressWarnings("unchecked")
   default <T> T[] toArray(T[] a)
   {
-    return (T[]) new ArrayList<>(this).toArray(a);
+    int size = size();
+    if (a.length < size)
+      a = (T[]) java.lang.reflect.Array.newInstance(a.getClass().getComponentType(), size);
+    int i = 0;
+    Object[] result = a;
+    for (Object o : this)
+      result[i++] = o;
+    if (a.length > size)
+      a[size] = null;
+    return a;
   }
 
 }
