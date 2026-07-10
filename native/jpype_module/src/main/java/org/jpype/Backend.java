@@ -101,6 +101,12 @@ public interface Backend
 
   PyObject delattrReturn(Object obj, Object key);
 
+  // Pops an arbitrary key/value pair from a mapping, returned as a 2-tuple.
+  // (dict.popitem() returns a plain Python tuple, which the proxy bridge
+  // cannot auto-convert to a java.util.Map.Entry, so PyDict.popItem() wraps
+  // this call's PyTuple result in a Map.Entry on the Java side instead.)
+  PyTuple popItem(Object obj);
+
   // Delete an attribute from a Python object by name.
   void delattrString(Object obj, CharSequence attrName);
 

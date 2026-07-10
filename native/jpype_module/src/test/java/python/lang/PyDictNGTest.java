@@ -163,7 +163,7 @@ public class PyDictNGTest extends PyTestHarness
     Map.Entry<Object, PyObject> entry = dict.popItem();
 
     assertNotNull(entry);
-    assertEquals(entry.getKey(), "key1");
+    assertEquals(entry.getKey().toString(), "key1");
     assertEquals(entry.getValue().toString(), "value1");
     assertTrue(dict.isEmpty());
   }

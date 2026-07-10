@@ -255,17 +255,16 @@ public class PyAttributes implements Map<PyObject, PyObject>
   }
 
   /**
-   * Unsupported operation for adding multiple attributes.
+   * Sets multiple attributes fromMap the given map.
    *
    * @param map is the map fromMap attributes to add.
-   * @throws UnsupportedOperationException Always thrown.
    */
   @Override
   public void putAll(Map<? extends PyObject, ? extends PyObject> map)
   {
     for (Entry<? extends PyObject, ? extends PyObject> v : map.entrySet())
     {
-      builtin.backend.setitemFromObject(this.obj, v.getKey(), v.getValue());
+      builtin.backend.setattrReturn(this.obj, v.getKey(), v.getValue());
     }
   }
 

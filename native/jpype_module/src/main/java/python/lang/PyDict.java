@@ -16,8 +16,10 @@
  */
 package python.lang;
 
+import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import org.jpype.annotation.Bypass;
 
@@ -126,7 +128,18 @@ public interface PyDict extends PyObject, PyMapping<PyObject, PyObject>, PyCombi
    * @return An entry representing the removed key-value pair.
    * @throws NoSuchElementException If the mapping is empty.
    */
-  Map.Entry<Object, PyObject> popItem();
+    @Bypass
+  default Map.Entry<Object, PyObject> popItem()
+  {
+    // dict.popitem() returns a plain Python tuple; the proxy bridge cannot
+    // auto-convert that to a java.util.Map.Entry, so fetch it as a PyTuple
+    // and wrap it here. isEmpty() is checked first so the empty-dict case
+    // raises NoSuchElementException instead of a bridged PyKeyError.
+    if (isEmpty())
+      throw new NoSuchElementException();
+    PyTuple t = builtin().backend.popItem(this);
+    return new AbstractMap.SimpleEntry<>(t.get(0), t.get(1));
+  }
 
   @Override
   PyObject put(PyObject key, PyObject value);

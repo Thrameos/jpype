@@ -245,6 +245,7 @@ def initialize():
         "delitemByIndex": _delitem,
         "delitemByObject": _delitem,
         "delattrReturn": _delattr_return,
+        "popItem": lambda x: x.popitem(),
         "delattrString": lambda x,s: delattr(x, str(s)),
         "dir": dir,
         "enumerate": enumerate,
@@ -332,14 +333,23 @@ def initialize():
     def _to_string(o):
         return JString(str(o))
 
+    def _to_java_int32(v):
+        # Java int is signed 32-bit; fold to unsigned range then wrap into
+        # the signed range so values >= 2**31 don't overflow on the Java
+        # side (was raising PyOverflowError for large Python hashes).
+        v &= 0xFFFFFFFF
+        if v >= 0x80000000:
+            v -= 0x100000000
+        return v
+
     def _hash(x):
         try:
             h = hash(x)
-            return (h ^ (h >> 32)) & 0xFFFFFFFF
+            return _to_java_int32(h ^ (h >> 32))
         except TypeError:
             # Fallback to id(x) which is basically the pointer address
             ptr = id(x)
-            return (ptr ^ (ptr >> 32)) & 0xFFFFFFFF
+            return _to_java_int32(ptr ^ (ptr >> 32))
 
     def _equals(x,y):
         return x == y
@@ -780,7 +790,6 @@ def initialize():
         "get": lambda x, k: x.get(k),
         "getOrDefault": lambda x,k,d: x.get(k,d),
         "pop": lambda x, k, d: x.pop(k, d),
-        "popItem": lambda x: x.popitem(),
         "put": _dict_put,
         "putAny": _setitem_from_object,
         "putAll": _putall,
