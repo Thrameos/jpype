@@ -19,6 +19,7 @@ package python.lang;
 import java.util.Arrays;
 import java.util.Map;
 import org.jpype.Backend;
+import org.jpype.internal.NativeContext;
 
 /**
  * Utility class providing built-in functions similar to Python's built-in
@@ -30,14 +31,45 @@ public class PyBuiltIn
 {
 
   protected final Backend backend;
-  
+  protected final NativeContext context;
+
   public Backend getBackend()
   {
     return this.backend;
   }
 
-  protected PyBuiltIn(Backend backend)
+  /**
+   * Returns the {@link NativeContext} for this interpreter — the same
+   * per-interpreter object reachable from any live {@link PyObject} via
+   * {@link PyObject#builtin()}, rather than a JVM-wide static.
+   *
+   * @return The {@link NativeContext} instance.
+   */
+  public NativeContext getContext()
   {
+    return this.context;
+  }
+
+  /**
+   * Looks up an SPI-provided mini-backend for this interpreter (e.g.
+   * {@code python.io.IO}), reached through this same per-interpreter
+   * {@code PyBuiltIn} instance rather than any JVM-wide static — any live
+   * {@link PyObject} can reach this via {@code obj.builtin().getBackend(...)}.
+   * See {@code plan/SPI.md}'s "Mini-backends" section.
+   *
+   * @param <T> the mini-backend interface type.
+   * @param iface the mini-backend interface.
+   * @return the registered instance.
+   * @throws IllegalStateException if nothing is registered for {@code iface}.
+   */
+  public <T> T getBackend(Class<T> iface)
+  {
+    return context.getBackend(iface);
+  }
+
+  protected PyBuiltIn(NativeContext context, Backend backend)
+  {
+    this.context = context;
     this.backend = backend;
   }
 

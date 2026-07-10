@@ -15,6 +15,7 @@
  */
 package org.jpype;
 
+import org.jpype.internal.NativeContext;
 import python.lang.PyBuiltIn;
 
 /**
@@ -24,8 +25,8 @@ import python.lang.PyBuiltIn;
 class InterpreterBuiltIn extends PyBuiltIn
 {
 
-  InterpreterBuiltIn(Backend backend)
+  InterpreterBuiltIn(NativeContext context, Backend backend)
   {
-    super(backend);
+    super(context, backend);
   }
 }

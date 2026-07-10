@@ -32,13 +32,23 @@ import python.lang.PyBuffer;
  * point for constructing {@code python.io} objects; there is deliberately no
  * {@code python.lang.PyBuiltIn} equivalent, since core {@code python.lang}
  * should not need to know about any given SPI provider.
+ *
+ * {@link #instance()} is a convenience for when no live {@code PyObject} is
+ * already in hand (it still bottoms out at the single {@code MainInterpreter}
+ * singleton, same as {@link org.jpype.MainInterpreter#getBackend()} /
+ * {@code getInstaller()} elsewhere). Given any existing {@code PyObject},
+ * prefer {@code obj.builtin().getBackend(IO.class)} instead — that reaches
+ * the same per-interpreter registry through the same no-statics path
+ * {@link python.lang.PyObject#builtin()} already uses (each proxy carries
+ * its own interpreter-bound {@code PyBuiltIn}), so it works without ever
+ * touching {@code MainInterpreter}.
  */
 public interface IO
 {
 
   static IO instance()
   {
-    return MainInterpreter.getInstance().getContext().getBackend(IO.class);
+    return MainInterpreter.getInstance().getBuiltIn().getBackend(IO.class);
   }
 
   /**

@@ -40,14 +40,14 @@ public class Script extends PyBuiltIn
 
   public Script(Interpreter interpeter)
   {
-    super(interpeter.getBuiltIn().getBackend());
+    super(interpeter.getBuiltIn().getContext(), interpeter.getBuiltIn().getBackend());
     this.globalsDict = MainInterpreter.backend.newDict();
     this.localsDict = globalsDict;
   }
 
  public Script(Interpreter interpeter, PyDict globals, PyObject locals)
   {
-    super(interpeter.getBuiltIn().getBackend());
+    super(interpeter.getBuiltIn().getContext(), interpeter.getBuiltIn().getBackend());
     this.globalsDict = globals;
     this.localsDict = locals;
   }
