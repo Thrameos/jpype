@@ -1102,7 +1102,10 @@ def initialize():
         methods = ns["METHODS"]
         iface = JClass(str(javaInterface))
         proxy = iface@JProxy(iface, dict=methods)
-        _BackendRegistry.register(iface, proxy)
+        # Registered on this interpreter's NativeContext (not a JVM-wide
+        # static) so a second interpreter in the same JVM can't see or
+        # clobber this one's mini-backends.
+        _jpype.context().registerBackend(iface, proxy)
 
     _PyInstallerMethods: MutableMapping[str, Callable] = {
         "registerClass": _installer_register_class,
@@ -1110,6 +1113,5 @@ def initialize():
     }
 
     Installer = JClass("org.jpype.Installer")
-    _BackendRegistry = JClass("org.jpype.BackendRegistry")
     installer = Installer@JProxy(Installer, dict=_PyInstallerMethods)
     bridge.setInstaller(installer)

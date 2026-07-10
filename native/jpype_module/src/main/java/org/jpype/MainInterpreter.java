@@ -179,9 +179,25 @@ public class MainInterpreter implements Interpreter
       throw new RuntimeException("Backend reconfigured");
     LOGGER.log(Level.INFO, "Backend installed");
     backend = entry;
+    this.context = ctx;
     this.builtin = new InterpreterBuiltIn(backend);
     stop = backend.object();
     ctx.setBuiltIn(this.builtin);
+  }
+
+  /**
+   * Returns the {@link NativeContext} for this interpreter — the true
+   * per-interpreter object (unlike this class's own statics, which are a
+   * single-interpreter stand-in until subinterpreters are supported).
+   * SPI mini-backend accessors (e.g. {@code python.io.IO.instance()}) go
+   * through here to reach {@link NativeContext#getBackend}, so that once
+   * subinterpreters exist, only this lookup needs to change.
+   *
+   * @return The {@link NativeContext} instance.
+   */
+  public NativeContext getContext()
+  {
+    return context;
   }
 
   /**

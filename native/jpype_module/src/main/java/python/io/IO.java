@@ -16,7 +16,7 @@
  */
 package python.io;
 
-import org.jpype.BackendRegistry;
+import org.jpype.MainInterpreter;
 import python.lang.PyBuffer;
 
 /**
@@ -26,17 +26,19 @@ import python.lang.PyBuffer;
  *
  * {@code _jbridge.py} builds this interface's proxy (bound to its own
  * Python-side dispatch dict, independent from {@code Backend}'s) and
- * registers it via {@link BackendRegistry} at init time — this is the
- * user-facing entry point for constructing {@code python.io} objects; there
- * is deliberately no {@code python.lang.PyBuiltIn} equivalent, since core
- * {@code python.lang} should not need to know about any given SPI provider.
+ * registers it on the current interpreter's {@code NativeContext} at init
+ * time (scoped per-interpreter, not a JVM-wide static — see
+ * {@code NativeContext#registerBackend}) — this is the user-facing entry
+ * point for constructing {@code python.io} objects; there is deliberately no
+ * {@code python.lang.PyBuiltIn} equivalent, since core {@code python.lang}
+ * should not need to know about any given SPI provider.
  */
 public interface IO
 {
 
   static IO instance()
   {
-    return BackendRegistry.get(IO.class);
+    return MainInterpreter.getInstance().getContext().getBackend(IO.class);
   }
 
   /**

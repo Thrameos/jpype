@@ -8,6 +8,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 import java.util.logging.Level;
@@ -60,6 +61,15 @@ public class NativeContext
   public static final String VERSION = "1.7.2.dev0";
   private PyBuiltIn builtin;
   private long contextAddress;
+
+  /**
+   * Registry for SPI-provided "mini-backends" (e.g. {@code python.io.IO}),
+   * scoped to this interpreter instance rather than kept as a JVM-wide
+   * static — a second, independent interpreter running in the same JVM
+   * must not see (or clobber) another interpreter's registrations. See
+   * {@code plan/SPI.md}'s "Mini-backends" section.
+   */
+  private final Map<Class<?>, Object> backendRegistry = new ConcurrentHashMap<>();
 
   private final TypeFactory typeFactory;
   private final TypeManager typeManager;
@@ -149,6 +159,35 @@ public class NativeContext
   public PyBuiltIn getBuildIn()
   {
     return this.builtin;
+  }
+
+  /**
+   * Registers an SPI-provided mini-backend instance for this interpreter,
+   * keyed by its Java interface (e.g. {@code python.io.IO.class}).
+   *
+   * @param <T> the mini-backend interface type.
+   * @param iface the mini-backend interface.
+   * @param instance the instance to register.
+   */
+  public <T> void registerBackend(Class<T> iface, T instance)
+  {
+    backendRegistry.put(iface, instance);
+  }
+
+  /**
+   * Looks up a previously-registered SPI mini-backend for this interpreter.
+   *
+   * @param <T> the mini-backend interface type.
+   * @param iface the mini-backend interface.
+   * @return the registered instance.
+   * @throws IllegalStateException if nothing is registered for {@code iface}.
+   */
+  public <T> T getBackend(Class<T> iface)
+  {
+    Object instance = backendRegistry.get(iface);
+    if (instance == null)
+      throw new IllegalStateException("No backend registered for " + iface.getName());
+    return iface.cast(instance);
   }
 
   private void initialize(boolean interrupt)
