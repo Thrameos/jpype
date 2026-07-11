@@ -11,7 +11,7 @@ specifically for finance/numeric-precision use cases, a plausible reason
 someone reaches for the reverse bridge in the first place (Python's
 `decimal` exists precisely because `float` isn't safe for money).
 
-Scoped alongside `plan/Collections.md` and `plan/Datetime.md` as one of
+Scoped alongside `plan/archive/Collections.md` and `plan/Datetime.md` as one of
 the "prove the SPI mechanism generalizes past `python.io`" candidates. See
 `plan/archive/SPI.md` / [[jpype_spi_installer_status]] for the mechanism
 itself.
@@ -74,7 +74,7 @@ Same caveat as the other two plans: `PyObject`-rooted proxy interface, so
 `.pyspi` method keys need whatever the current `$`/`.` mangling convention
 is at execution time — verify against a live `.pyspi` file.
 
-## Steps (mirror `plan/Collections.md` / `plan/archive/IO.md`)
+## Steps (mirror `plan/archive/Collections.md` / `plan/archive/IO.md`)
 
 1. Design `PyDecimal`'s method surface, resolving the design questions
    above against a real interpreter first.

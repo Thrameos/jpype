@@ -10,7 +10,7 @@ a `Path` (increasingly common in modern Python code, which prefers
 `PyObject`. `Path` maps unusually cleanly onto `java.nio.file.Path`, so
 this is a comparatively low-effort, high-clarity addition.
 
-Scoped alongside `plan/Collections.md`, `plan/Datetime.md`, and
+Scoped alongside `plan/archive/Collections.md`, `plan/Datetime.md`, and
 `plan/Decimal.md` as one of the "prove the SPI mechanism generalizes past
 `python.io`" candidates. See `plan/archive/SPI.md` /
 [[jpype_spi_installer_status]] for the mechanism itself.
@@ -77,7 +77,7 @@ Same caveat as the other plans: `PyObject`-rooted proxy interface, so
 `.pyspi` method keys need whatever the current `$`/`.` mangling convention
 is at execution time — verify against a live `.pyspi` file.
 
-## Steps (mirror `plan/Collections.md` / `plan/archive/IO.md`)
+## Steps (mirror `plan/archive/Collections.md` / `plan/archive/IO.md`)
 
 1. Resolve the `Path`/`PosixPath`/`WindowsPath` module-name question
    against a real interpreter first — this determines how many `.pyspi`

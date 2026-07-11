@@ -1,6 +1,6 @@
 # Tutorial: adding a new stdlib type via WrapperService SPI
 
-Written after implementing `plan/Collections.md` (PyDeque/PyOrderedDict/
+Written after implementing `plan/archive/Collections.md` (PyDeque/PyOrderedDict/
 PyDefaultDict/PyCounter), to save the next person from re-deriving the
 `python.io` reference pattern and re-discovering the two bugs below the
 hard way. If you're about to write a new `plan/<Something>.md` scoping a

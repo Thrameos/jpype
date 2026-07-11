@@ -12,7 +12,7 @@ equivalent types. `datetime` is one of the most commonly used stdlib
 modules in real Python code, so this is a real gap for the reverse
 bridge's usefulness, not a hypothetical one.
 
-Scoped alongside [[jpype_collections_spi_plan]] (`plan/Collections.md`) as
+Scoped alongside [[jpype_collections_spi_plan]] (`plan/archive/Collections.md`) as
 part of proving the `WrapperService` SPI mechanism generalizes past
 `python.io` to more than one third-party-shaped provider without
 conflicts. See that plan and `plan/archive/SPI.md` /
@@ -88,7 +88,7 @@ mangling convention is at execution time
 verify against a live `.pyspi` file, don't assume it matches this plan's
 text.
 
-## Steps (mirror `plan/Collections.md` / `plan/archive/IO.md`)
+## Steps (mirror `plan/archive/Collections.md` / `plan/archive/IO.md`)
 
 1. Design the three interfaces in a new `python.datetime` package.
 2. Resolve the design questions above against a real Python 3.10+

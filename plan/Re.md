@@ -9,7 +9,7 @@ than `datetime`/`decimal`/`pathlib` (most regex work happening on the Java
 side would just use `java.util.regex` directly), but worth doing once the
 SPI pattern is well-proven since the protocol surface is small.
 
-See `plan/Collections.md` for the general "why SPI, not core" rationale
+See `plan/archive/Collections.md` for the general "why SPI, not core" rationale
 and `plan/archive/SPI.md` / [[jpype_spi_installer_status]] for the
 mechanism.
 
@@ -41,7 +41,7 @@ every other plan in this batch).
 Same caveat as the other plans in this batch: verify the current `$`/`.`
 mangling convention against a live `.pyspi` file before writing new ones.
 
-## Steps (mirror `plan/Collections.md`)
+## Steps (mirror `plan/archive/Collections.md`)
 
 1. Design `PyPattern`/`PyMatch`'s method surfaces.
 2. `.pyspi` resources under

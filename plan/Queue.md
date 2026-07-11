@@ -14,7 +14,7 @@ cross-thread handoff between a Java thread and a Python
 worker/subinterpreter plays directly to that strength, unlike a purely
 opportunistic addition.
 
-See `plan/Collections.md` for the general "why SPI, not core" rationale
+See `plan/archive/Collections.md` for the general "why SPI, not core" rationale
 and `plan/archive/SPI.md` / [[jpype_spi_installer_status]] for the
 mechanism.
 
@@ -52,7 +52,7 @@ mechanism.
 Same caveat as the other plans in this batch: verify the current `$`/`.`
 mangling convention against a live `.pyspi` file before writing new ones.
 
-## Steps (mirror `plan/Collections.md`)
+## Steps (mirror `plan/archive/Collections.md`)
 
 1. Resolve the threading-safety design question above first — this is a
    prerequisite, not a detail to fill in later.
