@@ -1,0 +1,85 @@
+// --- file: python/io/PyBufferedIOBase.java ---
+/*
+ *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ *  use this file except in compliance with the License. You may obtain a copy of
+ *  the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ *  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ *  License for the specific language governing permissions and limitations under
+ *  the License.
+ *
+ *  See NOTICE file for details.
+ */
+package python.io;
+
+import java.io.InputStream;
+import java.io.OutputStream;
+import python.lang.PyBytes;
+import python.lang.PyBuffer;
+
+/**
+ * Java front-end interface for Python's {@code io.BufferedIOBase} — binary
+ * streams with (Python-side) buffering, e.g. {@link PyBytesIO}.
+ */
+public interface PyBufferedIOBase extends PyIOBase
+{
+
+  /**
+   * Reads and returns up to {@code size} bytes. If {@code size} is negative
+   * or omitted, reads until EOF, matching {@code io.BufferedIOBase.read}.
+   *
+   * @param size the maximum number of bytes to read, or a negative value to
+   * read until EOF.
+   * @return the bytes read; empty (not {@code null}) at EOF.
+   */
+  PyBytes read(int size);
+
+  /**
+   * Equivalent to {@code read(-1)}: reads until EOF.
+   *
+   * @return the bytes read; empty (not {@code null}) at EOF.
+   */
+  PyBytes read();
+
+  /**
+   * Writes the contents of {@code buffer} to the stream.
+   *
+   * @param buffer the bytes to write.
+   * @return the number of bytes written.
+   */
+  int write(PyBuffer buffer);
+
+  /**
+   * Wraps this stream as a standard {@link java.io.InputStream}, so it can be
+   * passed to Java APIs that expect one. Each single-byte {@code read()} call
+   * makes its own call into {@link #read(int)}; for large transfers, prefer
+   * {@code read(byte[], int, int)} on the returned stream, which forwards
+   * directly to a single {@link #read(int)} call sized to the request.
+   *
+   * @return an {@code InputStream} view of this stream.
+   */
+  default InputStream asInputStream()
+  {
+    return new PyIOInputStream(this);
+  }
+
+  /**
+   * Wraps this stream as a standard {@link java.io.OutputStream}, so it can
+   * be passed to Java APIs that expect one. Each single-byte {@code write()}
+   * call makes its own call into {@link #write(PyBuffer)}; for large
+   * transfers, prefer {@code write(byte[], int, int)} on the returned
+   * stream, which forwards directly to a single {@link #write(PyBuffer)}
+   * call sized to the request.
+   *
+   * @return an {@code OutputStream} view of this stream.
+   */
+  default OutputStream asOutputStream()
+  {
+    return new PyIOOutputStream(this);
+  }
+
+}
