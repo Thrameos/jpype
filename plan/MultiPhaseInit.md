@@ -1,6 +1,10 @@
 # Plan: convert `_jpype` to multi-phase init (`Py_MOD_PER_INTERPRETER_GIL_SUPPORTED`)
 
-## Status (2026-07-10): scoped, not started
+## Status (2026-07-11): steps 1-3 (dead code, jarTmpPath, the actual
+Py_mod_exec split) all done and verified against the real reverse-bridge
+test suite. Remaining: step 4 (_PyJPModule_trace policy, doc-only —
+recommend documenting as intentionally shared, no code change) and the new
+own-GIL-config verification test described at the bottom of this plan.
 
 ## Context
 
@@ -37,7 +41,20 @@ a few small process-global variables.
 
 ## A. Module init structure — the actual single→multi-phase conversion
 
-`native/python/pyjp_module.cpp:1202-1212` — current `PyModuleDef`:
+**DONE 2026-07-11.** Implemented as described below, with one refinement to
+item 3 (the `Py_mod_gil` version-gating question is now resolved, see after
+the numbered list). Verified: both normal and `-DENABLE_COVERAGE=ON` builds
+compile clean against python3.10 (`Py_mod_multiple_interpreters`/
+`Py_mod_gil` correctly compile out via the version guards); `import _jpype`/
+`import jpype` work and `PyJPModule_exec` runs correctly end-to-end
+(module state, all twelve `*_initType` calls, `JPContext` construction);
+full `native/jpype_module` reverse-bridge suite (`mvn -o test
+-Dpython.executable=python3.10`, no `-Dtest=` filter) — **514 run, 0
+failures, 0 errors, 6 skipped, no hangs** — confirming JVM startup, the
+full Python-calling-Java and Java-calling-Python paths, and JVM shutdown
+all still work correctly through the new `Py_mod_exec`-based init.
+
+`native/python/pyjp_module.cpp:1202-1212` (original) — current `PyModuleDef`:
 ```cpp
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT, "_jpype", "jpype module",
@@ -73,18 +90,26 @@ PyMODINIT_FUNC PyInit__jpype()
      nullptr;`, no `Py_DECREF(module)` needed since `Py_mod_exec` failure is
      handled by the interpreter, not the callee).
 3. **`Py_GIL_DISABLED`/`PyUnstable_Module_SetGIL` call**
-   (`pyjp_module.cpp:1222-1224`) needs revisiting: today it's called
-   post-hoc on the `PyModule_Create`-built object. With slot-based init this
-   should become a static `{Py_mod_gil, Py_MOD_GIL_NOT_USED}` slot entry
-   instead (conditionally compiled under `#ifdef Py_GIL_DISABLED`), matching
-   the same "declare capability as a slot, don't mutate after creation"
-   pattern the new `Py_mod_multiple_interpreters` slot also requires. Needs
-   verification against the CPython docs for whether `Py_mod_gil` requires
-   the same treatment or can stay post-hoc — flag as an open question if the
-   two mechanisms turn out to be inconsistent (free-threading GIL slot vs.
-   subinterpreter GIL slot may have been introduced in different CPython
-   versions with different constraints; check version gating needed here
-   too, since this repo supports Python versions before 3.12/3.13).
+   (`pyjp_module.cpp:1222-1224`, original) — **resolved, done as a slot.**
+   Checked both `/usr/include/python3.12/moduleobject.h` and a bleeding-edge
+   CPython checkout's `moduleobject.h`: `Py_mod_multiple_interpreters`/
+   `Py_MOD_PER_INTERPRETER_GIL_SUPPORTED` are gated
+   `!defined(Py_LIMITED_API) || Py_LIMITED_API+0 >= 0x030c0000` (3.12+);
+   `Py_mod_gil`/`Py_MOD_GIL_NOT_USED` are gated at `0x030d0000` (3.13+) —
+   **different thresholds, confirming the plan's suspicion they're
+   independently versioned.** But no extra `PY_VERSION_HEX` guard was
+   needed for the `Py_mod_gil` slot specifically: it's already wrapped in
+   the pre-existing `#ifdef Py_GIL_DISABLED`, and `Py_GIL_DISABLED` is only
+   ever defined by a compiler building against free-threaded CPython
+   headers, which are always >=3.13 — so that ifdef transitively implies
+   the needed version floor. `Py_mod_multiple_interpreters` (3.12, not
+   free-threading-specific) does need its own explicit
+   `#if PY_VERSION_HEX>=0x030c0000` guard since it can be reached while
+   building against plain (non-free-threaded) 3.10/3.11 headers where the
+   macro doesn't exist — confirmed no such macro in
+   `/usr/include/python3.10/`. Both slots now declared statically in
+   `jpype_slots[]`; the old post-hoc `PyUnstable_Module_SetGIL()` call
+   after `PyModule_Create()` was removed entirely.
 4. `moduledef.m_size = sizeof(PyJPModuleState)` is **already correct** for
    multi-phase init (per-module-instance allocation, effectively
    per-interpreter) — no change needed.
@@ -120,13 +145,25 @@ process startup.
 
 ## C. Other global/process-mutable state to fix
 
-1. **`native/python/pyjp_module.cpp:386`** — `static string jarTmpPath;`,
-   written in `PyJPModule_startup` (line 419), read/deleted in
-   `PyJPModule_shutdown` (lines 490-494). Genuine cross-interpreter race:
-   two subinterpreters each starting a JVM via the jar-path launch option
-   would clobber each other's temp path. **Fix**: add a `std::string
-   jarTmpPath;` member to `PyJPModuleState` (`pyjp.h`), replace the two call
-   sites to use `st->jarTmpPath`. Small, mechanical.
+1. **DONE 2026-07-11.** `native/python/pyjp_module.cpp:386` —
+   `static string jarTmpPath;`, written in `PyJPModule_startup`, read/deleted
+   in `PyJPModule_shutdown`. Genuine cross-interpreter race: two
+   subinterpreters each starting a JVM via the jar-path launch option would
+   clobber each other's temp path. Moved to `PyJPModuleState` — but **not**
+   as a plain `std::string` member as originally planned. `PyJPModuleState`
+   is `memset`-zeroed into existence (`PyInit__jpype`,
+   `pyjp_module.cpp:1227`) and freed with no destructors ever running
+   (`PyJPModule_free`) — every non-POD member already in the struct
+   (`context`) is a heap pointer, manually `new`/`delete`d, precisely to
+   avoid embedding an object that needs real construction/destruction
+   into memory that gets neither. Embedding `std::string` by value would
+   have been undefined behavior (`operator=` on a zeroed-but-never-
+   constructed object). Followed the existing `JPContext*` convention
+   instead: `std::string* jarTmpPath;`, `new`'d in `PyJPModule_startup`,
+   `delete`'d (and read) in `PyJPModule_shutdown`, with a defensive
+   `delete`+null in `PyJPModule_free` too in case shutdown was never
+   called. Verified: compiles clean in both normal and
+   `-DENABLE_COVERAGE=ON` builds.
 
 2. **`native/python/pyjp_module.cpp:986`** — `int _PyJPModule_trace;`
    (`extern "C"` in `native/common/include/jp_tracer.h:88`, consumed by
@@ -143,32 +180,49 @@ process startup.
    the module's *user-facing* behavior across interpreters, not about
    eliminating every debug hook; document and move on.
 
-3. **`native/python/pyjp_array.cpp:460`** — `PyTypeObject
-   *PyJPArrayPrimitive_Type = nullptr;` — dead file-scope non-static global,
-   never read (the real value lives at `st->PyJPArrayPrimitive_Type`, set
-   line 482). Delete for cleanliness; would otherwise look like exactly the
-   kind of leftover single-phase-init artifact a future audit trips over.
+3. **DONE 2026-07-11.** `native/python/pyjp_array.cpp:478` — dead
+   file-scope `PyTypeObject *PyJPArrayPrimitive_Type = nullptr;`, never
+   read (the real value lives at `st->PyJPArrayPrimitive_Type`). Deleted.
 
-4. **`native/python/include/pyjp.h:232-234`** — `#ifdef JP_INSTRUMENTATION`
-   header-scope `int fault_code = 0;` — not `static`/`inline`, so including
-   this header in more than one TU with `JP_INSTRUMENTATION` defined is an
-   ODR violation. Appears dead; the real mechanism is `st->fault_code`
-   (`pyjp.h:229`, a `uint32_t` member of `PyJPModuleState`), consumed by
-   `PyJPModule_fault` (`pyjp_module.cpp:1000-1022`). **Fix**: delete the
-   header-scope declaration.
+4. **DONE 2026-07-11, but not a simple delete — see item 5.** The plan's
+   original read (delete the header-scope global, `st->fault_code` is "the
+   one working mechanism") was wrong: `st->fault_code` was itself
+   unreachable dead state. `PyJPModuleFault_check`/`_throw` are called from
+   deep inside `native/common/` call frames via the `JP_TRACE_IN`/
+   `JP_FAULT_RETURN`/`JP_BLOCK` macros (`native/common/include/jpype.h:87-91`),
+   which have no `PyObject* module`/`st` in scope — so routing the fault
+   trigger through per-interpreter module state was never actually
+   wireable, which is exactly why the two broken blocks in item 5 existed
+   half-finished. **User confirmed this is intentional and correct as a
+   single process-wide global**: fault injection is test-only (used to
+   force otherwise-unreachable error paths, e.g. `_jpype.fault("Name")`
+   from `test_numeric.py`/`test_jchar.py`), never runs in production
+   (`JP_INSTRUMENTATION` is coverage-build only), and is single-threaded
+   test infra — no per-interpreter isolation is needed or wanted here. Net
+   change: deleted the ODR-violating header-scope `int fault_code = 0;` in
+   `pyjp.h`, deleted the `uint32_t fault_code;` member from
+   `PyJPModuleState`, and repointed `PyJPModule_fault`
+   (`pyjp_module.cpp:1000-1015`, the Python-facing `_jpype.fault()` setter)
+   at the same global instead of `st->fault_code`.
 
-5. **`native/python/pyjp_misc.cpp:208-242`** — two consecutive
+5. **DONE 2026-07-11.** `native/python/pyjp_misc.cpp` had two consecutive
    `#ifdef JP_INSTRUMENTATION` blocks both (re)defining
-   `PyJPModuleFault_check`/`PyJPModuleFault_throw`. The first
-   (lines 208-225) declares its own shadow `int fault_code = 0;` and
-   references an undeclared `st`; the second (227-242) references an
-   undeclared `_PyJPModule_fault_code`. Since `JP_INSTRUMENTATION` is
-   defined whenever `-DENABLE_COVERAGE=ON` is set (`CMakeLists.txt:87`),
-   **this file will fail to compile under coverage builds as currently
-   written** — a pre-existing bug, not something the multi-phase-init
-   rewrite introduces, but directly adjacent to the global state being
-   audited here. **Fix**: delete both stale blocks; `st->fault_code` is the
-   one working mechanism and needs no duplicate.
+   `PyJPModuleFault_check`/`_throw`, one referencing an undeclared `st`, the
+   other an undeclared `_PyJPModule_fault_code` — neither compiled. Since
+   `JP_INSTRUMENTATION` is defined whenever `-DENABLE_COVERAGE=ON` is set
+   (`CMakeLists.txt:87`), **the coverage build (`.azure/scripts/coverage.yml`)
+   was broken** — confirmed by reproducing the failure locally before this
+   fix. Replaced both with one working definition backed by the process-wide
+   `_PyJPModule_fault_code` global (see item 4), moved to file scope *outside*
+   the file's `extern "C" { ... }` JNI-export block (`pyjp_misc.cpp:29-249`) —
+   the original dead blocks were physically inside that block, which would
+   have been a second compile error (C linkage vs. the C++-linkage
+   `extern void PyJPModuleFault_throw(uint32_t)` declaration in
+   `native/common/include/jpype.h:87-88`) once the undeclared-identifier
+   errors were fixed. Verified: coverage build
+   (`pip install -e . --config-setting cmake.args="-DENABLE_COVERAGE=ON"`)
+   now compiles and links cleanly; `_jpype.fault("Name")`/`_jpype.fault(None)`
+   exercised directly against the built module and confirmed working.
 
 6. **`native/python/pyjp_module.cpp:1025-1035`** — `#ifdef ANDROID`
    `PyJPModule_bootstrap` references an undefined `JPContext_global`
@@ -233,21 +287,36 @@ Python-level cross-talk risk between subinterpreters' non-Java state).
 
 ## Suggested execution order
 
-1. Item C.3/C.4/C.5 dead-code cleanup first — zero-risk, immediately makes
-   the subsequent grep/audit trail cleaner (no noise from dead globals that
-   look real but aren't).
-2. Item C.1 (`jarTmpPath` → `PyJPModuleState`) — small, mechanical,
-   independently testable/committable.
-3. Item A (the actual `PyModuleDef_Slot`/`PyJPModule_exec` split) — the core
-   rewrite. Do this as its own commit once (1) and (2) are in, so the
-   before/after diff on the real structural change is minimal and reviewable.
+1. **DONE 2026-07-11.** Item C.3/C.4/C.5 dead-code cleanup — zero-risk,
+   immediately makes the subsequent grep/audit trail cleaner (no noise from
+   dead globals that look real but aren't). Not committed yet — sitting as
+   a working-tree diff across `pyjp_array.cpp`/`pyjp.h`/`pyjp_misc.cpp`/
+   `pyjp_module.cpp`; commit when ready.
+2. **DONE 2026-07-11.** Item C.1 (`jarTmpPath` → `PyJPModuleState`) — small,
+   mechanical, independently testable/committable.
+3. **DONE 2026-07-11.** Item A (the actual `PyModuleDef_Slot`/
+   `PyJPModule_exec` split) — the core rewrite. Not yet committed —
+   everything from steps 1-3 is sitting together as one working-tree diff;
+   commit when ready (could also be split into 3 commits matching the
+   plan's numbered items, at the user's preference).
 4. Item C.2 (`_PyJPModule_trace` policy decision) — documentation-only if
    option (a) is chosen (recommended); otherwise implement alongside (3).
-5. Retarget the `PyGIL_DISABLED` slot question (A.3) — needs a version-gated
-   CPython-docs check before implementing; do this as part of step 3 once
-   the answer is confirmed, not left dangling after.
+   Not yet done.
+5. **DONE, folded into step 3.** The `Py_GIL_DISABLED` slot question (A.3)
+   is resolved — see item A above.
 
 ## Verification
+
+**Done so far (2026-07-11, this session, python3.10 only):** normal and
+`-DENABLE_COVERAGE=ON` builds both compile clean; `import _jpype`/
+`import jpype` and `PyJPModule_exec` confirmed working directly; full
+`native/jpype_module` reverse-bridge suite (no `-Dtest=` filter) — 514 run,
+0 failures, 0 errors, 6 skipped, no hangs. This exercises JVM start/stop
+(`PyJPModule_startup`/`_shutdown`, including the moved `jarTmpPath`) and a
+wide swath of both bridge directions through the new init path, but it is
+**not** a subinterpreter/own-GIL test — python3.10 doesn't have
+`PyInterpreterConfig_OWN_GIL` at all, and this session didn't touch
+`python3.12-dbg`. Still open, not done this session:
 
 - Full `mvn -q test -Dpython.executable=python3.12-dbg` (this is a
   3.12+-gated feature; python3.10 build should be unaffected and used as

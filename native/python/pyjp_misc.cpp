@@ -205,42 +205,6 @@ PyObject *PyJPModule_convertBuffer(PyJPModuleState* st, JPPyBuffer& buffer, PyOb
 	return pcls->newMultiArray(frame, buffer, subs, base, (jobject) jdims);
 }
 
-#ifdef JP_INSTRUMENTATION
-
-int fault_code = 0;
-
-int PyJPModuleFault_check(uint32_t code)
-{
-	return (code == fault_code);
-}
-
-void PyJPModuleFault_throw(uint32_t code)
-{
-	if (code == fault_code)
-	{
-		st->fault_code = (uint32_t) -1;
-		JP_RAISE(PyExc_SystemError, "fault");
-	}
-}
-#endif
-
-#ifdef JP_INSTRUMENTATION
-
-int PyJPModuleFault_check(uint32_t code)
-{
-	return (code == _PyJPModule_fault_code);
-}
-
-void PyJPModuleFault_throw(uint32_t code)
-{
-	if (code == _PyJPModule_fault_code)
-	{
-		_PyJPModule_fault_code = -1;
-		JP_RAISE(PyExc_SystemError, "fault");
-	}
-}
-#endif
-
 void PyJPModule_installGC(PyObject* module)
 {
 	// Get the Python garbage collector
@@ -256,6 +220,31 @@ void PyJPModule_installGC(PyObject* module)
 }
 
 #ifdef __cplusplus
+}
+#endif
+
+#ifdef JP_INSTRUMENTATION
+
+// Test-only fault injection trigger, set via _jpype.fault("Name") from
+// Python. Deliberately a single process-wide global rather than
+// per-interpreter state: PyJPModuleFault_check/throw are called from deep
+// inside native/common/ call frames (JP_TRACE_IN/JP_FAULT_RETURN/JP_BLOCK)
+// with no module/state pointer available, and this path never runs in
+// production (JP_INSTRUMENTATION is coverage-build only).
+uint32_t _PyJPModule_fault_code = 0;
+
+int PyJPModuleFault_check(uint32_t code)
+{
+	return (code == _PyJPModule_fault_code);
+}
+
+void PyJPModuleFault_throw(uint32_t code)
+{
+	if (code == _PyJPModule_fault_code)
+	{
+		_PyJPModule_fault_code = (uint32_t) -1;
+		JP_RAISE(PyExc_SystemError, "fault");
+	}
 }
 #endif
 

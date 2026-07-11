@@ -475,7 +475,6 @@ static PyType_Slot arrayPrimSlots[] = {
 	{0}
 };
 
-PyTypeObject *PyJPArrayPrimitive_Type = nullptr;
 static PyType_Spec arrayPrimSpec = {
 	"_jpype._JArrayPrimitive",
 	0,
