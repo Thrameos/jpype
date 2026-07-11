@@ -35,9 +35,14 @@ def _ordered_dict():
     return collections.OrderedDict()
 
 
+def _chain_map(maps):
+    return collections.ChainMap(*list(maps))
+
+
 METHODS = {
     "deque": _deque,
     "counter": _counter,
     "defaultDict": _default_dict,
     "orderedDict": _ordered_dict,
+    "chainMap": _chain_map,
 }

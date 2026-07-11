@@ -24,15 +24,19 @@
  * {@code collections.deque}, or {@link PyCollections#counter() counter()}
  * for a {@code collections.Counter}. Each returned object is a normal Java
  * interface ({@link PyDeque}, {@link PyCounter}, {@link PyOrderedDict},
- * {@link PyDefaultDict}) backed by the real Python object, so its methods
- * behave exactly as they would in Python.
+ * {@link PyDefaultDict}, {@link PyChainMap}) backed by the real Python
+ * object, so its methods behave exactly as they would in Python.
  *
  * {@link PyOrderedDict}, {@link PyDefaultDict}, and {@link PyCounter} are
  * all real {@code dict} subclasses in Python, so they extend
  * {@link python.lang.PyDict} here too and reuse its entire {@code Map}
  * surface; only each type's Python-specific extras are added on top.
- * {@link PyDeque} is not a {@code list} subclass and does not support
- * slicing, so it stands on its own — a Python-flavored, named subset of
- * {@link java.util.Deque}'s shape.
+ * {@link PyChainMap} is a {@code collections.abc.MutableMapping} but
+ * <em>not</em> a real {@code dict} subclass, so it extends the weaker
+ * {@link python.lang.PyMapping} instead — same reused {@code Map} surface,
+ * but an accurate claim about its Python type. {@link PyDeque} is not a
+ * {@code list} subclass and does not support slicing, so it stands on its
+ * own — a Python-flavored, named subset of {@link java.util.Deque}'s
+ * shape.
  */
 package python.collections;

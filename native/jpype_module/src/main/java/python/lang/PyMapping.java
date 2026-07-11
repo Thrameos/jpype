@@ -21,6 +21,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import org.jpype.annotation.Bypass;
+import python.exceptions.PyKeyError;
 
 /**
  * Represents a protocol for classes registered as Python
@@ -107,8 +108,21 @@ public interface PyMapping<K extends PyObject, V extends PyObject> extends PyCol
   boolean containsValue(Object value);
 
   /**
-   * Retrieves the value associated with the given key. Equivalent to Python's
-   * `mapping[key]`.
+   * Retrieves the value associated with the given key, or {@code null} if
+   * the key is not present - matching Python's own
+   * {@code collections.abc.Mapping.get()} mixin, which catches the
+   * {@code KeyError} that {@code mapping[key]} (this method's underlying
+   * call) can raise.
+   *
+   * <p>
+   * Note this is a real behavioral difference from
+   * {@code __getitem__}/{@code mapping[key]}, not just a Java-side
+   * convenience: a subclass whose {@code __missing__} raises (e.g.
+   * {@code collections.ChainMap}, once its search runs out of maps) raises
+   * out of {@code mapping[key]} but still returns {@code None} (here,
+   * {@code null}) from {@code .get()} on real Python - the ABC mixin's
+   * {@code get()} is a {@code try}/{@code except KeyError} wrapper around
+   * {@code self[key]}, not a raw pass-through.
    *
    * @param key is the key to look up.
    * @return the value associated with the key, or null if the key is not
@@ -119,7 +133,13 @@ public interface PyMapping<K extends PyObject, V extends PyObject> extends PyCol
   @SuppressWarnings("unchecked")
   default V get(Object key)
   {
-    return (V) builtin().backend.getitemMappingObject(this, key);
+    try
+    {
+      return (V) builtin().backend.getitemMappingObject(this, key);
+    } catch (PyKeyError e)
+    {
+      return null;
+    }
   }
 
   /**

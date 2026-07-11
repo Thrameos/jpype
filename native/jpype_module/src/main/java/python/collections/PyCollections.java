@@ -126,4 +126,15 @@ public interface PyCollections
    */
   PyOrderedDict orderedDict();
 
+  /**
+   * Creates a new {@code collections.ChainMap} over the given mappings,
+   * searched in the given order. Writes and deletes always land on the
+   * first element of {@code maps}.
+   *
+   * @param maps the mappings to chain, first-searched first. Must be
+   * non-empty.
+   * @return a new {@link PyChainMap} instance.
+   */
+  PyChainMap chainMap(Iterable<? extends PyObject> maps);
+
 }
