@@ -1181,10 +1181,12 @@ JVM effectively.
    To ensure smooth data exchange, consider the following strategies:
 
    1. **Use NumPy Arrays**: NumPy arrays integrate seamlessly with JPype and
-      allow fast, memory-efficient data transfers to Java. For small to medium
-      arrays, use ``JArray.of()`` to convert NumPy arrays to Java arrays.
-      For large arrays, use direct buffers via ``jpype.nio.convertToDirectBuffer()``
-      to enable zero-copy access where both languages operate on the same memory.
+      allow fast, memory-efficient data transfers to Java. Use ``JArray.of()``
+      to convert NumPy arrays to Java arrays for best performance. For cases
+      where you need shared memory (changes in Java visible in Python) or when
+      memory is extremely constrained, use direct buffers via
+      ``jpype.nio.convertToDirectBuffer()`` to enable zero-copy access where
+      both languages operate on the same memory.
 
    2. **Leverage Java Buffers**: Java's `nio` buffers provide a mechanism for
       shared memory between Python and Java. These buffers are particularly
@@ -4219,8 +4221,9 @@ Transferring Arrays to Java
 ---------------------------
 
 NumPy arrays can be transferred to Java using the ``JArray.of()`` function. This
-**creates a copy** of the NumPy array as a Java multidimensional array. For zero-copy
-access to large arrays, see the section on "Zero-Copy Access to NumPy Arrays from Java".
+**creates a copy** of the NumPy array as a Java multidimensional array, which is
+typically the fastest approach. For scenarios requiring shared memory or extreme
+memory constraints, see the section on "Zero-Copy Access to NumPy Arrays from Java".
 
 **Example: Transferring a NumPy Array to Java**
 
@@ -4244,9 +4247,10 @@ access to large arrays, see the section on "Zero-Copy Access to NumPy Arrays fro
 - The NumPy array must be rectangular. Jagged arrays are not supported.
 - Data types must be compatible with Java primitives (e.g., `np.float64` → `double`).
 
-**Important**: ``JArray.of()`` creates a **copy** of the NumPy array data. For
-large arrays where copying is expensive, see the next section on zero-copy access
-using direct buffers.
+**Important**: ``JArray.of()`` creates a **copy** of the NumPy array data, which
+is generally the fastest transfer method. If you need shared memory semantics
+(changes in Java visible in Python) or are extremely memory-constrained, see the
+next section on zero-copy access using direct buffers.
 
 
 
@@ -4255,26 +4259,33 @@ using direct buffers.
 Zero-Copy Access to NumPy Arrays from Java
 -------------------------------------------
 
-For large NumPy arrays, copying data with ``JArray.of()`` can be memory-intensive
-and slow. JPype provides zero-copy access to NumPy arrays through Java's direct
-buffer mechanism. This allows Java code to read and write directly to the NumPy
-array's memory without any data duplication.
+JPype provides zero-copy access to NumPy arrays through Java's direct buffer
+mechanism. This allows Java code to read and write directly to the NumPy array's
+memory without any data duplication. **The primary use case is shared memory**:
+when you need changes made in Java to be immediately visible in Python (and vice versa).
+
+**Important Performance Note**: Benchmarks show that ``JArray.of()`` copying is
+typically faster than zero-copy setup, even for arrays up to 500MB, due to the
+overhead of creating and managing direct buffers. Zero-copy's main advantages are
+memory efficiency and shared memory semantics, not speed.
 
 **When to Use Zero-Copy vs Copying**:
 
 - **Use JArray.of() (copying)** when:
 
-  - Arrays are small or medium-sized
+  - Performance is important (copying is typically faster for setup)
   - You need a true Java array type (``double[]``, ``int[][]``, etc.)
   - Java code expects standard array syntax (``array[i][j]``)
   - The data will be modified independently in Java and Python
+  - You want the simplest, most straightforward code
 
 - **Use Direct Buffers (zero-copy)** when:
 
-  - Arrays are very large (avoiding copy saves memory)
-  - You want changes in Java to be visible in Python (shared memory)
+  - **You need shared memory** (changes in Java visible in Python)
+  - Memory is extremely constrained (cannot afford to double the memory)
   - You're willing to write custom index calculation code in Java
   - You're working with 1D contiguous arrays or can handle strided access
+  - Setup/transfer overhead can be amortized over many operations
 
 
 .. _working_with_numpy_zero_copy_1d_arrays:
@@ -4579,21 +4590,27 @@ Summary: Copying vs Zero-Copy
 - ✓ Simple, works with all array shapes
 - ✓ Results in true Java arrays (``double[][]``, etc.)
 - ✓ Standard Java array syntax in Java code
-- ✗ Copies data (memory overhead for large arrays)
+- ✓ **Faster setup time** (benchmarks show 1.5-18x faster than zero-copy)
+- ✓ Better element access performance for 1D arrays
+- ✗ Doubles memory usage (copy exists alongside original)
 - ✗ Changes in Java don't affect Python array
 
 **Direct Buffers - Zero-Copy Approach**:
 
-- ✓ No memory copying (fast for large arrays)
-- ✓ Changes visible in both Java and Python
-- ✓ Memory efficient for large datasets
+- ✓ **Shared memory semantics** (changes visible in both Java and Python)
+- ✓ Memory efficient (no duplication of array data)
+- ✓ Ideal when memory is constrained
+- ✗ Slower setup time (buffer creation overhead)
 - ✗ Requires manual index calculations for multi-dimensional arrays
 - ✗ Must ensure array is contiguous
 - ✗ More complex to use in Java code
+- ✗ Slower element access for 1D arrays
 
-Choose based on your performance requirements and array sizes. For most use cases
-under 100MB, the simplicity of ``JArray.of()`` outweighs the copy cost. For larger
-arrays or when shared memory is needed, direct buffers are the right choice.
+**Recommendation**: Use ``JArray.of()`` (copying) as the default for best performance
+and simplicity. Only use direct buffers when you specifically need shared memory
+semantics or when memory constraints make copying prohibitive. The trade-off is
+primarily between performance/simplicity (copying) and memory efficiency/shared
+semantics (zero-copy).
 
 
 
