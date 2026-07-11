@@ -1,5 +1,11 @@
 # Jep parity survey — corrected findings and follow-on plans
 
+## Status (2026-07-11, later): all four follow-on items CLOSED
+
+Item 2 (numpy interop) and item 3 (stdout/stderr redirect) are now also
+closed - see the updated write-ups below. Items 1 and 4 were already
+closed. Nothing remains open in this survey.
+
 ## Status (2026-07-11): survey done, corrected by user, follow-on work scoped into sub-plans below, nothing implemented yet
 
 Background: jep 4.3.1 (`~/jcef/jep`) is a mature Java-calls-Python bridge,
@@ -32,27 +38,26 @@ user-reviewed version driving actual follow-on work.
    numpy-specific conversion code in jpype itself. Building direct numpy
    ties is a known trap: "we end up tied to numpy at the hip and users
    complain."
-   - **Action**: write a real test that hands a `PyMemoryView` (or a
-     `PyBuffer` from a `PyBytes`/`PyByteArray`) to actual numpy
-     (`numpy.frombuffer(memoryview, dtype=...)` or `np.asarray(...)`) from a
-     launched-script test and confirm it round-trips correctly, including a
-     multi-dimensional case (shape/strides non-trivial). This proves or
-     disproves the gap empirically instead of guessing from reading headers.
-     No new production code unless the test finds a real hole (e.g. a
-     missing multi-dim `PyBuffer` construction path from the Java side).
-     Scoped in detail as its own plan doc: `plan/NumpyBufferBench.md`.
+   - **CLOSED, see `plan/NumpyBufferBench.md`**: confirmed empirically, not
+     just by reading headers. 7 tests
+     (`PyMemoryViewNumpyNGTest`) cover 1-D zero-copy round-trip, read-only
+     `bytes` producing a non-writeable array, multi-dimensional C-contiguous
+     reshape (shape/strides correctly reported through `PyMemoryView` cast
+     to Java), non-contiguous strided slices, copy-vs-view semantics, a
+     non-`uint8` dtype (`float64`), and `getSlice(...)`-derived sub-views -
+     all pass with zero new production code. The environment blocker (no
+     working numpy under either system Python) was fixed via
+     `python3.12 -m pip install --user --ignore-installed numpy` (the
+     broken apt-installed 1.21.5 under `/usr/lib/python3/dist-packages` was
+     shadowing pip's own "already satisfied" check).
 
-3. **stdout/stderr capture — real gap, scope into `plan/IO.md`.**
-   jep's `JepConfig.redirectStdout/redirectStdErr` has no jpype equivalent.
-   User: once the Java-side `python.io` work lands (asReader()/asWriter()
-   etc., see `plan/IO.md`), also build a duck-typed Python `io`-shaped object
-   backed by a Java `OutputStream`/`Writer`, installable as `sys.stdout`/
-   `sys.stderr`, so Python `print()`/writes get captured on the Java side.
-   Added as a new section to `plan/IO.md` (section F) — sequenced *after*
-   the existing `asReader()`/`asWriter()` promotion work, since it's the
-   mirror-image direction (Java stream duck-typed as Python file object,
-   rather than Python file object promoted to Java stream) and reuses the
-   same buffering/encoding lessons.
+3. **stdout/stderr capture — CLOSED, see `plan/StreamRedirect.md`.**
+   jep's `JepConfig.redirectStdout/redirectStdErr` now has a jpype
+   equivalent: `Interpreter.setOutput`/`setError`/`setInput` (Java
+   `OutputStream`/`Writer`/`InputStream`/`Reader` installed onto
+   `sys.stdout`/`sys.stderr`/`sys.stdin`), plus `toPython()` on the Java
+   stream side for the reverse direction. Implemented as `plan/IO.md`
+   section F, committed `d9e5b24c`, tested both directions.
 
 4. **Configurable sub-interpreter knobs — CLOSED, see `plan/SubInterpreterBuilder.md`.**
    jep's `SubInterpreterOptions` (obmalloc, allowFork/Exec/Threads,

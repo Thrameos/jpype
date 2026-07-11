@@ -1,6 +1,6 @@
 # python.io: porting Python's `io` module with InputStream/OutputStream promotion
 
-## Status (2026-07-11): sections A, B, D done; C (buffering rewrite) and F (stdout/stderr redirect) still pending
+## Status (2026-07-11, later): sections A, B, D, F done; only C (buffering rewrite) still pending
 
 Implemented this pass, on top of the existing `PyBytesIO`/`PyStringIO`/
 `asInputStream()`/`asOutputStream()` foundation:
