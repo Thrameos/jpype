@@ -33,7 +33,7 @@ module org.jpype {
   // Python wrapper language spaces
   exports python.lang;
   exports python.exceptions;
-  exports python.collections;           // Added: Lets users use PyDeque, PyCounter, etc.
+  exports python.collections;            // PyDeque, PyCounter, PyOrderedDict, PyDefaultDict - SPI-backed, see PyCollectionsWrapperService
   exports python.io;
 
   // Documentation and Tooling
@@ -44,12 +44,14 @@ module org.jpype {
   // SPI
   // ==========================================
   uses org.jpype.WrapperService;
-  provides org.jpype.WrapperService with python.io.PyIOWrapperService;
+  provides org.jpype.WrapperService with python.io.PyIOWrapperService,
+          python.collections.PyCollectionsWrapperService;
 
   // ==========================================
   // REFLECTION / REFLECTIVE ACCESS
   // ==========================================
   opens python.lang;
   opens python.io;
+  opens python.collections;
   exports org.jpype.internal to java.base;
 }

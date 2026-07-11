@@ -14,6 +14,25 @@
  * 
  *  See NOTICE file for details.
  */
+/**
+ * Java front-end for Python's {@code collections} module, following the
+ * same conventions as {@link python.lang} and {@link python.io}.
+ *
+ * Start from {@link PyCollections#using(python.lang.PyBuiltIn)
+ * PyCollections.using(context)} to construct instances of the concrete
+ * types in this package, e.g. {@link PyCollections#deque() deque()} for a
+ * {@code collections.deque}, or {@link PyCollections#counter() counter()}
+ * for a {@code collections.Counter}. Each returned object is a normal Java
+ * interface ({@link PyDeque}, {@link PyCounter}, {@link PyOrderedDict},
+ * {@link PyDefaultDict}) backed by the real Python object, so its methods
+ * behave exactly as they would in Python.
+ *
+ * {@link PyOrderedDict}, {@link PyDefaultDict}, and {@link PyCounter} are
+ * all real {@code dict} subclasses in Python, so they extend
+ * {@link python.lang.PyDict} here too and reuse its entire {@code Map}
+ * surface; only each type's Python-specific extras are added on top.
+ * {@link PyDeque} is not a {@code list} subclass and does not support
+ * slicing, so it stands on its own — a Python-flavored, named subset of
+ * {@link java.util.Deque}'s shape.
+ */
 package python.collections;
-
-// This will hold wrappers for the collections module.
