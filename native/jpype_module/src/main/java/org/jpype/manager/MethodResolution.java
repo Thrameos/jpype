@@ -269,25 +269,31 @@ public class MethodResolution
         return canMatchExpanded || canMatchArray;
       }
 
-      // Case 4: Fixed method has more params
-      if (n1 > n2)
+      // Case 4: Fixed method has more params.
+      //
+      // Cases 1-3 above are an exhaustive, mutually exclusive partition of
+      // all (n1, n2) pairs (n1 < n2-1, n1 == n2-1, n1 == n2) and each
+      // returns unconditionally, so n1 > n2 is the only possibility left
+      // by the time we get here (CodeQL flagged the old redundant guard;
+      // verified unconditionally true via an instrumented torture test -
+      // see TestVarArgsHierarchy.java / VarArgsHierarchyTestCase - before
+      // removing it).
+
+      // Check fixed params up to varargs position
+      for (int i = 0; i < n2 - 1; ++i)
       {
-        // Check fixed params up to varargs position
-        for (int i = 0; i < n2 - 1; ++i)
-        {
-          if (!isAssignableTo(param1.get(i), param2.get(i)))
-            return false;
-        }
-
-        // All remaining fixed params must be assignable to component type
-        for (int i = n2 - 1; i < n1; ++i)
-        {
-          if (!isAssignableTo(param1.get(i), cls2))
-            return false;
-        }
-
-        return true;
+        if (!isAssignableTo(param1.get(i), param2.get(i)))
+          return false;
       }
+
+      // All remaining fixed params must be assignable to component type
+      for (int i = n2 - 1; i < n1; ++i)
+      {
+        if (!isAssignableTo(param1.get(i), cls2))
+          return false;
+      }
+
+      return true;
     }
  
     return isMoreSpecificThan(param1, param2);

@@ -475,5 +475,103 @@ class OverloadTestCase(common.JPypeTestCase):
             print(f"\nCould not run reflection test: {e}")
             import traceback
             traceback.print_exc()
-        
+
         print("=== End Diagnostic ===\n")
+
+
+class VarArgsHierarchyTestCase(common.JPypeTestCase):
+    """Fixed-arity vs varargs overload specificity across primitives,
+    Object, a Parent/Child hierarchy, and an unrelated type.
+
+    testFixedVsVarArgs/testExpandedVsVarArgs/testMinimalVsVarArgs/
+    testVarArgsVsVarArgs above only exercise String vs Object; these
+    tests add a real class hierarchy (Parent/Child/Unrelated) and
+    primitive widening, matching the combinations MethodResolution's
+    Case 1-4 varargs logic is meant to handle
+    (jpype.overloads.TestVarArgsHierarchy is the Java harness).
+    """
+
+    def setUp(self):
+        common.JPypeTestCase.setUp(self)
+        self._cls = JClass('jpype.overloads.TestVarArgsHierarchy')
+        self._parent = JClass('jpype.overloads.TestVarArgsHierarchy$Parent')
+        self._child = JClass('jpype.overloads.TestVarArgsHierarchy$Child')
+        self._unrelated = JClass('jpype.overloads.TestVarArgsHierarchy$Unrelated')
+        self._object = JClass('java.lang.Object')
+        self._obj = self._cls()
+
+    def testCase3FixedBeatsVarArgsSameCount(self):
+        # (O,P) vs (O,P...): fixed wins on an exact-count call
+        self.assertEqual('fixed(O,P)', self._obj.testFixedParentVsVarArgsParent(
+            self._object(), self._parent()))
+        self.assertEqual('varargs(O,P...)', self._obj.testFixedParentVsVarArgsParent(
+            self._object(), self._parent(), self._parent()))
+
+    def testCase3FixedSubtypeBeatsVarArgs(self):
+        # (O,C) vs (O,P...): fixed still wins even though its last param
+        # is a strict subtype of the varargs component type
+        self.assertEqual('fixed(O,C)', self._obj.testFixedChildVsVarArgsParent(
+            self._object(), self._child()))
+        self.assertEqual('varargs(O,P...)', self._obj.testFixedChildVsVarArgsParent(
+            self._object(), self._parent()))
+
+    def testCase2FixedFewerBeatsVarArgs(self):
+        # (O) vs (O,P...): fixed with one fewer param wins on a 1-arg call
+        self.assertEqual('fixed(O)', self._obj.testFixedShortVsVarArgsParent(
+            self._object()))
+        self.assertEqual('varargs(O,P...)', self._obj.testFixedShortVsVarArgsParent(
+            self._object(), self._parent()))
+
+    def testCase4FixedOPPBeatsVarArgsOP(self):
+        # (O,P,P) vs (O,P...)
+        self.assertEqual('fixed(O,P,P)', self._obj.testFixedPPVsVarArgsParent(
+            self._object(), self._parent(), self._parent()))
+        self.assertEqual('varargs(O,P...)', self._obj.testFixedPPVsVarArgsParent(
+            self._object(), self._parent()))
+
+    def testCase4FixedOPCBeatsVarArgsOP(self):
+        # (O,P,C) vs (O,P...)
+        self.assertEqual('fixed(O,P,C)', self._obj.testFixedPCVsVarArgsParent(
+            self._object(), self._parent(), self._child()))
+
+    def testCase4FixedOCCBeatsVarArgsOP(self):
+        # (O,C,C) vs (O,P...)
+        self.assertEqual('fixed(O,C,C)', self._obj.testFixedCCVsVarArgsParent(
+            self._object(), self._child(), self._child()))
+
+    def testCase4LargerGap(self):
+        # (O,P,P,P) vs (O,P...): a bigger fixed/varargs slot-count gap
+        self.assertEqual('fixed(O,P,P,P)', self._obj.testFixedPPPVsVarArgsParent(
+            self._object(), self._parent(), self._parent(), self._parent()))
+        self.assertEqual('varargs(O,P...)', self._obj.testFixedPPPVsVarArgsParent(
+            self._object(), self._parent()))
+
+    def testBothVarArgsNarrowerComponentWins(self):
+        # (O,C...) vs (O,P...): both varargs, narrower component type wins
+        self.assertEqual('varargs(O,C...)', self._obj.testVarArgsChildVsVarArgsParent(
+            self._object(), self._child()))
+        self.assertEqual('varargs(O,P...)', self._obj.testVarArgsChildVsVarArgsParent(
+            self._object(), self._parent()))
+
+    def testUnrelatedFallsThroughToObjectVarArgs(self):
+        # An unrelated type can't bind the Parent-typed fixed overload,
+        # so it must fall through to the generic Object varargs form.
+        self.assertEqual('fixed(O,P)', self._obj.testUnrelatedFallsThroughToObject(
+            self._object(), self._parent()))
+        self.assertEqual('varargs(O,Object...)', self._obj.testUnrelatedFallsThroughToObject(
+            self._object(), self._unrelated()))
+
+    def testPrimitiveWideningCase3(self):
+        # (O,int) vs (O,long...): int widens to long, fixed still wins
+        self.assertEqual('fixed(O,int)', self._obj.testFixedIntVsVarArgsLong(
+            self._object(), JInt(5)))
+
+    def testPrimitiveWideningBothVarArgs(self):
+        # (O,int...) vs (O,long...): both varargs, narrower primitive wins
+        self.assertEqual('varargs(O,int...)', self._obj.testVarArgsIntVsVarArgsLong(
+            self._object(), JInt(5)))
+
+    def testPrimitiveWideningCase4(self):
+        # (O,int,int) vs (O,long...)
+        self.assertEqual('fixed(O,int,int)', self._obj.testFixedIntIntVsVarArgsLong(
+            self._object(), JInt(1), JInt(2)))
