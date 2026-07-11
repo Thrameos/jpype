@@ -19,6 +19,8 @@ Latest Changes:
 
   - Fixed JArray constructor ignoring slice bounds when creating from sliced array. #845
 
+  - Added jdk.zipfs module dependency to module-info for proper jlink/jdeps detection. #908
+
 
 - **1.7.1 - 2026-05-06**
 
