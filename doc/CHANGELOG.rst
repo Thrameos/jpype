@@ -7,6 +7,18 @@ Latest Changes:
 
 - **1.7.2.dev0**
 
+  - Added ``toPython()`` customizer to ``java.io.Writer``/``Reader``/
+    ``OutputStream``/``InputStream``, wrapping a Java stream as a Python
+    ``io.TextIOBase`` object suitable for ``sys.stdout``/``sys.stderr``/
+    ``sys.stdin``. Java embedders can trigger this explicitly via
+    ``Interpreter.setOutput()``/``setError()``/``setInput()``.
+
+  - Added ``org.jpype.SubInterpreterBuilder``, a ``ProcessBuilder``-style
+    configuration object for launching PEP 684 subinterpreters with
+    non-default ``PyInterpreterConfig`` options (own GIL, own obmalloc,
+    allow fork/exec/threads), including an ``ownGil()`` preset for genuine
+    interpreter isolation.
+
   - Fixed memory leak with int and float conversions. #1379
 
   - Fixed instablity in threading for method dispatch. #1366

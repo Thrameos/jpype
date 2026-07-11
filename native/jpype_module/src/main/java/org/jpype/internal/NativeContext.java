@@ -79,7 +79,7 @@ public class NativeContext
   private final NativeReferenceQueue referenceQueue;
   private final StringManager stringManager;
   private final Signal signal;
-  private final GlobalPool globalPool = new GlobalPool();
+  private final GlobalPool globalPool;
 
   private final AtomicInteger shutdownFlag = new AtomicInteger();
   private final List<Thread> shutdownHooks = new ArrayList<>();
@@ -95,6 +95,7 @@ public class NativeContext
   private NativeContext(long nativeContext, DynamicClassLoader loader)
   {
     this.contextAddress = nativeContext;
+    this.globalPool = new GlobalPool(nativeContext);
     this.classLoader = DynamicClassLoader.install(loader);
 
     this.typeFactory = new TypeFactoryNative();

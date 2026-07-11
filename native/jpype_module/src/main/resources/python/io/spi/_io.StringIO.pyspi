@@ -5,5 +5,5 @@ interface: python.io.PyStringIO
 lazy: true
 ---
 METHODS = {
-    "getvalue": lambda x: x.getvalue(),
+    ".getvalue": lambda x: x.getvalue(),
 }

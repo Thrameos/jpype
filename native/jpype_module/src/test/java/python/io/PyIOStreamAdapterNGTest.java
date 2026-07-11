@@ -55,6 +55,7 @@ public class PyIOStreamAdapterNGTest extends PyTestHarness
 
     OutputStream out = instance.asOutputStream();
     out.write("hello".getBytes("UTF-8"));
+    out.flush();
 
     assertEquals(instance.getvalue().decode("utf-8", null).toString(), "hello");
   }
@@ -68,6 +69,7 @@ public class PyIOStreamAdapterNGTest extends PyTestHarness
     out.write('a');
     out.write('b');
     out.write('c');
+    out.flush();
 
     assertEquals(instance.getvalue().decode("utf-8", null).toString(), "abc");
   }
@@ -97,6 +99,7 @@ public class PyIOStreamAdapterNGTest extends PyTestHarness
     int n;
     while ((n = in.read(buf)) != -1)
       out.write(buf, 0, n);
+    out.flush();
 
     assertEquals(dest.getvalue().decode("utf-8", null).toString(), "test");
   }

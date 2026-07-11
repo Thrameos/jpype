@@ -42,12 +42,24 @@ public class NativeLauncherControl
    * thread does not hold the subinterpreter's GIL on return - control comes
    * back to Java exactly as it does after {@link #startMain}.
    *
+   * The seven boolean parameters map directly onto CPython's
+   * {@code PyInterpreterConfig} fields of the same name (with
+   * {@code ownGil} selecting {@code PyInterpreterConfig_OWN_GIL} vs.
+   * {@code PyInterpreterConfig_DEFAULT_GIL}). Callers should go through
+   * {@code org.jpype.SubInterpreterBuilder} rather than choosing these
+   * directly - it validates the one hard cross-field CPython rule
+   * (use_main_obmalloc=0 requires check_multi_interp_extensions=1) before
+   * this native call is ever reached.
+   *
    * @param interpreter the {@link org.jpype.Interpreter} instance to bind as
    * the subinterpreter's back-reference (returned by {@code _jpype.interpreter()}
    * on the Python side of that subinterpreter).
    * @return the {@link NativeContext} for the new subinterpreter.
    */
-  public native static NativeContext startSubInterpreter(Object interpreter);
+  public native static NativeContext startSubInterpreter(Object interpreter,
+          boolean useMainObmalloc, boolean allowFork, boolean allowExec,
+          boolean allowThreads, boolean allowDaemonThreads,
+          boolean checkMultiInterpExtensions, boolean ownGil);
 
   /**
    * Tear down a subinterpreter previously created with

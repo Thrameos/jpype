@@ -16,6 +16,8 @@
  */
 package python.io;
 
+import java.io.Reader;
+import java.io.Writer;
 import python.lang.PyString;
 
 /**
@@ -58,5 +60,36 @@ public interface PyTextIOBase extends PyIOBase
    * @return the number of characters written.
    */
   int write(CharSequence text);
+
+  /**
+   * Wraps this stream as a standard {@link java.io.Reader}, so it can be
+   * passed to Java APIs that expect one. The returned reader buffers reads
+   * internally (default 8K chars), refilling with a single {@link #read(int)}
+   * call, so single-char {@code read()} calls and small bulk requests don't
+   * each cost their own round trip into Python; a request at least as large
+   * as the buffer bypasses it.
+   *
+   * @return a {@code Reader} view of this stream.
+   */
+  default Reader asReader()
+  {
+    return new PyIOReader(this);
+  }
+
+  /**
+   * Wraps this stream as a standard {@link java.io.Writer}, so it can be
+   * passed to Java APIs that expect one. The returned writer buffers writes
+   * internally (default 8K chars), flushing to a single
+   * {@link #write(CharSequence)} call when the buffer fills, on
+   * {@code flush()}, or on {@code close()} — a pending write is not visible
+   * on the underlying stream until then. A request at least as large as the
+   * buffer bypasses it.
+   *
+   * @return a {@code Writer} view of this stream.
+   */
+  default Writer asWriter()
+  {
+    return new PyIOWriter(this);
+  }
 
 }

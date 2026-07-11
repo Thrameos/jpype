@@ -16,6 +16,8 @@
  */
 package python.lang;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jpype.Script;
 import org.jpype.SubInterpreter;
@@ -25,6 +27,7 @@ import org.testng.annotations.Test;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 /**
@@ -234,5 +237,43 @@ public class SubInterpreterNGTest extends PyTestHarness
     {
       sub.close();
     }
+  }
+
+  @Test(timeOut = 15000)
+  public void testSmuggledProxyAcrossInterpretersThrows()
+  {
+    // "Smuggler" scenario (plan/Smuggler.md): sub1 creates a Python object,
+    // it gets wrapped as a Java proxy (python.lang.PyObject) and dropped
+    // into a plain Java container - no interpreter tagging on the Java
+    // side. sub2 then pulls it back out. Handing that proxy's underlying
+    // PyObject* straight back into sub2's Python code without any
+    // interpreter-identity check would touch memory owned by sub1's
+    // allocator/arena under sub2's GIL - real corruption under true
+    // own-GIL isolation, not just a wrong answer. The minimum fix is to
+    // detect the mismatch and fail loudly instead of silently corrupting.
+    SubInterpreter sub1 = startOrSkip();
+    SubInterpreter sub2 = startOrSkip();
+    try
+    {
+      Script script1 = new Script(sub1);
+      PyObject smuggled = script1.eval("object()");
+
+      List<Object> container = new ArrayList<>();
+      container.add(smuggled);
+
+      Script bootstrap = new Script(sub2);
+      java.util.Map<String, Object> vars = new java.util.HashMap<>();
+      vars.put("container", container);
+      PyDict globals2 = bootstrap.dictFromMap(vars);
+      Script script2 = new Script(sub2, globals2, globals2);
+
+      assertThrows(RuntimeException.class, () -> script2.eval("container.get(0)"));
+    } finally
+    {
+      sub1.close();
+      sub2.close();
+    }
+    assertFalse(NativeLauncherControl.isGilHeld(),
+            "GIL leaked after the cross-interpreter smuggle attempt");
   }
 }

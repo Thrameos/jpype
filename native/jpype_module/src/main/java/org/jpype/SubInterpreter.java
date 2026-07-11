@@ -126,22 +126,42 @@ public class SubInterpreter implements Interpreter
   }
 
   /**
-   * Starts the subinterpreter.
+   * Starts the subinterpreter with the legacy configuration (shared GIL,
+   * shared obmalloc - the same fixed values this method always used).
    *
    * <p>
    * {@link MainInterpreter#start} must already have loaded the native
    * libraries (this call reuses the process-wide Python/JPype native
    * libraries loaded by the main interpreter; it does not load them
    * again).</p>
+   *
+   * @see org.jpype.SubInterpreterBuilder for a configurable alternative
+   * (own-GIL isolation, allow_fork/exec/threads, etc.).
    */
   public synchronized void start()
+  {
+    start(true, false, false, true, false, false, false);
+  }
+
+  /**
+   * Starts the subinterpreter with an explicit {@code PyInterpreterConfig}.
+   *
+   * Package-private: external callers should go through
+   * {@link SubInterpreterBuilder}, which validates the legal combinations
+   * of these flags before calling here.
+   */
+  synchronized void start(boolean useMainObmalloc, boolean allowFork, boolean allowExec,
+          boolean allowThreads, boolean allowDaemonThreads,
+          boolean checkMultiInterpExtensions, boolean ownGil)
   {
     if (terminated)
       throw new IllegalStateException("interpreter is terminated");
     if (backend != null)
       return;
 
-    this.context = NativeLauncherControl.startSubInterpreter(this);
+    this.context = NativeLauncherControl.startSubInterpreter(this,
+            useMainObmalloc, allowFork, allowExec, allowThreads,
+            allowDaemonThreads, checkMultiInterpExtensions, ownGil);
 
     // Control is back on the Java thread here. Confirm the launch didn't
     // leave the subinterpreter's GIL held on the calling thread.

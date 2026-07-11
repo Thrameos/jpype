@@ -1,6 +1,8 @@
 # Naming/typo cleanup across the SPI + python.io + adjacent code
 
-## Status (2026-07-10): executing this session
+## Status (2026-07-10): DONE - committed 444587f4, folded into reverse's
+squashed history (47f97604), verified live in the tree (no `PyIoWrapperService`/
+`PyKeyArgs` remnants remain)
 
 User-flagged: "PyIoWrapperService using Io instead of IO, PyKeyArgs, etc
 ... a lot of random typos, lazy naming and other things we commit to once

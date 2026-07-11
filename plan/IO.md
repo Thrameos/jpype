@@ -1,5 +1,104 @@
 # python.io: porting Python's `io` module with InputStream/OutputStream promotion
 
+## Status (2026-07-11, even later): C done - buffered rewrite implemented and benchmarked; A-F all complete
+
+`PyIOInputStream`/`PyIOOutputStream`/`PyIOReader`/`PyIOWriter` (all four
+adapters) now buffer internally (default 8KB/8K-chars, package-private
+constructor-overridable for tests): reads are served out of an internal
+buffer refilled by a single bulk `read(size)` call; writes accumulate
+locally and flush via a single bulk `write(...)` call on buffer-full,
+`flush()`, or `close()`. A request at least as large as the buffer bypasses
+buffering entirely (no pointless extra copy). This is a pure Java-side
+change - the four adapters' `stream`/constructor contracts are unchanged, so
+`asInputStream()`/`asOutputStream()`/`asReader()`/`asWriter()` callers see no
+API difference, only different visibility timing: a pending write is not
+observable on the underlying Python object until flushed (existing tests in
+`PyIOStreamAdapterNGTest`/`PyWriterAdapterNGTest` that checked state
+immediately after unflushed single-byte/char writes were updated to flush
+first - correct per ordinary `java.io.Buffered*` semantics, not a
+compatibility break of anything documented).
+
+**Benchmark - and a real, asymmetric finding, not just a confirmation.**
+Ran a real-bridge (not simulated) A/B on `PyTestHarness` context: same
+adapter code path both sides, differing only in buffer size (`1`, i.e. a
+fill/flush on every single-element call - exactly the old unbuffered
+behavior - vs the real default), 20,000 single-element calls each,
+`python3.10`:
+
+| Operation | speedup |
+|---|---|
+| single-byte `InputStream.read()` | **1.8x** |
+| single-byte `OutputStream.write(int)` | **1164x** |
+| single-char `Reader.read()` | **778x** |
+| single-char `Writer.write(int)` | **33x** |
+
+Byte writes and char reads/writes all get a huge win because, once buffered,
+the bulk conversion at the buffer boundary (`PyString.toString()` for reads,
+`context.bytes(byte[])`/`String` construction for writes) is itself a real
+bulk operation with no per-element bridge cost. **Byte reads are the
+outlier**: `PyBytes` -> `byte[]` extraction (`chunk.get(i)` +
+`builtin().asLong(...)`) has no bulk helper anywhere in the codebase (this
+was already true, and already flagged, before this pass - see "Open
+follow-up" in the prior status section below), so it still costs one bridge
+call *per byte* inside `fill()`, same as the old code did inside its
+per-request loop. Buffering only removes the `stream.read(n)` round trips,
+not this per-element cost - which dominates, capping the byte-read win far
+below every other direction. If byte-read throughput ever matters enough to
+chase further, the lever is a bulk `PyBytes` -> `byte[]` conversion helper
+(mirroring `Backend.newBytesFromBuffer`'s existing reverse direction), not
+more buffering - buffering alone has already captured everything it can for
+this specific path.
+
+New test coverage: `PyIOBufferingNGTest` (6 tests, part of the normal suite)
+- asserts call counts collapse to `ceil(N/bufferSize)` for small requests
+  and to exactly 1 for a request at least as large as the buffer, using a
+  dynamic-proxy call counter wrapping a real `PyBytesIO`/`PyStringIO`
+  (forwards every call, counts `read`/`write` invocations) rather than a
+  hand-rolled fake implementing the full `PyBufferedIOBase`/`PyTextIOBase`
+  surface. `PyIOBufferingBenchmark` (excluded from the normal suite by
+  surefire's default `*Test.java`-only pattern, unlike `*NGTest.java`; run
+  explicitly with `-Dtest=PyIOBufferingBenchmark`) is the wall-clock
+  benchmark behind the table above.
+
+Full suite: 535/535, 0 failures/errors, 14 pre-existing skips
+(`mvn -o test -Dpython.executable=python3.10`).
+
+With this, all of sections A/B/C/D/F are done - `plan/IO.md` is complete
+except for the explicitly-deferred items in section E (`$foo` dispatch, a
+real third-party numpy-shaped provider) and the byte-read extraction-helper
+follow-up noted above, neither of which block anything.
+
+## Status (2026-07-11, later): sections A, B, D, F done; only C (buffering rewrite) still pending
+
+Implemented this pass, on top of the existing `PyBytesIO`/`PyStringIO`/
+`asInputStream()`/`asOutputStream()` foundation:
+
+- **A.** `PyRawIOBase` (+ `io.RawIOBase.pyspi`, eager), `PyFileIO` (+
+  `_io.FileIO.pyspi`, lazy), `PyBufferedReader`/`PyBufferedWriter`/
+  `PyBufferedRandom` (+ matching lazy `.pyspi` files, empty `METHODS` —
+  nothing beyond `PyBufferedIOBase`'s surface), `PyTextIOWrapper` (+
+  `_io.TextIOWrapper.pyspi`, lazy, `line_buffering()`/`write_through()`).
+  `IO.fileIO(CharSequence path, CharSequence mode)` added to the
+  `python.io.IO` mini-backend, delegating to `io.open(path, mode,
+  buffering=0)`.
+- **B.** `PyIOReader`/`PyIOWriter` (package-private, mirroring
+  `PyIOInputStream`/`PyIOOutputStream`'s shape exactly) + `default
+  asReader()`/`asWriter()` on `PyTextIOBase`.
+- **D.** `PyFileIONGTest` (real temp files via `Files.createTempFile`,
+  covers `write`/`readall`/`readinto`/`name`/`mode`/`close`),
+  `PyReaderAdapterNGTest`/`PyWriterAdapterNGTest` (including a non-ASCII
+  round trip), `PyBufferedAndTextWrapperNGTest` (smoke tests for
+  `PyBufferedReader`/`PyBufferedWriter`/`PyBufferedRandom`/
+  `PyTextIOWrapper` via real `open()` calls, cast from `context.eval(...)`).
+  All new + pre-existing tests pass (1537 PASS / 0 FAIL / 7 pre-existing
+  SKIP, `mvn -q test -Dpython.executable=python3.10`).
+
+Not done this pass: **C** (the buffered rewrite of
+`PyIOInputStream`/`PyIOOutputStream`/`PyIOReader`/`PyIOWriter` — all four
+adapters are still the unbuffered MVP, one bridge round-trip per element for
+single-byte/char calls) and **F** (stdout/stderr redirect). Both remain
+exactly as scoped below.
+
 ## Status (2026-07-10, later): remaining-work punch list, scoped and not started
 
 Scope confirmed with user: **`$foo` method-dispatch (`plan/SPI.md`) is
@@ -65,6 +164,48 @@ smoke test per new concrete class — all following the existing
 **E. Still deferred, not part of this pass**: `$foo` dispatch; the
 GIL/threading stress test for the adapters; a real third-party
 (numpy-shaped) lazy provider.
+
+**F. stdout/stderr capture (Java stream duck-typed as a Python file object)**
+— superseded by `plan/StreamRedirect.md` (2026-07-11), **DONE** same day:
+explicit `Interpreter.setOutput()`/`setInput()`/`setError()` (+ resets) on
+the shared `Interpreter` interface, backed by a `toPython()` JCustomizer on
+`java.io.Writer`/`Reader`/`OutputStream`/`InputStream` (`jpype/_jio.py`).
+Extends scope to stdin as well. Kept here for history; see that plan for
+the design and `doc/userguide.rst`'s "Customizing java.io Streams" section
+for user-facing docs.
+— scoped 2026-07-11 from `plan/JepParity.md` (jep parity survey), sequenced
+*after* A-D above since it's the mirror-image direction of the
+`asReader()`/`asWriter()` promotion (a Java `OutputStream`/`Writer` made to
+look like a Python file object, rather than a Python file object promoted to
+a Java stream) and reuses the same buffering/encoding groundwork. jep has
+this via `JepConfig.redirectStdout/redirectStdErr`
+(`src/main/java/jep/JepConfig.java`) + `redirect_streams.py`; jpype has no
+equivalent.
+- A small Java-defined Python-facing object implementing the minimal
+  duck-typed surface Python's `sys.stdout`/`sys.stderr` actually need at
+  runtime — `write(str)`, `flush()`, and ideally `isatty()`/`encoding`/
+  `errors` for library code that probes them defensively (e.g. `logging`,
+  `print`'s own internals) — backed by a Java `OutputStream`/`Writer`
+  supplied by the caller.
+  * This is *not* the `PyTextIOWrapper`/`PyBufferedWriter` concrete-class
+    port from section A — those wrap a real Python-side `io` object; this
+    is the reverse direction: a Java-implemented object handed *into*
+    Python and assigned to `sys.stdout`. Likely implemented via the
+    existing `JPProxy` mechanism (Java object implementing a small
+    Python-callable-attribute protocol) rather than anything from the
+    `python.io` interface hierarchy.
+- Entry point: something like `Interpreter.redirectStdout(OutputStream)` /
+  `redirectStderr(OutputStream)` (exact placement TBD — could also be a
+  `SubInterpreterConfig`-style builder option, see
+  `plan/SubInterpreterFactory.md`, or just a plain `sys.stdout = ...`
+  assignment made available post-`start()`) that installs the proxy.
+- Buffering: reuse the chunked-buffering design from the "Chunked
+  buffering" section below rather than a naive per-`write()`-call round
+  trip.
+- Tests: assert Python `print()`/`sys.stderr.write(...)` calls actually
+  land in the backing Java stream, including from a background Python
+  thread and from inside a subinterpreter, matching the existing
+  GIL-stress-test pattern used elsewhere in this plan.
 
 **Verification**: `mvn -q test -Dpython.executable=python3.10` (expect
 475 + new tests, zero regressions); rebuild the real `ant` jar and rerun

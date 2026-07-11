@@ -382,9 +382,6 @@ JPContext* PyJPModule_getContext(PyObject* self)
 	return reinterpret_cast<PyJPModuleState*>(PyModule_GetState(self))->context;
 }
 
-// This is used to pass the temporary file to clean up only.
-static string jarTmpPath;
-
 static PyObject* PyJPModule_startup(PyObject* self, PyObject* pyargs)
 {
 	JP_PY_TRY("PyJPModule_startup");
@@ -416,7 +413,8 @@ static PyObject* PyJPModule_startup(PyObject* self, PyObject* pyargs)
 			PyErr_SetString(PyExc_TypeError, "Java jar path must be a string");
 			return nullptr;
 		}
-		jarTmpPath = JPPyString::asStringUTF8(tmp);
+		delete st->jarTmpPath;
+		st->jarTmpPath = new std::string(JPPyString::asStringUTF8(tmp));
 	}
 
 	if (!(JPPyString::check(vmPath)))
@@ -487,12 +485,14 @@ static PyObject* PyJPModule_shutdown(PyObject* self, PyObject* pyargs, PyObject*
 	// Thus far this doesn't work on WINDOWS.  The issue is a bug in the JVM
 	// is holding the file open and there is no apparent method to close it
 	// so that this can succeed
-	if (jarTmpPath != "")
-		remove(jarTmpPath.c_str());
+	if (st->jarTmpPath != nullptr)
+		remove(st->jarTmpPath->c_str());
 #else
-	if (jarTmpPath != "")
-		unlink(jarTmpPath.c_str());
+	if (st->jarTmpPath != nullptr)
+		unlink(st->jarTmpPath->c_str());
 #endif
+	delete st->jarTmpPath;
+	st->jarTmpPath = nullptr;
 
 	Py_RETURN_NONE;
 	JP_PY_CATCH(nullptr);
@@ -997,18 +997,12 @@ static PyObject* PyJPModule_trace(PyObject *module, PyObject *args)
 // GCOVR_EXCL_STOP
 
 #ifdef JP_INSTRUMENTATION
+extern uint32_t _PyJPModule_fault_code;
 static PyObject* PyJPModule_fault(PyObject *module, PyObject *args)
 {
-	auto* st = PyJPModule_getState(module);
-	if (st == nullptr)
-	{
-		PyErr_SetString(PyExc_RuntimeError, "JPype module state is not available");
-		return nullptr;
-	}
-
 	if (args == Py_None)
 	{
-		st->fault_code = 0;
+		_PyJPModule_fault_code = 0;
 		Py_RETURN_NONE;
 	}
 
@@ -1017,8 +1011,8 @@ static PyObject* PyJPModule_fault(PyObject *module, PyObject *args)
 	for (size_t i = 0; i < code.size(); ++i)
 		u = u * 0x1a481023 + code[i];
 
-	st->fault_code = u;
-	return PyLong_FromUnsignedLong((unsigned long) st->fault_code);
+	_PyJPModule_fault_code = u;
+	return PyLong_FromUnsignedLong((unsigned long) _PyJPModule_fault_code);
 }
 #endif
 
@@ -1152,6 +1146,9 @@ static void PyJPModule_free(void *module)
 			delete st->context;
 			st->context = nullptr;
 		}
+
+		delete st->jarTmpPath;
+		st->jarTmpPath = nullptr;
 	}
 }
 
@@ -1199,13 +1196,33 @@ static PyMethodDef moduleMethods[] = {
 	{nullptr}
 };
 
+static int PyJPModule_exec(PyObject* module);
+
+static PyModuleDef_Slot jpype_slots[] = {
+	{Py_mod_exec, (void*) PyJPModule_exec},
+#if PY_VERSION_HEX>=0x030c0000
+	// Declares eligibility for a genuinely isolated (own-GIL) subinterpreter
+	// config. Requires multi-phase init (this slot array) to even be
+	// offered - see plan/MultiPhaseInit.md.
+	{Py_mod_multiple_interpreters, Py_MOD_PER_INTERPRETER_GIL_SUPPORTED},
+#endif
+#ifdef Py_GIL_DISABLED
+	// Declare-as-a-slot replaces the old post-hoc PyUnstable_Module_SetGIL
+	// call now that multi-phase init makes a real slot available; only
+	// defined by CPython headers new enough to have both this macro and
+	// Py_mod_gil (3.13+), so no separate PY_VERSION_HEX guard is needed.
+	{Py_mod_gil, Py_MOD_GIL_NOT_USED},
+#endif
+	{0, nullptr}
+};
+
 static struct PyModuleDef moduledef = {
 	PyModuleDef_HEAD_INIT,
 	"_jpype",
 	"jpype module",
 	sizeof(PyJPModuleState),
 	moduleMethods,
-	nullptr,
+	jpype_slots,
 	PyJPModule_traverse,
 	PyJPModule_clear,
 	PyJPModule_free
@@ -1213,23 +1230,18 @@ static struct PyModuleDef moduledef = {
 
 PyMODINIT_FUNC PyInit__jpype()
 {
-	JP_PY_TRY("PyInit__jpype");
+	return PyModuleDef_Init(&moduledef);
+}
 
-	// Initialize the module
-	PyObject* module = PyModule_Create(&moduledef);
-	if (module == nullptr)
-		return nullptr;
-
-#ifdef Py_GIL_DISABLED
-	PyUnstable_Module_SetGIL(module, Py_MOD_GIL_NOT_USED);
-#endif
+static int PyJPModule_exec(PyObject* module)
+{
+	JP_PY_TRY("PyJPModule_exec");
 
 	auto* st = PyJPModule_getState(module);
 	if (st == nullptr)
 	{
-		Py_DECREF(module);
 		PyErr_SetString(PyExc_RuntimeError, "Failed to allocate JPype module state");
-		return nullptr;
+		return -1;
 	}
 
 	// Initialize module state
@@ -1281,8 +1293,8 @@ PyMODINIT_FUNC PyInit__jpype()
 	PyJPChar_initType(module, st);
 
 	st->context = new JPContext(st);
-	return module;
-	JP_PY_CATCH(nullptr); // GCOVR_EXCL_LINE
+	return 0;
+	JP_PY_CATCH(-1); // GCOVR_EXCL_LINE
 }
 
 #ifdef __cplusplus

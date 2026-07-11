@@ -39,8 +39,28 @@ $(SENTINEL): pyproject.toml $(PY_SRC) $(CPP_SRC) org.jpype.jar
 	$(PIP) install -v --no-build-isolation -e . \
 		--config-settings=cmake.define.BUILD_TEST_HARNESS=ON \
         --config-settings=cmake.define.CMAKE_BUILD_TYPE=RelWithDebInfo \
-		--config-settings=cmake.verbose=true \
-		--config-settings=editable.mode=inplace
+		--config-settings=cmake.verbose=true
+	@# pyproject.toml builds each Python version into its own build/{wheel_tag}
+	@# dir (editable.mode=redirect) so switching versions never reuses another
+	@# version's stale CMakeFiles/ object cache. Also drop an ABI-tagged copy
+	@# at the repo root (same convention CPython itself uses for compiled
+	@# extensions, e.g. _jpype.cpython-310-x86_64-linux-gnu.so) so multiple
+	@# Python versions' builds can coexist at root without clobbering each
+	@# other - matches the old versioned-.so layout this repo used to have.
+	@# _jpyne has no PyInit__jpyne (it's not meant to be `import`ed from
+	@# Python - nothing in jpype/ or the Java side does), so it can't be
+	@# located via `import _jpyne; .__file__` the way _jpype can. Locate both
+	@# by this version's build-dir tag (cp310, cp312, ...) instead of mtime -
+	@# an incremental no-op ninja rebuild doesn't touch the output's mtime,
+	@# so "newest file" is unreliable when switching back to a version whose
+	@# build dir already existed from an earlier session.
+	@EXT_SUFFIX=$$($(PYTHON) -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))"); \
+	PYTAG=$$($(PYTHON) -c "import sys; print('cp%d%d' % sys.version_info[:2])"); \
+	JP_FILE=$$(echo build/$$PYTAG-*/_jpype.so); \
+	JN_FILE=$$(echo build/$$PYTAG-*/_jpyne.so); \
+	cp "$$JP_FILE" "_jpype$$EXT_SUFFIX"; \
+	cp "$$JN_FILE" "_jpyne$$EXT_SUFFIX"; \
+	echo "Copied $$JP_FILE -> _jpype$$EXT_SUFFIX"
 	@touch $(SENTINEL)
 
 # This target ensures the harness is built before running pytest

@@ -4,5 +4,5 @@ class: BytesIO
 interface: python.io.PyBytesIO
 ---
 METHODS = {
-    "getvalue": lambda x: x.getvalue(),
+    ".getvalue": lambda x: x.getvalue(),
 }

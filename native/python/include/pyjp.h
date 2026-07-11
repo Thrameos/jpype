@@ -226,13 +226,12 @@ struct PyJPModuleState
 	int numpy_typepos;
 	int numpy_genericpos;
 	int cpp_exceptions;
-	uint32_t fault_code;
+
+	// Temporary extracted jar to clean up on shutdown, if any. Heap pointer
+	// (not embedded by value) because PyJPModuleState is memset-constructed
+	// and freed without destructors running, same as `context` above.
+	std::string* jarTmpPath;
 };
-
-#ifdef JP_INSTRUMENTATION
-int fault_code = 0;
-#endif
-
 
 struct PyJPClass
 {
