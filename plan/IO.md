@@ -98,6 +98,13 @@ GIL/threading stress test for the adapters; a real third-party
 (numpy-shaped) lazy provider.
 
 **F. stdout/stderr capture (Java stream duck-typed as a Python file object)**
+— superseded by `plan/StreamRedirect.md` (2026-07-11), **DONE** same day:
+explicit `Interpreter.setOutput()`/`setInput()`/`setError()` (+ resets) on
+the shared `Interpreter` interface, backed by a `toPython()` JCustomizer on
+`java.io.Writer`/`Reader`/`OutputStream`/`InputStream` (`jpype/_jio.py`).
+Extends scope to stdin as well. Kept here for history; see that plan for
+the design and `doc/userguide.rst`'s "Customizing java.io Streams" section
+for user-facing docs.
 — scoped 2026-07-11 from `plan/JepParity.md` (jep parity survey), sequenced
 *after* A-D above since it's the mirror-image direction of the
 `asReader()`/`asWriter()` promotion (a Java `OutputStream`/`Writer` made to

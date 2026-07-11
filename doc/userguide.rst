@@ -5214,6 +5214,102 @@ practices, developers can ensure efficient memory usage and smooth integration
 between Python and Java.
 
 
+.. _customizing_javaio_streams:
+
+Customizing java.io Streams
+============================
+
+.. _customizing_javaio_overview:
+
+Overview
+--------
+
+Just as JPype customizes ``java.lang.Thread`` with attachment methods (see
+`Customizing java.lang.Thread`_ above), it customizes the ``java.io`` stream
+hierarchy with a ``toPython()`` method. This is added directly to
+``java.io.Writer``, ``java.io.Reader``, ``java.io.OutputStream``, and
+``java.io.InputStream``, so it is automatically available on every concrete
+subclass as well — ``java.io.PrintStream``, ``java.io.BufferedReader``,
+``java.io.FileOutputStream``, and so on.
+
+``toPython()`` wraps the Java stream in a Python object that is a real
+``io.TextIOBase`` subclass, satisfying Python's own text-file-object
+contract (``write``/``read``/``readline``/``flush``/``close``, context
+manager support, line iteration, ...). This makes it possible to use a
+Java-owned stream anywhere Python expects a file-like object — most notably
+by assigning it to ``sys.stdout``, ``sys.stderr``, or ``sys.stdin``.
+
+.. _customizing_javaio_methods:
+
+Customized Methods
+-------------------
+
+.. method:: java.io.Writer.toPython(encoding=None, errors="strict")
+   :no-index:
+
+   Wraps this ``Writer`` as a Python ``io.TextIOBase`` write-only stream.
+
+.. method:: java.io.Reader.toPython(encoding=None, errors="strict")
+   :no-index:
+
+   Wraps this ``Reader`` as a Python ``io.TextIOBase`` read-only stream.
+
+.. method:: java.io.OutputStream.toPython(encoding="utf-8", errors="strict")
+   :no-index:
+
+   Wraps this ``OutputStream`` in a ``java.io.OutputStreamWriter`` for the
+   given charset and returns its ``toPython()``.
+
+.. method:: java.io.InputStream.toPython(encoding="utf-8", errors="strict")
+   :no-index:
+
+   Wraps this ``InputStream`` in a ``java.io.InputStreamReader`` for the
+   given charset and returns its ``toPython()``.
+
+.. _customizing_javaio_examples:
+
+Examples
+--------
+
+Using ``toPython()`` directly from Python needs no ``jpype`` internals at
+all — the method is right there on the Java object:
+
+.. code-block:: python
+
+   import sys
+   import jpype
+   import jpype.imports
+
+   jpype.startJVM()
+   from java.io import StringWriter
+
+   sw = StringWriter()
+   sys.stdout = sw.toPython()
+   print("this goes into the Java StringWriter")
+   sys.stdout.flush()
+   sys.stdout = sys.__stdout__  # restore
+
+   print(str(sw.toString()))
+
+Java code that embeds an interpreter (``org.jpype.MainInterpreter`` or
+``org.jpype.SubInterpreter``) can trigger the same redirect explicitly, one
+directional stream at a time, via ``setOutput``/``setError``/``setInput`` on
+the shared ``Interpreter`` interface — each is a thin wrapper that installs
+the stream's ``toPython()`` result onto ``sys.stdout``/``sys.stderr``/
+``sys.stdin`` for that interpreter:
+
+.. code-block:: java
+
+   Interpreter interpreter = MainInterpreter.getInstance();
+   OutputStream captured = new ByteArrayOutputStream();
+   interpreter.setOutput(captured);
+   // ... run Python code; everything it prints lands in `captured` ...
+   interpreter.resetOutput();  // back to the real sys.__stdout__
+
+Because each ``SubInterpreter`` owns its own ``sys`` module, redirecting one
+subinterpreter's stdio has no effect on the main interpreter or any other
+subinterpreter.
+
 .. _synchronized:
 
 Synchronization
