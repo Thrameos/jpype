@@ -1,6 +1,33 @@
 # Javadoc rewrite: strictly user-facing, no plan/ references
 
-## Status (2026-07-10): scoped, not started
+## Status (2026-07-11): DONE
+
+Verified 2026-07-11: every item below was already implemented in the tree
+(landed inside commit e5a93a46, "Multi-phase init, python.io completion,
+cross-interpreter safety, and dispatch mangling" — TODO.md just hadn't been
+updated to reflect it). Re-checked file by file against this plan's
+checklist:
+- `python/io/package-info.java`, `python/io/IO.java` — Audience 1 rewrite
+  present, no SPI/internals language.
+- `python/lang` doc-coverage gaps (`PyDictItemsIterator`, `PyFunction`,
+  `PyIndex`, `PyLambda`, `PyMutableSet`) — all have real one-line docs.
+- `"attributes fromMap"` typo — zero hits repo-wide.
+- `PyCallable.java`, `PyIterator.java`, `PyAbstractSet.java` — internal-
+  mechanics/FIXME framing already reworded to user-facing behavior.
+- `WrapperService.java`, `Installer.java`, `SpiLoader.java`,
+  `SpiResource.java`, `PyIOWrapperService.java` — Audience 2 rewrite
+  present: package name fixed, dangling sentences fixed, `.pyspi` format
+  inlined on `getResources()`, `plan/` references stripped.
+- `PyBufferedIOBase.java`, `PyIOInputStream.java` — describe actual
+  buffered behavior, no `plan/IO.md` pointer.
+- `grep -rn "plan/SPI.md\|plan/IO.md" native/jpype_module/src/main/java/`
+  → zero hits.
+- `mvn -q -f native/jpype_module/pom.xml compile -Dpython.executable=python3.10`
+  → clean compile, no syntax breakage from doc edits.
+
+Original scoping below, kept for reference.
+
+## Original status (2026-07-10): scoped, not started
 
 User's rule: Javadoc is user facing, not private developer notes — "we
 can't refer to plan/", "it must be strictly how does the user operate on
