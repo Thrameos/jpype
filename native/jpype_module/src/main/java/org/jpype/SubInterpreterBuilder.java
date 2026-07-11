@@ -36,6 +36,14 @@ import java.util.function.Supplier;
  * {@link #with} / {@link #without}. Non-flag settings (stdio redirection)
  * get ordinary setters, reusing {@link Interpreter}'s existing
  * {@code setOutput}/{@code setError}/{@code setInput}.</p>
+ *
+ * <p>
+ * A bare {@code new SubInterpreterBuilder()} defaults to the safest legal
+ * combination - own GIL, own obmalloc, {@code check_multi_interp_extensions}
+ * enabled (see {@link #ownGil}) - rather than the least restrictive one.
+ * Use {@link #elevated} to opt into the shared-GIL/shared-obmalloc
+ * combination when that isolation is too restrictive for what needs to be
+ * imported or shared.</p>
  */
 public class SubInterpreterBuilder
 {
@@ -55,8 +63,12 @@ public class SubInterpreterBuilder
     OWN_GIL
   }
 
-  // Matches the fixed values SubInterpreter.start() has always used.
-  private final EnumSet<Option> options = EnumSet.of(Option.USE_MAIN_OBMALLOC, Option.ALLOW_THREADS);
+  // Safest legal combination: own GIL, own obmalloc arena, fork/exec/daemon
+  // threads disallowed. Equivalent to what ownGil() used to build explicitly
+  // - now the default, since this API has never shipped and there is no
+  // prior behavior to stay compatible with.
+  private final EnumSet<Option> options = EnumSet.of(Option.OWN_GIL,
+          Option.CHECK_MULTI_INTERP_EXTENSIONS, Option.ALLOW_THREADS);
 
   private Object out;
   private Object err;
@@ -145,28 +157,38 @@ public class SubInterpreterBuilder
   }
 
   /**
-   * A builder with the same fixed configuration
-   * {@link SubInterpreter#start()} has always used: shared GIL, shared
-   * obmalloc. Equivalent to {@code new SubInterpreterBuilder()}.
-   */
-  public static SubInterpreterBuilder legacy()
-  {
-    return new SubInterpreterBuilder();
-  }
-
-  /**
    * A builder configured for genuine PEP 684 isolation: its own GIL and its
    * own obmalloc arena, with {@code check_multi_interp_extensions} enabled
    * (required whenever {@code use_main_obmalloc} is off - see
    * {@link #start}). Requires every extension module the subinterpreter
    * imports, including {@code _jpype}, to be multi-phase-init-safe (true
    * since {@code plan/MultiPhaseInit.md}).
+   *
+   * <p>
+   * This is the safest legal combination and is also what a bare
+   * {@code new SubInterpreterBuilder()} builds - this method exists purely
+   * so call sites can say so explicitly instead of relying on an invisible
+   * default.</p>
    */
   public static SubInterpreterBuilder ownGil()
   {
+    return new SubInterpreterBuilder();
+  }
+
+  /**
+   * A builder configured for the less-restrictive, shared-GIL /
+   * shared-obmalloc combination: the subinterpreter runs under the main
+   * interpreter's GIL and allocator instead of its own, but can still
+   * import single-phase-init extension modules that
+   * {@code check_multi_interp_extensions} would otherwise reject. Use this
+   * when the default {@link #ownGil} isolation is too restrictive for what
+   * the subinterpreter needs to import or share.
+   */
+  public static SubInterpreterBuilder elevated()
+  {
     return new SubInterpreterBuilder()
-            .with(Option.OWN_GIL, Option.CHECK_MULTI_INTERP_EXTENSIONS)
-            .without(Option.USE_MAIN_OBMALLOC);
+            .with(Option.USE_MAIN_OBMALLOC)
+            .without(Option.OWN_GIL, Option.CHECK_MULTI_INTERP_EXTENSIONS);
   }
 
   /**

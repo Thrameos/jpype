@@ -1,6 +1,39 @@
 # SubInterpreterBuilder with configurable PEP 684 knobs
 
-## Status (2026-07-11): DONE, implemented and tested
+## Status (2026-07-11): DONE, implemented and tested; default flipped to safest option (2026-07-11, later)
+
+Since this builder API never shipped, there was no prior behavior to stay
+backward-compatible with, so the default (a bare `new SubInterpreterBuilder()`)
+was changed from the shared-GIL/shared-obmalloc combination to the safest
+legal one: own GIL, own obmalloc, `check_multi_interp_extensions` enabled —
+identical to `ownGil()`, which now exists purely so call sites can say so
+explicitly. The old default preset, previously named `legacy()`, was
+renamed `elevated()` since "legacy" implied a prior shipped behavior that
+doesn't exist; it remains available for callers that need to opt out of
+isolation (e.g. importing a single-phase-init extension). `SubInterpreter.
+start()` (the plain, builder-less entry point) is unaffected — it keeps its
+own historical fixed shared-GIL/shared-obmalloc values, unrelated to the
+builder's default.
+
+**Regression found and fixed while flipping the default:**
+`testIllegalCombinationRejectedBeforeNativeCall` had hardcoded
+`.without(USE_MAIN_OBMALLOC)` to build an illegal combination, relying on
+the *old* default (`USE_MAIN_OBMALLOC` on) to make that removal the only
+thing needed. Against the new default (`USE_MAIN_OBMALLOC` already off,
+`CHECK_MULTI_INTERP_EXTENSIONS` already on), that no longer produces an
+illegal combination — `validate()` correctly passed, `start()` launched a
+real own-GIL subinterpreter, and the test discarded the return value
+without closing it, which is a fatal, uncatchable
+`PyInterpreterState_Delete: remaining subinterpreters` crash at JVM
+shutdown (see the odd-ball scenario above — same failure mode, different
+trigger). Reliably reproduced 5/5 runs before the fix, 0/5 after. Fixed by
+having the test explicitly disable `CHECK_MULTI_INTERP_EXTENSIONS` instead
+of `USE_MAIN_OBMALLOC`, which is illegal regardless of default. Worth
+remembering: a test that builds "the illegal combination" by removing a
+single flag from the current default is implicitly coupled to whatever
+that default currently is — safer to build the illegal combination
+explicitly than to rely on a relative mutation of
+`new SubInterpreterBuilder()`.
 
 Implemented as designed: `org.jpype.SubInterpreterBuilder`
 (`native/jpype_module/src/main/java/org/jpype/SubInterpreterBuilder.java`),
@@ -20,17 +53,17 @@ separate `gil`/`OWN_GIL` cross-constraint exists in that function) -
 `SubInterpreterBuilder.validate()` checks exactly that one rule.
 
 Tests: `native/jpype_module/src/test/java/python/lang/
-SubInterpreterBuilderNGTest.java` (6 tests - legacy-parity, `ownGil()`
-smoke test confirming a real own-GIL/own-obmalloc subinterpreter still
-works now that `_jpype` is multi-phase-init-safe, illegal-combination
-rejection, stdio wiring via the builder, `asSupplier()` launching
-independent instances, try-with-resources closing a `SubInterpreter`
-automatically). All pass under both python3.12 and python3.10 native
-builds (5 of the 6 skip under 3.10 via the same version-gate pattern as
-`SubInterpreterNGTest`; the validation-rejection test does not skip,
-since it never reaches the version check). Full existing
-`SubInterpreterNGTest`/`InterpreterStdioNGTest` suites re-verified passing
-against the changed native signature.
+SubInterpreterBuilderNGTest.java` (7 tests - `elevated()`-matches-plain-start
+parity, a dedicated default-is-safest-not-elevated test, `ownGil()` smoke
+test confirming a real own-GIL/own-obmalloc subinterpreter still works now
+that `_jpype` is multi-phase-init-safe, illegal-combination rejection,
+stdio wiring via the builder, `asSupplier()` launching independent
+instances, try-with-resources closing a `SubInterpreter` automatically).
+All pass under both python3.12 and python3.10 native builds (6 of the 7
+skip under 3.10 via the same version-gate pattern as `SubInterpreterNGTest`;
+the validation-rejection test does not skip, since it never reaches the
+version check). Full existing `SubInterpreterNGTest`/`InterpreterStdioNGTest`
+suites re-verified passing against the changed native signature.
 
 **Odd-ball scenario also tested:** `test/jpypetest/test_inception.py` -
 forward-bridge Python (Python hosts the JVM) using `SubInterpreterBuilder`
@@ -150,9 +183,15 @@ APIs.
   the comment from memory. Throw `IllegalStateException` with a clear
   message on violation.
   Provide two named presets as static factory methods returning
-  pre-configured instances: `SubInterpreterBuilder.legacy()` (today's
-  hardcoded values — the default state of a bare `new SubInterpreterBuilder()`
-  too) and `SubInterpreterBuilder.ownGil()` (the new isolated case).
+  pre-configured instances: `SubInterpreterBuilder.ownGil()` (own GIL, own
+  obmalloc, `check_multi_interp_extensions` enabled — the safest legal
+  combination, and also the default state of a bare
+  `new SubInterpreterBuilder()`, since this API never shipped and there is
+  no prior behavior to default to for compatibility) and
+  `SubInterpreterBuilder.elevated()` (the shared-GIL/shared-obmalloc
+  combination `SubInterpreter.start()` has always used, for callers that
+  need to opt out of isolation to import single-phase-init extensions or
+  share the main obmalloc/GIL).
 - `startSubInterpreter`'s native call gains an overload (or parameter)
   threading the resolved `PyInterpreterConfig` values down instead of the
   hardcoded literal in `jp_bridge.cpp`.

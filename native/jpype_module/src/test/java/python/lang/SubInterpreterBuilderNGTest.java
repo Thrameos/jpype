@@ -31,7 +31,7 @@ import static org.testng.Assert.assertNotSame;
 
 /**
  * Exercises {@link SubInterpreterBuilder}: the {@code Option} EnumSet
- * flags, the {@code legacy()}/{@code ownGil()} presets, cross-field
+ * flags, the {@code ownGil()}/{@code elevated()} presets, cross-field
  * validation, stdio wiring, and the {@code asSupplier()} adapter.
  *
  * <p>
@@ -57,9 +57,30 @@ public class SubInterpreterBuilderNGTest extends PyTestHarness
   }
 
   @Test
-  public void testLegacyMatchesPlainStart()
+  public void testElevatedMatchesPlainStart()
   {
-    SubInterpreter sub = startOrSkip(SubInterpreterBuilder.legacy());
+    // elevated() reproduces the fixed shared-GIL/shared-obmalloc values
+    // SubInterpreter.start() has always used.
+    SubInterpreter sub = startOrSkip(SubInterpreterBuilder.elevated());
+    try
+    {
+      Script script = new Script(sub);
+      assertEquals(script.eval("1 + 1").toString(), "2");
+    } finally
+    {
+      sub.close();
+    }
+    assertFalse(NativeLauncherControl.isGilHeld());
+  }
+
+  @Test
+  public void testDefaultIsSafestNotElevated()
+  {
+    // A bare `new SubInterpreterBuilder()` must default to the safest legal
+    // combination (own GIL, own obmalloc, check_multi_interp_extensions),
+    // not the elevated/shared one - this API never shipped, so there is no
+    // prior behavior to default to for backward compatibility.
+    SubInterpreter sub = startOrSkip(new SubInterpreterBuilder());
     try
     {
       Script script = new Script(sub);
@@ -92,9 +113,12 @@ public class SubInterpreterBuilderNGTest extends PyTestHarness
   @Test
   public void testIllegalCombinationRejectedBeforeNativeCall()
   {
+    // The default already has USE_MAIN_OBMALLOC off (it's the safest
+    // combination - see SubInterpreterBuilder's class Javadoc), so the
+    // illegal combination requires explicitly disabling
+    // CHECK_MULTI_INTERP_EXTENSIONS too, not just USE_MAIN_OBMALLOC.
     SubInterpreterBuilder builder = new SubInterpreterBuilder()
-            .without(SubInterpreterBuilder.Option.USE_MAIN_OBMALLOC);
-    // CHECK_MULTI_INTERP_EXTENSIONS was never enabled - illegal combination.
+            .without(SubInterpreterBuilder.Option.CHECK_MULTI_INTERP_EXTENSIONS);
     try
     {
       builder.start();
@@ -111,7 +135,7 @@ public class SubInterpreterBuilderNGTest extends PyTestHarness
   public void testSetOutputCapturesPrint()
   {
     ByteArrayOutputStream captured = new ByteArrayOutputStream();
-    SubInterpreterBuilder builder = SubInterpreterBuilder.legacy().setOutput(captured);
+    SubInterpreterBuilder builder = SubInterpreterBuilder.elevated().setOutput(captured);
     SubInterpreter sub = startOrSkip(builder);
     try
     {
@@ -128,7 +152,7 @@ public class SubInterpreterBuilderNGTest extends PyTestHarness
   @Test
   public void testAsSupplierLaunchesIndependentInstances()
   {
-    SubInterpreterBuilder builder = SubInterpreterBuilder.legacy();
+    SubInterpreterBuilder builder = SubInterpreterBuilder.elevated();
     Supplier<SubInterpreter> supplier = builder.asSupplier();
 
     SubInterpreter sub1;
@@ -165,7 +189,7 @@ public class SubInterpreterBuilderNGTest extends PyTestHarness
     // special-casing needed for try-with-resources, it's a plain language
     // guarantee for anything AutoCloseable.
     SubInterpreter captured;
-    try (SubInterpreter sub = startOrSkip(SubInterpreterBuilder.legacy()))
+    try (SubInterpreter sub = startOrSkip(SubInterpreterBuilder.elevated()))
     {
       captured = sub;
       assertEquals(new Script(sub).eval("1 + 1").toString(), "2");

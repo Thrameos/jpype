@@ -5323,10 +5323,14 @@ configuration with this same stdio wiring in one place, modeled on
        // ...
    }   // sub.close() runs automatically, even if the block throws
 
-``ownGil()`` requests a real own-GIL, own-obmalloc subinterpreter rather
-than the legacy shared-GIL default ``SubInterpreter.start()`` still uses;
-``legacy()`` (or a bare ``new SubInterpreterBuilder()``) reproduces that
-default explicitly. Individual ``PyInterpreterConfig`` flags (``ALLOW_FORK``,
+A bare ``new SubInterpreterBuilder()`` defaults to the safest legal
+combination - own GIL, own obmalloc, ``check_multi_interp_extensions``
+enabled - the same as ``ownGil()``, which exists purely so call sites can
+say so explicitly. Use ``elevated()`` to opt into the less-restrictive
+shared-GIL/shared-obmalloc combination (the fixed values the plain,
+builder-less ``SubInterpreter.start()`` still uses) when the default
+isolation is too restrictive for what the subinterpreter needs to import
+or share. Individual ``PyInterpreterConfig`` flags (``ALLOW_FORK``,
 ``ALLOW_EXEC``, ``ALLOW_THREADS``, ``ALLOW_DAEMON_THREADS``,
 ``CHECK_MULTI_INTERP_EXTENSIONS``, ``USE_MAIN_OBMALLOC``, ``OWN_GIL``) can be
 toggled directly via ``with(Option...)``/``without(Option...)``; an illegal

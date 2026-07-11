@@ -48,7 +48,7 @@ class InceptionTestCase(common.JPypeTestCase):
 
     def _startOrSkip(self):
         try:
-            return self.SubInterpreterBuilder.legacy().start()
+            return self.SubInterpreterBuilder.elevated().start()
         except jpype.JException as ex:
             if "Subinterpreters not supported" in str(ex):
                 raise unittest.SkipTest(
