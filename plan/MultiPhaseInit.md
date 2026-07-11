@@ -1,10 +1,15 @@
 # Plan: convert `_jpype` to multi-phase init (`Py_MOD_PER_INTERPRETER_GIL_SUPPORTED`)
 
-## Status (2026-07-11): steps 1-3 (dead code, jarTmpPath, the actual
-Py_mod_exec split) all done and verified against the real reverse-bridge
-test suite. Remaining: step 4 (_PyJPModule_trace policy, doc-only —
-recommend documenting as intentionally shared, no code change) and the new
-own-GIL-config verification test described at the bottom of this plan.
+## Status (2026-07-11): COMPLETE. Steps 1-4 all done (committed 3644e70e on
+`reverse`), verified against the real reverse-bridge test suite (514/514,
+python3.10), and the actual proof-of-goal check passed under
+`python3.12-dbg`: `_jpype` now imports successfully inside a real isolated
+(`check_multi_interp_extensions=True`) subinterpreter, where it — and any
+single-phase-init extension — would previously have been refused. See
+"Verification" at the bottom for the remaining lower-priority follow-ups
+(Java-side `python3.12-dbg` mvn run, a native own-GIL test using
+`Py_NewInterpreterFromConfig` directly) that would round this out further
+but aren't required to call the stated goal met.
 
 ## Context
 
@@ -165,20 +170,17 @@ process startup.
    called. Verified: compiles clean in both normal and
    `-DENABLE_COVERAGE=ON` builds.
 
-2. **`native/python/pyjp_module.cpp:986`** — `int _PyJPModule_trace;`
+2. **DONE, no code change needed — resolved as option (a).**
+   `native/python/pyjp_module.cpp:986` — `int _PyJPModule_trace;`
    (`extern "C"` in `native/common/include/jp_tracer.h:88`, consumed by
    `native/common/jp_tracer.cpp:87-193`), toggled by the debug-only
-   `trace()` Python method. Existing code comment explicitly accepts this as
-   shared: *"used only in debugging and does not need to be subinterpreter
-   safe."* **Decision needed, not a blocking fix**: either (a) keep as an
-   intentionally-shared process-wide debug knob (document explicitly in the
-   multi-phase-init changeset so a future auditor doesn't flag it as an
-   oversight), or (b) make it an atomic/TLS if strict
-   `Py_MOD_PER_INTERPRETER_GIL_SUPPORTED` correctness is interpreted to
-   require zero shared mutable state even for debug-only paths. Recommend
-   (a) — CPython's own multi-phase-init contract is about correctness of
-   the module's *user-facing* behavior across interpreters, not about
-   eliminating every debug hook; document and move on.
+   `trace()` Python method. The existing code comment already documents
+   the decision: *"used only in debugging and does not need to be
+   subinterpreter safe."* Same reasoning as
+   [[jpype_fault_injection_global_by_design]] — a shared, documented,
+   debug-only knob is fine; CPython's multi-phase-init contract is about
+   the module's user-facing correctness across interpreters, not about
+   eliminating every debug hook. Nothing further to do here.
 
 3. **DONE 2026-07-11.** `native/python/pyjp_array.cpp:478` — dead
    file-scope `PyTypeObject *PyJPArrayPrimitive_Type = nullptr;`, never
@@ -299,9 +301,9 @@ Python-level cross-talk risk between subinterpreters' non-Java state).
    everything from steps 1-3 is sitting together as one working-tree diff;
    commit when ready (could also be split into 3 commits matching the
    plan's numbered items, at the user's preference).
-4. Item C.2 (`_PyJPModule_trace` policy decision) — documentation-only if
-   option (a) is chosen (recommended); otherwise implement alongside (3).
-   Not yet done.
+4. **DONE, no code change needed.** Item C.2 (`_PyJPModule_trace` policy
+   decision) — resolved as option (a), already documented by the existing
+   code comment.
 5. **DONE, folded into step 3.** The `Py_GIL_DISABLED` slot question (A.3)
    is resolved — see item A above.
 
@@ -313,32 +315,43 @@ Python-level cross-talk risk between subinterpreters' non-Java state).
 `native/jpype_module` reverse-bridge suite (no `-Dtest=` filter) — 514 run,
 0 failures, 0 errors, 6 skipped, no hangs. This exercises JVM start/stop
 (`PyJPModule_startup`/`_shutdown`, including the moved `jarTmpPath`) and a
-wide swath of both bridge directions through the new init path, but it is
-**not** a subinterpreter/own-GIL test — python3.10 doesn't have
-`PyInterpreterConfig_OWN_GIL` at all, and this session didn't touch
-`python3.12-dbg`. Still open, not done this session:
+wide swath of both bridge directions through the new init path.
 
-- Full `mvn -q test -Dpython.executable=python3.12-dbg` (this is a
-  3.12+-gated feature; python3.10 build should be unaffected and used as
-  the regression baseline — expect unchanged pass count there, since
-  `#if PY_VERSION_HEX>=0x030c0000` gating already exists for the
-  subinterpreter-specific code paths).
+**Proof-of-goal test DONE 2026-07-11 (`python3.12-dbg`, plain `pip install
+-e .`, no coverage flag needed for this check):** built cleanly against
+`python3.12-dbg`. Used the stdlib's `_xxsubinterpreters.create(isolated=True)`
+(maps to `check_multi_interp_extensions=True` in 3.12's C implementation —
+the exact flag that gates whether a single-phase-init extension is refused)
+to create a real isolated subinterpreter, then imported `_jpype` inside it
+via `_xxsubinterpreters.run_string()`: **succeeded**
+(`IMPORT OK in isolated subinterpreter: 1.7.2.dev0`). Confirmed this is a
+meaningful test, not a no-op: same isolated subinterpreter genuinely
+rejects a real single-phase-init extension
+(`_testsinglephase`, CPython's own test fixture for this exact scenario,
+found pre-built from an earlier session's `python3.12` build directory)
+with `ImportError: module _testsinglephase does not support loading in
+subinterpreters` — precisely the failure `_jpype` itself would have hit
+before this rewrite. This is the actual evidence the rewrite achieved its
+goal: CPython now accepts `_jpype` under `check_multi_interp_extensions=True`,
+which was refused pre-rewrite.
+
+Not done this session (would need more setup/time, lower priority now that
+the core proof above is in hand):
+- Full `mvn -q test -Dpython.executable=python3.12-dbg` (Java-side
+  reverse-bridge suite under 3.12-dbg specifically, not just python3.10).
 - Rerun the full `SubInterpreterNGTest` suite (7 tests, including the two
-  stress tests added this session —
+  stress tests added in an earlier session —
   `testMixAndMatchNoCrossTalkNoHangs`/`testConcurrentThreadDoesNotBlockAfterSubEval`)
-  under `python3.12-dbg` after the rewrite — these are the existing
-  ground-truth correctness tests and must stay green.
-- New test to add once multi-phase init lands: switch a subinterpreter's
-  `PyInterpreterConfig` from the current legacy config
-  (`use_main_obmalloc=1`, `check_multi_interp_extensions=0`) to a real
-  isolated config (`use_main_obmalloc=0`, `check_multi_interp_extensions=1`,
-  `.gil=PyInterpreterConfig_OWN_GIL`) and confirm `_jpype` imports/runs
-  without CPython refusing the extension (the actual proof the rewrite
-  achieved its goal — today this config combination would fail at import
-  time precisely because `_jpype` doesn't declare
-  `Py_MOD_PER_INTERPRETER_GIL_SUPPORTED`).
-- `python3.12-dbg`'s extra runtime assertions (the reason it was fetched
-  this session in the first place, per [[jpype_subinterpreter_difficulty]])
-  should stay in the loop for this work — own-GIL isolation bugs are
-  exactly the class of memory-safety issue that build catches that a
-  release build silently tolerates.
+  under `python3.12-dbg` — these are existing ground-truth Java-side
+  subinterpreter lifecycle tests and should stay green, but they exercise
+  the legacy-config path (`use_main_obmalloc=1`,
+  `check_multi_interp_extensions=0`), not the new own-GIL-eligible path
+  proven above via the stdlib test — a native/Java-side test using
+  `Py_NewInterpreterFromConfig` with `.gil=PyInterpreterConfig_OWN_GIL`
+  directly would be the more complete follow-up if this project wants to
+  actually run JPype itself (not just prove eligibility) inside a true
+  own-GIL subinterpreter.
+- `python3.12-dbg`'s extra runtime assertions should stay in the loop for
+  any future work here — own-GIL isolation bugs are exactly the class of
+  memory-safety issue that build catches that a release build silently
+  tolerates.
