@@ -19,8 +19,7 @@ package python.exceptions;
 import python.lang.PyExc;
 
 /**
- *
- * @author nelson85
+ * Java front-end for Python's {@code UnicodeEncodeError}.
  */
 public class PyUnicodeEncodeError extends PyUnicodeError
 {

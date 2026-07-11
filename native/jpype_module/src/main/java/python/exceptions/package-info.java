@@ -32,7 +32,3 @@ package python.exceptions;
  * required to catch by type. Every class is backed by the native PyExc class.
  *
  */
-// As to why exception warranted its own package?  Because there is a lot of
-// them.
-//
-// To save bytes I have omitted the usual license header.

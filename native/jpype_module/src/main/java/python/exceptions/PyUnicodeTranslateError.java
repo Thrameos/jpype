@@ -19,8 +19,7 @@ package python.exceptions;
 import python.lang.PyExc;
 
 /**
- *
- * @author nelson85
+ * Java front-end for Python's {@code UnicodeTranslateError}.
  */
 public class PyUnicodeTranslateError extends PyUnicodeError
 {

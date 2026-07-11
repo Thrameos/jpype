@@ -19,7 +19,7 @@ package python.exceptions;
 import python.lang.PyExc;
 
 /**
- *
+ * Java front-end for Python's {@code Exception}, the root of the built-in, non-exiting exceptions.
  */
 public class PyException extends PyBaseException
 {
