@@ -24,28 +24,43 @@ import python.lang.PyString;
  * {@link PyTextIOBase#asReader()}.
  *
  * Lets a {@code python.io} text object stand in wherever Java code expects a
- * real {@code Reader}. {@code read(char[], int, int)} forwards directly to a
- * single {@link PyTextIOBase#read(int)} call; the single-char {@code read()}
- * makes its own call per character, so prefer the bulk form for large
- * transfers.
+ * real {@code Reader}. Reads are served out of an internal buffer (default
+ * 8KB chars) refilled with a single bulk {@link PyTextIOBase#read(int)}
+ * call, so single-char {@code read()} calls (via {@link Reader}'s default
+ * {@code read()}, which delegates to {@code read(char[], int, int)}) and
+ * small bulk requests no longer cost one bridge round trip each; a request
+ * at least as large as the buffer bypasses it and reads straight into the
+ * caller's array.
  */
 final class PyIOReader extends Reader
 {
 
+  static final int DEFAULT_BUFFER_SIZE = 8192;
+
   private final PyTextIOBase stream;
+  private final char[] buffer;
+  private int pos;
+  private int limit;
 
   PyIOReader(PyTextIOBase stream)
   {
-    this.stream = stream;
+    this(stream, DEFAULT_BUFFER_SIZE);
   }
 
-  @Override
-  public int read()
+  PyIOReader(PyTextIOBase stream, int bufferSize)
   {
-    PyString chunk = stream.read(1);
-    if (chunk.length() == 0)
-      return -1;
-    return chunk.charAt(0);
+    this.stream = stream;
+    this.buffer = new char[bufferSize];
+  }
+
+  private int fill()
+  {
+    PyString chunk = stream.read(buffer.length);
+    int n = chunk.length();
+    chunk.toString().getChars(0, n, buffer, 0);
+    pos = 0;
+    limit = n;
+    return n;
   }
 
   @Override
@@ -53,11 +68,23 @@ final class PyIOReader extends Reader
   {
     if (len == 0)
       return 0;
-    PyString chunk = stream.read(len);
-    int n = chunk.length();
-    if (n == 0)
-      return -1;
-    chunk.toString().getChars(0, n, cbuf, off);
+    if (pos >= limit)
+    {
+      if (len >= buffer.length)
+      {
+        PyString chunk = stream.read(len);
+        int n = chunk.length();
+        if (n == 0)
+          return -1;
+        chunk.toString().getChars(0, n, cbuf, off);
+        return n;
+      }
+      if (fill() == 0)
+        return -1;
+    }
+    int n = Math.min(len, limit - pos);
+    System.arraycopy(buffer, pos, cbuf, off, n);
+    pos += n;
     return n;
   }
 

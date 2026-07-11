@@ -55,10 +55,11 @@ public interface PyBufferedIOBase extends PyIOBase
 
   /**
    * Wraps this stream as a standard {@link java.io.InputStream}, so it can be
-   * passed to Java APIs that expect one. Each single-byte {@code read()} call
-   * makes its own call into {@link #read(int)}; for large transfers, prefer
-   * {@code read(byte[], int, int)} on the returned stream, which forwards
-   * directly to a single {@link #read(int)} call sized to the request.
+   * passed to Java APIs that expect one. The returned stream buffers reads
+   * internally (default 8KB), refilling with a single {@link #read(int)}
+   * call, so single-byte {@code read()} calls and small bulk requests don't
+   * each cost their own round trip into Python; a request at least as large
+   * as the buffer bypasses it.
    *
    * @return an {@code InputStream} view of this stream.
    */
@@ -69,11 +70,11 @@ public interface PyBufferedIOBase extends PyIOBase
 
   /**
    * Wraps this stream as a standard {@link java.io.OutputStream}, so it can
-   * be passed to Java APIs that expect one. Each single-byte {@code write()}
-   * call makes its own call into {@link #write(PyBuffer)}; for large
-   * transfers, prefer {@code write(byte[], int, int)} on the returned
-   * stream, which forwards directly to a single {@link #write(PyBuffer)}
-   * call sized to the request.
+   * be passed to Java APIs that expect one. The returned stream buffers
+   * writes internally (default 8KB), flushing to a single
+   * {@link #write(PyBuffer)} call when the buffer fills, on {@code flush()},
+   * or on {@code close()} — a pending write is not visible on the underlying
+   * stream until then. A request at least as large as the buffer bypasses it.
    *
    * @return an {@code OutputStream} view of this stream.
    */

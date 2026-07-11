@@ -17,6 +17,7 @@ public class PyWriterAdapterNGTest extends PyTestHarness
 
     Writer out = instance.asWriter();
     out.write("hello");
+    out.flush();
 
     assertEquals(instance.getvalue().toString(), "hello");
   }
@@ -30,6 +31,7 @@ public class PyWriterAdapterNGTest extends PyTestHarness
     out.write('a');
     out.write('b');
     out.write('c');
+    out.flush();
 
     assertEquals(instance.getvalue().toString(), "abc");
   }
@@ -41,6 +43,7 @@ public class PyWriterAdapterNGTest extends PyTestHarness
 
     Writer out = instance.asWriter();
     out.write("café été");
+    out.flush();
 
     assertEquals(instance.getvalue().toString(), "café été");
   }
@@ -70,6 +73,7 @@ public class PyWriterAdapterNGTest extends PyTestHarness
     int n;
     while ((n = in.read(buf)) != -1)
       out.write(buf, 0, n);
+    out.flush();
 
     assertEquals(dest.getvalue().toString(), "test");
   }

@@ -1,5 +1,73 @@
 # python.io: porting Python's `io` module with InputStream/OutputStream promotion
 
+## Status (2026-07-11, even later): C done - buffered rewrite implemented and benchmarked; A-F all complete
+
+`PyIOInputStream`/`PyIOOutputStream`/`PyIOReader`/`PyIOWriter` (all four
+adapters) now buffer internally (default 8KB/8K-chars, package-private
+constructor-overridable for tests): reads are served out of an internal
+buffer refilled by a single bulk `read(size)` call; writes accumulate
+locally and flush via a single bulk `write(...)` call on buffer-full,
+`flush()`, or `close()`. A request at least as large as the buffer bypasses
+buffering entirely (no pointless extra copy). This is a pure Java-side
+change - the four adapters' `stream`/constructor contracts are unchanged, so
+`asInputStream()`/`asOutputStream()`/`asReader()`/`asWriter()` callers see no
+API difference, only different visibility timing: a pending write is not
+observable on the underlying Python object until flushed (existing tests in
+`PyIOStreamAdapterNGTest`/`PyWriterAdapterNGTest` that checked state
+immediately after unflushed single-byte/char writes were updated to flush
+first - correct per ordinary `java.io.Buffered*` semantics, not a
+compatibility break of anything documented).
+
+**Benchmark - and a real, asymmetric finding, not just a confirmation.**
+Ran a real-bridge (not simulated) A/B on `PyTestHarness` context: same
+adapter code path both sides, differing only in buffer size (`1`, i.e. a
+fill/flush on every single-element call - exactly the old unbuffered
+behavior - vs the real default), 20,000 single-element calls each,
+`python3.10`:
+
+| Operation | speedup |
+|---|---|
+| single-byte `InputStream.read()` | **1.8x** |
+| single-byte `OutputStream.write(int)` | **1164x** |
+| single-char `Reader.read()` | **778x** |
+| single-char `Writer.write(int)` | **33x** |
+
+Byte writes and char reads/writes all get a huge win because, once buffered,
+the bulk conversion at the buffer boundary (`PyString.toString()` for reads,
+`context.bytes(byte[])`/`String` construction for writes) is itself a real
+bulk operation with no per-element bridge cost. **Byte reads are the
+outlier**: `PyBytes` -> `byte[]` extraction (`chunk.get(i)` +
+`builtin().asLong(...)`) has no bulk helper anywhere in the codebase (this
+was already true, and already flagged, before this pass - see "Open
+follow-up" in the prior status section below), so it still costs one bridge
+call *per byte* inside `fill()`, same as the old code did inside its
+per-request loop. Buffering only removes the `stream.read(n)` round trips,
+not this per-element cost - which dominates, capping the byte-read win far
+below every other direction. If byte-read throughput ever matters enough to
+chase further, the lever is a bulk `PyBytes` -> `byte[]` conversion helper
+(mirroring `Backend.newBytesFromBuffer`'s existing reverse direction), not
+more buffering - buffering alone has already captured everything it can for
+this specific path.
+
+New test coverage: `PyIOBufferingNGTest` (6 tests, part of the normal suite)
+- asserts call counts collapse to `ceil(N/bufferSize)` for small requests
+  and to exactly 1 for a request at least as large as the buffer, using a
+  dynamic-proxy call counter wrapping a real `PyBytesIO`/`PyStringIO`
+  (forwards every call, counts `read`/`write` invocations) rather than a
+  hand-rolled fake implementing the full `PyBufferedIOBase`/`PyTextIOBase`
+  surface. `PyIOBufferingBenchmark` (excluded from the normal suite by
+  surefire's default `*Test.java`-only pattern, unlike `*NGTest.java`; run
+  explicitly with `-Dtest=PyIOBufferingBenchmark`) is the wall-clock
+  benchmark behind the table above.
+
+Full suite: 535/535, 0 failures/errors, 14 pre-existing skips
+(`mvn -o test -Dpython.executable=python3.10`).
+
+With this, all of sections A/B/C/D/F are done - `plan/IO.md` is complete
+except for the explicitly-deferred items in section E (`$foo` dispatch, a
+real third-party numpy-shaped provider) and the byte-read extraction-helper
+follow-up noted above, neither of which block anything.
+
 ## Status (2026-07-11, later): sections A, B, D, F done; only C (buffering rewrite) still pending
 
 Implemented this pass, on top of the existing `PyBytesIO`/`PyStringIO`/
