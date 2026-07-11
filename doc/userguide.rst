@@ -6015,6 +6015,51 @@ This section lists those limitations that are unlikely to change, as they come
 from external sources.
 
 
+.. _miscellaneous_topics_jpype_known_limitations_numpy_openblas:
+
+NumPy with OpenBLAS threading
+------------------------------
+
+On some systems (particularly RHEL7/CentOS7 with pip-installed NumPy), using
+``numpy.linalg`` operations after starting the JVM may cause a segmentation fault.
+This is caused by a conflict between the JVM's thread stack size and OpenBLAS's
+multithreaded operations.
+
+This issue is external to JPype and occurs due to interactions between the JVM,
+OpenBLAS, and system threading libraries. See issue #808 for technical details.
+
+**Workarounds:**
+
+1. **Call numpy.linalg before starting JVM**::
+
+    import numpy as np
+    # Initialize OpenBLAS threading before JVM
+    np.linalg.inv([[1, 0], [0, 1]])
+
+    import jpype
+    jpype.startJVM()
+    # Now numpy.linalg operations work normally
+
+2. **Limit OpenBLAS to single thread** (set before importing numpy)::
+
+    import os
+    os.environ['OMP_NUM_THREADS'] = '1'
+
+    import numpy as np
+    import jpype
+    jpype.startJVM()
+
+3. **Increase JVM stack size**::
+
+    import jpype
+    jpype.startJVM('-Xss4M')  # 4MB stack size
+    import numpy as np
+    # Works for larger operations
+
+The first workaround is generally preferred as it initializes OpenBLAS threading
+before the JVM modifies the process threading environment.
+
+
 .. _miscellaneous_topics_jpype_known_limitations_annotations:
 
 Annotations
