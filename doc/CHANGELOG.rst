@@ -32,8 +32,10 @@ Latest Changes:
   - Fixed JArray constructor ignoring slice bounds when creating from sliced array. #845
 
   - Added jdk.zipfs module dependency to module-info for proper jlink/jdeps detection. #908
-  
+
   - Fixed overloaded methods from multiple interfaces not being detected. #844
+
+  - Improved implicit conversion from Python primitives to Java boxed types (Integer, Long, Short, Double, Float). #1098
 
 
 - **1.7.1 - 2026-05-06**
