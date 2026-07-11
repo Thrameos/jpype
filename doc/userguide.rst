@@ -5310,6 +5310,30 @@ Because each ``SubInterpreter`` owns its own ``sys`` module, redirecting one
 subinterpreter's stdio has no effect on the main interpreter or any other
 subinterpreter.
 
+``org.jpype.SubInterpreterBuilder`` combines PEP 684 interpreter
+configuration with this same stdio wiring in one place, modeled on
+``java.lang.ProcessBuilder``:
+
+.. code-block:: java
+
+   SubInterpreterBuilder builder = SubInterpreterBuilder.ownGil()
+       .setOutput(captured);
+
+   SubInterpreter sub = builder.start();   // genuinely isolated own-GIL subinterpreter
+   // ...
+   sub.close();
+
+``ownGil()`` requests a real own-GIL, own-obmalloc subinterpreter rather
+than the legacy shared-GIL default ``SubInterpreter.start()`` still uses;
+``legacy()`` (or a bare ``new SubInterpreterBuilder()``) reproduces that
+default explicitly. Individual ``PyInterpreterConfig`` flags (``ALLOW_FORK``,
+``ALLOW_EXEC``, ``ALLOW_THREADS``, ``ALLOW_DAEMON_THREADS``,
+``CHECK_MULTI_INTERP_EXTENSIONS``, ``USE_MAIN_OBMALLOC``, ``OWN_GIL``) can be
+toggled directly via ``with(Option...)``/``without(Option...)``; an illegal
+combination (currently: disabling ``USE_MAIN_OBMALLOC`` without enabling
+``CHECK_MULTI_INTERP_EXTENSIONS``) raises ``IllegalStateException`` from
+``start()`` before any native call is made.
+
 .. _synchronized:
 
 Synchronization

@@ -444,7 +444,10 @@ success_config:
 }
 
 JNIEXPORT jobject JNICALL Java_org_jpype_internal_NativeLauncherControl_startSubInterpreter
-(JNIEnv *env, jclass cls, jobject interpreter)
+(JNIEnv *env, jclass cls, jobject interpreter,
+ jboolean useMainObmalloc, jboolean allowFork, jboolean allowExec,
+ jboolean allowThreads, jboolean allowDaemonThreads,
+ jboolean checkMultiInterpExtensions, jboolean ownGil)
 {
 #if PY_VERSION_HEX<0x030c0000
 	fail(env, "Subinterpreters not supported");
@@ -453,33 +456,27 @@ JNIEXPORT jobject JNICALL Java_org_jpype_internal_NativeLauncherControl_startSub
 
 	try
 	{
-		// check_multi_interp_extensions=1 requires every extension module
-		// imported into this subinterpreter to declare multi-phase-init
-		// support (Py_mod_multiple_interpreters) - _jpype uses classic
-		// single-phase PyModule_Create() init, so CPython would reject
-		// "import _jpype" outright ("module _jpype does not support
-		// loading in subinterpreters"). We need it off. CPython in turn
-		// requires use_main_obmalloc=1 whenever check_multi_interp_extensions
-		// is 0 ("per-interpreter obmalloc does not support single-phase init
-		// extension modules" - Python/pylifecycle.c's init_interp_settings),
-		// so this subinterpreter shares the main interpreter's object
-		// allocator. Separately, .gil=PyInterpreterConfig_DEFAULT_GIL (0)
-		// resolves to a *shared* GIL, not an own one (only the explicit
-		// PyInterpreterConfig_OWN_GIL constant gets a separate GIL, and that
-		// combination isn't compatible with a single-phase-init _jpype
-		// either). Net effect: this gives a legacy-style subinterpreter -
-		// its own sys.modules/module namespace, sharing the process GIL and
-		// allocator - not full PEP 684 isolation. True own-GIL isolation
-		// would require rewriting _jpype as a multi-phase-init extension,
-		// which is separate, much larger work.
+		// CPython's Python/pylifecycle.c's init_interp_settings() enforces
+		// exactly one hard cross-field rule: use_main_obmalloc=0 requires
+		// check_multi_interp_extensions=1 ("per-interpreter obmalloc does
+		// not support single-phase init extension modules" - single-phase
+		// modules leak state via PyModuleDef.m_base.m_copy). jpype's
+		// SubInterpreterBuilder (org.jpype) validates that same rule
+		// Java-side before this call is ever reached, so a violation here
+		// would indicate a bug in that validation, not a legitimate caller
+		// path. check_multi_interp_extensions=1 additionally requires every
+		// extension module the subinterpreter imports (including _jpype
+		// itself) to declare multi-phase-init support - true since
+		// plan/MultiPhaseInit.md, so this is reachable for real use now,
+		// not just legacy shared-GIL/shared-obmalloc configs.
 		PyInterpreterConfig config = {
-			.use_main_obmalloc = 1,
-			.allow_fork = 0,
-			.allow_exec = 0,
-			.allow_threads = 1,
-			.allow_daemon_threads = 0,
-			.check_multi_interp_extensions = 0,
-			.gil = 0
+			.use_main_obmalloc = useMainObmalloc,
+			.allow_fork = allowFork,
+			.allow_exec = allowExec,
+			.allow_threads = allowThreads,
+			.allow_daemon_threads = allowDaemonThreads,
+			.check_multi_interp_extensions = checkMultiInterpExtensions,
+			.gil = ownGil ? PyInterpreterConfig_OWN_GIL : PyInterpreterConfig_DEFAULT_GIL
 		};
 		PyThreadState *tstate = NULL;
 
