@@ -157,4 +157,20 @@ public class SubInterpreterBuilderNGTest extends PyTestHarness
       sub2.close();
     }
   }
+
+  @Test
+  public void testTryWithResourcesClosesSubInterpreter()
+  {
+    // SubInterpreter implements Interpreter extends AutoCloseable - no
+    // special-casing needed for try-with-resources, it's a plain language
+    // guarantee for anything AutoCloseable.
+    SubInterpreter captured;
+    try (SubInterpreter sub = startOrSkip(SubInterpreterBuilder.legacy()))
+    {
+      captured = sub;
+      assertEquals(new Script(sub).eval("1 + 1").toString(), "2");
+    }
+    assertFalse(captured.isStarted());
+    assertFalse(NativeLauncherControl.isGilHeld());
+  }
 }

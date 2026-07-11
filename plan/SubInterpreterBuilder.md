@@ -20,16 +20,35 @@ separate `gil`/`OWN_GIL` cross-constraint exists in that function) -
 `SubInterpreterBuilder.validate()` checks exactly that one rule.
 
 Tests: `native/jpype_module/src/test/java/python/lang/
-SubInterpreterBuilderNGTest.java` (5 tests - legacy-parity, `ownGil()`
+SubInterpreterBuilderNGTest.java` (6 tests - legacy-parity, `ownGil()`
 smoke test confirming a real own-GIL/own-obmalloc subinterpreter still
 works now that `_jpype` is multi-phase-init-safe, illegal-combination
 rejection, stdio wiring via the builder, `asSupplier()` launching
-independent instances). All pass under both python3.12 and python3.10
-native builds (4 of the 5 skip under 3.10 via the same version-gate
-pattern as `SubInterpreterNGTest`; the validation-rejection test does not
-skip, since it never reaches the version check). Full existing
+independent instances, try-with-resources closing a `SubInterpreter`
+automatically). All pass under both python3.12 and python3.10 native
+builds (5 of the 6 skip under 3.10 via the same version-gate pattern as
+`SubInterpreterNGTest`; the validation-rejection test does not skip,
+since it never reaches the version check). Full existing
 `SubInterpreterNGTest`/`InterpreterStdioNGTest` suites re-verified passing
 against the changed native signature.
+
+**Odd-ball scenario also tested:** `test/jpypetest/test_inception.py` -
+forward-bridge Python (Python hosts the JVM) using `SubInterpreterBuilder`
+via Java to launch and pilot a *second* CPython subinterpreter from
+inside Python itself. `exec_()` (Python-side rename of `Script.exec`,
+which collides with the builtin) works fine; `eval()` results crossing
+back into the outer/host interpreter correctly hit the Smuggler guard
+(`plan/Smuggler.md`) instead of corrupting memory, surfacing as a plain
+Python `RuntimeError` (not `jpype.JException` - it fires during `_jpype`'s
+own conversion path, not Java exception marshaling). Also confirmed: an
+unclosed `SubInterpreter` left dangling when an exception skips `.close()`
+is a **fatal**, uncatchable CPython error at process shutdown
+(`PyInterpreterState_Delete: remaining subinterpreters`), which is why
+`doc/userguide.rst` now explicitly recommends try-with-resources/`with`
+over a bare `.close()` call - both work for free since `SubInterpreter`
+implements `AutoCloseable` (Java try-with-resources is a language
+guarantee; Python's `with` comes from JPype's blanket `AutoCloseable`
+customizer in `jpype/_jio.py`).
 
 Follow-on from `plan/JepParity.md` item 4. Motivated by comparing against
 jep's `SubInterpreterOptions` (obmalloc, allowFork/Exec/Threads, ownGIL,

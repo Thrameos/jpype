@@ -97,6 +97,18 @@ class InceptionTestCase(common.JPypeTestCase):
         finally:
             sub.close()
 
+    def testWithStatementClosesSubInterpreter(self):
+        # SubInterpreter implements java.lang.AutoCloseable, and jpype's
+        # blanket AutoCloseable customizer (jpype/_jio.py) gives every such
+        # Java object __enter__/__exit__ for free - no special-casing
+        # needed here, same mechanism that gives java.io.PrintStream
+        # toPython() through plain inheritance.
+        with self._startOrSkip() as sub:
+            self.assertTrue(sub.isStarted())
+            script = self.Script(sub)
+            script.exec_("w = 'alive'")
+        self.assertFalse(sub.isStarted())
+
         self.assertFalse(self.NativeLauncherControl.isGilHeld(),
                           "GIL leaked on the calling (outer, forward-bridge) thread "
                           "after piloting a subinterpreter from Python-via-Java")

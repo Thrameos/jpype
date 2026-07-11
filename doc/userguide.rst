@@ -5316,12 +5316,12 @@ configuration with this same stdio wiring in one place, modeled on
 
 .. code-block:: java
 
-   SubInterpreterBuilder builder = SubInterpreterBuilder.ownGil()
-       .setOutput(captured);
-
-   SubInterpreter sub = builder.start();   // genuinely isolated own-GIL subinterpreter
-   // ...
-   sub.close();
+   try (SubInterpreter sub = SubInterpreterBuilder.ownGil()
+           .setOutput(captured)
+           .start())          // genuinely isolated own-GIL subinterpreter
+   {
+       // ...
+   }   // sub.close() runs automatically, even if the block throws
 
 ``ownGil()`` requests a real own-GIL, own-obmalloc subinterpreter rather
 than the legacy shared-GIL default ``SubInterpreter.start()`` still uses;
@@ -5333,6 +5333,31 @@ toggled directly via ``with(Option...)``/``without(Option...)``; an illegal
 combination (currently: disabling ``USE_MAIN_OBMALLOC`` without enabling
 ``CHECK_MULTI_INTERP_EXTENSIONS``) raises ``IllegalStateException`` from
 ``start()`` before any native call is made.
+
+.. warning::
+
+   Always close a ``SubInterpreter`` - via try-with-resources in Java
+   (shown above; ``SubInterpreter`` implements ``AutoCloseable``) or a
+   ``with`` block in Python (``SubInterpreter`` picks up ``__enter__``/
+   ``__exit__`` for free through JPype's blanket ``AutoCloseable``
+   customizer) - rather than a bare call to ``.close()`` at the end of a
+   method. If an exception skips the close (for example, the
+   cross-interpreter proxy guard described below raising mid-block) and
+   the subinterpreter is left open, the *process* dies at shutdown with a
+   fatal, uncatchable CPython error (``PyInterpreterState_Delete:
+   remaining subinterpreters``) rather than a normal Python exception or
+   a leak. ``with``/try-with-resources close on every exit path,
+   including exceptions, and are the only way to guarantee this can't
+   happen.
+
+   This matters in particular because evaluating an expression inside a
+   subinterpreter and returning its result across the interpreter
+   boundary is exactly the kind of call that can raise mid-block: a
+   result object that still belongs to the subinterpreter's own
+   allocator is rejected with a ``RuntimeError``/``IllegalStateException``
+   ("smuggled proxy") rather than risking memory corruption, so code that
+   evaluates subinterpreter expressions should expect that failure mode
+   and still guarantee cleanup around it.
 
 .. _synchronized:
 
