@@ -568,6 +568,16 @@ Follow the `PyTestHarness` pattern (`python/lang/PyStringNGTest.java` etc.):
 
 ## Open questions / not yet resolved by this plan
 
+Archiving note (2026-07-11): question 2's package-name choice shipped as
+`python.io` (not `org.jpype.io`) — see the real tree,
+`native/jpype_module/src/main/java/python/io/`. Questions 3-4 were
+resolved implicitly by the shipped implementation rather than by a
+written decision; not revisited before archiving since the code has been
+green (582+/582+, both Python versions) across every subsequent session
+that touched this area, including the `python.collections` work that
+used `python.io` as its reference pattern (`plan/archive/Collections.md`,
+`plan/SPI_tutorial.md`) without needing to change anything here.
+
 1. Resolved this pass (see "precedent, but NOT the mechanism" above): `io`
    doesn't need an exception-style native conversion hook at all, it rides
    the generic `_concrete`/`PyJP_probe` path via the SPI. No native call

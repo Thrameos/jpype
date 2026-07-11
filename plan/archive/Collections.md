@@ -1,6 +1,50 @@
 # python.collections: implement as an SPI provider, like python.io
 
-## Status (2026-07-11): scoped, not started
+## Status (2026-07-11): DONE — all four types shipped, plus a fifth (ChainMap)
+
+Implemented exactly as scoped below: `PyDeque` (stands alone, not a
+`PyList`/`PySequence` — `deque` isn't slice-able), `PyOrderedDict`/
+`PyDefaultDict`/`PyCounter` (all extend `PyDict`, reusing its entire `Map`
+surface), `PyCollectionsWrapperService` (mirrors `PyIOWrapperService`,
+scans its own `spi/` resource dir), `PyCollections` factory (mirrors
+`IO.using(context)`), one `.pyspi` per class, real Javadoc, and one
+NGTest class per type. `collections.deque().__module__` etc. all report
+plain `"collections"` (no `io`/`_io`-style split needed here — checked,
+not assumed, per this plan's own instruction).
+
+Two real design bugs found and fixed during verification (not just
+wiring gaps — see `plan/SPI_tutorial.md` for the full writeup, now the
+canonical reference for the next SPI plan):
+1. `OrderedDict.moveToEnd(key)`'s one-arg Java default couldn't reach a
+   Java-side default value through proxy dispatch (which routes by
+   Python attribute name, not Java signature) — the default has to live
+   in the `.pyspi` Python function itself.
+2. `Counter`'s Javadoc wrongly assumed inherited `PyDict.get()` already
+   returned `0` for a missing key; it doesn't (`dict.get()` never
+   consults `__missing__`) — added a dedicated `getCount()` backed by
+   `x[key]`.
+
+Extended past the original four-type scope with a fifth type,
+**`PyChainMap`** (`collections.ChainMap`), added on user request as a
+follow-up in the same session: correctly extends `PyMapping` rather than
+`PyDict` (ChainMap is a `MutableMapping`, not a real `dict` subclass —
+the plan's own "pick the right Java shape for the real Python ABC"
+principle, applied a second time), plus `PyCombinable` for `|`. Building
+it surfaced a third bug, this time in core `python.lang` rather than
+anything `collections`-specific: `PyMapping.get()`'s default
+implementation never caught `KeyError`, contradicting both its own
+Javadoc and real Python's `collections.abc.Mapping.get()` mixin
+semantics — nothing had exercised that default path before, since every
+prior `PyMapping`-family type in the tree was also a real `dict` and
+always went through `PyDict.get()`'s separate, correct override instead.
+Fixed in `PyMapping.java`; full suite re-verified green on both Python
+versions afterward since it's a shared core fix.
+
+Full suite green throughout: python3.10 and python3.12, 0 failures, 0
+new skips beyond the 14 pre-existing ones. See `plan/SPI_tutorial.md`
+for the process writeup aimed at whoever builds the next SPI provider
+(Datetime/Decimal/Pathlib/etc., or `ChainMap`'s stdlib siblings like
+`UserDict` if ever justified).
 
 ## The problem
 
