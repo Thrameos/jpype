@@ -73,4 +73,14 @@ public interface IO
    */
   PyStringIO stringIO(CharSequence initial);
 
+  /**
+   * Opens {@code path} as a raw, unbuffered binary stream, equivalent to
+   * Python's {@code open(path, mode, buffering=0)}.
+   *
+   * @param path the file path to open.
+   * @param mode the mode string, e.g. {@code "rb"} or {@code "wb"}.
+   * @return a new {@link PyFileIO} instance.
+   */
+  PyFileIO fileIO(CharSequence path, CharSequence mode);
+
 }
