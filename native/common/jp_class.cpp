@@ -355,6 +355,20 @@ JPPyObject JPClass::convertToPythonObject(JPJavaFrame& frame, jvalue value, bool
 	{
 		jlong hostPtr = frame.CallStaticLongMethodA(context->m_ProxyTypeClass, context->m_ProxyType_GetInstanceID, &value);
 		JPProxy *proxy = (JPProxy*) hostPtr;
+		// Smuggler guard: this proxy's PyObject* was allocated by the
+		// interpreter that created it (proxy->m_Context), not necessarily
+		// the interpreter running right now. Handing pproxy->m_Target
+		// straight back into a different interpreter's Python code is a
+		// cross-interpreter object-safety violation - own-GIL
+		// subinterpreters (plan/MultiPhaseInit.md) have separate
+		// allocators/arenas, so touching it here would be memory
+		// corruption, not just a wrong answer. See plan/Smuggler.md.
+		if (proxy->m_Context != context)
+		{
+			JP_RAISE(PyExc_RuntimeError,
+					"Python object crossed into a different interpreter "
+					"than the one that created it (smuggled proxy)");
+		}
 		PyJPProxy *pproxy = proxy->m_Instance;
 		if (pproxy->m_Convert && pproxy->m_Target != Py_None)
 			return JPPyObject::use(pproxy->m_Target);

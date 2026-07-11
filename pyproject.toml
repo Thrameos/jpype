@@ -75,7 +75,12 @@ testpaths = ["test", "jpype/_pyinstaller"]
 build.verbose = true
 logging.level = "INFO"
 wheel.packages = ["jpype", "jpype._pyinstaller", "_jpype", "_jpyne"]
-editable.mode = "inplace"
+editable.mode = "redirect"
+# Per-Python/per-platform build directory (see jpype_build_env_gotchas memory
+# for why: without this, in-source builds reuse stale CMakeFiles/ object
+# caches across Python version switches and can silently link the wrong
+# Python.h).
+build-dir = "build/{wheel_tag}"
 # todo: try out automatic rebuild feature.
 #editable.rebuild = true
 
