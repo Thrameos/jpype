@@ -78,10 +78,8 @@ JPMatch::Type JPBoxedType::findJavaConversion(JPMatch &match)
 		// while preserving the ability to disambiguate with explicit casts
 		if (match.type == JPMatch::_exact)
 			return match.type = JPMatch::_derived;
-		if (match.type == JPMatch::_derived)
+		if (match.type > JPMatch::_explicit)
 			return match.type = JPMatch::_implicit;
-		if (match.type == JPMatch::_implicit)
-			return match.type = JPMatch::_implicit;  // Keep at implicit threshold
 		return match.type = JPMatch::_explicit;
 	}
 	return match.type = JPMatch::_none;
