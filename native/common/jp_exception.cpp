@@ -216,9 +216,26 @@ void JPypeException::convertJavaToPython()
 	}
 	// GCOVR_EXCL_STOP
 
-	// Create the exception object (this may fail)
+	// Create the exception object (this may fail, e.g. the smuggler guard in
+	// JPClass::convertToPythonObject rejecting a Java exception object that
+	// wraps a Python proxy created by a different interpreter). We are
+	// already inside exception handling here, so a throw escaping this
+	// point unwinds through the caller's exception-conversion machinery too -
+	// asbestos required. Catch locally and fall back to the same safe,
+	// contextual RuntimeError the (now largely unreachable) null-check below
+	// was meant to provide, rather than letting it fall through to the
+	// generic "Fatal error occurred" at the outer safety net.
 	v.l = th;
-	JPPyObject pyvalue = cls->convertToPythonObject(frame, v, false);
+	JPPyObject pyvalue;
+	try
+	{
+		pyvalue = cls->convertToPythonObject(frame, v, false);
+	} catch (JPypeException& ex)
+	{
+		(void) ex;
+		PyErr_SetString(PyExc_RuntimeError, frame.toString(th).c_str());
+		return;
+	}
 
 	// GCOVR_EXCL_START
 	// This sanity check can only be hit if the exception failed during
