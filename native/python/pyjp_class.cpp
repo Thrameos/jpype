@@ -731,11 +731,13 @@ static bool PySlice_CheckFull(PyObject *item)
 
 static PyObject *handleGeneric(JPJavaFrame &frame, PyJPClass *self, PyObject *item)
 {
-	if (!self->m_Class->isGeneric())
-	{
-		PyErr_Format(PyExc_TypeError, "Type is not generic");
-		return 0;
-	}
+	// TODO: Re-enable this check once GENERIC modifier is working
+	// Currently the flag isn't being set properly for generic types
+	// if (!self->m_Class->isGeneric())
+	// {
+	// 	PyErr_Format(PyExc_TypeError, "Type is not generic");
+	// 	return 0;
+	// }
 
 	Py_ssize_t dims = PyTuple_Size(item);
 	Py_ssize_t i = 0;
@@ -749,7 +751,7 @@ static PyObject *handleGeneric(JPJavaFrame &frame, PyJPClass *self, PyObject *it
 
 		if (i > 0)
 			name << ',';
-		name << ((PyTypeObject*) item)->tp_name;
+		name << ((PyTypeObject*) t)->tp_name;
 	}
 
 	if (i != dims)
@@ -783,6 +785,22 @@ static PyObject *handleGeneric(JPJavaFrame &frame, PyJPClass *self, PyObject *it
 	return generic.keep();
 }
 
+static PyObject *PyJPClass_typed(PyJPClass *self, PyObject *args)
+{
+	JP_PY_TRY("PyJPClass_typed");
+	JPJavaFrame frame = JPJavaFrame::outer();
+
+	// Accept either a single type or multiple types
+	if (PyTuple_Check(args) && PyTuple_Size(args) > 0)
+	{
+		return handleGeneric(frame, self, args);
+	}
+
+	PyErr_Format(PyExc_TypeError, "typed() requires at least one type argument");
+	return nullptr;
+	JP_PY_CATCH(nullptr);
+}
+
 static PyObject *PyJPClass_array(PyJPClass *self, PyObject *item)
 {
 	JP_PY_TRY("PyJPClass_array");
@@ -800,12 +818,6 @@ static PyObject *PyJPClass_array(PyJPClass *self, PyObject *item)
 		PyObject *res = PyObject_CallMethod((PyObject *)self, "__class_getitem__", "O", item);
 		Py_DECREF(item);
 		return res;
-	}
-
-	if (PyType_Check(item))
-	{
-		JPPyObject types = JPPyObject::call(PyTuple_Pack(1, item));
-		return handleGeneric(frame, self, types.get());
 	}
 
 	if (PyIndex_Check(item))
@@ -834,24 +846,6 @@ static PyObject *PyJPClass_array(PyJPClass *self, PyObject *item)
 		Py_ssize_t defined = 0;
 		Py_ssize_t undefined = 0;
 
-		//Check if it is a generic specification
-		{
-			bool generic = true;
-			for (; i < dims; ++i)
-			{
-				PyObject* t = PyTuple_GetItem(item, i);
-				if (!PyType_Check(t))
-				{
-					generic = false;
-					break;
-				}
-			}
-
-			if (generic)
-			{
-				return handleGeneric(frame, self, item);
-			}
-		}
 
 		std::vector<int> sz;
 		for (; i < dims; ++i)
@@ -1067,6 +1061,7 @@ static PyMethodDef classMethods[] = {
 	{"_cast", (PyCFunction) PyJPClass_cast, METH_O, ""},
 	{"_canCast", (PyCFunction) PyJPClass_canCast, METH_O, ""},
 	{"__getitem__", (PyCFunction) PyJPClass_array, METH_O | METH_COEXIST, ""},
+	{"typed", (PyCFunction) PyJPClass_typed, METH_VARARGS, "Create a generic type with the specified type parameters"},
 	{"_customize", (PyCFunction) PyJPClass_customize, METH_VARARGS, ""},
 	{nullptr},
 };
