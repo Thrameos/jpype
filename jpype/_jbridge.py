@@ -396,7 +396,12 @@ def initialize():
     def _equals(x,y):
         return x == y
 
-    _PyObjectMethods: MutableMapping[str, Callable] = { 
+    # equals/hashCode/toString are never mangled, even on a mangle-eligible
+    # interface: java.lang.reflect.Proxy special-cases these three and
+    # always dispatches them via Object.class's own Method object
+    # (ProxyFactory.objectMethods), never through ProxyType.buildDescriptor's
+    # per-interface mangled descriptor - see ProxyType.isObjectMethodSignature.
+    _PyObjectMethods: MutableMapping[str, Callable] = {
         "hashCode": _hash,
         "equals": _equals,
         "toString": _to_string,
@@ -428,33 +433,33 @@ def initialize():
     _PyIndexMethods: MutableMapping[str, Callable] = {}
     _PySubscriptMethods: MutableMapping[str, Callable] = {}
     _PyNumberMethods: MutableMapping[str, Callable] = {
-        "add": lambda x, v: x + v,
-        "divide": lambda x, v: x / v,
-        "divideWithRemainder": lambda x, d: x // d,
-        "matrixMultiply": lambda x, v: x @ v,
-        "multiply": lambda x, v: x * v,
-        "negate": lambda x: not x,
-        "power": lambda x, p: x ** p,
-        "modulus": lambda x, v: x % v,
-        "subtract": lambda x, v: x - v,
-        "toBoolean": bool,
-        "toDouble": float,
-        "toInteger": int,
-        "abs": abs,
-        "negateValue": lambda x: -x,
-        "positive": lambda x: +x,
-        "floorDivide": lambda x, v: x // v,
-        "compareTo": lambda x, y: -1 if x < y else (1 if x > y else 0),
-        "addInPlace": _addassign,
-        "divideInPlace": _divassign,
-        "multiplyInPlace": _multassign,
-        "subtractInPlace": _subassign,
+        ".add": lambda x, v: x + v,
+        ".divide": lambda x, v: x / v,
+        ".divideWithRemainder": lambda x, d: x // d,
+        ".matrixMultiply": lambda x, v: x @ v,
+        ".multiply": lambda x, v: x * v,
+        ".negate": lambda x: not x,
+        ".power": lambda x, p: x ** p,
+        ".modulus": lambda x, v: x % v,
+        ".subtract": lambda x, v: x - v,
+        ".toBoolean": bool,
+        ".toDouble": float,
+        ".toInteger": int,
+        ".abs": abs,
+        ".negateValue": lambda x: -x,
+        ".positive": lambda x: +x,
+        ".floorDivide": lambda x, v: x // v,
+        ".compareTo": lambda x, y: -1 if x < y else (1 if x > y else 0),
+        ".addInPlace": _addassign,
+        ".divideInPlace": _divassign,
+        ".multiplyInPlace": _multassign,
+        ".subtractInPlace": _subassign,
     }
 
     _PyComplexMethods: MutableMapping[str, Callable] = {
-        "real": lambda x: x.real,
-        "imag": lambda x: x.imag,
-        "conjugate": complex.conjugate
+        ".real": lambda x: x.real,
+        ".imag": lambda x: x.imag,
+        ".conjugate": complex.conjugate
     }
 
 
@@ -463,15 +468,15 @@ def initialize():
 
     ### Concrete types
     _PyExcMethods: MutableMapping[str, Callable] = {
-        "getMessage": _getMessage,
+        ".getMessage": _getMessage,
     }
 
     _PySliceMethods: MutableMapping[str, Callable] = {
-        "getStart": _attr("start"),
-        "getStop": _attr("stop"),
-        "getStep": _attr("step"),
-        "indices": lambda x, length: x.indices(int(length)),
-        "isValid": lambda x: x.step !=0,
+        ".getStart": _attr("start"),
+        ".getStop": _attr("stop"),
+        ".getStep": _attr("step"),
+        ".indices": lambda x, length: x.indices(int(length)),
+        ".isValid": lambda x: x.step !=0,
     }
 
 
@@ -482,15 +487,15 @@ def initialize():
         return getattr(x, str(name), None)
 
     _PyTypeMethods: MutableMapping[str, Callable] = {
-        "getName": _attr("__name__"),
-        "mro": type.mro,
-        "getBase": lambda x: getattr(x, "__base__", ()),
-        "getBases": lambda x: getattr(x, "__bases__", None),
-        "isSubclassOf": lambda x,t: issubclass(x,t),
-        "isInstance": _type_is_instance,
-        "getMethod": _type_get_method,
-        "isAbstract": inspect.isabstract,
-        "getSubclasses": lambda x: x.__subclasses__(),
+        ".getName": _attr("__name__"),
+        ".mro": type.mro,
+        ".getBase": lambda x: getattr(x, "__base__", ()),
+        ".getBases": lambda x: getattr(x, "__bases__", None),
+        ".isSubclassOf": lambda x,t: issubclass(x,t),
+        ".isInstance": _type_is_instance,
+        ".getMethod": _type_get_method,
+        ".isAbstract": inspect.isabstract,
+        ".getSubclasses": lambda x: x.__subclasses__(),
     }
 
 
@@ -505,24 +510,24 @@ def initialize():
 
     _PyBufferMethods: MutableMapping[str, Callable] = {}
     _PyBytesMethods: MutableMapping[str, Callable] = {
-        "decode": _bytes_decode,
-        "translate": bytes.translate,
+        ".decode": _bytes_decode,
+        ".translate": bytes.translate,
     }
 
     _PyByteArrayMethods: MutableMapping[str, Callable] = {
-        "decode": _bytearray_decode,
-        "translate": bytearray.translate,
+        ".decode": _bytearray_decode,
+        ".translate": bytearray.translate,
     }
 
     _PyMemoryViewMethods: MutableMapping[str, Callable] = {
-        "getBuffer": _attr("obj"),
-        "getFormat": _attr("format"),
-        "getShape": _attr("shape"),
-        "getSlice": lambda x,s,e: x[s:e],
-        "getStrides": _attr("strides"),
-        "getSubOffsets": _attr("suboffsets"),
-        "isReadOnly": _attr("readonly"),
-        "release": memoryview.release,
+        ".getBuffer": _attr("obj"),
+        ".getFormat": _attr("format"),
+        ".getShape": _attr("shape"),
+        ".getSlice": lambda x,s,e: x[s:e],
+        ".getStrides": _attr("strides"),
+        ".getSubOffsets": _attr("suboffsets"),
+        ".isReadOnly": _attr("readonly"),
+        ".release": memoryview.release,
     }
 
     # python.io (and every other SPI provider) is no longer hand-wired here
@@ -640,56 +645,56 @@ def initialize():
 
 
     _PyStringMethods: MutableMapping[str, Callable] = {
-        "charAt": lambda x,i: x[i],
-        "containsSubstring": lambda x, s: str(s) in x,
-        "countOccurrences": _count_occurrences,
-        "endsWithSuffix": _ends_with_suffix,
-        "expandTabs": str.expandtabs,
-        "findLastSubstring": _find_last_substring,
-        "findSubstring": _find_substring,
-        "formatUsingMapping": _format_using_mapping,
-        "formatWith": _format_with,
-        "getCharacterAt": lambda x,i: x[i],
-        "indexOfLastSubstring": _index_of_last_substring,
-        "indexOfSubstring": _index_of_substring,
-        "isAlphabetic": str.isalpha,
-        "isAlphanumeric": str.isalnum,
-        "isAsciiCharacters": str.isascii,
-        "isDecimalNumber": str.isdecimal,
-        "isDigitCharacters": str.isdigit,
-        "isLowercase": str.islower,
-        "isNumericCharacters": str.isnumeric,
-        "isPrintableCharacters": str.isprintable,
-        "isTitleCase": str.istitle,
-        "isUppercase": str.isupper,
-        "isValidIdentifier": str.isidentifier,
-        "isWhitespace": str.isspace,
-        "join": str.join,
-        "length": len,
-        "paddedCenter": _padded_center,
-        "removePrefix": lambda x, s: x.removeprefix(str(s)),
-        "removeSuffix": lambda x, s: x.removesuffix(str(s)),
-        "replaceSubstring": _replace_substring,
-        "splitInto": _split_into,
-        "splitIntoLines": _split_into_lines,
-        "splitIntoPartition": lambda x, s:  x.partition(str(s)),
-        "splitIntoReverse": _split_into_reverse,
-        "splitIntoReversePartition": lambda x, s:  x.rpartition(str(s)),
-        "startsWithPrefix": _starts_with_prefix,
-        "stripCharacters": _strip_characters,
-        "stripLeading": _strip_leading,
-        "stripTrailing": _strip_trailing,
-        "stripWhitespace": lambda x: x.strip(),
-        "subSequence": lambda x,s,e: x[s:e],
-        "swapCaseCharacters": lambda x: x.swapcase(),
-        "toCapitalized": lambda x: x.capitalize(),
-        "toCaseFolded": lambda x: x.casefold(),
-        "toEncoded": _to_encoded,
-        "toTitleCase": lambda x: x.title(),
-        "toUppercase": lambda x: x.upper(),
-        "translateUsingMapping": lambda x, m: x.translate(m),
-        "translateUsingSequence": lambda x, m: x.translate(m),
-        "zeroFill": str.zfill,
+        ".charAt": lambda x,i: x[i],
+        ".containsSubstring": lambda x, s: str(s) in x,
+        ".countOccurrences": _count_occurrences,
+        ".endsWithSuffix": _ends_with_suffix,
+        ".expandTabs": str.expandtabs,
+        ".findLastSubstring": _find_last_substring,
+        ".findSubstring": _find_substring,
+        ".formatUsingMapping": _format_using_mapping,
+        ".formatWith": _format_with,
+        ".getCharacterAt": lambda x,i: x[i],
+        ".indexOfLastSubstring": _index_of_last_substring,
+        ".indexOfSubstring": _index_of_substring,
+        ".isAlphabetic": str.isalpha,
+        ".isAlphanumeric": str.isalnum,
+        ".isAsciiCharacters": str.isascii,
+        ".isDecimalNumber": str.isdecimal,
+        ".isDigitCharacters": str.isdigit,
+        ".isLowercase": str.islower,
+        ".isNumericCharacters": str.isnumeric,
+        ".isPrintableCharacters": str.isprintable,
+        ".isTitleCase": str.istitle,
+        ".isUppercase": str.isupper,
+        ".isValidIdentifier": str.isidentifier,
+        ".isWhitespace": str.isspace,
+        ".join": str.join,
+        ".length": len,
+        ".paddedCenter": _padded_center,
+        ".removePrefix": lambda x, s: x.removeprefix(str(s)),
+        ".removeSuffix": lambda x, s: x.removesuffix(str(s)),
+        ".replaceSubstring": _replace_substring,
+        ".splitInto": _split_into,
+        ".splitIntoLines": _split_into_lines,
+        ".splitIntoPartition": lambda x, s:  x.partition(str(s)),
+        ".splitIntoReverse": _split_into_reverse,
+        ".splitIntoReversePartition": lambda x, s:  x.rpartition(str(s)),
+        ".startsWithPrefix": _starts_with_prefix,
+        ".stripCharacters": _strip_characters,
+        ".stripLeading": _strip_leading,
+        ".stripTrailing": _strip_trailing,
+        ".stripWhitespace": lambda x: x.strip(),
+        ".subSequence": lambda x,s,e: x[s:e],
+        ".swapCaseCharacters": lambda x: x.swapcase(),
+        ".toCapitalized": lambda x: x.capitalize(),
+        ".toCaseFolded": lambda x: x.casefold(),
+        ".toEncoded": _to_encoded,
+        ".toTitleCase": lambda x: x.title(),
+        ".toUppercase": lambda x: x.upper(),
+        ".translateUsingMapping": lambda x, m: x.translate(m),
+        ".translateUsingSequence": lambda x, m: x.translate(m),
+        ".zeroFill": str.zfill,
     }
 
 
@@ -752,48 +757,48 @@ def initialize():
     _PySizedMethods: MutableMapping[str, Callable] = {}
 
     _PyIterableMethods: MutableMapping[str, Callable] = {
-        "allMatch": all,
-        "anyMatch": any,
-        "iter": iter,
-        "mapElements": _map,
-        "findMin": min,
-        "findMax": max,
-        "getSorted": sorted,
-        "computeSum": sum,
+        ".allMatch": all,
+        ".anyMatch": any,
+        ".iter": iter,
+        ".mapElements": _map,
+        ".findMin": min,
+        ".findMax": max,
+        ".getSorted": sorted,
+        ".computeSum": sum,
     }
 
     _PySequenceMethods: MutableMapping[str, Callable] = {
-        "remove": _delitem_return,
-        "set": _setitem_return,
-        "setAny": _setitem_return,
+        ".remove": _delitem_return,
+        ".set": _setitem_return,
+        ".setAny": _setitem_return,
     }
 
     _PyListMethods: MutableMapping[str, Callable] = {
-        "add": _c_add,
-        "addAny": _c_add,
+        ".add": _c_add,
+        ".addAny": _c_add,
 
-        "clear": list.clear,
-        "contains": lambda x,v: v in x,
-        "extend": list.extend,
-        "get": lambda x,i: x[i],
-        "indexOf": _indexof,
-        "insert": _c_insert_all,
-        "remove": _c_remove_index,
-        "removeAny": _c_remove_object,
-        "removeAll": _removeall,
-        "retainAll": _retainall,
-        "set": _c_set,
-        "setAny": _setitem,
-        "size": len,
-        "subList": lambda x,s,e: x[s:e],
+        ".clear": list.clear,
+        ".contains": lambda x,v: v in x,
+        ".extend": list.extend,
+        ".get": lambda x,i: x[i],
+        ".indexOf": _indexof,
+        ".insert": _c_insert_all,
+        ".remove": _c_remove_index,
+        ".removeAny": _c_remove_object,
+        ".removeAll": _removeall,
+        ".retainAll": _retainall,
+        ".set": _c_set,
+        ".setAny": _setitem,
+        ".size": len,
+        ".subList": lambda x,s,e: x[s:e],
     }
 
     _PyTupleMethods = {
-        "contains": lambda x,v: v in x,
-        "get": lambda x,i: x[i],
-        "indexOf": _indexof,
-        "size": len,
-        "subList": lambda x,s,e: x[s:e],
+        ".contains": lambda x,v: v in x,
+        ".get": lambda x,i: x[i],
+        ".indexOf": _indexof,
+        ".size": len,
+        ".subList": lambda x,s,e: x[s:e],
     }
 
 
@@ -838,29 +843,29 @@ def initialize():
 
 
     _PyDictMethods: MutableMapping[str, Callable] = {
-        "clear": lambda x: x.clear(),
-        "containsKey": lambda x,v: v in x,
-        "containsValue": lambda x,v: v in x.values(),
-        "get": lambda x, k: x.get(k),
-        "getOrDefault": lambda x,k,d: x.get(k,d),
-        "pop": lambda x, k, d: x.pop(k, d),
-        "put": _dict_put,
-        "putAny": _setitem_from_object,
-        "putAll": _putall,
-        "remove": _dict_remove,
-        "setDefault": _dict_setdefault,
-        "update": _dict_update,
+        ".clear": lambda x: x.clear(),
+        ".containsKey": lambda x,v: v in x,
+        ".containsValue": lambda x,v: v in x.values(),
+        ".get": lambda x, k: x.get(k),
+        ".getOrDefault": lambda x,k,d: x.get(k,d),
+        ".pop": lambda x, k, d: x.pop(k, d),
+        ".put": _dict_put,
+        ".putAny": _setitem_from_object,
+        ".putAll": _putall,
+        ".remove": _dict_remove,
+        ".setDefault": _dict_setdefault,
+        ".update": _dict_update,
     }
 
     _PyMappingMethods: MutableMapping[str, Callable] = {
-        "containsKey": lambda x,v: v in x,
-        "containsValue": lambda x,v: v in x.values(),
-        "putAll": _putall,
+        ".containsKey": lambda x,v: v in x,
+        ".containsValue": lambda x,v: v in x.values(),
+        ".putAll": _putall,
         # PyMapping itself only declares remove(Object), but this dispatch
         # table can end up merged over PyDict's (which also declares
         # remove(Object,Object)) depending on interface merge order, so it
         # must handle both arities too - see _dict_remove.
-        "remove": _dict_remove,
+        ".remove": _dict_remove,
     }
 
     ### Sets
@@ -886,70 +891,70 @@ def initialize():
     # exercised anywhere in this codebase; if that path is added later it
     # will need its own handling here.
     _PySetMethods = {
-        "add": _set_add,
-        "addAny": _set_add_any,
-        "clear": set.clear,
-        "contains": lambda x,v: v in x,
-        "copy": set.copy,
-        "difference": lambda x,v: x.difference(v),
-        "differenceUpdate": lambda x,v: x.difference_update(v),
-        "discard": set.discard,
-        "intersection": lambda x,v: x.intersection(v),
-        "intersectionUpdate": lambda x,s: x.intersection_update(s),
-        "isDisjoint": set.isdisjoint,
-        "isSubset": set.issubset,
-        "isSuperset": set.issuperset,
-        "size": len,
-        "pop": set.pop,
-        "symmetricDifference": lambda x,s: x.symmetric_difference(s),
-        "symmetricDifferenceUpdate": lambda x,s: x.symmetric_difference_update(s),
-        "toList": list,
-        "union": lambda x,s: x.union(s),
-        "unionUpdate": lambda x,s: x.update(s),
-        "update": set.update,
+        ".add": _set_add,
+        ".addAny": _set_add_any,
+        ".clear": set.clear,
+        ".contains": lambda x,v: v in x,
+        ".copy": set.copy,
+        ".difference": lambda x,v: x.difference(v),
+        ".differenceUpdate": lambda x,v: x.difference_update(v),
+        ".discard": set.discard,
+        ".intersection": lambda x,v: x.intersection(v),
+        ".intersectionUpdate": lambda x,s: x.intersection_update(s),
+        ".isDisjoint": set.isdisjoint,
+        ".isSubset": set.issubset,
+        ".isSuperset": set.issuperset,
+        ".size": len,
+        ".pop": set.pop,
+        ".symmetricDifference": lambda x,s: x.symmetric_difference(s),
+        ".symmetricDifferenceUpdate": lambda x,s: x.symmetric_difference_update(s),
+        ".toList": list,
+        ".union": lambda x,s: x.union(s),
+        ".unionUpdate": lambda x,s: x.update(s),
+        ".update": set.update,
     }
     _PyAbstractSetMethods: MutableMapping[str, Callable] = {}
     _PyMutableSetMethods: MutableMapping[str, Callable] = {}
     _PyFrozenSetMethods: MutableMapping[str, Callable] = {
-        "contains": lambda x,v: v in x,
-        "copy": frozenset.copy,
-        "difference": lambda x,v: x.difference(v),
-        "intersection": lambda x,v: x.intersection(v),
-        "isDisjoint": frozenset.isdisjoint,
-        "isSubset": frozenset.issubset,
-        "isSuperset": frozenset.issuperset,
-        "size": len,
-        "symmetricDifference": lambda x,s: x.symmetric_difference(s),
-        "union": lambda x,v: x.union(v),
+        ".contains": lambda x,v: v in x,
+        ".copy": frozenset.copy,
+        ".difference": lambda x,v: x.difference(v),
+        ".intersection": lambda x,v: x.intersection(v),
+        ".isDisjoint": frozenset.isdisjoint,
+        ".isSubset": frozenset.issubset,
+        ".isSuperset": frozenset.issuperset,
+        ".size": len,
+        ".symmetricDifference": lambda x,s: x.symmetric_difference(s),
+        ".union": lambda x,v: x.union(v),
     }
 
 
     ### Generators
     _PyIterMethods: MutableMapping[str, Callable] = {
-        "tee": _tee_iterator,
-        "filter": lambda x,f : filter(f,x),
-        "toList": list,
-        "toSet": set,
+        ".tee": _tee_iterator,
+        ".filter": lambda x,f : filter(f,x),
+        ".toList": list,
+        ".toSet": set,
     }
 
     # enumerate, zip, range
     _PyGeneratorMethods: MutableMapping[str, Callable] = {
-        "iter": iter,
-        "toList": list
+        ".iter": iter,
+        ".toList": list
     }
 
     _PyRangeMethods: MutableMapping[str, Callable] = {
-        "getStart": _attr("start"),
-        "getStop": _attr("stop"),
-        "getStep": _attr("step"),
-        "getLength": len,
-        "getItem": lambda x,i: x[i],
-        "getSlice": lambda x,s,e: x[s:e],
-        "contains": lambda x,v: v in x,
+        ".getStart": _attr("start"),
+        ".getStop": _attr("stop"),
+        ".getStep": _attr("step"),
+        ".getLength": len,
+        ".getItem": lambda x,i: x[i],
+        ".getSlice": lambda x,s,e: x[s:e],
+        ".contains": lambda x,v: v in x,
     }
 
     _PyCombinableMethods: MutableMapping[str, Callable] = {
-        "or": lambda x,y: x|y
+        ".or": lambda x,y: x|y
     }
 
     def _pyexc_resolve(exc):

@@ -5,6 +5,6 @@ interface: python.io.PyFileIO
 lazy: true
 ---
 METHODS = {
-    "name": lambda x: str(x.name),
-    "mode": lambda x: x.mode,
+    ".name": lambda x: str(x.name),
+    ".mode": lambda x: x.mode,
 }

@@ -4,6 +4,6 @@ class: BufferedIOBase
 interface: python.io.PyBufferedIOBase
 ---
 METHODS = {
-    "read": lambda x, size=-1: x.read(size),
-    "write": lambda x, b: x.write(b),
+    ".read": lambda x, size=-1: x.read(size),
+    ".write": lambda x, b: x.write(b),
 }

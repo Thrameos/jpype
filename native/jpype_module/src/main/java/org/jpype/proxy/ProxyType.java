@@ -16,6 +16,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import python.lang.PyBuiltIn;
+import python.lang.PyObject;
 
 public final class ProxyType
 {
@@ -30,6 +31,7 @@ public final class ProxyType
   private final ClassLoader cl;
   final long cleanup;
   final Map<Method, MethodDescriptor> methodCache;
+  private final boolean mangle;
 
   /**
    * Initializes the static cache for Object methods. This happens once when the
@@ -51,6 +53,15 @@ public final class ProxyType
     this.interfaces = interfaces;
     this.cleanup = cleanup;
     this.builtin = factory.context.getBuiltIn();
+
+    boolean mangle = false;
+    for (Class<?> iface : interfaces)
+      if (PyObject.class.isAssignableFrom(iface))
+      {
+        mangle = true;
+        break;
+      }
+    this.mangle = mangle;
 
     // Pin the loader to the org.jpype module loader as the baseline default
     ClassLoader tempCl = ProxyType.class.getClassLoader();
@@ -166,13 +177,25 @@ public final class ProxyType
       paramTypes[i] = tm.findClass(params[i]);
 
     boolean bypass = (method.isAnnotationPresent(Bypass.class));
+    // equals/hashCode/toString are special-cased by java.lang.reflect.Proxy
+    // itself: no matter how a proxy interface redeclares them, invoke() is
+    // always called with Object.class's own Method for these three (see
+    // ProxyFactory.objectMethods, resolved once from Object.class and never
+    // interface-specific) - confirmed empirically, not just from the JDK's
+    // ProxyGenerator special-casing them by name. A mangled wireName here
+    // would build a descriptor that's simply never looked up at runtime,
+    // while ProxyFactory.objectMethods keeps dispatching under the
+    // unmangled name - so the Python-side dict entries for these three must
+    // stay unmangled too, regardless of `mangle`.
+    boolean isObjectMethod = isObjectMethodSignature(method);
+    String wireName = (this.mangle && !isObjectMethod) ? mangle(method.getName()) : method.getName();
     if (method.isAnnotationPresent(Builtin.class))
     {
       // Install a magic backdoor for builtin() so that Interface can find its support backend.
       try
       {
         MethodHandle defaultHandle = MethodHandles.lookup().findStatic(ProxyInstance.class, "get", MethodType.methodType(PyBuiltIn.class, Object.class));
-        return new MethodDescriptor(this.stringManager.get(method.getName()), returnType, paramTypes, defaultHandle, true);
+        return new MethodDescriptor(this.stringManager.get(wireName), returnType, paramTypes, defaultHandle, true);
       } catch (NoSuchMethodException | IllegalAccessException ex)
       {
         System.getLogger(ProxyType.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
@@ -182,7 +205,30 @@ public final class ProxyType
     MethodHandle defaultHandle = null;
     if (method.isDefault())
       defaultHandle = getDefaultHandle(method.getDeclaringClass(), method, java.lang.invoke.MethodHandles.class);
-    return new MethodDescriptor(this.stringManager.get(method.getName()), returnType, paramTypes, defaultHandle, bypass);
+    return new MethodDescriptor(this.stringManager.get(wireName), returnType, paramTypes, defaultHandle, bypass);
+  }
+
+  // User-defined wrapper methods on a PyObject-rooted interface use a leading
+  // `$` (see PyObject's javadoc) so they dispatch directly by their real
+  // Python name instead of through the map-only protocol-method namespace.
+  private static String mangle(String name)
+  {
+    if (name.startsWith("$"))
+      return name.substring(1);
+    return "." + name;
+  }
+
+  private static boolean isObjectMethodSignature(Method method)
+  {
+    String name = method.getName();
+    Class<?>[] params = method.getParameterTypes();
+    if (name.equals("equals") && params.length == 1 && params[0] == Object.class)
+      return true;
+    if (name.equals("hashCode") && params.length == 0)
+      return true;
+    if (name.equals("toString") && params.length == 0)
+      return true;
+    return false;
   }
 
   private static final class MethodKey

@@ -4,8 +4,8 @@ class: RawIOBase
 interface: python.io.PyRawIOBase
 ---
 METHODS = {
-    "read": lambda x, size=-1: x.read(size),
-    "readall": lambda x: x.readall(),
-    "readinto": lambda x, b: x.readinto(b),
-    "write": lambda x, b: x.write(b),
+    ".read": lambda x, size=-1: x.read(size),
+    ".readall": lambda x: x.readall(),
+    ".readinto": lambda x, b: x.readinto(b),
+    ".write": lambda x, b: x.write(b),
 }
