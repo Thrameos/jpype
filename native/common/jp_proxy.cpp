@@ -374,6 +374,25 @@ JPPyObject JPProxyIndirectDict::getCallable(JPContext* context, PyObject* name, 
 		addSelf = (m_Instance->m_Dispatch != m_Instance->m_Target) && (m_Instance->m_Target != Py_None);
 		return out;
 	}
+	// Dict miss: fall back to the real wrapped instance, not just the proxy
+	// wrapper itself. This is what makes a $-prefixed (direct-dispatch,
+	// unmangled) method reachable through the same construction real SPI
+	// providers use (_jpype._concrete + merged methods dict) - those
+	// methods are never in the dict by design (see plan/NameMangling.md),
+	// so without this the dict route could never serve them at all.
+	// Safe for existing "."-mangled dict interfaces: the mangle-completeness
+	// test (test_proxy_mangle.py) guarantees every one of their dict keys
+	// is present, so this fallback never fires for them - the dict lookup
+	// above always hits first.
+	if (m_Instance->m_Target != nullptr && m_Instance->m_Target != Py_None)
+	{
+		JPPyObject fromTarget = JPPyObject::accept(PyObject_GetAttr(m_Instance->m_Target, name));
+		if (!fromTarget.isNull())
+		{
+			addSelf = false;  // GetAttr on a real instance already returns a bound method
+			return fromTarget;
+		}
+	}
 	return JPPyObject::accept(PyObject_GetAttr((PyObject*) m_Instance, name));
 }
 

@@ -1,7 +1,17 @@
 # Smuggler: detect and safely reject/convert cross-interpreter Proxy calls
 
-## Status (2026-07-11): scoped, not started - documentation only, no code
-written yet. Follow-on to [[jpype_multiphase_init_status]]/
+## Status (2026-07-11): step 1 DONE (committed `c6e243a7`), remainder not
+started. `JPClass::convertToPythonObject` (`native/common/jp_class.cpp`)
+now detects a proxy's owning-context mismatch and raises `RuntimeError`
+instead of corrupting memory, verified against a real Python 3.12 own-GIL
+subinterpreter (`SubInterpreterNGTest.testSmuggledProxyAcrossInterpretersThrows`).
+The exception-unpack edge case (a smuggled proxy inside a Java exception
+object being converted inside exception-handling itself) is also fixed,
+wrapped in a local try/catch (`JPypeException::convertJavaToPython`,
+`native/common/jp_exception.cpp`). **Not started:** the "advanced"
+string-round-trip conversion path for convertible types (jump locks to the
+owning interpreter, convert, return) described below - still just a
+design, no code. Follow-on to [[jpype_multiphase_init_status]]/
 `plan/MultiPhaseInit.md` (COMPLETE) - own-GIL subinterpreter isolation is
 now real, which is precisely what makes this bug reachable/dangerous
 rather than theoretical.

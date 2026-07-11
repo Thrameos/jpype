@@ -1,5 +1,16 @@
 # Name mangling for PyObject-rooted proxy dispatch
 
+## Status (2026-07-11): DONE - committed `ad21b874` on `reverse`. Root-based
+`PyObject` trigger, `$foo`/`.foo` transform, and the 47-map rename in
+`_jbridge.py` + `.pyspi` resources all landed atomically with the
+completeness test, as planned below. `equals`/`hashCode`/`toString` carved
+out of mangling entirely (verified they'd otherwise break identity
+silently). The dispatch path itself - a `$foo` method actually reaching a
+real Python object's attribute at runtime - had no test coverage at the
+time this was marked done; that gap is closed separately by
+`plan/DispatchFallback.md` (DONE), which also found and fixed a related
+construction-path bug in `JPProxyIndirectDict::getCallable`.
+
 ## Problem
 
 `@JImplements`/`JProxy` proxies dispatch a Java interface method call down to
