@@ -1,6 +1,52 @@
 # python.pathlib: SPI provider for Python's pathlib module
 
-## Status (2026-07-11): scoped, not started
+## Status (2026-07-11): DONE — PyPath shipped
+
+Implemented as scoped below: `PyPath` (name/stem/suffix/suffixes/parts/
+parent/anchor/drive/root/isAbsolute/asPosix/join/withName/withSuffix/
+matches/isRelativeTo/relativeTo/compareTo, plus the filesystem predicates
+exists/isFile/isDirectory/isSymlink), factory `Pathlib.using(context).path(...)`
+/`pathFromFile(...)`/`pathFromNioPath(...)`, promotion defaults
+`toNioPath()`/`toFile()`. Registered against both `pathlib.PosixPath` and
+`pathlib.WindowsPath` (`WindowsPath` lazy, since it's never actually
+instantiated off Windows) — both report `__module__ == "pathlib"`, no
+`io`-style module split needed. Scope deliberately excludes the rest of
+`Path`'s I/O surface (`open`/`read_text`/`mkdir`/`unlink`/`resolve`/...);
+left as a follow-up rather than folded in here — see the pure-path-vs-I/O
+discussion below, resolved in favor of pure-path plus the four cheap
+predicates.
+
+Found and fixed two proxy-dispatch argument-marshaling gotchas while
+building this, worth remembering for the next SPI plan:
+
+1. **Varargs are flattened, not array-wrapped, when crossing the proxy
+   boundary.** A Java `String... more` parameter does not arrive in the
+   `.pyspi` lambda as a single Python list/tuple argument — it arrives
+   spread across positional arguments (and if the caller passed zero
+   varargs elements, that trailing argument is dropped entirely, not
+   passed as an empty array). The `.pyspi` function must itself declare
+   `*more` to collect them (`def _path(first, *more): ...`), not
+   `def _path(first, more): ...`. Confirmed empirically: the fixed-arity
+   form either raised `missing 1 required positional argument` (zero
+   varargs) or silently iterated the single varargs string
+   character-by-character (one varargs element, since Python happily
+   iterates a bare `str`).
+2. **A bare Java `String` argument crossing into a `.pyspi` lambda is not
+   automatically a Python `str`** — passing it straight into a stdlib call
+   expecting a real `str` (e.g. `Path.match(pattern)`, which calls
+   `sys.intern()` internally) raises `TypeError: intern() argument must be
+   str, not java.lang.String`. Every existing `.pyspi` in the tree that
+   takes a string-shaped argument already wraps it in `str(...)` before
+   using it (see `_date`/`_date_time` in `datetime.date.pyspi`) — this
+   plan initially missed that convention for two single-string-argument
+   methods (`withName`/`matches`) and had to add the `str(...)` wrap
+   after a real test failure surfaced it. Multi-value varargs args were
+   already being wrapped element-by-element (`str(s) for s in segments`)
+   and didn't hit this.
+
+Full suite green on python3.10 and python3.12 (`mvn -o test
+-Dpython.executable=python3.1{0,2}`), 14/14 new `PyPathNGTest` tests
+passing on both.
 
 ## The problem
 
