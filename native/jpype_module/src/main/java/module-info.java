@@ -39,6 +39,7 @@ module org.jpype {
   exports python.io;
   exports python.datetime;               // PyDate, PyDateTime, PyTimeDelta - SPI-backed, see PyDatetimeWrapperService
   exports python.pathlib;                // PyPath - SPI-backed, see PyPathlibWrapperService
+  exports python.decimal;                // PyDecimal - SPI-backed, see PyDecimalWrapperService
 
   // Documentation and Tooling
   exports org.jpype.html;
@@ -51,7 +52,8 @@ module org.jpype {
   provides org.jpype.WrapperService with python.io.PyIOWrapperService,
           python.collections.PyCollectionsWrapperService,
           python.datetime.PyDatetimeWrapperService,
-          python.pathlib.PyPathlibWrapperService;
+          python.pathlib.PyPathlibWrapperService,
+          python.decimal.PyDecimalWrapperService;
   provides javax.script.ScriptEngineFactory with org.jpype.script.JPypeScriptEngineFactory;
 
   // ==========================================
