@@ -44,8 +44,36 @@ __all__ = [
     'isJVMStarted', 'startJVM', 'shutdownJVM',
     'getDefaultJVMPath', 'getJVMVersion', 'isThreadAttachedToJVM', 'attachThreadToJVM',
     'detachThreadFromJVM', 'synchronized',
-    'JVMNotFoundException', 'JVMNotSupportedException', 'JVMNotRunning'
+    'JVMNotFoundException', 'JVMNotSupportedException', 'JVMNotRunning',
+    'addJVMOption', 'getJVMOptions',
 ]
+
+_JVM_OPTIONS: list[str] = []
+
+
+def addJVMOption(opt: str) -> None:
+    """ Add an option to be passed to the JVM at startup.
+
+    Options accumulate across any number of calls from anywhere in the
+    process, prior to ``startJVM()`` being called, so independent
+    libraries can each contribute JVM flags (memory settings, GC
+    settings, ``-D`` properties, ...) without needing to own the
+    ``startJVM()`` call site. Mirrors ``addClassPath``.
+
+    Arguments:
+      opt (str): a single JVM argument, e.g. ``"-Xmx2g"``.
+
+    Raises:
+      OSError: if the JVM is already started.
+    """
+    if _jpype.isStarted():
+        raise OSError('JVM is already started')
+    _JVM_OPTIONS.append(opt)
+
+
+def getJVMOptions() -> list[str]:
+    """ Get the list of options accumulated by ``addJVMOption``. """
+    return list(_JVM_OPTIONS)
 
 
 class JVMNotRunning(RuntimeError):
@@ -390,7 +418,10 @@ def startJVM(
         prior = [locale.getlocale(i) for i in categories]
 
         # Start the JVM
-        _jpype.startup(jvmpath, tuple(jvm_args + extra_jvm_args),
+        # Accumulated addJVMOption() entries come first so that explicit
+        # *jvmargs (and the mandatory options JPype itself computed above)
+        # can still override them.
+        _jpype.startup(jvmpath, tuple(_JVM_OPTIONS + jvm_args + extra_jvm_args),
                        ignoreUnrecognized, convertStrings, interrupt, tmp)
         # Collect required resources for operation
         initializeResources()

@@ -1,6 +1,28 @@
 # Composable pre-launch JVM options (addJVMOption)
 
-## Status (2026-07-11): scoped, not started
+## Status (2026-07-11): DONE
+
+Implemented `jpype.addJVMOption()`/`jpype.getJVMOptions()` in
+`jpype/_core.py`, mirroring `_classpath.py`'s `addClassPath()`/
+`getClassPath()` exactly as sketched below: a module-level
+`_JVM_OPTIONS: list[str]` accumulator, `addJVMOption()` raising `OSError`
+if the JVM is already started, and `startJVM()` prepending accumulated
+options ahead of `*jvmargs`/the mandatory options JPype computes (module
+path, opens, classpath, etc.) so explicit arguments still win on conflict.
+No dedup, per the design sketch below.
+
+Also investigated merging in `Thrameos:module` (the `module` branch) for
+"startup routine" improvements per the same request. That branch turned
+out to be a much earlier/simpler ancestor: current `jpype/_core.py`
+(`startJVM`'s `modulepath`/`add_modules`/`add_opens`/`add_exports`
+handling) and `native/jpype_module/` (a full Maven-based `module-info.java`
+with SPI provider declarations for `python.io`/`python.datetime`/
+`python.pathlib`/`python.decimal`) already supersede everything that
+branch has on the module-path front — there was nothing left to port.
+
+Tests added in `test/jpypetest/test_startup.py::StartJVMCase`:
+`testAddJVMOption`, `testAddJVMOptionExplicitOverrides`,
+`testAddJVMOptionAfterStart`. All 33 tests in that file pass.
 
 Follow-on from the pyjnius comparison (see `jpype_gold_standard_mission`
 memory / prior-art survey series). pyjnius's `jnius_config` module

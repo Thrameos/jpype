@@ -2620,6 +2620,23 @@ JVM:
 
     print(java.lang.System.getProperty('java.class.path'))
 
+JVM Option Configuration
+-------------------------
+Just as ``addClassPath()`` lets independent code contribute classpath
+entries before the JVM starts, ``jpype.addJVMOption()`` lets independent
+code contribute JVM flags (memory settings, GC settings, ``-D``
+properties, ...) without needing to own the ``startJVM()`` call site:
+
+.. code-block:: python
+
+    jpype.addJVMOption('-Xmx2g')
+    jpype.addJVMOption('-Djava.awt.headless=true')
+    jpype.startJVM()  # picks up accumulated options automatically
+
+Accumulated options are applied first, so an explicit argument to
+``startJVM()`` for the same property will take precedence. Calling
+``addJVMOption()`` after the JVM has started raises ``OSError``.
+
 .. _controlling_the_jvm_handling_jar_files_compiled_for_newer_java_versions:
 
 Handling JAR Files Compiled for Newer Java Versions

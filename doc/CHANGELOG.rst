@@ -7,6 +7,12 @@ Latest Changes:
 
 - **1.7.2.dev0**
 
+  - Added ``jpype.addJVMOption()``/``jpype.getJVMOptions()``, mirroring
+    ``addClassPath()``/``getClassPath()``. Independent libraries can each
+    accumulate JVM flags (memory settings, GC settings, ``-D`` properties,
+    ...) prior to ``startJVM()`` without needing to own the
+    ``startJVM()`` call site.
+
   - Added ``toPython()`` customizer to ``java.io.Writer``/``Reader``/
     ``OutputStream``/``InputStream``, wrapping a Java stream as a Python
     ``io.TextIOBase`` object suitable for ``sys.stdout``/``sys.stderr``/

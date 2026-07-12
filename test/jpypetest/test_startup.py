@@ -155,6 +155,35 @@ class StartJVMCase(unittest.TestCase):
         with self.assertRaises(TypeError):
             jpype.startJVM(invalid=True)  # type: ignore
 
+    def testAddJVMOption(self):
+        jpype.addJVMOption("-Djpype.test.option1=hello")
+        jpype.addJVMOption("-Djpype.test.option2=world")
+        assert jpype.getJVMOptions() == [
+            "-Djpype.test.option1=hello",
+            "-Djpype.test.option2=world",
+        ]
+        jpype.startJVM(classpath=cp, convertStrings=False)
+        System = jpype.JClass("java.lang.System")
+        assert System.getProperty("jpype.test.option1") == "hello"
+        assert System.getProperty("jpype.test.option2") == "world"
+
+    def testAddJVMOptionExplicitOverrides(self):
+        # Accumulated options compose with explicit *jvmargs, and an
+        # explicit arg wins over an accumulated one for the same property.
+        jpype.addJVMOption("-Djpype.test.option=fromoption")
+        jpype.startJVM(
+            "-Djpype.test.option=fromexplicit",
+            classpath=cp,
+            convertStrings=False,
+        )
+        System = jpype.JClass("java.lang.System")
+        assert System.getProperty("jpype.test.option") == "fromexplicit"
+
+    def testAddJVMOptionAfterStart(self):
+        jpype.startJVM(classpath=cp, convertStrings=False)
+        with self.assertRaises(OSError):
+            jpype.addJVMOption("-Xmx1g")
+
     def testNonASCIIPath(self):
         """Test that paths with non-ASCII characters are handled correctly.
         Regression test for https://github.com/jpype-project/jpype/issues/1194
