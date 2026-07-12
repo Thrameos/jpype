@@ -1,6 +1,6 @@
 # toPython(): give the java.time/java.sql/java.math/java.nio.file customizers the same public reverse-conversion story java.io already has
 
-## Status (2026-07-11): scoped, not started
+## Status (2026-07-11): DONE — 1738/1738 passing on python3.10 and python3.12
 
 ## The problem
 
