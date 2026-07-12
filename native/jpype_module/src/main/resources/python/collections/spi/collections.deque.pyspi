@@ -19,7 +19,7 @@ METHODS = {
     ".popleft": lambda x: x.popleft(),
     ".extend": lambda x, c: x.extend(c),
     ".extendleft": lambda x, c: x.extendleft(c),
-    ".rotate": lambda x, n: x.rotate(n),
+    ".rotate": lambda x, n=1: x.rotate(n),
     ".count": lambda x, v: x.count(v),
     ".index": lambda x, v: x.index(v),
     ".insert": lambda x, i, v: x.insert(i, v),

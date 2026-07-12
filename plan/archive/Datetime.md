@@ -1,6 +1,54 @@
 # python.datetime: SPI provider for Python's datetime module
 
-## Status (2026-07-11): scoped, not started
+## Status (2026-07-11): DONE — PyDate/PyDateTime/PyTimeDelta shipped
+
+Implemented as scoped below: `PyDate` (`year`/`month`/`day`/`weekday`/
+`isoWeekday`/`toOrdinal`, plus a pure-Java `toLocalDate()` promotion),
+`PyDateTime extends PyDate` (adds `hour`/`minute`/`second`/`microsecond`/
+`isAware`/`utcOffsetSeconds`/`timestamp`, plus `toLocalDateTime()` and an
+aware-only `toInstant()` promotion that throws `IllegalStateException` on
+a naive instance), `PyTimeDelta` (`days`/`seconds`/`microseconds`/
+`totalSeconds`, plus a `toDuration()` promotion) — all three
+`Comparable` against their own type via a `.compareTo` `.pyspi` entry
+computing Python rich-comparison as `(x > other) - (x < other)`.
+`PyDatetimeWrapperService` mirrors `PyCollectionsWrapperService`; the
+factory interface is named `DateTime` (not `PyDateTime`/`PyDatetime`),
+following `python.io.IO`'s plain-name convention rather than
+`PyCollections`'s collision-avoidance one, since there's no
+`java.time.DateTime` to collide with (user caught this naming
+inconsistency mid-implementation). `datetime.date`/`datetime.datetime`/
+`datetime.timedelta` all report plain `"datetime"` as `__module__` — no
+`io`/`_io`-style split needed here — checked empirically, not assumed.
+`datetime.time`/`datetime.tzinfo` were not implemented (lower priority per
+this plan's own scoping, skipped as non-blocking).
+
+A second real, non-obvious bug class was found and fixed while building
+this (same *kind* of bug as `plan/SPI_tutorial.md`'s `moveToEnd` lesson,
+but from the opposite direction — see that file's updated "Two real bugs"
+section, now three): the `java.time`-accepting factory convenience
+methods (`dateFromLocalDate`, `dateTimeFromLocalDateTime`,
+`dateTimeFromInstant`) had to be given distinct names rather than made
+overloads of `date`/`dateTime` sharing those names, because JPype's proxy
+dispatch for `WrapperService`-backed interfaces routes purely by method
+name — a `default` method sharing a registered method's name is
+intercepted and handed the *actual* arguments passed (here, a raw
+`LocalDate`/`LocalDateTime`/`Instant` object) directly to that name's
+`.pyspi` callable, without ever running the Java default body that would
+otherwise have decomposed it into primitives first. Confirmed by a
+research subagent reading `ProxyInstance.invoke`/`jp_proxy.cpp`'s
+`JPProxyIndirectDict::getCallable`, which also found this exact bug
+still latent and unfixed in already-shipped code:
+`PyDeque.rotate()` (0-arg default calling `rotate(1)`) collided with
+`collections.deque.pyspi`'s `".rotate": lambda x, n: x.rotate(n)` (no
+default for `n`) — fixed as a drive-by (`lambda x, n=1: x.rotate(n)`),
+same fix shape as the original `moveToEnd` bug, confirmed via full suite
+still green afterward.
+
+Full suite green on both python3.10 and python3.12 (621/621, up from
+596/596 before this plan — 25 new tests across
+`PyDateNGTest`/`PyDateTimeNGTest`/`PyTimeDeltaNGTest`).
+
+## Original scoping (superseded by the above, kept for context)
 
 ## The problem
 

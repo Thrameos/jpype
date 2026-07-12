@@ -141,20 +141,142 @@ Post follow up:
 - We need to set up source formatting spotify and clang as per the j2ni model, but we need to modify the C++ formatter to try to minimize whitespace damage to the existing code base
 - It likely would be better if we reorganize to be both a maven and pip build at root. That means src/main/java src/main/cpp/(common,python) etc
 
-[ALPHA-BLOCKING, not started] The next two items are needed before the
-alpha review branch goes out - users can't try the reverse bridge without
-docs for it:
+[ALPHA-BLOCKING] The next two items are needed before the alpha review
+branch goes out - users can't try the reverse bridge without docs for it:
+- [DONE, discovered already complete 2026-07-11] JavaDoc for python.lang/
+  python.io - see plan/archive/Javadoc.md. Every item in the plan
+  (Audience 1 python.io/python.lang end-user docs, Audience 2
+  WrapperService/Installer/SpiLoader/SpiResource provider-facing docs, the
+  "attributes fromMap" typo, all plan/SPI.md and plan/IO.md Javadoc
+  references) was already implemented in the tree (landed inside
+  e5a93a46, TODO.md just hadn't been updated). Re-verified file by file
+  against the plan's checklist plus a clean `mvn compile`; see
+  plan/archive/Javadoc.md for the full verification list. Moved to
+  archive.
+- [DONE 2026-07-11] JavaDoc for python.exceptions - not covered by the
+  original plan/Javadoc.md scope (that plan only covered python.lang/
+  python.io). Found all 50 concrete exception classes plus
+  PyException/PyBaseException had @author-only or empty Javadoc, and 36 of
+  50 files were missing the license header entirely (PyWarning.java had
+  neither). Added a one-line "Java front-end for Python's {@code X}." doc
+  to all 52 classes (mechanical: Python's exception name is always the
+  Java class name minus its "Py" prefix here) and the missing license
+  headers; also trimmed a stray non-Javadoc "why exceptions get their own
+  package" comment off the bottom of package-info.java (that file's real
+  Javadoc was already good). Full suite green: 547/547, 0 failures, 14
+  skipped (python3.10).
+- [DONE 2026-07-11] python.collections was a stub, not a doc gap - see
+  plan/Collections.md. Implemented PyDeque/PyOrderedDict/PyDefaultDict/
+  PyCounter as real interfaces, wired via a WrapperService SPI provider
+  (PyCollectionsWrapperService, mirroring PyIOWrapperService) plus one
+  .pyspi resource per class, a PyCollections factory (mirrors IO.using()),
+  Audience-1 Javadoc, and per-type NGTest classes. Caught and fixed two
+  design bugs during verification (not just wiring bugs): (1)
+  OrderedDict.moveToEnd(key)'s 1-arg default didn't reach a Python-side
+  default for `last` - JPype's proxy dispatch routes by Python attribute
+  name, so a Java default method's hardcoded second argument never reaches
+  the SPI lambda; the default has to live in the .pyspi Python function
+  itself (same pattern io.IOBase.pyspi's seek already uses). (2)
+  PyCounter's Javadoc wrongly assumed inherited PyDict.get() already
+  returned 0 for a missing key - it doesn't, dict.get() keeps plain-dict
+  semantics (null) regardless of subclass; only __getitem__/__missing__
+  gives Counter's zero-default, so added a dedicated getCount() method
+  backed by `x[key]`. Full suite green on both python3.10 (582/582, 14
+  pre-existing skips) and python3.12 (582/582, 0 skips).
+- [SCOPED, not started] Broader stdlib SPI survey 2026-07-11: with
+  python.io done and python.collections in flight, user asked what other
+  stdlib packages deserve the same WrapperService treatment, to prove the
+  SPI mechanism generalizes past a single provider without conflicts.
+  Ranked by value/effort, each scoped as its own plan/ doc (same shape as
+  plan/Collections.md - method surface, .pyspi resources,
+  WrapperService/module-info registration, Audience-1 Javadoc, tests):
+  - [DONE 2026-07-11] plan/archive/Datetime.md - date/datetime/timedelta,
+    promoting to java.time.*. Shipped PyDate/PyDateTime/PyTimeDelta +
+    DateTime factory; found + fixed a general name-only-proxy-dispatch
+    overload hazard (also live in PyDeque.rotate()) - see
+    plan/SPI_tutorial.md bug #4. Full suite 621/621 on python3.10/3.12.
+  - [SCOPED, not started] plan/Decimal.md - decimal.Decimal, promoting to
+    java.math.BigDecimal. High value for finance/numeric-precision use
+    cases.
+  - [SCOPED, not started] plan/Pathlib.md - pathlib.Path, promoting to
+    java.nio.file.Path. Clean mapping, possible reuse with python.io's
+    existing stream types for Path.open().
+  - [SCOPED, not started, opportunistic/lower priority] plan/Re.md -
+    re.Pattern/re.Match. Narrower audience (most regex work would just use
+    java.util.regex directly) but small, well-defined protocol.
+  - [SCOPED, not started, opportunistic/lower priority] plan/Queue.md -
+    queue.Queue/LifoQueue/PriorityQueue. Narrower audience but plays to
+    this repo's existing subinterpreter/GIL/async work; threading safety
+    of blocking get()/put() is the real design risk here, not the method
+    surface - flagged as a prerequisite in the plan, not a detail to
+    fill in later.
+- [SCOPED, not started] plan/ToPython.md - discovered while researching the
+  above: java.io already has a real, public, documented reverse-conversion
+  convention (Java value -> genuine Python value via a toPython()
+  JImplementationFor customizer, jpype/_jio.py, documented in
+  doc/userguide.rst). java.sql.Date/Time/Timestamp and java.math.BigDecimal
+  already have the equivalent conversion but under an undocumented private
+  name (_py(), jpype/protocol.py:135-157, only used internally by
+  dbapi2.py and test_hints.py); java.time.Instant and java.nio.file.Path/
+  java.io.File have no reverse conversion at all despite having the
+  forward Python->Java JConversion already. User's ask: bring all of these
+  up to the same public toPython() convention. Distinct from the
+  Datetime/Decimal/Pathlib SPI plans above (this is Java-owned-value ->
+  pure Python value; those are Python-owned-value -> Java front-end
+  object) - can land independently in either order.
 - [SCOPED, not started] Finish documentation for reverse bridge - see
   plan/DOCS.md - chapter-by-chapter mirror of userguide.rst for the
   Java-calling-Python direction; suggested order: Known limitations ->
   reverse quickguide -> python.lang Types -> Controlling the interpreter/
-  async chapters -> everything else
-- [SCOPED, not started] Finish JavaDoc - see plan/Javadoc.md - rewrite
-  python.io/python.lang package docs for end users (strip
-  plan/archive/SPI.md and internal-mechanism references), rewrite
-  WrapperService/Installer/SpiLoader docs for SPI provider authors;
-  sequence after Naming (done, plan/archive/Naming.md) so Javadoc
-  references final names
+  async chapters -> everything else. Updated 2026-07-11: SPI has now
+  landed, so the Customization chapter is unblocked; also added a new row
+  for the just-completed $-mangled direct dispatch system
+  (plan/archive/NameMangling.md + plan/archive/DispatchFallback.md) - a
+  PyObject-rooted Java interface's $foo(...) method routes straight
+  through to the real Python object's foo attribute, bypassing the
+  hand-authored dispatch map, while plain foo(...) becomes a collision-
+  free .foo map-only key. This has zero prior documentation anywhere
+  user-facing and needs its own sub-section; ground truth is
+  DispatchFallbackNGTest (12/12) and the PyAliceBobCharlieDerik fixture.
+  Also refined the Introduction chapter's pitch per user's framing: the
+  real differentiator isn't "also works in reverse" - it's that this
+  mirrors JPype's own Python-side customizer system back onto Java via
+  SPI, so the other language directly implements your Java interfaces
+  instead of going through some fixed set of pre-generated static interop
+  behaviors. Near-unprecedented framing for a language bridge; the intro
+  should lead with this, not bury it as one supported operation among
+  many.
+- [SCOPED, not started] plan/SPIConstructionHazards.md - Audience 2 (SPI
+  provider authors) doc task, distinct from the $-mangled-dispatch
+  mechanism row above (that's "what $foo does", this is "the real
+  hazards hit while constructing/registering a $-method-bearing
+  interface"). Two real gotchas from plan/archive/DispatchFallback.md:
+  (1) historical trap, now fixed - the normal _jpype._concrete +
+  context.eval() + cast route used to silently fail for $-only interfaces
+  (JPProxyIndirectDict::getCallable only checked the proxy wrapper, not
+  the wrapped instance), now works, document as "why it's safe today" not
+  a live warning; (2) still-live gotcha - Script.eval()'s generic
+  PyObject return type needs an explicit `targetClass @ pyProxy` cast or
+  probe-based structural matching wins before the proxy-aware conversion
+  ever runs. Plus a failure-mode catalog (real callable that throws ->
+  matching Py* exception; missing attribute -> NoSuchMethodError; wrong
+  return type -> PyTypeError "not compatible with required type"; not
+  callable -> PyTypeError "not callable") and the Object-vs-PyObject/
+  PyTuple return-type hazard (plain Object return type is a hard
+  TypeError at call time, not a silent degrade). Scoped for both
+  WrapperService.java Javadoc (short) and doc/userguide.rst's
+  Customization chapter (full failure-mode table) - same split
+  plan/archive/SPI.md used for the .pyspi format between
+  WrapperService.getResources() and SpiResource.java.
+- [SCOPED, not started] plan/ToPythonDocs.md - forward-bridge doc task
+  (Python calling Java), NOT part of plan/DOCS.md's reverse-bridge mirror.
+  Once plan/ToPython.md lands, generalize doc/userguide.rst's existing
+  "Customizing java.io Streams" section (currently written as if
+  toPython() were java.io-specific) into documentation of the general
+  toPython() convention, and add entries for the newly-public/newly-added
+  toPython() methods (java.sql.Date/Time/Timestamp, java.math.BigDecimal,
+  java.time.Instant, java.nio.file.Path, java.io.File). Depends on
+  plan/ToPython.md landing first - docs-only, don't start early.
 
 Everything else remaining in plan/ (ArrayRegionCopy, JSR223, JVMOptions,
 ReflectMethod, Smuggler's string-round-trip piece, IO's byte-read bulk

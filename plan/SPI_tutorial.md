@@ -87,11 +87,12 @@ yet — but this is a convention that has evolved before
 `.pyspi` file before writing a new one instead of trusting this
 paragraph.
 
-## Two real bugs found while building python.collections — don't reintroduce them
+## Real bugs found while building python.collections and python.datetime — don't reintroduce them
 
 These weren't wiring mistakes; they were wrong assumptions about how
-Python semantics carry across the bridge. Expect the same *class* of bug
-in future SPI work, even though these two specific spots are now fixed.
+Python semantics (or the proxy dispatch mechanism itself) carry across
+the bridge. Expect the same *class* of bug in future SPI work, even
+though these specific spots are now fixed.
 
 **1. A Java `default` method's hardcoded argument doesn't reach the
 Python side "for free."**
@@ -189,6 +190,68 @@ also be a real `dict`, so always went through `PyDict.get()` instead).
 Adding the first type that actually relies on the shared default is what
 surfaces a latent bug like this — write a test for the "or null/default"
 half of any such contract explicitly, don't just test the happy path.
+
+**4. Proxy dispatch for `WrapperService`-backed interfaces (both "class
+kind" and "backend kind") is name-based only — it does not know or care
+about Java overload arity/types at all.** Found while building
+`python.datetime`'s `DateTime` factory (`plan/Datetime.md`), which needed
+convenience overloads accepting `java.time` types
+(`LocalDate`/`LocalDateTime`/`Instant`/`Duration`) alongside primitive-arg
+factory methods (`date(int,int,int)`, `dateTime(int×7)`,
+`timeDelta(int,int,int)`).
+
+The naive design gave both the "real" and "convenience" method the same
+Java name as an overload, e.g.:
+
+```java
+PyDate date(int year, int month, int day);
+default PyDate date(LocalDate date) {
+    return date(date.getYear(), date.getMonthValue(), date.getDayOfMonth());
+}
+```
+
+This looks safe — plain compile-time Java overload resolution, and the
+default method's body only calls the *other* overload, never touching
+Python types directly. It is not safe: confirmed by reading
+`org/jpype/proxy/ProxyInstance.java`'s `invoke` and native
+`Java_org_jpype_proxy_ProxyInstance_hostInvoke` /
+`JPProxyIndirectDict::getCallable` in `jp_proxy.cpp`, dispatch is a plain
+dict lookup on the method's **name alone** (mangled, e.g. `.rotate`, or
+plain, e.g. `"date"` for backend-kind interfaces) — there is no signature
+or arity check anywhere in that path. If the name has a registered
+`.pyspi` callable, `hostInvoke` calls it directly with whatever arguments
+the actual invoked overload received; the Java default method's body
+**never runs**, exactly like the `moveToEnd` bug (\#1 above), except here
+the wrong-shaped argument isn't a missing default value, it's a whole raw
+Java object (`LocalDate`) landing in a Python function that expects three
+separate ints — with no established conversion for it, since forward
+`java.time`→Python duck-typing (`jpype/protocol.py`'s `JConversion`
+customizers) is a different, unrelated code path that doesn't apply to
+arguments of a `WrapperService` backend call.
+
+**Fix**: never overload a registered method name across argument types
+whose Python target functions genuinely differ in shape. Give the
+convenience method a distinct name instead
+(`dateFromLocalDate(LocalDate)`, `dateTimeFromLocalDateTime(LocalDateTime)`,
+`dateTimeFromInstant(Instant)` delegating to a distinct
+`dateTimeFromEpochSeconds(double)`, `timeDeltaFromDuration(Duration)`) —
+same spirit as pushing a default *value* into the Python lambda for bug
+\#1, but here the fix is a distinct *name* rather than a Python-side
+default, since the argument *types* differ, not just their count.
+
+**This is a general-purpose audit finding, not just a `python.datetime`
+one**: the same research pass that found this also found `PyDeque`
+already shipping the identical bug — `rotate()` (0-arg default calling
+`rotate(1)`) collides with `collections.deque.pyspi`'s
+`".rotate": lambda x, n: x.rotate(n)` (no default for `n`), so a bare
+`d.rotate()` call throws `PyTypeError: <lambda>() missing 1 required
+positional argument: 'n'` — confirmed by actually calling it. Fixed the
+same way as `moveToEnd`: `lambda x, n=1: x.rotate(n)`. If you're touching
+an existing `WrapperService` interface for any other reason, it's worth
+grepping its `default` methods for same-name-as-abstract collisions while
+you're in there — this bug class is easy to introduce and easy to miss
+since it only manifests when the *shorter* overload is actually called,
+which existing tests may not exercise (as was the case here).
 
 ## Module-name gotcha to check per type, not assume
 

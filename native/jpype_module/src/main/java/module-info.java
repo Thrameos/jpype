@@ -37,6 +37,7 @@ module org.jpype {
   exports python.exceptions;
   exports python.collections;            // PyDeque, PyCounter, PyOrderedDict, PyDefaultDict - SPI-backed, see PyCollectionsWrapperService
   exports python.io;
+  exports python.datetime;               // PyDate, PyDateTime, PyTimeDelta - SPI-backed, see PyDatetimeWrapperService
 
   // Documentation and Tooling
   exports org.jpype.html;
@@ -47,7 +48,8 @@ module org.jpype {
   // ==========================================
   uses org.jpype.WrapperService;
   provides org.jpype.WrapperService with python.io.PyIOWrapperService,
-          python.collections.PyCollectionsWrapperService;
+          python.collections.PyCollectionsWrapperService,
+          python.datetime.PyDatetimeWrapperService;
   provides javax.script.ScriptEngineFactory with org.jpype.script.JPypeScriptEngineFactory;
 
   // ==========================================
