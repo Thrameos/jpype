@@ -19,6 +19,8 @@ Latest Changes:
 
   - Fixed JArray constructor ignoring slice bounds when creating from sliced array. #845
 
+  - Fixed overloaded methods from multiple interfaces not being detected. #844
+
 
 - **1.7.1 - 2026-05-06**
 
