@@ -21,7 +21,8 @@ module org.jpype {
   requires java.sql;
   requires java.management;
   requires transitive java.logging;
-  
+  requires java.scripting;
+
   // ==========================================
   // PUBLIC USER API
   // ==========================================
@@ -29,6 +30,7 @@ module org.jpype {
   exports org.jpype.annotation;         // For extension modules
   exports org.jpype.pickle;             // For data serialization pipelines
   exports org.jpype.pkg;                // For interacting with Python package spaces
+  exports org.jpype.script;             // JSR-223 javax.script.ScriptEngine compatibility shim
 
   // Python wrapper language spaces
   exports python.lang;
@@ -46,6 +48,7 @@ module org.jpype {
   uses org.jpype.WrapperService;
   provides org.jpype.WrapperService with python.io.PyIOWrapperService,
           python.collections.PyCollectionsWrapperService;
+  provides javax.script.ScriptEngineFactory with org.jpype.script.JPypeScriptEngineFactory;
 
   // ==========================================
   // REFLECTION / REFLECTIVE ACCESS
