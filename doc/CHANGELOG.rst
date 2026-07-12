@@ -19,6 +19,13 @@ Latest Changes:
     ``sys.stdin``. Java embedders can trigger this explicitly via
     ``Interpreter.setOutput()``/``setError()``/``setInput()``.
 
+  - Added ``toPython()`` customizer to ``java.time.Instant``,
+    ``java.nio.file.Path``, and ``java.io.File``, returning a genuine
+    ``datetime.datetime``/``pathlib.Path`` value. Renamed the existing
+    ``_py()`` customizer on ``java.sql.Date``/``Time``/``Timestamp`` and
+    ``java.math.BigDecimal`` to ``toPython()`` for the same public,
+    documented convention.
+
   - Added ``org.jpype.SubInterpreterBuilder``, a ``ProcessBuilder``-style
     configuration object for launching PEP 684 subinterpreters with
     non-default ``PyInterpreterConfig`` options (own GIL, own obmalloc,

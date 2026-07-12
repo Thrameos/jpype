@@ -5283,6 +5283,46 @@ Customized Methods
    Wraps this ``InputStream`` in a ``java.io.InputStreamReader`` for the
    given charset and returns its ``toPython()``.
 
+The same ``toPython()`` convention is also used to give a genuine,
+independent Python value for a handful of immutable Java value types —
+unlike the stream wrappers above, these return a real value copy with no
+residual Java reference:
+
+.. method:: java.time.Instant.toPython()
+   :no-index:
+
+   Returns a timezone-aware ``datetime.datetime`` in UTC.
+
+.. method:: java.sql.Date.toPython()
+   :no-index:
+
+   Returns a ``datetime.date``.
+
+.. method:: java.sql.Time.toPython()
+   :no-index:
+
+   Returns a ``datetime.time``.
+
+.. method:: java.sql.Timestamp.toPython()
+   :no-index:
+
+   Returns a ``datetime.datetime``.
+
+.. method:: java.math.BigDecimal.toPython()
+   :no-index:
+
+   Returns a ``decimal.Decimal``.
+
+.. method:: java.nio.file.Path.toPython()
+   :no-index:
+
+   Returns a ``pathlib.Path``.
+
+.. method:: java.io.File.toPython()
+   :no-index:
+
+   Returns a ``pathlib.Path``.
+
 .. _customizing_javaio_examples:
 
 Examples
