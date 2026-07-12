@@ -35,6 +35,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 import python.lang.PyBuiltIn;
+import python.lang.PyCallable;
 import python.lang.PyObject;
 
 /**
@@ -423,6 +424,33 @@ public class MainInterpreter implements Interpreter
   {
     if (terminated)
       throw new IllegalStateException("interpreter is terminated");
+
+    // Stop (and join) the reference-queue daemon thread before Py_Finalize()
+    // runs inside finishMain(). Without this, that thread can still be
+    // processing GC'd phantom refs - and therefore still calling into the
+    // Python C API - concurrently with Py_Finalize() tearing down the
+    // interpreter's thread-state machinery on this thread. The JVM-shutdown-
+    // hook path (NativeContext.shutdown()) also calls stop() later as a
+    // backstop for resources that outlive an explicit close(); stop() must
+    // therefore tolerate being called twice.
+    this.context.getReferenceQueue().stop();
+
+    // Same hazard as the reference queue, via a second unguarded background
+    // thread: ASYNC_POOL workers can still be mid-call into the Python C API
+    // (e.g. a callAsyncWithTimeout() whose Future.cancel(true) fired but
+    // couldn't actually interrupt a thread blocked in native code) when
+    // Py_Finalize() runs below. Stop accepting new work and wait for
+    // in-flight calls to finish naturally before finalizing.
+    PyCallable.ASYNC_POOL.shutdown();
+    try
+    {
+      if (!PyCallable.ASYNC_POOL.awaitTermination(10, java.util.concurrent.TimeUnit.SECONDS))
+        LOGGER.severe("ASYNC_POOL did not quiesce before interpreter shutdown - "
+                + "an async call may still be running against a finalizing interpreter.");
+    } catch (InterruptedException ex)
+    {
+      Thread.currentThread().interrupt();
+    }
 
     NativeLauncherControl.finishMain(this.context.address());
     backend = null;

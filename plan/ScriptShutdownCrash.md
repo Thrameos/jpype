@@ -1,6 +1,75 @@
 # Full-suite-only native crash on interpreter shutdown
 
-## Status (2026-07-11): reproduced and bisected, root cause not diagnosed, not fixed
+## Status (2026-07-11): root-caused and fixed - two unguarded background threads racing Py_Finalize()
+
+Root cause turned out to be two separate instances of the same bug shape: a background daemon
+thread still able to call into the Python C API *after* `MainInterpreter.close()` starts tearing
+the interpreter down, because nothing joined/awaited it first.
+
+1. **`NativeReferenceQueue`'s "Python Reference Queue" worker thread.** `MainInterpreter.close()`
+   only ever called `NativeLauncherControl.finishMain()` (native: sets `is_shutting_down`, then
+   `Py_Finalize()`). The reference-queue daemon thread was only ever stopped later, from the
+   *separate* JVM-shutdown-hook path (`NativeContext.shutdown()`), which can fire an arbitrary
+   time after `close()` already returned. In the window between, or concurrently with
+   `Py_Finalize()` itself, that thread could still process a GC'd phantom ref and call into
+   `PyGILState_Ensure()`/`Py_XDECREF` while CPython was mid-finalization on the other thread -
+   exactly the `PyThreadState_Get: ... GIL released ... tstate NULL` / `Python runtime state:
+   finalizing` crash in the original report.
+   - Fix: `MainInterpreter.close()` now calls `context.getReferenceQueue().stop()` (which joins
+     the worker thread) *before* calling `finishMain()`, so the thread is provably dead before
+     `Py_Finalize()` runs, instead of racing it.
+   - `NativeReferenceQueue.stop()` also had to be made idempotent (guard on `isStopped`) since the
+     JVM-shutdown-hook path still calls `stop()` again later as a backstop; without the guard a
+     second call would interrupt an already-dead thread and hang 10s waiting on a `notifyAll()`
+     that would never come.
+
+2. **`PyCallable.ASYNC_POOL`** (the daemon thread pool backing `callAsync`/`callAsyncWithTimeout`).
+   Same shape, never addressed at all: nothing in `close()` stopped or awaited it.
+   `PyCallableAsyncNGTest.testCallAsyncWithTimeoutExpires` calls Python's `time.sleep(2.0)`
+   asynchronously with a 200ms timeout; on timeout it calls `Future.cancel(true)`, but that only
+   sets the worker thread's Java interrupt flag - it cannot interrupt a thread blocked inside a
+   native Python call. The worker thread kept executing the real 2-second sleep in the background,
+   invisible to everything else, for up to ~2s after the test method itself returned. If the rest
+   of the suite (and `close()`) finished inside that window, the same race occurred via this
+   second, independent background thread.
+   - Fix: `MainInterpreter.close()` now calls `PyCallable.ASYNC_POOL.shutdown()` and
+     `awaitTermination(10, SECONDS)` (logging a `SEVERE` if it doesn't quiesce in time) before
+     calling `finishMain()`.
+
+Both fixes are in `MainInterpreter.close()` /
+`NativeReferenceQueue.stop()`. Verified with 8 consecutive full-suite `mvn -o test
+-Dpython.executable=python3.10` runs (the exact command that reproduced the crash reliably,
+2/2 and 3/3, before the fix) - all clean, `BUILD SUCCESS`, no core dump.
+
+### How this was diagnosed
+
+- Confirmed the reference-queue race and fixed it first; re-ran the full suite and the crash
+  *changed shape* - the `"JPype shutdown sequence initiated"` log line (from
+  `NativeContext.shutdown()`, the JVM-hook path) stopped appearing before the abort entirely,
+  meaning the remaining crash wasn't in that code path at all.
+- Tried to catch it live under `gdb` (via Surefire's `-Djvm=` pointed at a `gdb --batch --args
+  java ...` wrapper). Two dead ends: (a) piping the forked JVM through gdb corrupts Surefire's
+  stdout-based IPC protocol regardless of signal filtering, and (b) more fundamentally, running
+  under gdb's ptrace overhead changed timing enough that the race stopped reproducing at all
+  (0 crashes in several gdb-wrapped runs) - a heisenbug.
+- Per user's suggestion, dropped Surefire entirely and drove `org.testng.TestNG` directly via a
+  plain `java` invocation (replicating Surefire's module-path/patch-module flags by hand) to get
+  a controllable process. This *also* failed to reproduce the crash in 10 runs (5 with the
+  reference-queue fix, 5 on the unfixed baseline) - the crash is apparently specific to something
+  about the Surefire-forked environment's timing, not reproducible standalone.
+- Went back to Maven (where it reliably reproduces) and added temporary `System.err.println(...);
+  System.err.flush();` checkpoints bracketing every step of `NativeContext.shutdown()` and
+  `MainInterpreter.close()`. The crash happened with *none* of those checkpoints having fired
+  since the last one (`close()` returning normally) - proving the crash was in neither of those
+  methods, but in some other, un-instrumented thread entirely.
+- That pointed at the only other daemon thread in the codebase: `PyCallable.ASYNC_POOL`. Reading
+  `callAsyncWithTimeout()`'s cancellation path plus `PyCallableAsyncNGTest`'s
+  `testCallAsyncWithTimeoutExpires` (a real 2-second Python-side sleep, cancelled from Java after
+  200ms) explained exactly how a live worker thread could still be running well past its test
+  method's return. Fixed it the same way as the reference queue: stop-and-await before
+  `finishMain()`. Confirmed clean across 8 full-suite Maven runs afterward.
+
+## Original status (2026-07-11, superseded above): reproduced and bisected, root cause not diagnosed, not fixed
 
 Found while testing `plan/JSR223.md`'s `org.jpype.script.JPypeScriptEngine`. Not a defect in
 that feature - the JSR223 code is functionally complete and its test class

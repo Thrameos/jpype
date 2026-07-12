@@ -156,16 +156,25 @@ public final class NativeReferenceQueue extends ReferenceQueue<Object>
    */
   public void stop()
   {
+    // Idempotency guard: this is now called both explicitly (from
+    // MainInterpreter.close(), before Py_Finalize()) and later as a backstop
+    // from the JVM-shutdown-hook path (NativeContext.shutdown()). Without
+    // this check, the second call would interrupt an already-dead
+    // queueThread and then block on queueStopMutex.wait(10000) with nobody
+    // left to notifyAll() it - a spurious 10s hang.
+    synchronized (this)
+    {
+      if (isStopped)
+        return;
+      isStopped = true;
+    }
+
     LOGGER.info("NativeReferenceQueue worker thread shutting down.");
     try
     {
       synchronized (queueStopMutex)
       {
-        synchronized (this)
-        {
-          isStopped = true;
-          queueThread.interrupt();
-        }
+        queueThread.interrupt();
 
         // Wait for the thread to finish
         queueStopMutex.wait(10000);
