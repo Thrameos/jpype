@@ -16,6 +16,7 @@
 #ifndef JP_PRIMITIVE_ACCESSOR_H
 #define JP_PRIMITIVE_ACCESSOR_H
 #include <Python.h>
+#include <cstring>
 #include "jp_exception.h"
 #include "jp_javaframe.h"
 #include "jp_match.h"
@@ -169,6 +170,49 @@ template <class type_t> PyObject *convertMultiArray(
 	jvalue v;
 	v.l = out;
 	return type->convertToPythonObject(frame, v, false).keep();
+}
+
+/**
+ * Bulk-copy a (possibly strided/sliced) 1-D primitive Java array into an
+ * arbitrary-shape/strided caller-owned Python buffer (plan/ArrayRegionCopy.md).
+ *
+ * General path: used whenever the fast contiguous path (a single
+ * Get<Type>ArrayRegion call, see JPArray::copyInto) does not apply, i.e. the
+ * source is a stepped slice and/or the destination is non-contiguous or
+ * N-dimensional. Mirrors convertMultiArray's Py_buffer stride-walk, but
+ * reversed (Java array pinned as the *source*, destination's shape/strides
+ * walked instead of the source's) and without value conversion: this is a
+ * same-dtype bulk copy, not a type-converting one, so it is a plain
+ * itemsize-wide memcpy per element rather than a pack/converter round trip.
+ */
+inline void copyArrayToBuffer(JPJavaFrame &frame, jarray source,
+		jsize start, jsize step, jsize len, Py_ssize_t itemsize,
+		JPPyBuffer &destBuffer)
+{
+	Py_buffer& view = destBuffer.getView();
+	jboolean isCopy;
+	void *mem = frame.getEnv()->GetPrimitiveArrayCritical(source, &isCopy);
+	JP_TRACE_JAVA("GetPrimitiveArrayCritical", mem);
+
+	std::vector<Py_ssize_t> indices(view.ndim, 0);
+	int u = view.ndim - 1;
+	for (Py_ssize_t idx = 0; idx < len; ++idx)
+	{
+		char *destPtr = destBuffer.getBufferPtr(indices);
+		const char *srcPtr = (const char*) mem + (start + idx * step) * itemsize;
+		memcpy(destPtr, srcPtr, (size_t) itemsize);
+
+		// Odometer-increment the destination index vector.
+		for (int d = u; d >= 0; --d)
+		{
+			if (++indices[d] < view.shape[d])
+				break;
+			indices[d] = 0;
+		}
+	}
+
+	JP_TRACE_JAVA("ReleasePrimitiveArrayCritical", mem);
+	frame.getEnv()->ReleasePrimitiveArrayCritical(source, mem, JNI_ABORT);
 }
 
 template <typename base_t>

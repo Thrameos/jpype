@@ -71,6 +71,16 @@ public:
 	 */
 	jarray     clone(JPJavaFrame& frame, PyObject* obj);
 
+	/**
+	 * Prototype for plan/ArrayRegionCopy.md benchmarking: bulk-copy this
+	 * array's contents into a caller-owned Python buffer, contiguous
+	 * 1-D destination only (no general strided path yet).
+	 *
+	 * @param frame
+	 * @param dest a Python object supporting the buffer protocol.
+	 */
+	void       copyInto(JPJavaFrame& frame, PyObject* dest);
+
 	bool       isSlice() const
 	{
 		return m_Slice;

@@ -139,6 +139,41 @@ jarray JPArray::clone(JPJavaFrame& frame, PyObject* obj)
 	return out;
 }
 
+void JPArray::copyInto(JPJavaFrame& frame, PyObject* dest)
+{
+	JP_TRACE_IN("JPArray::copyInto");
+	auto *compType = dynamic_cast<JPPrimitiveType*>(m_Class->getComponentType());
+	if (compType == nullptr)
+		JP_RAISE(PyExc_TypeError, "copyInto requires a primitive array");
+
+	JPPyBuffer buffer(dest, PyBUF_WRITABLE | PyBUF_STRIDES | PyBUF_FORMAT);
+	JP_PY_CHECK();
+	Py_buffer& view = buffer.getView();
+
+	Py_ssize_t total = 1;
+	for (int i = 0; i < view.ndim; ++i)
+		total *= view.shape[i];
+	if (total != m_Length)
+		JP_RAISE(PyExc_ValueError, "mismatched size");
+	if (view.itemsize != compType->getItemSize())
+		JP_RAISE(PyExc_TypeError, "mismatched item size");
+
+	// Fast path: a single Get<Type>ArrayRegion call straight into the
+	// destination memory. Requires a unit-step source (no sliced array)
+	// and a C-contiguous destination (any number of dims, so long as the
+	// whole thing is one contiguous run).
+	if (m_Step == 1 && view.suboffsets == nullptr && PyBuffer_IsContiguous(&view, 'C'))
+	{
+		compType->copyElements(frame, getJava(frame), m_Start, m_Length, view.buf, 0);
+	} else
+	{
+		// General path: stepped source and/or non-contiguous/N-D destination.
+		copyArrayToBuffer(frame, getJava(frame), m_Start, m_Step, m_Length,
+				compType->getItemSize(), buffer);
+	}
+	JP_TRACE_OUT;
+}
+
 JPArrayView::JPArrayView(JPJavaFrame& frame, JPArray* array)
 {
 	m_Array = array;

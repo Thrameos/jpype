@@ -256,6 +256,17 @@ static int PyJPArray_assignSubscript(PyJPArray *self, PyObject *item, PyObject *
 	JP_PY_CATCH(-1);
 }
 
+static PyObject *PyJPArray_copyInto(PyJPArray *self, PyObject *dest)
+{
+	JP_PY_TRY("PyJPArray_copyInto");
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext((PyObject*) self));
+	if (self->m_Array == nullptr)
+		JP_RAISE(PyExc_ValueError, "Null array");
+	self->m_Array->copyInto(frame, dest);
+	Py_RETURN_NONE;
+	JP_PY_CATCH(nullptr);
+}
+
 static void PyJPArray_releaseBuffer(PyJPArray *self, Py_buffer *view)
 {
 	JP_PY_TRY("PyJPArrayPrimitive_releaseBuffer");
@@ -420,6 +431,9 @@ static const char *length_doc =
 
 static PyMethodDef arrayMethods[] = {
 	{"__getitem__", (PyCFunction) (&PyJPArray_getItem), METH_O | METH_COEXIST, ""},
+	{"copyInto", (PyCFunction) (&PyJPArray_copyInto), METH_O,
+		"Prototype (plan/ArrayRegionCopy.md benchmark): bulk-copy this array's\n"
+		"contents into a caller-owned, contiguous 1-D buffer object.\n"},
 	{nullptr},
 };
 

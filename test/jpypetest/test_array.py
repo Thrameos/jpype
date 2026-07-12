@@ -283,6 +283,94 @@ class ArrayTestCase(common.JPypeTestCase):
         jarr[:] = a
         self.assertCountEqual(a, jarr)
 
+    @common.requireNumpy
+    def testCopyIntoContiguous(self):
+        import numpy as np
+        values = np.random.random(20)
+        ja = JArray(JDouble)(values.tolist())
+        dest = np.empty(20, dtype=np.float64)
+        ja.copyInto(dest)
+        self.assertTrue(np.allclose(dest, values))
+
+    @common.requireNumpy
+    def testCopyIntoSteppedSource(self):
+        import numpy as np
+        values = np.random.random(20)
+        ja = JArray(JDouble)(values.tolist())
+        sliced = ja[::2]
+        dest = np.empty(len(values[::2]), dtype=np.float64)
+        sliced.copyInto(dest)
+        self.assertTrue(np.allclose(dest, values[::2]))
+
+    @common.requireNumpy
+    def testCopyIntoNonContiguousDestination(self):
+        import numpy as np
+        values = np.random.random(20)
+        ja = JArray(JDouble)(values.tolist())
+        mat = np.empty((5, 4), dtype=np.float64)
+        dest_view = mat.T  # shape (4, 5), non-contiguous
+        ja.copyInto(dest_view)
+        self.assertTrue(np.allclose(dest_view, values.reshape(4, 5)))
+
+    @common.requireNumpy
+    def testCopyIntoNDContiguousDestination(self):
+        import numpy as np
+        values = np.random.random(20)
+        ja = JArray(JDouble)(values.tolist())
+        mat = np.empty((4, 5), dtype=np.float64)
+        ja.copyInto(mat)
+        self.assertTrue(np.allclose(mat.reshape(-1), values))
+
+    @common.requireNumpy
+    def testCopyIntoSteppedDestination(self):
+        import numpy as np
+        values = np.random.random(20)
+        ja = JArray(JDouble)(values.tolist())
+        big = np.zeros(40, dtype=np.float64)
+        big_view = big[::2]
+        ja.copyInto(big_view)
+        self.assertTrue(np.allclose(big_view, values))
+
+    @common.requireNumpy
+    def testCopyIntoOtherTypes(self):
+        import numpy as np
+        ivals = list(range(-5, 15))
+        jai = JArray(JInt)(ivals)
+        desti = np.empty(len(ivals), dtype=np.int32)
+        jai.copyInto(desti)
+        self.assertEqual(list(desti), ivals)
+
+        bvals = [True, False, True, True, False]
+        jab = JArray(JBoolean)(bvals)
+        destb = np.empty(len(bvals), dtype=np.bool_)
+        jab.copyInto(destb)
+        self.assertEqual(list(destb), bvals)
+
+        byvals = [1, 2, 3, -1, -128, 127]
+        jaby = JArray(JByte)(byvals)
+        destby = np.empty(len(byvals), dtype=np.int8)
+        jaby.copyInto(destby)
+        self.assertEqual(list(destby), byvals)
+
+    @common.requireNumpy
+    def testCopyIntoSizeMismatch(self):
+        import numpy as np
+        ja = JArray(JDouble)([1.0, 2.0, 3.0])
+        with self.assertRaises(ValueError):
+            ja.copyInto(np.empty(2, dtype=np.float64))
+
+    @common.requireNumpy
+    def testCopyIntoDtypeMismatch(self):
+        import numpy as np
+        ja = JArray(JDouble)([1.0, 2.0, 3.0])
+        with self.assertRaises(TypeError):
+            ja.copyInto(np.empty(3, dtype=np.int32))
+
+    def testCopyIntoNonPrimitive(self):
+        ja = JArray(JObject)(3)
+        with self.assertRaises(TypeError):
+            ja.copyInto(bytearray(24))
+
     def testArrayCtor1(self):
         jobject = jpype.JClass('java.lang.Object')
         jarray = jpype.JArray(jobject)
