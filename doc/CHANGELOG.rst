@@ -15,7 +15,14 @@ Latest Changes:
 
   - Fixed issue with library loading on Chinese systems. #1380
 
+  - Fixed type mismatch in JavadocExtractor causing help() to fail on Java classes. #1149
+
   - Fixed JArray constructor ignoring slice bounds when creating from sliced array. #845
+
+  - Added jdk.zipfs module dependency to module-info for proper jlink/jdeps detection. #908
+  
+  - Fixed overloaded methods from multiple interfaces not being detected. #844
+
 
 - **1.7.1 - 2026-05-06**
 

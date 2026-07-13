@@ -49,13 +49,15 @@ def jvm_session(request):
     from pathlib import Path
     import logging
     import warnings
+    import faulthandler
+
+    faulthandler.enable()
+
 
     logging.basicConfig(level=logging.DEBUG)
     logger = logging.getLogger(__name__)
 
     assert not jpype.isJVMStarted()
-    import faulthandler
-    faulthandler.enable()
 
     classpath = request.config.getoption("--classpath")
     convertStrings = request.config.getoption("--convertStrings")
