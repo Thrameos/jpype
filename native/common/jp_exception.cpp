@@ -211,9 +211,9 @@ void JPypeException::convertPythonToJava()
 	JPContext *context = frame.getContext();
 	jthrowable th;
 	JPPyErrFrame eframe;
-	if (eframe.good && isJavaThrowable(eframe.m_ExceptionClass.get()))
+	if (eframe.m_good && isJavaThrowable(eframe.m_ExceptionClass.get()))
 	{
-		eframe.good = false;
+		eframe.m_good = false;
 		JPValue* javaExc = PyJPValue_getJavaSlot(eframe.m_ExceptionValue.get());
 		if (javaExc != nullptr)
 		{

@@ -461,14 +461,14 @@ char *JPPyBuffer::getBufferPtr(std::vector<Py_ssize_t>& indices) const
 
 JPPyErrFrame::JPPyErrFrame()
 {
-	good = JPPyErr::fetch(m_ExceptionClass, m_ExceptionValue, m_ExceptionTrace);
+	m_good = JPPyErr::fetch(m_ExceptionClass, m_ExceptionValue, m_ExceptionTrace);
 }
 
 JPPyErrFrame::~JPPyErrFrame()
 {
 	try
 	{
-		if (good)
+		if (m_good)
 			JPPyErr::restore(m_ExceptionClass, m_ExceptionValue, m_ExceptionTrace);
 	}	catch (...)  // GCOVR_EXCL_LINE
 	{
@@ -478,7 +478,7 @@ JPPyErrFrame::~JPPyErrFrame()
 
 void JPPyErrFrame::clear()
 {
-	good = false;
+	m_good = false;
 }
 
 void JPPyErrFrame::normalize()
@@ -486,12 +486,20 @@ void JPPyErrFrame::normalize()
 	// Python uses lazy evaluation on exceptions thus we can't modify it until
 	// we have forced it to realize the exception.
 	auto excValue = m_ExceptionValue.get();
-	if (excValue && !PyExceptionInstance_Check(excValue))
-	{
-		JPPyObject args = JPPyTuple_Pack(excValue);
-		m_ExceptionValue = JPPyObject::call(PyObject_Call(m_ExceptionClass.get(), args.get(), nullptr));
-		PyException_SetTraceback(excValue, m_ExceptionTrace.get());
-		JPPyErr::restore(m_ExceptionClass, m_ExceptionValue, m_ExceptionTrace);
-		JPPyErr::fetch(m_ExceptionClass, m_ExceptionValue, m_ExceptionTrace);
+	//std::cerr << "JPPyErrFrame::normalize(): exc value is_null: " << m_ExceptionValue.isNull() << '\n';
+	//std::cerr << "JPPyErrFrame::normalize(): excValue=" << excValue <<
+	//		" exception_class=" << m_ExceptionClass.get() <<
+	//		" exception_trace=" << m_ExceptionTrace.get() << '\n';
+	if (excValue) {
+		if ( !PyExceptionInstance_Check(excValue))
+		{
+			JPPyObject args = JPPyTuple_Pack(excValue);
+			m_ExceptionValue = JPPyObject::call(PyObject_Call(m_ExceptionClass.get(), args.get(), nullptr));
+			PyException_SetTraceback(excValue, m_ExceptionTrace.get());
+			JPPyErr::restore(m_ExceptionClass, m_ExceptionValue, m_ExceptionTrace);
+			JPPyErr::fetch(m_ExceptionClass, m_ExceptionValue, m_ExceptionTrace);
+		}
+	} else {
+		std::cerr << "JPPyErrFrame::normalize(): excValue was null!" << std::endl;
 	}
 }

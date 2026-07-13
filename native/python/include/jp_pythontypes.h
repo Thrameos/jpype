@@ -116,9 +116,7 @@ public:
 	 */
 	static JPPyObject call(PyObject* obj);
 
-	JPPyObject() : m_PyObject(nullptr)
-	{
-	}
+	JPPyObject() = default;
 
 	JPPyObject(const JPPyObject &self);
 
@@ -320,7 +318,7 @@ public:
 	JPPyObject m_ExceptionClass;
 	JPPyObject m_ExceptionValue;
 	JPPyObject m_ExceptionTrace;
-	bool good;
+	bool m_good{false};
 
 	JPPyErrFrame();
 	~JPPyErrFrame();
