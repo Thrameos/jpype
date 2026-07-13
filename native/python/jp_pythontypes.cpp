@@ -486,20 +486,12 @@ void JPPyErrFrame::normalize()
 	// Python uses lazy evaluation on exceptions thus we can't modify it until
 	// we have forced it to realize the exception.
 	auto excValue = m_ExceptionValue.get();
-	//std::cerr << "JPPyErrFrame::normalize(): exc value is_null: " << m_ExceptionValue.isNull() << '\n';
-	//std::cerr << "JPPyErrFrame::normalize(): excValue=" << excValue <<
-	//		" exception_class=" << m_ExceptionClass.get() <<
-	//		" exception_trace=" << m_ExceptionTrace.get() << '\n';
-	if (excValue) {
-		if ( !PyExceptionInstance_Check(excValue))
-		{
-			JPPyObject args = JPPyTuple_Pack(excValue);
-			m_ExceptionValue = JPPyObject::call(PyObject_Call(m_ExceptionClass.get(), args.get(), nullptr));
-			PyException_SetTraceback(excValue, m_ExceptionTrace.get());
-			JPPyErr::restore(m_ExceptionClass, m_ExceptionValue, m_ExceptionTrace);
-			JPPyErr::fetch(m_ExceptionClass, m_ExceptionValue, m_ExceptionTrace);
-		}
-	} else {
-		std::cerr << "JPPyErrFrame::normalize(): excValue was null!" << std::endl;
+	if (excValue && !PyExceptionInstance_Check(excValue))
+	{
+		JPPyObject args = JPPyTuple_Pack(excValue);
+		m_ExceptionValue = JPPyObject::call(PyObject_Call(m_ExceptionClass.get(), args.get(), nullptr));
+		PyException_SetTraceback(excValue, m_ExceptionTrace.get());
+		JPPyErr::restore(m_ExceptionClass, m_ExceptionValue, m_ExceptionTrace);
+		JPPyErr::fetch(m_ExceptionClass, m_ExceptionValue, m_ExceptionTrace);
 	}
 }
