@@ -202,15 +202,24 @@ if(WIN32)
     # Ensure /MD and exception model are set
     target_compile_options(_jpype PRIVATE /EHsc /MD)
 else()
-    # Additional libraries for non-Windows
+    # Linux and OSX settings.
+    find_library(LIBSTDCXX_SHARED NAMES stdc++)
+
     target_link_libraries(_jpype PRIVATE
             dl # dynamic linker
+            "${LIBSTDCXX_SHARED}" # we have to link dynamically against libstdc++ to avoid conflicts with JVM.
     )
     # Keep frame pointers for better stack unwinding.
     add_compile_options(-fno-omit-frame-pointer)
 
     # even on OSX Python uses .so suffix instead of .dylib
     set_target_properties(_jpype PROPERTIES SUFFIX ".so")
+
+    # safe-guard to prevent static linkage of libstdc++
+    add_custom_command(TARGET _jpype POST_BUILD
+            COMMAND sh -c "readelf -d $<TARGET_FILE:_jpype> | grep -q libstdc++.so.6 || (echo 'FATAL: _jpype.so not dynamically linked against libstdc++!' >&2 && exit 1)"
+            VERBATIM
+    )
 endif()
 
 
