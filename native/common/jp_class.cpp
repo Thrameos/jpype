@@ -380,17 +380,12 @@ JPPyObject JPClass::convertToPythonObject(JPJavaFrame& frame, jvalue value, bool
 		// abstract (kept layout-trivial so it can be mixed into any foreign
 		// family -- see PyJPClass_FromSpecWithBases), redirect the actual
 		// allocation to its hidden concrete companion, exactly as
-		// PyJPObject_new does for the ordinary constructor path.
-		PyTypeObject *allocType = type;
-		if (PyJPClass_getOffset(type) == -1)
-		{
-			allocType = PyJPClass_getConcrete(type);
-			if (allocType == nullptr)
-			{
-				PyErr_SetString(PyExc_TypeError, "Concrete implementation missing for abstract type");
-				JP_RAISE_PYTHON();
-			}
-		}
+		// PyJPObject_new does for the ordinary constructor path. offset is
+		// no longer usable to detect abstract-ness (see PyJPObject_new's
+		// comment) -- tp_concrete is the real signal.
+		PyTypeObject *allocType = PyJPClass_getConcrete(type);
+		if (allocType == nullptr)
+			allocType = type;
 		PyObject *obj2 = allocType->tp_alloc(allocType, 0);
 		JP_PY_CHECK();
 

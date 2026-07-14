@@ -43,17 +43,16 @@ static PyObject *PyJPObject_new(PyTypeObject *type, PyObject *pyargs, PyObject *
 
 	// If this type is abstract (kept layout-trivial so it stays compatible
 	// as a mixin base for any foreign family, e.g. boxed Number), redirect
-	// the actual allocation to its hidden concrete companion.
-	PyTypeObject *allocType = type;
-	if (PyJPClass_getOffset(type) == -1)
-	{
-		allocType = PyJPClass_getConcrete(type);
-		if (allocType == nullptr)
-		{
-			PyErr_SetString(PyExc_TypeError, "Concrete implementation missing for abstract type");
-			return nullptr;
-		}
-	}
+	// the actual allocation to its hidden concrete companion. offset is no
+	// longer usable to detect this: it is a hard invariant now, flattened to
+	// the same real value on both halves of an abstract/concrete pair (see
+	// the concreteCall branch of PyJPClass_init), so an abstract type's own
+	// offset is just as real a number as its companion's. tp_concrete is
+	// the actual "am I abstract" signal -- it is set only on the abstract
+	// half of such a pair.
+	PyTypeObject *allocType = PyJPClass_getConcrete(type);
+	if (allocType == nullptr)
+		allocType = type;
 
 	// If it succeeded then allocate memory
 	PyObject *self = allocType->tp_alloc(allocType, 0);

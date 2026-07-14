@@ -28,11 +28,9 @@ bool PyJPValue_hasJavaSlot(PyTypeObject* type)
 {
 	if (type == nullptr || type->tp_finalize != (destructor) PyJPValue_finalize)
 		return false;  // GCOVR_EXCL_LINE
-	// A live instance's type may legitimately be abstract (construction
-	// polymorphs back to the canonical type -- see PyJPObject_new), so
-	// resolve through its concrete companion rather than checking the raw
-	// offset directly.
-	return PyJPClass_getResolvedOffset(type) > 0;
+	// offset is a hard invariant on every fully-created type, abstract or
+	// concrete alike (see PyJPClass_getOffset) -- no companion chase needed.
+	return PyJPClass_getOffset(type) > 0;
 }
 
 Py_ssize_t PyJPValue_getJavaSlotOffset(PyObject* self)
@@ -42,11 +40,12 @@ Py_ssize_t PyJPValue_getJavaSlotOffset(PyObject* self)
 		return 0;
 
 	// Families ported to the fixed-offset object model have their slot's
-	// location baked in at type-creation time on the metaclass. `type` may
-	// legitimately be abstract here (a live instance is always polymorphed
-	// back to the canonical type at construction time -- see
-	// PyJPObject_new), so resolve through its concrete companion.
-	return PyJPClass_getResolvedOffset(type);
+	// location baked in at type-creation time on the metaclass, and it is
+	// always the real, resolved value -- including on an abstract type (a
+	// live instance's Py_TYPE may legitimately be abstract, since
+	// construction polymorphs back to the canonical type -- see
+	// PyJPObject_new), so no companion chase is needed here either.
+	return PyJPClass_getOffset(type);
 }
 
 /**

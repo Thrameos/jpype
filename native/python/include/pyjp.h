@@ -186,16 +186,21 @@ int        PyJPClass_Check(PyObject* obj);
 // dummy-heap-type allocator" -- that allocator, PyJPValue_alloc, has been
 // removed; passing 0 is now a hard internal error.)
 PyObject  *PyJPClass_FromSpecWithBases(PyType_Spec *spec, PyObject *bases, Py_ssize_t offset);
+// Once a type is fully created, this is ALWAYS the real, resolved byte
+// offset -- including for an abstract type, whose offset field is flattened
+// to the same value as its hidden concrete companion's the moment that
+// companion is built (see the concreteCall branch of PyJPClass_init). There
+// is no longer a -1 case to resolve at read time: offset is a hard
+// invariant, not something callers branch on or chase a companion for.
+// (-1 remains meaningful only as an INPUT to PyJPClass_FromSpecWithBases,
+// requesting that a type be created abstract in the first place.)
 Py_ssize_t PyJPClass_getOffset(PyTypeObject* type);
+// Abstract/concrete pairing, split into two explicitly one-directional
+// accessors rather than one ambiguous shared link -- see the struct
+// PyJPClass field comments in pyjp_class.cpp for the full reasoning
+// (tp_concrete is the owned edge, tp_abstract is a raw non-owned back-edge).
 PyTypeObject* PyJPClass_getConcrete(PyTypeObject* type);
-// Like PyJPClass_getOffset, but if `type` itself is abstract (-1) and has a
-// concrete companion, resolves through it to the companion's real, positive
-// offset.  Live instances are always polymorphed back to the canonical
-// (possibly abstract) type at construction time (see PyJPObject_new), so
-// this is what PyJPValue_getJavaSlotOffset's fast path needs -- unlike
-// PyJPClass_getOffset itself, which callers deciding *whether* to redirect
-// allocation still need in its raw, unresolved form.
-Py_ssize_t PyJPClass_getResolvedOffset(PyTypeObject* type);
+PyTypeObject* PyJPClass_getAbstract(PyTypeObject* type);
 
 // Class methods to add to the spec tables
 void       PyJPValue_free(void* obj);
