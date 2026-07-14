@@ -1,4 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
+
+if(CMAKE_VERSION VERSION_LESS 3.25 AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(LINUX true)
+endif()
+
 project(jpype-native)
 
 option(ENABLE_TRACING "Enable tracing in the extension" OFF)
@@ -201,14 +206,34 @@ if(WIN32)
 
     # Ensure /MD and exception model are set
     target_compile_options(_jpype PRIVATE /EHsc /MD)
-else()
-    # Linux and OSX settings.
-    find_library(LIBSTDCXX_SHARED NAMES stdc++)
+elseif(APPLE)
+    # 1. Force the compiler to target the native Apple libc++
+    target_compile_options(_jpype PRIVATE "-stdlib=libc++")
+    target_link_options(_jpype PRIVATE "-stdlib=libc++")
 
-    target_link_libraries(_jpype PRIVATE
-            dl # dynamic linker
-            "${LIBSTDCXX_SHARED}" # we have to link dynamically against libstdc++ to avoid conflicts with JVM.
+    # 2. Tell the linker to prioritize dynamic lookup (.dylib) over static (.a)
+    target_link_options(_jpype PRIVATE "-Wl,-search_paths_first")
+    # Keep frame pointers for better stack unwinding.
+    add_compile_options(-fno-omit-frame-pointer)
+    add_custom_command(TARGET _jpype POST_BUILD
+            COMMAND sh -c "otool -L $<TARGET_FILE:_jpype> | grep -q libc++.1.dylib || (echo 'FATAL: _jpype.so not dynamically linked against libc++!' >&2 && exit 1)"
+            VERBATIM
     )
+elseif(LINUX OR UNIX) # make sure APPLE is handled before this.
+    # Linux and OSX settings.
+#    find_library(LIBSTDCXX_SHARED NAMES stdc++ DOC "LibStdC++ runtime library required." REQUIRED)
+#
+#    target_link_libraries(_jpype PRIVATE
+#            dl # dynamic linker
+#            "${LIBSTDCXX_SHARED}" # we have to link dynamically against libstdc++ to avoid conflicts with JVM.
+#    )
+    #target_compile_options(_jpype PRIVATE "-shared-libgcc")
+    #target_link_options(_jpype PRIVATE "-shared-libgcc" "-shared-libstdc++")
+    target_link_libraries(_jpype PRIVATE
+            dl
+            )
+    target_link_options(_jpype PRIVATE "-Wl,-l:libstdc++.so.6")
+
     # Keep frame pointers for better stack unwinding.
     add_compile_options(-fno-omit-frame-pointer)
 
@@ -220,6 +245,8 @@ else()
             COMMAND sh -c "readelf -d $<TARGET_FILE:_jpype> | grep -q libstdc++.so.6 || (echo 'FATAL: _jpype.so not dynamically linked against libstdc++!' >&2 && exit 1)"
             VERBATIM
     )
+else()
+    message(WARNING "unhandled OS found!")
 endif()
 
 
