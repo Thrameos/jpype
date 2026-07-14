@@ -7,6 +7,15 @@ Latest Changes:
 
 - **1.7.2.dev0**
 
+  - Fixed heap corruption when boxing large `JLong`/`JInt`/`JShort`/`JByte`/`JBoolean`
+    values on Python 3.8-3.11, caused by a fixed-offset allocator layout
+    assumption colliding with CPython's own implicit `__dict__` slot for
+    variable-length int subclasses.
+
+  - Fixed a GC refcount-accounting bug in the internal Java-class metaclass
+    where `tp_traverse`/`tp_clear` did not chain to `type`'s own
+    implementation.
+
   - Fixed memory leak with int and float conversions. #1379
 
   - Fixed instablity in threading for method dispatch. #1366

@@ -16,6 +16,116 @@
 #include "jpype.h"
 #include "pyjp.h"
 #include "jp_boxedtype.h"
+#include <cstddef>
+
+static inline size_t PyJPNumber_alignUp(size_t value, size_t alignment)
+{
+	return (value + alignment - 1) & ~(alignment - 1);
+}
+
+// Long/Boolean are variable-length PyLongObject subtypes.  Rather than a
+// compile-time struct (as Exception/Float use), we reserve a FIXED maximum
+// digit budget -- enough for any 64-bit Java boxed value -- so the appended
+// JPValue's offset never depends on which value is being boxed.  See
+// PyJPNumber_longFromLongLong's header comment for why we can't just let CPython's own
+// long_subtype_new (used by default for any int subtype) handle this.
+#if PYLONG_BITS_IN_DIGIT == 30
+#define JLONG_MAX_DIGITS 3 /* 3*30 = 90 >= 64 bits */
+#elif PYLONG_BITS_IN_DIGIT == 15
+#define JLONG_MAX_DIGITS 5 /* 5*15 = 75 >= 64 bits */
+#else
+#error "Unexpected PYLONG_BITS_IN_DIGIT"
+#endif
+
+// Number of extra digit-slots (nitems) that must be passed to tp_alloc for
+// every Long/Boolean instance so the fixed offset computed in
+// PyJPNumber_initType always lands inside the actual allocation, regardless
+// of alignment padding. Computed once at module init (PyJPNumber_initType).
+static Py_ssize_t gLongReserveItems = 0;
+
+// Float has a genuine compile-time-known C layout (like Exception), so it
+// gets a real struct and a direct offsetof-based concrete offset -- no
+// digit-budget reasoning needed since PyFloatObject is always fixed-size.
+struct PyJPFloat
+{
+	PyFloatObject base;
+	JPValue extra;
+};
+
+/*
+ * WHY THESE DON'T CALL INTO PyLong_Type.tp_new/PyFloat_Type.tp_new WITH THE
+ * ACTUAL SUBTYPE
+ *
+ * CPython's own tp_new for int/float SUBTYPES (long_subtype_new/
+ * float_subtype_new, Objects/longobject.c, Objects/floatobject.c) build a
+ * throwaway base-type instance first and then allocate+copy into the real
+ * subtype using however many digits (int) that specific value needs --
+ * NOT our fixed maximum budget. Since our type's slot offset is now a fixed
+ * constant (computed once, independent of the boxed value), any allocation
+ * that doesn't reserve the full fixed budget would place the appended
+ * JPValue past the end of a too-small allocation. So every construction
+ * path for Long/Boolean must go through PyJPNumber_longFromLongLong (which always
+ * allocates gLongReserveItems digit-slots, regardless of the actual value's
+ * magnitude); Float doesn't have this variable-length concern at all, since
+ * PyFloatObject's size never depends on the value it stores.
+ *
+ * Digit layout is duplicated per CPython version boundary (confirmed
+ * against the CPython source tree directly, tags v3.10.0 through v3.14.0 --
+ * see jpype_boxed_long_antipattern_fix memory for the full derivation):
+ *   - <=3.11: struct _longobject { PyObject_VAR_HEAD; digit ob_digit[1]; };
+ *     sign is the sign of ob_size.
+ *   - >=3.12: struct _longobject { PyObject_HEAD; _PyLongValue long_value; }
+ *     where long_value = { uintptr_t lv_tag; digit ob_digit[1]; }. lv_tag's
+ *     low 2 bits are sign (0=positive,1=zero,2=negative), bit 2 is the
+ *     immortal-object flag (0 for our freshly allocated objects), lv_tag>>3
+ *     is the digit count.
+ */
+PyObject* PyJPNumber_longFromLongLong(PyTypeObject* type, long long value)
+{
+	// Magnitude via unsigned negation so INT64_MIN doesn't overflow.
+	unsigned long long mag = (value < 0)
+			? (0ULL - (unsigned long long) value)
+			: (unsigned long long) value;
+
+	digit digits[JLONG_MAX_DIGITS];
+	unsigned long long m = mag;
+	for (int i = 0; i < JLONG_MAX_DIGITS; i++)
+	{
+		digits[i] = (digit) (m & PyLong_MASK);
+		m >>= PyLong_SHIFT;
+	}
+	int ndigits = JLONG_MAX_DIGITS;
+	while (ndigits > 0 && digits[ndigits - 1] == 0)
+		ndigits--;
+
+	// Always allocate the full reserved budget, regardless of how many
+	// digits this particular value actually needs, so the appended slot's
+	// offset never moves.
+	auto* self = (PyLongObject*) type->tp_alloc(type, gLongReserveItems);
+	if (self == nullptr)
+		return nullptr;
+
+#if PY_VERSION_HEX >= 0x030c0000
+	int sign_code = (mag == 0) ? 1 : (value < 0 ? 2 : 0);
+	self->long_value.lv_tag = ((uintptr_t) ndigits << 3) | (uintptr_t) sign_code;
+	for (int i = 0; i < JLONG_MAX_DIGITS; i++)
+		self->long_value.ob_digit[i] = digits[i];
+#else
+	Py_SET_SIZE(self, (value < 0) ? -ndigits : ndigits);
+	for (int i = 0; i < JLONG_MAX_DIGITS; i++)
+		self->ob_digit[i] = digits[i];
+#endif
+	return (PyObject*) self;
+}
+
+static PyObject* newFloatFixed(PyTypeObject* type, double value)
+{
+	auto* self = (PyFloatObject*) type->tp_alloc(type, 0);
+	if (self == nullptr)
+		return nullptr;
+	self->ob_fval = value;
+	return (PyObject*) self;
+}
 
 static bool isNull(PyObject *self)
 {
@@ -248,21 +358,25 @@ static Py_hash_t PyJPNumberFloat_hash(PyObject *self)
 static PyObject *PyJPBoolean_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
 	JP_PY_TRY("PyJPBoolean_new", type);
-	JPPyObject self;
 	if (PyTuple_Size(args) != 1)
 	{
 		PyErr_SetString(PyExc_TypeError, "Requires one argument");
 		return nullptr;
 	}
 	int i = PyObject_IsTrue(PyTuple_GetItem(args, 0));
-	JPPyObject args2 = JPPyTuple_Pack(PyLong_FromLong(i));
-	self = JPPyObject::call(PyLong_Type.tp_new(type, args2.get(), kwargs));
 	JPClass *cls = PyJPClass_getJPClass((PyObject*) type);
 	if (cls == nullptr)
 	{
 		PyErr_SetString(PyExc_TypeError, "Class type incorrect");
 		return nullptr;
 	}
+	// Must use our own fixed-budget allocator, not PyLong_Type.tp_new(type,
+	// ...) -- calling it with the actual subtype would dispatch to CPython's
+	// own long_subtype_new, which allocates only as many digits as the
+	// value 0/1 needs, not our fixed reserved budget, corrupting the
+	// appended JPValue slot. See PyJPNumber_longFromLongLong's header comment.
+	JPPyObject self = JPPyObject::call(PyJPNumber_longFromLongLong(type, i));
+	JP_PY_CHECK();
 	JPJavaFrame frame = JPJavaFrame::outer();
 	JPMatch match(&frame, self.get());
 	cls->findJavaConversion(match);
@@ -335,7 +449,7 @@ static PyType_Slot numberFloatSlots[] = {
 PyTypeObject *PyJPNumberFloat_Type = nullptr;
 PyType_Spec numberFloatSpec = {
 	"_jpype._JNumberFloat",
-	0,
+	sizeof (struct PyJPFloat),
 	0,
 	Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
 	numberFloatSlots
@@ -370,21 +484,63 @@ PyType_Spec numberBooleanSpec = {
 
 void PyJPNumber_initType(PyObject* module)
 {
+	// Compute the fixed Long/Boolean digit-slot layout once: enough room for
+	// JLONG_MAX_DIGITS digits (the offset), plus however many whole
+	// digit-slots (nitems, gLongReserveItems) are needed for the actual
+	// allocation to always cover offset+sizeof(JPValue), regardless of
+	// alignment padding. See PyJPNumber_longFromLongLong's header comment.
+	//
+	// EXTRA MARGIN, WHY: jpype.JLong/JInt/JShort/JByte/JBoolean (jpype/types.py)
+	// are ordinary Python subclasses of _jpype._JNumberLong/_JBoolean (`class
+	// JLong(_jpype._JNumberLong, internal=True): pass`, no __slots__). Since
+	// _jpype._JNumberLong itself has tp_dictoffset==0, CPython's type_new_
+	// descriptors (Objects/typeobject.c) adds an implicit instance __dict__
+	// to that first subclass -- and because the base has nonzero tp_itemsize
+	// (it's a variable-length int), CPython does NOT grow tp_basicsize by a
+	// dict *pointed to by a fixed offset*; instead it sets
+	// tp_dictoffset = -sizeof(PyObject*) (a NEGATIVE/dynamic offset) so the
+	// dict pointer resolves at runtime to
+	// (this_type's grown tp_basicsize) + Py_SIZE(obj)*itemsize - sizeof(PyObject*)
+	// == PyLong_Type.tp_basicsize + Py_SIZE(obj)*itemsize
+	// i.e. immediately after however many digits THIS PARTICULAR boxed value
+	// actually has (Py_SIZE, 0..JLONG_MAX_DIGITS). We always allocate/reserve
+	// a fixed JLONG_MAX_DIGITS-digit budget regardless of the real value, so
+	// this dynamic dict slot can land anywhere in
+	// [PyLong_Type.tp_basicsize, PyLong_Type.tp_basicsize + JLONG_MAX_DIGITS*itemsize + sizeof(PyObject*))
+	// -- our own appended JPValue must start at or past the far end of that
+	// whole window, not just past the digit budget itself, or assignJavaSlot
+	// silently overwrites live bytes of that dict pointer (a rare, version-
+	// sensitive CPython heap-layout hazard: newer CPython's managed-dict
+	// scheme, Py_TPFLAGS_MANAGED_DICT, avoids this entirely by not touching
+	// tp_basicsize/tp_dictoffset at all -- confirmed no reproduction on
+	// 3.12 -- but pre-3.11-style dict slots hit it whenever a boxed value
+	// needs the full digit budget, e.g. JLong(2**61)).
+	auto base = (size_t) PyLong_Type.tp_basicsize;
+	auto itemsize = (size_t) PyLong_Type.tp_itemsize;
+	size_t rawNeeded = base + (size_t) JLONG_MAX_DIGITS * itemsize + sizeof (PyObject*);
+	size_t longOffset = PyJPNumber_alignUp(rawNeeded, alignof (JPValue));
+	size_t totalNeeded = longOffset + sizeof (JPValue);
+	size_t extraBytes = totalNeeded - base;
+	gLongReserveItems = (Py_ssize_t) ((extraBytes + itemsize - 1) / itemsize);
 
 	JPPyObject bases = JPPyTuple_Pack(&PyLong_Type, PyJPObject_Type);
-	PyJPNumberLong_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&numberLongSpec, bases.get());
+	PyJPNumberLong_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&numberLongSpec, bases.get(), (Py_ssize_t) longOffset);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
 	PyModule_AddObject(module, "_JNumberLong", (PyObject*) PyJPNumberLong_Type);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
 
 	bases = JPPyTuple_Pack(&PyFloat_Type, PyJPObject_Type);
-	PyJPNumberFloat_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&numberFloatSpec, bases.get());
+	PyJPNumberFloat_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&numberFloatSpec, bases.get(),
+			offsetof (struct PyJPFloat, extra));
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
 	PyModule_AddObject(module, "_JNumberFloat", (PyObject*) PyJPNumberFloat_Type);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
 
+	// Boolean is its own family root (not a subclass of PyJPNumberLong_Type)
+	// but shares the identical PyLong_Type-based layout, so it reuses the
+	// same offset/reserve-items values computed above.
 	bases = JPPyTuple_Pack(&PyLong_Type, PyJPObject_Type);
-	PyJPNumberBool_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&numberBooleanSpec, bases.get());
+	PyJPNumberBool_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&numberBooleanSpec, bases.get(), (Py_ssize_t) longOffset);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
 	PyModule_AddObject(module, "_JBoolean", (PyObject*) PyJPNumberBool_Type);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
@@ -399,9 +555,7 @@ JPPyObject PyJPNumber_create(JPJavaFrame &frame, JPPyObject& wrapper, const JPVa
 		jlong l = 0;
 		if (value.getValue().l != nullptr)
 			l = frame.CallBooleanMethodA(value.getJavaObject(), context->_java_lang_Boolean->m_BooleanValueID, nullptr);
-		JPPyObject ln = JPPyObject::call(PyLong_FromLongLong(l));
-		JPPyObject args = JPPyTuple_Pack(ln.get());
-		return JPPyObject::call(PyLong_Type.tp_new((PyTypeObject*) wrapper.get(), args.get(), nullptr));
+		return JPPyObject::call(PyJPNumber_longFromLongLong((PyTypeObject*) wrapper.get(), l));
 	}
 	if (PyObject_IsSubclass(wrapper.get(), (PyObject*) & PyLong_Type))
 	{
@@ -411,9 +565,7 @@ JPPyObject PyJPNumber_create(JPJavaFrame &frame, JPPyObject& wrapper, const JPVa
 			auto* jb = dynamic_cast<JPBoxedType*>( value.getClass());
 			l = frame.CallLongMethodA(value.getJavaObject(), jb->m_LongValueID, nullptr);
 		}
-		JPPyObject ln = JPPyObject::call(PyLong_FromLongLong(l));
-		JPPyObject args = JPPyTuple_Pack(ln.get());
-		return JPPyObject::call(PyLong_Type.tp_new((PyTypeObject*) wrapper.get(), args.get(), nullptr));
+		return JPPyObject::call(PyJPNumber_longFromLongLong((PyTypeObject*) wrapper.get(), l));
 	}
 	if (PyObject_IsSubclass(wrapper.get(), (PyObject*) & PyFloat_Type))
 	{
@@ -423,9 +575,7 @@ JPPyObject PyJPNumber_create(JPJavaFrame &frame, JPPyObject& wrapper, const JPVa
 			auto* jb = dynamic_cast<JPBoxedType*>( value.getClass());
 			l = frame.CallDoubleMethodA(value.getJavaObject(), jb->m_DoubleValueID, nullptr);
 		}
-		JPPyObject ln = JPPyObject::call(PyFloat_FromDouble(l));
-		JPPyObject args = JPPyTuple_Pack(ln.get());
-		return JPPyObject::call(PyFloat_Type.tp_new((PyTypeObject*) wrapper.get(), args.get(), nullptr));
+		return JPPyObject::call(newFloatFixed((PyTypeObject*) wrapper.get(), l));
 	}
 	JP_RAISE(PyExc_TypeError, "unable to convert");  //GCOVR_EXCL_LINE
 }

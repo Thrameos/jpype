@@ -13,6 +13,7 @@
 
    See NOTICE file for details.
  *****************************************************************************/
+#include <cstddef>
 #include "jpype.h"
 #include "pyjp.h"
 #include <structmember.h>
@@ -25,10 +26,17 @@ extern "C"
 
 PyTypeObject *PyJPChar_Type = nullptr;
 
+// m_Data is a fixed 4 bytes regardless of the boxed value (enough for one
+// UCS-2 code point + null in any compact-unicode kind), so -- unlike
+// PyLong/PyFloat subclasses in pyjp_number.cpp -- there's no value-dependent
+// sizing hazard here.  Char can go straight to concrete like Exception/Array/
+// Buffer: single inheritance below Object (plus str, which is trivially
+// compatible since Object is kept layout-trivial).
 struct PyJPChar
 {
 	PyCompactUnicodeObject m_Obj;
 	char m_Data[4];
+	JPValue extra;
 } ;
 
 #define _PyUnicode_LENGTH(op) (((PyASCIIObject *)(op))->length)
@@ -80,7 +88,7 @@ static int assertNotNull(JPValue *javaSlot)
 PyObject *PyJPChar_Create(PyTypeObject *type, Py_UCS2 p)
 {
 	// Allocate a new string type (derived from UNICODE)
-	PyJPChar  *self = (PyJPChar*) PyJPValue_alloc(type, 0);
+	PyJPChar  *self = (PyJPChar*) type->tp_alloc(type, 0);
 	if (self == nullptr)
 		return nullptr;
 
@@ -631,8 +639,9 @@ static PyType_Spec charSpec = {
 void PyJPChar_initType(PyObject* module)
 {
 	// We will inherit from str and JObject
+	Py_ssize_t offset = offsetof (struct PyJPChar, extra);
 	JPPyObject bases = JPPyTuple_Pack(&PyUnicode_Type, PyJPObject_Type);
-	PyJPChar_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&charSpec, bases.get());
+	PyJPChar_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&charSpec, bases.get(), offset);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
 	PyModule_AddObject(module, "_JChar", (PyObject*) PyJPChar_Type);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE

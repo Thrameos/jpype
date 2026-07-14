@@ -24,57 +24,29 @@ extern "C"
 {
 #endif
 
-#ifndef Py_SET_TYPE
-static inline void _Py_SET_TYPE(PyObject *ob, PyTypeObject *type)
-{
-    ob->ob_type = type;
-}
-#define Py_SET_TYPE(ob, type) _Py_SET_TYPE((PyObject*)(ob), (type))
-#endif
-
-/**
- * Internal key for the thread-local allocator type.
- */
-static const char* JP_ALLOC_KEY = "_jpype_allocator";
-
 bool PyJPValue_hasJavaSlot(PyTypeObject* type)
 {
-       if (type == nullptr
-                       || type->tp_alloc != (allocfunc) PyJPValue_alloc
-                       || type->tp_finalize != (destructor) PyJPValue_finalize)
-               return false;  // GCOVR_EXCL_LINE
-       return true;
+	if (type == nullptr || type->tp_finalize != (destructor) PyJPValue_finalize)
+		return false;  // GCOVR_EXCL_LINE
+	// A live instance's type may legitimately be abstract (construction
+	// polymorphs back to the canonical type -- see PyJPObject_new), so
+	// resolve through its concrete companion rather than checking the raw
+	// offset directly.
+	return PyJPClass_getResolvedOffset(type) > 0;
 }
 
 Py_ssize_t PyJPValue_getJavaSlotOffset(PyObject* self)
 {
 	PyTypeObject *type = Py_TYPE(self);
-	if (type == nullptr
-			|| type->tp_alloc != (allocfunc) PyJPValue_alloc
-			|| type->tp_finalize != (destructor) PyJPValue_finalize)
-	{
+	if (type == nullptr)
 		return 0;
-	}
 
-	Py_ssize_t offset = 0;
-	Py_ssize_t sz = 0;
-	
-#if PY_VERSION_HEX>=0x030c0000
-	// starting in 3.12 there is no longer ob_size in PyLong
-	if (PyType_HasFeature(self->ob_type, Py_TPFLAGS_LONG_SUBCLASS))
-		sz = (((PyLongObject*)self)->long_value.lv_tag) >> 3;  // Private NON_SIZE_BITS
-	else 
-#endif
-	if (type->tp_itemsize != 0)
-		sz = Py_SIZE(self);
-	// PyLong abuses ob_size with negative values prior to 3.12
-	if (sz < 0)
-		sz = -sz;
-	if (type->tp_itemsize == 0)
-		offset = _PyObject_VAR_SIZE(type, 1);
-	else
-		offset = _PyObject_VAR_SIZE(type, sz + 1);
-	return offset;
+	// Families ported to the fixed-offset object model have their slot's
+	// location baked in at type-creation time on the metaclass. `type` may
+	// legitimately be abstract here (a live instance is always polymorphed
+	// back to the canonical type at construction time -- see
+	// PyJPObject_new), so resolve through its concrete companion.
+	return PyJPClass_getResolvedOffset(type);
 }
 
 /**
@@ -288,111 +260,5 @@ bool PyJPValue_isSetJavaSlot(PyObject* self)
 		return false;  // GCOVR_EXCL_LINE
 	auto* slot = (JPValue*) (((char*) self) + offset);
 	return slot->getClass() != nullptr;
-}
-
-/***************** Create a dummy type for use when allocating. ************************/
-static int PyJPAlloc_traverse(PyObject *self, visitproc visit, void *arg)
-{
-	return 0;
-}
-
-static int PyJPAlloc_clear(PyObject *self)
-{
-	return 0;
-}
-
-
-static PyType_Slot allocSlots[] = {
-	{ Py_tp_traverse, (void*) PyJPAlloc_traverse},
-	{ Py_tp_clear, (void*) PyJPAlloc_clear},
-	{0, NULL}  // Sentinel
-};
-
-static PyType_Spec allocSpec = {
-	"_jpype._JAlloc",
-	sizeof(PyObject),
-	0,
-	Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC,
-	allocSlots
-};
-
-/**
- * Allocate a new Python object with a slot for Java.
- *
- * We need extra space to store our values, but because there
- * is no way to do so without disturbing the object layout.
- * Fortunately, Python already handles this for dict and weakref.
- * Python aligns the ends of the structure and increases the
- * base type size to add additional slots to a standard object.
- *
- * We will use the same trick to add an additional slot for Java
- * after the end of the object outside of where Python is looking.
- * As the memory is aligned this is safe to do.  We will use
- * the alloc and finalize slot to recognize which objects have this
- * extra slot appended.
- */
-PyObject* PyJPValue_alloc(PyTypeObject* type, Py_ssize_t nitems)
-{
-    JP_PY_TRY("PyJPValue_alloc");
-
-#if PY_VERSION_HEX >= 0x030d0000
-    if (PyType_HasFeature(type, Py_TPFLAGS_INLINE_VALUES)) {
-        PyErr_Format(PyExc_RuntimeError, "Unhandled object layout");
-        return nullptr;
-    }
-#endif
-
-    // 1. Get the thread-specific dictionary
-    PyObject* thread_dict = PyThreadState_GetDict();
-    if (thread_dict == nullptr) {
-        PyErr_SetString(PyExc_RuntimeError, "Python thread state is corrupt or shutting down");
-        return nullptr;
-    }
-
-	// 2. Retrieve or create the thread-local allocator template
-	PyTypeObject* local_alloc_type = (PyTypeObject*)PyDict_GetItemString(thread_dict, JP_ALLOC_KEY);
-
-	if (local_alloc_type == nullptr) {
-		// Instead of memcpy, just create a fresh instance of a dummy type.
-		// This ensures the GC sees a perfectly clean, unique Type object.
-		PyObject *bases = PyTuple_Pack(1, &PyBaseObject_Type);
-		
-		// Use the same spec you used for the global PyJPAlloc_Type
-		local_alloc_type = (PyTypeObject*) PyType_FromSpecWithBases(&allocSpec, bases);
-		Py_DECREF(bases);
-
-		if (local_alloc_type == nullptr)
-			return nullptr;
-
-		// Store it in the thread dict so it lives as long as the thread
-		if (PyDict_SetItemString(thread_dict, JP_ALLOC_KEY, (PyObject*)local_alloc_type) < 0) {
-			Py_DECREF(local_alloc_type);
-			return nullptr;
-		}
-	}
-	else
-		// Promote the borrowed reference to hard reference for safety
-		Py_INCREF(local_alloc_type);
-
-
-    // 3. Mutate the thread-local type safely
-    local_alloc_type->tp_flags = type->tp_flags;
-    local_alloc_type->tp_basicsize = type->tp_basicsize + sizeof(JPValue);
-    local_alloc_type->tp_itemsize = type->tp_itemsize;
-
-    // 4. Perform the allocation
-    PyObject* obj = PyType_GenericAlloc(local_alloc_type, nitems);
-	Py_DECREF(local_alloc_type);
-
-    if (obj == nullptr)
-        return nullptr;
-
-    // 5. Polymorph the object to the target type
-    Py_SET_TYPE(obj, type);
-    Py_INCREF(type);
-
-    JP_TRACE("alloc", type->tp_name, obj);
-    return obj;
-    JP_PY_CATCH(nullptr);
 }
 

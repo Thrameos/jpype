@@ -95,6 +95,10 @@ struct PyJPArray
 	PyObject_HEAD
 	JPArray *m_Array;
 	JPArrayView *m_View;
+	// Fixed-offset Java-value slot (see PyJPClass_FromSpecWithBases in
+	// pyjp.h/pyjp_class.cpp) -- Array is always single-inheritance below
+	// Object, so it can go straight to concrete like Exception.
+	JPValue extra;
 } ;
 
 struct PyJPClassHints
@@ -155,6 +159,7 @@ extern PyObject *_JMethodCode;
 extern PyObject *_JObjectKey;
 extern PyObject *_JVMNotRunning;
 extern PyObject *PyJPClassMagic;
+extern PyObject *PyJPClassMagicConcrete;
 // for caching type checks with Numpy bool after np version 2.1
 extern PyObject* _num_bool_type;
 extern PyObject* _numpy_int8_type;
@@ -166,10 +171,33 @@ extern JPContext* JPContext_global;
 
 // Class wrapper functions
 int        PyJPClass_Check(PyObject* obj);
-PyObject  *PyJPClass_FromSpecWithBases(PyType_Spec *spec, PyObject *bases);
+// offset: the Java-value slot family for the resulting type. See
+// plan/ObjectModel.md for the full design. Every family now bakes its
+// slot's location into tp_basicsize itself, so callers must always pass
+// one of:
+//   -1  -> abstract: kept layout-trivial (safe to mix with any foreign
+//          family, e.g. boxed Number/Buffer/Array/Char) and immediately
+//          paired with a hidden concrete companion type that carries the
+//          real, fixed offset.
+//   >0  -> concrete: caller supplies the exact fixed byte offset directly
+//          (e.g. Exception, which has a real compile-time C struct), no
+//          companion needed.
+// (0 used to mean "legacy family, resolved at runtime via the thread-local
+// dummy-heap-type allocator" -- that allocator, PyJPValue_alloc, has been
+// removed; passing 0 is now a hard internal error.)
+PyObject  *PyJPClass_FromSpecWithBases(PyType_Spec *spec, PyObject *bases, Py_ssize_t offset);
+Py_ssize_t PyJPClass_getOffset(PyTypeObject* type);
+PyTypeObject* PyJPClass_getConcrete(PyTypeObject* type);
+// Like PyJPClass_getOffset, but if `type` itself is abstract (-1) and has a
+// concrete companion, resolves through it to the companion's real, positive
+// offset.  Live instances are always polymorphed back to the canonical
+// (possibly abstract) type at construction time (see PyJPObject_new), so
+// this is what PyJPValue_getJavaSlotOffset's fast path needs -- unlike
+// PyJPClass_getOffset itself, which callers deciding *whether* to redirect
+// allocation still need in its raw, unresolved form.
+Py_ssize_t PyJPClass_getResolvedOffset(PyTypeObject* type);
 
 // Class methods to add to the spec tables
-PyObject  *PyJPValue_alloc(PyTypeObject* type, Py_ssize_t nitems );
 void       PyJPValue_free(void* obj);
 void       PyJPValue_finalize(void* obj);
 int        PyJPValue_traverse(PyObject *self, visitproc visit, void *arg);
@@ -187,6 +215,16 @@ PyObject  *PyJPValue_getattro(PyObject *obj, PyObject *name);
 int        PyJPValue_setattro(PyObject *self, PyObject *name, PyObject *value);
 PyObject  *PyJPChar_Create(PyTypeObject *type, Py_UCS2 p);
 PyTypeObject* PyJP_GetNumPyBaseType(PyTypeObject* obj);
+
+// Build a boxed/primitive-wrapper int value directly, allocating the fixed
+// reserved digit budget (see pyjp_number.cpp) rather than CPython's own
+// long_subtype_new (which sizes the allocation to the value's actual digit
+// count -- wrong once the wrapper type's Java-value slot sits at a fixed
+// offset past a fixed-size digit budget). Used by every construction path
+// for Long/Boolean/int-like primitive wrappers, including
+// JPPrimitiveType::convertLong (jp_primitivetype.cpp), which used to hand-roll
+// its own long_subtype_new equivalent.
+PyObject  *PyJPNumber_longFromLongLong(PyTypeObject* type, long long value);
 
 #ifdef __cplusplus
 }

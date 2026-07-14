@@ -13,6 +13,7 @@
 
    See NOTICE file for details.
  *****************************************************************************/
+#include <cstddef>
 #include "jpype.h"
 #include "pyjp.h"
 #include "jp_array.h"
@@ -494,8 +495,13 @@ static PyType_Spec arrayPrimSpec = {
 
 void PyJPArray_initType(PyObject * module)
 {
+	// Array has a real, compile-time-known C layout (struct PyJPArray) and is
+	// always single-inheritance below Object, so it goes straight to
+	// concrete -- same reasoning as Exception, see pyjp_object.cpp.
+	Py_ssize_t offset = offsetof (struct PyJPArray, extra);
+
 	JPPyObject tuple = JPPyTuple_Pack(PyJPObject_Type);
-	PyJPArray_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&arraySpec, tuple.get());
+	PyJPArray_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&arraySpec, tuple.get(), offset);
 	JP_PY_CHECK();
 #if PY_VERSION_HEX < 0x03090000
 	PyJPArray_Type->tp_as_buffer = &arrayBuffer;
@@ -503,9 +509,12 @@ void PyJPArray_initType(PyObject * module)
 	PyModule_AddObject(module, "_JArray", (PyObject*) PyJPArray_Type);
 	JP_PY_CHECK();
 
+	// ArrayPrimitive adds no new fields (arrayPrimSpec.basicsize == 0, so it
+	// inherits PyJPArray's basicsize as-is) -- same slot location, so pass
+	// the identical offset rather than 0 (which would mean legacy).
 	tuple = JPPyTuple_Pack(PyJPArray_Type);
 	PyJPArrayPrimitive_Type = (PyTypeObject*)
-			PyJPClass_FromSpecWithBases(&arrayPrimSpec, tuple.get());
+			PyJPClass_FromSpecWithBases(&arrayPrimSpec, tuple.get(), offset);
 #if PY_VERSION_HEX < 0x03090000
 	PyJPArrayPrimitive_Type->tp_as_buffer = &arrayPrimBuffer;
 #endif

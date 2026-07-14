@@ -831,6 +831,7 @@ PyMODINIT_FUNC PyInit__jpype()
 	PyModule_AddObject(module, "__builtins__", builtins);
 
 	PyJPClassMagic = PyDict_New();
+	PyJPClassMagicConcrete = PyDict_New();
 	// Initialize each of the python extension types
 	PyJPClass_initType(module);
 	PyJPObject_initType(module);

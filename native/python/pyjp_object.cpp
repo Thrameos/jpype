@@ -13,6 +13,7 @@
 
    See NOTICE file for details.
  *****************************************************************************/
+#include <cstddef>
 #include "jpype.h"
 #include "pyjp.h"
 
@@ -24,7 +25,10 @@ extern "C"
 static PyObject *PyJPObject_new(PyTypeObject *type, PyObject *pyargs, PyObject *kwargs)
 {
 	JP_PY_TRY("PyJPObject_new");
-	// Get the Java class from the type.
+	// Get the Java class from the type.  This must use the canonical/visible
+	// type -- the one the caller actually named -- since only it has
+	// m_Class populated; a hidden concrete companion (see
+	// PyJPClass_concrete) never does.
 	JPClass *cls = PyJPClass_getJPClass((PyObject*) type);
 	if (cls == nullptr)
 	{
@@ -37,11 +41,39 @@ static PyObject *PyJPObject_new(PyTypeObject *type, PyObject *pyargs, PyObject *
 	JPPyObjectVector args(pyargs);
 	JPValue jv = cls->newInstance(frame, args);
 
+	// If this type is abstract (kept layout-trivial so it stays compatible
+	// as a mixin base for any foreign family, e.g. boxed Number), redirect
+	// the actual allocation to its hidden concrete companion.
+	PyTypeObject *allocType = type;
+	if (PyJPClass_getOffset(type) == -1)
+	{
+		allocType = PyJPClass_getConcrete(type);
+		if (allocType == nullptr)
+		{
+			PyErr_SetString(PyExc_TypeError, "Concrete implementation missing for abstract type");
+			return nullptr;
+		}
+	}
+
 	// If it succeeded then allocate memory
-	PyObject *self = type->tp_alloc(type, 0);
+	PyObject *self = allocType->tp_alloc(allocType, 0);
 	JP_PY_CHECK();
 
 	JP_FAULT_RETURN("PyJPObject_init.null", self);
+
+	if (allocType != type)
+	{
+		// Polymorph back to the canonical/abstract type the caller actually
+		// named, so type(instance) stays consistent with jpype.JClass(...)
+		// and any other identity-sensitive code -- mirrors the legacy
+		// PyJPValue_alloc's own Py_SET_TYPE trick (see pyjp_value.cpp).
+		// The companion only ever exists as a transient allocation-sizing
+		// vehicle; no live object should ever report it as its type.
+		Py_INCREF(type);
+		Py_SET_TYPE(self, type);
+		Py_DECREF(allocType);
+	}
+
 	PyJPValue_assignJavaSlot(frame, self, jv);
 	return self;
 	JP_PY_CATCH(nullptr);
@@ -228,7 +260,6 @@ static PyMethodDef objectMethods[] = {
 };
 
 static PyType_Slot objectSlots[] = {
-	{Py_tp_alloc,    (void*) &PyJPValue_alloc},
 	{Py_tp_finalize,    (void*) &PyJPValue_finalize},
 	{Py_tp_new,      (void*) &PyJPObject_new},
 	{Py_tp_free,     (void*) &PyJPValue_free},
@@ -338,9 +369,22 @@ static PyType_Slot excSlots[] = {
 	{0}
 };
 
+// Exception has a real, compile-time-known C layout (unlike plain Object,
+// whose layout varies with whatever it's mixed with), so it can be given a
+// concrete fixed offset directly -- no abstract/companion dance needed.
+// Java exceptions are always single-inheritance below Throwable, so there's
+// never a risk of this concrete layout conflicting with a foreign family
+// (that risk is specific to Object-lineage interfaces getting mixed into
+// boxed Number/Buffer/Array/Char, which stay legacy).
+struct PyJPException
+{
+	PyBaseExceptionObject base;
+	JPValue extra;
+};
+
 static PyType_Spec excSpec = {
 	"_jpype._JException",
-	0,
+	sizeof (struct PyJPException),
 	0,
 	Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
 	excSlots
@@ -367,18 +411,28 @@ static PyType_Spec comparableSpec = {
 
 void PyJPObject_initType(PyObject* module)
 {
-    PyJPObject_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&objectSpec, nullptr);
+    // -1: abstract.  Object's layout must stay byte-identical to `object` so
+    // it can be mixed, via ordinary Java interface implementation, into any
+    // foreign family (boxed Number/Buffer/Array/Char) without CPython
+    // raising "multiple bases have instance lay-out conflict".  A hidden
+    // concrete companion (see PyJPClass_concrete) is created immediately and
+    // used transparently at construction time (PyJPObject_new).
+    PyJPObject_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&objectSpec, nullptr, -1);
     JP_PY_CHECK(); // GCOVR_EXCL_LINE
 	PyModule_AddObject(module, "_JObject", (PyObject*) PyJPObject_Type);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
     JPPyObject bases = JPPyTuple_Pack(PyExc_Exception, PyJPObject_Type);
-	PyJPException_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&excSpec, bases.get());
+	PyJPException_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&excSpec, bases.get(),
+			offsetof (struct PyJPException, extra));
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
 	PyModule_AddObject(module, "_JException", (PyObject*) PyJPException_Type);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
 
+	// Comparable is a pure interface mixin: it adds no fields of its own, so
+	// it is abstract too (like Object) rather than concrete, and gets its
+	// own (never actually used in practice, but harmless) hidden companion.
 	bases = JPPyTuple_Pack(PyJPObject_Type);
-	PyJPComparable_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&comparableSpec, bases.get());
+	PyJPComparable_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&comparableSpec, bases.get(), -1);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
 	PyModule_AddObject(module, "_JComparable", (PyObject*) PyJPComparable_Type);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
