@@ -485,12 +485,11 @@ void JPPyErrFrame::normalize()
 {
 	// Python uses lazy evaluation on exceptions thus we can't modify it until
 	// we have forced it to realize the exception.
-	auto excValue = m_ExceptionValue.get();
-	if (excValue && !PyExceptionInstance_Check(excValue))
+	if (m_ExceptionValue.get() && !PyExceptionInstance_Check(m_ExceptionValue.get()))
 	{
-		JPPyObject args = JPPyTuple_Pack(excValue);
+		JPPyObject args = JPPyTuple_Pack(m_ExceptionValue.get());
 		m_ExceptionValue = JPPyObject::call(PyObject_Call(m_ExceptionClass.get(), args.get(), nullptr));
-		PyException_SetTraceback(m_ExceptionValue.get(), m_ExceptionTrace.get());   // fixed
+		PyException_SetTraceback(m_ExceptionValue.get(), m_ExceptionTrace.get());
 		JPPyErr::restore(m_ExceptionClass, m_ExceptionValue, m_ExceptionTrace);
 		JPPyErr::fetch(m_ExceptionClass, m_ExceptionValue, m_ExceptionTrace);
 	}
