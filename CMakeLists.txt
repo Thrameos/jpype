@@ -220,18 +220,7 @@ elseif(APPLE)
             VERBATIM
     )
 elseif(LINUX OR UNIX) # make sure APPLE is handled before this.
-    # Linux and OSX settings.
-#    find_library(LIBSTDCXX_SHARED NAMES stdc++ DOC "LibStdC++ runtime library required." REQUIRED)
-#
-#    target_link_libraries(_jpype PRIVATE
-#            dl # dynamic linker
-#            "${LIBSTDCXX_SHARED}" # we have to link dynamically against libstdc++ to avoid conflicts with JVM.
-#    )
-    #target_compile_options(_jpype PRIVATE "-shared-libgcc")
-    #target_link_options(_jpype PRIVATE "-shared-libgcc" "-shared-libstdc++")
-    target_link_libraries(_jpype PRIVATE
-            dl
-            )
+    target_link_libraries(_jpype PRIVATE dl)
     target_link_options(_jpype PRIVATE "-Wl,-l:libstdc++.so.6")
 
     # Keep frame pointers for better stack unwinding.
