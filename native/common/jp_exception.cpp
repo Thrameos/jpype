@@ -493,7 +493,7 @@ PyObject* PyTrace_FromJPStackTrace(JPStackTrace& trace)
 	}
 	if (last_traceback == nullptr)
 		Py_RETURN_NONE;
-	return (PyObject*) last_traceback;
+	return last_traceback;
 }
 
 JPPyObject PyTrace_FromJavaException(JPJavaFrame& frame, jthrowable th, jthrowable prev)
