@@ -13,6 +13,7 @@
 
    See NOTICE file for details.
  *****************************************************************************/
+#include <cstddef>
 #include "jpype.h"
 #include "pyjp.h"
 #include <structmember.h>
@@ -25,6 +26,17 @@ extern "C"
 
 PyTypeObject *PyJPChar_Type = nullptr;
 
+// m_Data is a fixed 4 bytes regardless of the boxed value (enough for one
+// UCS-2 code point + null in any compact-unicode kind), so -- unlike
+// PyLong/PyFloat subclasses in pyjp_number.cpp -- there's no value-dependent
+// sizing hazard here.  Char can go straight to concrete like Exception/Array/
+// Buffer: single inheritance below Object (plus str, which is trivially
+// compatible since Object is kept layout-trivial).
+//
+// No trailing jvalue field at all: the character value already lives in
+// m_Data, and tp_jvalue (charJValue, below) reconstructs a jvalue from it
+// on demand -- boxing via a real JNI call only when this instance's class
+// is boxed Character.
 struct PyJPChar
 {
 	PyCompactUnicodeObject m_Obj;
@@ -52,15 +64,26 @@ static Py_UCS4 ord(PyObject *c)
 	return (Py_UCS4) - 1;
 }
 
-static int isNull(JPValue *javaSlot)
+// cls overload lets callers that already looked up PyJPValue_getJPClass(self)
+// (has0/has1 checks, str/repr's own required-slot check, ...) skip repeating
+// that lookup.
+static int isNullClass(PyObject *self, JPClass *cls)
 {
-	if (javaSlot != nullptr )
-	{
-		JPClass *cls = javaSlot->getClass();
-		if (cls->isPrimitive() || javaSlot->getValue().l != nullptr)
-			return 0;
-	}
-	return 1;
+	if (cls == nullptr)
+		return 1;
+	if (cls->isPrimitive())
+		return 0;
+	// Char keeps no per-instance storage (see charJValue below): a real Java
+	// null is instead the per-class nullBoxed singleton, an identity check.
+	if (PyJPClass_GetJValueFn(Py_TYPE(self)) != nullptr)
+		return self == PyJPClass_GetNullBoxed(Py_TYPE(self));
+	JPJavaFrame frame = JPJavaFrame::outer();
+	return PyJPValue_getJValue(frame, self).l == nullptr;
+}
+
+static int isNull(PyObject *self)
+{
+	return isNullClass(self, PyJPValue_getJPClass(self));
 }
 
 static PyObject* notSupported()
@@ -69,18 +92,23 @@ static PyObject* notSupported()
 	return nullptr;
 }
 
-static int assertNotNull(JPValue *javaSlot)
+static int assertNotNullClass(PyObject *self, JPClass *cls)
 {
-	if (!isNull(javaSlot))
+	if (!isNullClass(self, cls))
 		return 0;
 	PyErr_SetString(PyExc_TypeError, "jchar cast of null pointer");
 	return 1;
 }
 
+static int assertNotNull(PyObject *self)
+{
+	return assertNotNullClass(self, PyJPValue_getJPClass(self));
+}
+
 PyObject *PyJPChar_Create(PyTypeObject *type, Py_UCS2 p)
 {
 	// Allocate a new string type (derived from UNICODE)
-	PyJPChar  *self = (PyJPChar*) PyJPValue_alloc(type, 0);
+	PyJPChar  *self = (PyJPChar*) type->tp_alloc(type, 0);
 	if (self == nullptr)
 		return nullptr;
 
@@ -186,6 +214,27 @@ Py_UCS2 fromJPChar(PyJPChar *self)
 	return data[0];
 }
 
+// tp_jvalue for the char family: reconstructs a jvalue from the instance's
+// own character data, boxing via a real JNI call only when this instance's
+// class is boxed Character. The null-boxed singleton is special-cased first
+// so it costs a pointer compare, not a JNI round trip.
+static jvalue charJValue(JPJavaFrame& frame, PyObject* self)
+{
+	JPClass *cls = PyJPValue_getJPClass(self);
+	jvalue prim{};
+	prim.c = fromJPChar((PyJPChar*) self);
+	if (cls == nullptr || cls->isPrimitive())
+		return prim;
+	if (self == PyJPClass_GetNullBoxed(Py_TYPE(self)))
+	{
+		jvalue null_{};
+		return null_;
+	}
+	jvalue out{};
+	out.l = (dynamic_cast<JPBoxedType*>(cls))->box(frame, prim);
+	return out;
+}
+
 static PyObject * PyJPChar_new(PyTypeObject *type, PyObject *pyargs, PyObject * kwargs)
 {
 	JP_PY_TRY("PyJPChar_new");
@@ -242,14 +291,14 @@ static PyObject * PyJPChar_new(PyTypeObject *type, PyObject *pyargs, PyObject * 
 static PyObject *PyJPChar_str(PyJPChar *self)
 {
 	JP_PY_TRY("PyJPChar_str");
-	JPValue *javaSlot = PyJPValue_getJavaSlot((PyObject*) self);
-	if (javaSlot == nullptr)
+	JPClass *cls = PyJPValue_getJPClass((PyObject*) self);
+	if (cls == nullptr)
 	{  // GCOVR_EXCL_START
 		// A slot is required
 		PyErr_SetString(PyExc_TypeError, "Java slot is not set on Java char");
 		return nullptr;
 	}  // GCOVR_EXCL_STOP
-	if (isNull(javaSlot))
+	if (isNullClass((PyObject*) self, cls))
 		return JPPyString::fromStringUTF8("None").keep();
 	return PyUnicode_FromOrdinal(fromJPChar(self));
 	JP_PY_CATCH(nullptr);  // GCOVR_EXCL_LINE
@@ -258,14 +307,14 @@ static PyObject *PyJPChar_str(PyJPChar *self)
 static PyObject *PyJPChar_repr(PyJPChar *self)
 {
 	JP_PY_TRY("PyJPChar_repr");
-	JPValue *javaSlot = PyJPValue_getJavaSlot((PyObject*) self);
-	if (javaSlot == nullptr)
+	JPClass *cls = PyJPValue_getJPClass((PyObject*) self);
+	if (cls == nullptr)
 	{  // GCOVR_EXCL_START
 		// A slot is required
 		PyErr_SetString(PyExc_TypeError, "Java slot is not set on Java char");
 		return nullptr;
 	}  // GCOVR_EXCL_STOP
-	if (isNull(javaSlot))
+	if (isNullClass((PyObject*) self, cls))
 		return JPPyString::fromStringUTF8("None").keep();
 	return PyUnicode_Type.tp_repr((PyObject*) self);
 	JP_PY_CATCH(nullptr);  // GCOVR_EXCL_LINE
@@ -274,8 +323,7 @@ static PyObject *PyJPChar_repr(PyJPChar *self)
 static PyObject *PyJPChar_index(PyJPChar *self)
 {
 	JP_PY_TRY("PyJPChar_index");
-	JPValue *javaSlot = PyJPValue_getJavaSlot((PyObject*) self);
-	if (assertNotNull(javaSlot))
+	if (assertNotNull((PyObject*) self))
 		return nullptr;
 	return PyLong_FromLong(fromJPChar(self));
 	JP_PY_CATCH(nullptr);  // GCOVR_EXCL_LINE
@@ -284,8 +332,7 @@ static PyObject *PyJPChar_index(PyJPChar *self)
 static PyObject *PyJPChar_float(PyJPChar *self)
 {
 	JP_PY_TRY("PyJPChar_float");
-	JPValue *javaSlot = PyJPValue_getJavaSlot((PyObject*) self);
-	if (assertNotNull(javaSlot))
+	if (assertNotNull((PyObject*) self))
 		return nullptr;
 	return PyFloat_FromDouble(fromJPChar(self));
 	JP_PY_CATCH(nullptr);  // GCOVR_EXCL_LINE
@@ -294,8 +341,7 @@ static PyObject *PyJPChar_float(PyJPChar *self)
 static PyObject *PyJPChar_abs(PyJPChar *self)
 {
 	JP_PY_TRY("PyJPChar_nop");
-	JPValue *javaSlot = PyJPValue_getJavaSlot((PyObject*) self);
-	if (assertNotNull(javaSlot))
+	if (assertNotNull((PyObject*) self))
 		return nullptr;
 
 	// Promote to int as per Java rules
@@ -307,8 +353,7 @@ static PyObject *PyJPChar_abs(PyJPChar *self)
 static Py_ssize_t PyJPChar_len(PyJPChar *self)
 {
 	JP_PY_TRY("PyJPChar_nop");
-	JPValue *javaSlot = PyJPValue_getJavaSlot((PyObject*) self);
-	if (assertNotNull(javaSlot))
+	if (assertNotNull((PyObject*) self))
 		return -1;
 	return 1;
 	JP_PY_CATCH(-1);  // GCOVR_EXCL_LINE
@@ -316,29 +361,29 @@ static Py_ssize_t PyJPChar_len(PyJPChar *self)
 
 static PyObject *apply(PyObject *first, PyObject *second, PyObject* (*func)(PyObject*, PyObject*))
 {
-	JPValue *slot0 = PyJPValue_getJavaSlot(first);
-	JPValue *slot1 = PyJPValue_getJavaSlot(second);
-	if (slot0 != nullptr && slot1 != nullptr)
+	JPClass *cls0 = PyJPValue_getJPClass(first);
+	JPClass *cls1 = PyJPValue_getJPClass(second);
+	if (cls0 != nullptr && cls1 != nullptr)
 	{
-		if (assertNotNull(slot0))
+		if (assertNotNullClass(first, cls0))
 			return nullptr;
-		if (assertNotNull(slot1))
+		if (assertNotNullClass(second, cls1))
 			return nullptr;
 		JPPyObject v1 = JPPyObject::call(PyLong_FromLong(fromJPChar((PyJPChar*)first)));
 		JPPyObject v2 = JPPyObject::call(PyLong_FromLong(fromJPChar((PyJPChar*)second)));
 		return func(v1.get(), v2.get());
 	}
-	else if (slot0 != nullptr)
+	else if (cls0 != nullptr)
 	{
-		if (assertNotNull(slot0))
+		if (assertNotNullClass(first, cls0))
 			return nullptr;
 		// Promote to int as per Java rules
 		JPPyObject v = JPPyObject::call(PyLong_FromLong(fromJPChar((PyJPChar*)first)));
 		return func(v.get(), second);
 	}
-	else if (slot1 != nullptr)
+	else if (cls1 != nullptr)
 	{
-		if (assertNotNull(slot1))
+		if (assertNotNullClass(second, cls1))
 			return nullptr;
 		// Promote to int as per Java rules
 		JPPyObject v = JPPyObject::call(PyLong_FromLong(fromJPChar((PyJPChar*)second)));
@@ -372,21 +417,21 @@ static  PyObject *PyJPChar_xor(PyObject *first, PyObject *second)
 static  PyObject *PyJPChar_add(PyObject *first, PyObject *second)
 {
 	JP_PY_TRY("PyJPChar_add");
-	JPValue *slot0 = PyJPValue_getJavaSlot(first);
-	JPValue *slot1 = PyJPValue_getJavaSlot(second);
-	if (slot1 != nullptr && slot0 != nullptr)
+	JPClass *cls0 = PyJPValue_getJPClass(first);
+	JPClass *cls1 = PyJPValue_getJPClass(second);
+	if (cls0 != nullptr && cls1 != nullptr)
 	{
-		if (assertNotNull(slot0))
+		if (assertNotNullClass(first, cls0))
 			return nullptr;
-		if (assertNotNull(slot1))
+		if (assertNotNullClass(second, cls1))
 			return nullptr;
 		JPPyObject v1 = JPPyObject::call(PyLong_FromLong(fromJPChar((PyJPChar*)first)));
 		JPPyObject v2 = JPPyObject::call(PyLong_FromLong(fromJPChar((PyJPChar*)second)));
 		return PyNumber_Add(v1.get(), v2.get());
 	}
-	else if (slot0 != nullptr)
+	else if (cls0 != nullptr)
 	{
-		if (assertNotNull(slot0))
+		if (assertNotNullClass(first, cls0))
 			return nullptr;
 		if (PyUnicode_Check(second))
 			return PyUnicode_Concat(first, second);
@@ -395,9 +440,9 @@ static  PyObject *PyJPChar_add(PyObject *first, PyObject *second)
 		JPPyObject v = JPPyObject::call(PyLong_FromLong(fromJPChar((PyJPChar*)first)));
 		return PyNumber_Add(v.get(), second);
 	}
-	else if (slot1 != nullptr)
+	else if (cls1 != nullptr)
 	{
-		if (assertNotNull(slot1))
+		if (assertNotNullClass(second, cls1))
 			return nullptr;
 		if (PyUnicode_Check(first))
 			return PyUnicode_Concat(first, second);
@@ -456,8 +501,7 @@ static  PyObject *PyJPChar_divmod(PyObject *first, PyObject *second)
 static PyObject *PyJPChar_neg(PyJPChar *self)
 {
 	JP_PY_TRY("PyJPChar_neg");
-	JPValue *javaSlot = PyJPValue_getJavaSlot((PyObject*) self);
-	if (assertNotNull(javaSlot))
+	if (assertNotNull((PyObject*) self))
 		return nullptr;
 	// Promote to int as per Java rules
 	JPPyObject v = JPPyObject::call(PyLong_FromLong(fromJPChar(self)));
@@ -468,8 +512,7 @@ static PyObject *PyJPChar_neg(PyJPChar *self)
 static PyObject *PyJPChar_pos(PyJPChar *self)
 {
 	JP_PY_TRY("PyJPChar_pos");
-	JPValue *javaSlot = PyJPValue_getJavaSlot((PyObject*) self);
-	if (assertNotNull(javaSlot))
+	if (assertNotNull((PyObject*) self))
 		return nullptr;
 	// Promote to int as per Java rules
 	JPPyObject v = JPPyObject::call(PyLong_FromLong(fromJPChar(self)));
@@ -480,8 +523,7 @@ static PyObject *PyJPChar_pos(PyJPChar *self)
 static PyObject *PyJPChar_inv(PyJPChar *self)
 {
 	JP_PY_TRY("PyJPObject_neg");
-	JPValue *javaSlot = PyJPValue_getJavaSlot((PyObject*) self);
-	if (assertNotNull(javaSlot))
+	if (assertNotNull((PyObject*) self))
 		return nullptr;
 	// Promote to int as per Java rules
 	JPPyObject v = JPPyObject::call(PyLong_FromLong(fromJPChar(self)));
@@ -492,11 +534,10 @@ static PyObject *PyJPChar_inv(PyJPChar *self)
 static PyObject *PyJPJChar_compare(PyObject *self, PyObject *other, int op)
 {
 	JP_PY_TRY("PyJPJChar_compare");
-	JPValue *javaSlot1 = PyJPValue_getJavaSlot(other);
-	JPValue *javaSlot0 = PyJPValue_getJavaSlot(self);
-	if (isNull(javaSlot0))
+	bool has1 = PyJPValue_getJPClass(other) != nullptr;
+	if (isNull(self))
 	{
-		if (javaSlot1 != nullptr && isNull(javaSlot1))
+		if (has1 && isNull(other))
 			other = Py_None;
 		if (op == Py_EQ)
 			return PyBool_FromLong(other == Py_None );
@@ -507,7 +548,7 @@ static PyObject *PyJPJChar_compare(PyObject *self, PyObject *other, int op)
 		return out;
 		JP_RAISE_PYTHON();
 	}
-	if (javaSlot1 != nullptr && isNull(javaSlot1))
+	if (has1 && isNull(other))
 		return PyBool_FromLong(op == Py_NE);
 
 	if (PyUnicode_Check(other))
@@ -530,7 +571,7 @@ static PyObject *PyJPJChar_compare(PyObject *self, PyObject *other, int op)
 		JPPyObject v = JPPyObject::call(PyLong_FromLong(fromJPChar((PyJPChar*) self)));
 		return PyLong_Type.tp_richcompare(v.get(), other, op);
 	}
-	if (javaSlot1 != nullptr)
+	if (has1)
 	{
 		// char  <=> object
 		// object <=> char
@@ -556,8 +597,7 @@ static PyObject *PyJPJChar_compare(PyObject *self, PyObject *other, int op)
 static Py_hash_t PyJPChar_hash(PyObject *self)
 {
 	JP_PY_TRY("PyJPObject_hash");
-	JPValue *javaSlot = PyJPValue_getJavaSlot(self);
-	if (isNull(javaSlot))
+	if (isNull(self))
 		return Py_TYPE(Py_None)->tp_hash(Py_None);
 	return PyUnicode_Type.tp_hash((PyObject*) self);
 	JP_PY_CATCH(0);  // GCOVR_EXCL_LINE
@@ -566,8 +606,7 @@ static Py_hash_t PyJPChar_hash(PyObject *self)
 static int PyJPChar_bool(PyJPChar *self)
 {
 	JP_PY_TRY("PyJPObject_bool");
-	JPValue *javaSlot = PyJPValue_getJavaSlot((PyObject*) self);
-	if (isNull(javaSlot))
+	if (isNull((PyObject*) self))
 		return 0;
 	return fromJPChar(self) != 0;
 	JP_PY_CATCH(0);  // GCOVR_EXCL_LINE
@@ -630,10 +669,14 @@ static PyType_Spec charSpec = {
 
 void PyJPChar_initType(PyObject* module)
 {
-	// We will inherit from str and JObject
+	// We will inherit from str and JObject. Char keeps no per-instance
+	// storage (see charJValue above), so this offset is a pure sentinel --
+	// nonzero only to mark the family as Java-backed; never dereferenced.
+	Py_ssize_t offset = sizeof (struct PyJPChar);
 	JPPyObject bases = JPPyTuple_Pack(&PyUnicode_Type, PyJPObject_Type);
-	PyJPChar_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&charSpec, bases.get());
+	PyJPChar_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&charSpec, bases.get(), offset);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
+	PyJPClass_SetJValueFn(PyJPChar_Type, &charJValue);
 	PyModule_AddObject(module, "_JChar", (PyObject*) PyJPChar_Type);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
 }

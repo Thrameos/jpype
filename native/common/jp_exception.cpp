@@ -214,10 +214,9 @@ void JPypeException::convertPythonToJava()
 	if (eframe.good && isJavaThrowable(eframe.m_ExceptionClass.get()))
 	{
 		eframe.good = false;
-		JPValue* javaExc = PyJPValue_getJavaSlot(eframe.m_ExceptionValue.get());
-		if (javaExc != nullptr)
+		if (PyJPValue_getJPClass(eframe.m_ExceptionValue.get()) != nullptr)
 		{
-			th = (jthrowable) javaExc->getJavaObject();
+			th = (jthrowable) PyJPValue_getJValue(frame, eframe.m_ExceptionValue.get()).l;
 			JP_TRACE("Throwing Java", frame.toString(th));
 			frame.Throw(th);
 			return;
