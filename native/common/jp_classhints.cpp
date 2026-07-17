@@ -81,7 +81,7 @@ JPMethodMatch::JPMethodMatch(JPJavaFrame &frame, JPPyObjectVector& args, bool ca
 			// A single pointer dereference is much faster than PyFunction_GetCode
 			// co_argcount is at a fixed offset in the code object.
 			PyObject* code = ((PyFunctionObject*)arg)->func_code;
-			m_Hash ^= (jlong)code; 
+			m_Hash ^= (jlong)code;
 		}
 		else if (type == &PyMethod_Type)
 		{

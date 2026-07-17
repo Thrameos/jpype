@@ -38,6 +38,7 @@ from ._jcustomizer import *
 from . import _jmethod      # lgtm [py/import-own-module]
 from . import _jcollection  # lgtm [py/import-own-module]
 from . import _jio          # lgtm [py/import-own-module]
+from . import _jreflect     # lgtm [py/import-own-module]
 from . import protocol      # lgtm [py/import-own-module]
 from . import _jthread      # lgtm [py/import-own-module]
 from . import _jbridge      # lgtm [py/import-own-module]

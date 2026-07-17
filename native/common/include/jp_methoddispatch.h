@@ -78,6 +78,12 @@ private:
 	 */
 	bool findOverload(JPJavaFrame& frame, JPMethodMatch &bestMatch, JPPyObjectVector& vargs, bool searchInstance, bool raise);
 
+	/** Raise (or, if !raise, just report) a "no matching overload" error
+	 * against the full overload list. Shared by the general search path
+	 * and the single-overload fast path so both produce the same message.
+	 */
+	bool raiseNoMatch(JPJavaFrame& frame, JPPyObjectVector& vargs, bool searchInstance, bool raise);
+
 	JPClass* m_Class;
 	string m_Name;
 	JPMethodList m_Overloads;

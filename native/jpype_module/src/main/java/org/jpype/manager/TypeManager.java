@@ -377,6 +377,45 @@ public class TypeManager
   }
 
   /**
+   * Get a single-overload method dispatch bound to exactly one already
+   * resolved {@link Method}, bypassing the normal per-call overload search.
+   * <p>
+   * Only public methods are supported since jpype's member tables are only
+   * populated for {@code Class.getMethods()}.
+   *
+   * @param method is the reflected method to bind.
+   * @return the C++ portion of a JPMethodDispatch holding just this one
+   * overload.
+   */
+  public synchronized long methodFromReflect(Method method)
+  {
+    Long cached = reflectMethodCache.get(method);
+    if (cached != null)
+      return cached;
+
+    Class<?> decl = method.getDeclaringClass();
+    findClass(decl);
+    populateMembers(decl);
+    ClassDescriptor desc = classMap.get(decl);
+    long ptr = desc.getMethod(method);
+    if (ptr == 0)
+      throw new RuntimeException("Method " + method + " is not accessible to JPype "
+              + "(only public methods can be bound)");
+
+    long dispatch = typeFactory.defineMethodDispatch(
+            address, desc.classPtr, method.getName(),
+            new long[]
+    {
+      ptr
+    },
+            method.getModifiers() & 0xffff);
+    reflectMethodCache.put(method, dispatch);
+    return dispatch;
+  }
+
+  private final HashMap<Method, Long> reflectMethodCache = new HashMap<>();
+
+  /**
    * Get a class for an object.
    *
    * @param object is the object to interrogate.
@@ -439,6 +478,11 @@ public class TypeManager
       entry.anonymous = 0;
       entry.classPtr = 0;
     }
+    for (long dispatch : reflectMethodCache.values())
+    {
+      destroyer.add(dispatch);
+    }
+    reflectMethodCache.clear();
     destroyer.flush();
 
     // FIXME. If someone attempts to shutdown the JVM within a Python

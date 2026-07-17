@@ -1,5 +1,42 @@
 # java.lang.reflect.Method -> single-signature Python callable
 
+## Status (2026-07-17): DONE
+
+Implemented on branch `reverse`: `TypeManager.methodFromReflect(Method)`
+(Java, cached per-`Method`), `JPTypeManager::methodFromReflect` (native
+JNI bridge), `_jpype._reflectMethod` (module-level entry point wrapping
+the resulting `JPMethodDispatch*` via `PyJPMethod_create`), and a
+`toPython()` customizer on `java.lang.reflect.Method`
+(`jpype/_jreflect.py`) following the same pattern as the `java.io`
+customizers in `jpype/_jio.py`. Instance methods take the instance as
+their first call argument (`f(instance, *args)`) since there's no
+attribute to bind `self` to — this works for free because
+`JPMethod::matches()` already treats argument 0 as the instance whenever
+the method itself is non-static, regardless of the `callInstance` flag
+passed to `invoke()`; no new C++ dispatch logic was needed, confirming
+the design section below. Tests: `test/jpypetest/test_jreflect.py` (5/5
+pass; full suite 1752 passed/172 skipped, no regressions).
+
+**Runtime fast path tried and reverted.** Prototyped a genuine
+skip-the-search fast path in `JPMethodDispatch` (an `m_Single` flag
+short-circuiting `findOverload()`'s cache lookup and search/ambiguity
+loop straight to a single `matches()` call, plus a `trackHash` flag to
+skip `JPMethodMatch`'s per-argument hash arithmetic). Benchmarked in
+isolation via `_matches()` (dispatch resolution only, no JNI invoke): the
+skip saved on the order of 1-5ns/call out of ~250-850ns total even
+against a 13-overload method (`StringBuilder.append`), because JNI frame
+setup and argument marshaling dominate the per-call cost, not the
+overload search - jpype methods rarely have enough overloads for the
+search itself to matter. Reverted the `m_Single`/`trackHash` machinery as
+not worth the added complexity in `jp_methoddispatch.{h,cpp}`/
+`jp_match.h`/`jp_classhints.cpp`; kept the `raiseNoMatch()` extraction
+(deduplicated the "no matching overload" error-message block, which
+existed twice verbatim) since that's a clean win independent of the
+performance question. `methodFromReflect()`'s value is the single-
+signature *binding* itself (skips ambiguity entirely, useful for e.g. a
+`java.lang.reflect.Method` obtained dynamically where the call site
+can't otherwise pin an overload) - not a measurable per-call speedup.
+
 ## Status (2026-07-11): scoped, not started
 
 Follow-on from prior-art survey discussion (see `jpype_gold_standard_mission`

@@ -699,6 +699,33 @@ static PyObject *PyJPModule_getClass(PyObject* module, PyObject *obj)
 	JP_PY_CATCH(nullptr);
 }
 
+static PyObject *PyJPModule_reflectMethod(PyObject* module, PyObject *obj)
+{
+	JP_PY_TRY("PyJPModule_reflectMethod");
+
+	JPContext* context = PyJPModule_getContext(module);
+	if (context == nullptr)
+		return nullptr;
+
+	JPValue *value = PyJPValue_getJavaSlot(obj);
+	if (value == nullptr || value->getClass() != context->_java_lang_reflect_Method)
+	{
+		PyErr_Format(PyExc_TypeError,
+				"reflectMethod requires a java.lang.reflect.Method instance, not '%s'",
+				Py_TYPE(obj)->tp_name);
+		return nullptr;
+	}
+
+	JPJavaFrame frame = JPJavaFrame::outer(context);
+	JPMethodDispatch* dispatch = context->getTypeManager()->methodFromReflect(
+			frame, value->getJavaObject(frame));
+	if (dispatch == nullptr)
+		return nullptr;
+
+	return PyJPMethod_create(frame, dispatch, nullptr).keep();
+	JP_PY_CATCH(nullptr);
+}
+
 static PyObject *PyJPModule_hasClass(PyObject* self, PyObject *obj)
 {
 	JP_PY_TRY("PyJPModule_hasClass");
@@ -1164,6 +1191,7 @@ static PyMethodDef moduleMethods[] = {
 #endif
 	{"_getClass", (PyCFunction) PyJPModule_getClass, METH_O, ""},
 	{"_hasClass", (PyCFunction) PyJPModule_hasClass, METH_O, ""},
+	{"_reflectMethod", (PyCFunction) PyJPModule_reflectMethod, METH_O, ""},
 	{"_newArrayType", (PyCFunction) PyJPModule_newArrayType, METH_VARARGS, ""},
 	{"_collect", (PyCFunction) PyJPModule_collect, METH_VARARGS, ""},
 	{"gcStats", (PyCFunction) PyJPModule_gcStats, METH_NOARGS, ""},

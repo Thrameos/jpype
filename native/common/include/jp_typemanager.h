@@ -43,6 +43,14 @@ public:
 	void populateMembers(JPJavaFrame& frame, JPClass* cls);
 	int interfaceParameterCount(JPJavaFrame& frame, JPClass* cls);
 
+	/**
+	 * Get a single-overload JPMethodDispatch bound to exactly one
+	 * java.lang.reflect.Method, bypassing the normal overload search.
+	 *
+	 * The pointer returned is NOT owned by the caller.
+	 */
+	JPMethodDispatch* methodFromReflect(JPJavaFrame& frame, jobject method);
+
 	bool isReady()
 	{
 		return m_JavaTypeManager!=nullptr;
@@ -56,6 +64,7 @@ private:
 	jmethodID m_PopulateMethod;
 	jmethodID m_PopulateMembers;
 	jmethodID m_InterfaceParameterCount;
+	jmethodID m_MethodFromReflect;
 } ;
 
 #endif // _JPCLASS_H_

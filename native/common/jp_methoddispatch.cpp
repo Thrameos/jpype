@@ -40,6 +40,37 @@ const string& JPMethodDispatch::getName() const
 	return m_Name;
 }
 
+bool JPMethodDispatch::raiseNoMatch(JPJavaFrame& frame, JPPyObjectVector& arg, bool callInstance, bool raise)
+{
+	if (!raise)
+		return false;
+	std::stringstream ss;
+	if (JPModifier::isConstructor(m_Modifiers))
+		ss << "No matching overloads found for constructor " << m_Class->getCanonicalName(frame) << "(";
+	else
+	{
+		ss << "No matching overloads found for ";
+		if (!callInstance)
+			ss << "*static* ";
+		ss << m_Class->getCanonicalName(frame) << "." << getName() << "(";
+	}
+	size_t start = callInstance ? 1 : 0;
+	for (size_t i = start; i < arg.size(); ++i)
+	{
+		if (i != start)
+			ss << ",";
+		ss << Py_TYPE(arg[i])->tp_name;
+	}
+	ss << ")" << ", options are:" << std::endl;
+	for (auto current : m_Overloads)
+	{
+			ss << "\t" << current->toString();
+		ss << std::endl;
+	}
+	JP_RAISE(PyExc_TypeError, ss.str());
+	return false; // GCOVR_EXCL_LINE
+}
+
 bool JPMethodDispatch::findOverload(JPJavaFrame& frame, JPMethodMatch &bestMatch, JPPyObjectVector& arg,
 		bool callInstance, bool raise)
 {
@@ -173,34 +204,7 @@ bool JPMethodDispatch::findOverload(JPJavaFrame& frame, JPMethodMatch &bestMatch
 
 	// If we can't find a matching overload throw an error.
 	if (!bestMatch.m_Overload)
-	{
-		if (!raise)
-			return false;
-		std::stringstream ss;
-		if (JPModifier::isConstructor(m_Modifiers))
-			ss << "No matching overloads found for constructor " << m_Class->getCanonicalName(frame) << "(";
-		else
-		{
-			ss << "No matching overloads found for ";
-			if (!callInstance)
-				ss << "*static* ";
-			ss << m_Class->getCanonicalName(frame) << "." << getName() << "(";
-		}
-		size_t start = callInstance ? 1 : 0;
-		for (size_t i = start; i < arg.size(); ++i)
-		{
-			if (i != start)
-				ss << ",";
-			ss << Py_TYPE(arg[i])->tp_name;
-		}
-		ss << ")" << ", options are:" << std::endl;
-		for (auto current : m_Overloads)
-		{
-				ss << "\t" << current->toString();
-			ss << std::endl;
-		}
-		JP_RAISE(PyExc_TypeError, ss.str());
-	}
+		return raiseNoMatch(frame, arg, callInstance, raise);
 
 	if (bestMatch.m_Type >= JPMatch::_implicit)
 	{

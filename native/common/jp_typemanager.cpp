@@ -28,6 +28,7 @@ JPTypeManager::JPTypeManager(JPJavaFrame& frame)
 	m_PopulateMethod = frame.GetMethodID(cls, "populateMethod", "(JLjava/lang/reflect/Executable;)V");
 	m_PopulateMembers = frame.GetMethodID(cls, "populateMembers", "(Ljava/lang/Class;)V");
 	m_InterfaceParameterCount = frame.GetMethodID(cls, "interfaceParameterCount", "(Ljava/lang/Class;)I");
+	m_MethodFromReflect = frame.GetMethodID(cls, "methodFromReflect", "(Ljava/lang/reflect/Method;)J");
 
 	// The object instance will be loaded later
 	JP_TRACE_OUT;
@@ -101,5 +102,17 @@ int JPTypeManager::interfaceParameterCount(JPJavaFrame& frame, JPClass *cls)
 	jvalue val[1];
 	val[0].l = (jobject) cls->getJavaClass(frame);
 	return frame.CallIntMethodA(m_JavaTypeManager, m_InterfaceParameterCount, val);
+	JP_TRACE_OUT;
+}
+
+JPMethodDispatch* JPTypeManager::methodFromReflect(JPJavaFrame& frame, jobject method)
+{
+	JP_TRACE_IN("JPTypeManager::methodFromReflect");
+	jvalue val;
+	val.l = method;
+	JPPyCallRelease release;
+	auto* out = (JPMethodDispatch*) (frame.CallLongMethodA(m_JavaTypeManager, m_MethodFromReflect, &val));
+	frame.check();
+	return out;
 	JP_TRACE_OUT;
 }
