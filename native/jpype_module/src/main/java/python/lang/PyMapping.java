@@ -56,8 +56,9 @@ import python.exceptions.PyKeyError;
  * Collection&lt;PyObject> values = pyMapping.values();  // Get all values
  * </pre>
  *
+ * Mirrors Python's {@code collections.abc.Mapping} protocol.
+ *
  * @see java.util.Map
- * @see collections.abc.Mapping
  */
 public interface PyMapping<K extends PyObject, V extends PyObject> extends PyCollection<K>, Map<K, V>
 {

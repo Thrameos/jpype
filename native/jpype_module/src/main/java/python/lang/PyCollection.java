@@ -34,7 +34,6 @@ package python.lang;
  * <li>{@link PyContainer} - Represents objects that can check membership
  * (containment).</li>
  * </ul>
- * </p>
  *
  * @param <T> The type of elements contained within the collection, which must
  * extend {@link PyObject}.

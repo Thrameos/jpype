@@ -23,7 +23,7 @@ import org.jpype.annotation.Bypass;
 /**
  * Interface for Python-like objects that act as sequences.
  *
- * This interface extends {@link PyProtocol} and {@link List}, providing methods
+ * This interface extends {@link List}, providing methods
  * for accessing, modifying, and deleting elements in a sequence. It also
  * supports Python-style slicing and indexing operations.
  *

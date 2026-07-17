@@ -555,3 +555,64 @@ chapters or `spi.rst` -- cross-references those rather than restating them.
 Verification: `:doc:` target resolution (all 8 distinct targets referenced
 from `develguide.rst` exist), anchor-collision check, phrase-ref check --
 all clean.
+
+## Java API reference on RTD (2026-07-17, same session)
+
+Problem: `doc/api.rst` is Sphinx autodoc over the `jpype` module's Python
+docstrings -- it has no way to read Java source, so the reverse-bridge's
+Java-facing API (`python.*`, `org.jpype`) had no generated reference at
+all, only the narrative `_java.rst` chapters. Javadoc is the right tool for
+that side, but Sphinx and Javadoc don't interoperate (no autodoc bridge, no
+shared cross-referencing/search) -- decided against building or adopting a
+Javadoc→RST converter (lossy, high-maintenance, and Javadoc's own HTML/CSS
+structure has churned across JDK releases, so anything scraping its
+generated markup would need constant upkeep). Went with the honest
+separate-but-linked approach instead: two independently generated doc
+sets, hosted alongside each other, connected by an ordinary hyperlink.
+
+Implementation:
+- `native/build.xml` -- new `javadoc` target. Scoped to `packagenames="python.*,org.jpype"`
+  (the public front-end packages plus `org.jpype`'s own top-level public
+  classes -- `MainInterpreter`, `WrapperService`, `SubInterpreter`, etc.;
+  deliberately excludes `org.jpype`'s internal subpackages like `.ref`,
+  `.manager`, `.pickle`, which aren't part of the public surface).
+- Fixed 20 real Javadoc/doclint errors surfaced by first running this
+  target (previously silent since nothing ever ran Javadoc over this
+  source tree): a stale reference to a since-deleted `PyProtocol`
+  interface (`PySequence.java`, `PySubscript.java`), an unimported
+  `{@link List}` needing full qualification, a bogus `@see
+  collections.abc.Mapping` (not a real Java type), unclosed HTML5 `<p>`
+  tags after `<pre>`/`<ul>` blocks (four files), unescaped generics
+  (`Map.Entry<K,V>`, `PyIter<String>`) inside `<pre>` blocks being parsed
+  as HTML tags, `<h3>` headings colliding with the doclet's own implicit
+  member heading (bumped to `<h4>`), unregistered `@implNote`/`@apiNote`
+  custom tags (not available without a taglet registration -- reworded to
+  plain `<strong>` paragraphs), and two real doc/code mismatches in
+  `PyBuiltIn.java` (`@param` names from a copy-pasted method that didn't
+  match the actual signature). Left the ~100 remaining warnings
+  (undocumented `@param`s on generic type parameters, `Backend.java`'s
+  internal methods) alone -- warnings, not errors, and filling every one
+  in is a separate doc-completeness pass, not part of wiring up the build.
+- Styling: user's ask was explicitly *not* to try to unify the two doc
+  sets structurally (noted Javadoc's generated HTML/CSS is "notoriously
+  backwards" and inconsistent release to release -- not worth an XSLT
+  pass or similar to reshape it), just to avoid a jarring visual clash.
+  Added `doc/_static/javadoc_overrides.css`, wired in via `--add-stylesheet`
+  (Ant `<arg>`, not the `stylesheetfile` attribute -- that one *replaces*
+  Javadoc's base stylesheet, which also carries layout, not just theme;
+  `--add-stylesheet` layers on top instead). Deliberately limited to
+  plain element selectors (`body`, `a`, `h1`-`h6`, `pre`/`code`) matching
+  `sphinx_rtd_theme`'s palette/fonts, not Javadoc's internal class/id
+  names -- those are exactly the part that churns between JDK releases.
+- `.readthedocs.yml` -- added `build.jobs.post_build`: runs the new `ant`
+  target, then copies `native/build/javadoc/` to
+  `$READTHEDOCS_OUTPUT/html/javadoc/`, landing it as a sibling of the
+  Sphinx-built pages in the deployed site.
+- `doc/api.rst` -- added a short header pointing to `javadoc/index.html`
+  (relative link, resolves once deployed; noted it won't resolve in a
+  bare local Sphinx build without also running the Ant target).
+
+Verified: `ant -f native/build.xml javadoc` runs clean (0 errors, 100
+warnings) after the doc-comment fixes; confirmed `--add-stylesheet`'s CSS
+actually gets copied to `resource-files/` and `<link>`-ed from generated
+pages; `.readthedocs.yml` parses as valid YAML.

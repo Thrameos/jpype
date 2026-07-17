@@ -51,6 +51,21 @@
 		</jar>
   </target>
 
+	<target name="javadoc">
+		<mkdir dir="${build}/javadoc"/>
+		<javadoc destdir="${build}/javadoc"
+			source="${JAVA_VERSION}"
+			access="public"
+			packagenames="python.*,org.jpype"
+			windowtitle="JPype Java API"
+			doctitle="JPype Java API (embedded Python / reverse bridge)"
+			>
+			<sourcepath path="${src}"/>
+			<arg value="--add-stylesheet"/>
+			<arg value="../doc/_static/javadoc_overrides.css"/>
+		</javadoc>
+	</target>
+
 	<target name="all" depends="jar" />
 
 	<target name="clean">

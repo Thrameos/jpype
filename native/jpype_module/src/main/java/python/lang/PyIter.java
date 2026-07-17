@@ -48,10 +48,10 @@ public interface PyIter<T> extends PyObject
    * iterated over multiple times or processed in parallel.
    * </p>
    *
-   * <h3>Usage Example:</h3>
+   * <h4>Usage Example:</h4>
    * <pre>
-   * PyIter<String> original = PyList.of(1,2,3).iter(); // Obtain the original iterator
-   * PyIter<String> duplicate = original.tee();
+   * PyIter&lt;String&gt; original = PyList.of(1,2,3).iter(); // Obtain the original iterator
+   * PyIter&lt;String&gt; duplicate = original.tee();
    *
    * // Use both iterators independently
    * String fromOriginal = original.next();
@@ -94,12 +94,14 @@ public interface PyIter<T> extends PyObject
    * This allows the Python-style iterator to be used in Java's enhanced
    * {@code for} loops and other iteration constructs.
    * </p>
+   * <p>
+   * <strong>Implementation note:</strong> the implementation uses
+   * {@link PyIterator} to wrap the Python iterator. The decision to "tee"
+   * (duplicate) the iterator has not been finalized.
+   * </p>
    *
    * @return a {@link java.util.Iterator} instance that wraps the Python
    * iterator.
-   * @implNote The implementation uses {@link PyIterator} to wrap the Python
-   * iterator. The decision to "tee" (duplicate) the iterator has not been
-   * finalized.
    */
     @Bypass
   default Iterator<T> iterator()
@@ -115,13 +117,15 @@ public interface PyIter<T> extends PyObject
    * If there are no more elements, a {@link java.util.NoSuchElementException}
    * is thrown.
    * </p>
-   *
-   * @return the next element in the iterator.
-   * @throws NoSuchElementException if the iterator has no more elements.
-   * @implNote Internally, this method calls
+   * <p>
+   * <strong>Implementation note:</strong> internally, this method calls
    * {@code backend.next(this, Interpreter.stop)} to fetch the next element.
    * If the backend returns the special {@code Interpreter.stop} object, it
    * indicates the end of the iteration.
+   * </p>
+   *
+   * @return the next element in the iterator.
+   * @throws NoSuchElementException if the iterator has no more elements.
    */
   @SuppressWarnings("unchecked")
   @Bypass
@@ -137,12 +141,15 @@ public interface PyIter<T> extends PyObject
    * Retrieves the next element in the iterator, or returns the provided default
    * value if the iterator has no more elements.
    *
+   * <p>
+   * <strong>Implementation note:</strong> internally, this method calls
+   * {@code backend.next(this, defaults)} to fetch the next element.
+   * </p>
+   *
    * @param defaults the {@link PyObject} to return when the iterator is
    * exhausted.
    * @return the next element in the iterator, or the provided default value if
    * the iterator has no more elements.
-   * @implNote Internally, this method calls
-   * {@code backend.next(this, defaults)} to fetch the next element.
    */
     @Bypass
     @SuppressWarnings("unchecked")

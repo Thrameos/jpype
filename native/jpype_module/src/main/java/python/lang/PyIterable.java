@@ -28,7 +28,7 @@ import java.util.Iterator;
  *
  * <p>
  * Note: The `reversed` method was removed due to contract conflicts with
- * {@link List}.
+ * {@link java.util.List}.
  *
  * @param <T>
  */

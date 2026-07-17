@@ -51,7 +51,7 @@ public interface WrapperService {
      * return SpiLoader.listPyspiResources(MyWrapperService.class, "/my/package/spi");
      * }</pre>
      *
-     * <h3>{@code .pyspi} file format</h3>
+     * <h4>{@code .pyspi} file format</h4>
      * A small {@code key: value} header, a line containing only
      * {@code ---}, then a blob of Python source that (when {@code exec}'d)
      * binds a top-level name {@code METHODS} to a {@code dict[str,

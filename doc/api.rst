@@ -1,6 +1,15 @@
 API Reference
 =============
 
+This page covers the Python-calling-Java API (autodoc-generated from the
+``jpype`` module's docstrings). The reverse-bridge Java API -- ``python.*``
+and ``org.jpype`` -- is documented separately as generated Javadoc, since
+Sphinx autodoc can't read Java sources: see the `Java API Reference
+<javadoc/index.html>`_ (built and hosted separately -- unresolvable when
+building this documentation locally without also running
+``ant -f native/build.xml javadoc``, but resolves correctly once deployed
+alongside the Sphinx site).
+
 JVM Functions
 ~~~~~~~~~~~~~
 

@@ -46,7 +46,6 @@ package python.lang;
  * PyTuple indices = slice.indices(10); // Get normalized indices for a sequence of length 10
  * PySequence result = slice.apply(sequence); // Apply the slice to a sequence
  * </pre>
- * </p>
  */
 public interface PySlice extends PyObject, PySubscript
 {

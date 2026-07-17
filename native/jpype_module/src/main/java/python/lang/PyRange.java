@@ -49,7 +49,6 @@ import org.jpype.annotation.Bypass;
  * boolean containsValue = range.contains(3); // Check if the range contains a value
  * PyList rangeAsList = range.toList(); // Convert the range to a list
  * </pre>
- * </p>
  */
 public interface PyRange extends PyIter<PyInt>
 {

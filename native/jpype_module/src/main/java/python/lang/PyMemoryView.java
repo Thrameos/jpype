@@ -46,7 +46,6 @@ package python.lang;
  * int length = memoryView.getLength(); // Get the size of the memory buffer
  * byte[] slice = memoryView.sublist(0, 10); // Get a slice of the memory buffer
  * </pre>
- * </p>
  */
 public interface PyMemoryView extends PySequence<PyInt>
 {

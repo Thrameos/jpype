@@ -24,7 +24,6 @@ package python.lang;
  * applicable.
  *
  * @see PySlice
- * @see PyProtocol
  */
 public interface PySubscript extends PyObject
 {

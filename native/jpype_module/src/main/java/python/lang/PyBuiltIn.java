@@ -175,14 +175,10 @@ public class PyBuiltIn
   }
 
   /**
-   * Decodes the contents of the `bytes` object using the specified encoding.
+   * Creates a `bytes` object from a string of hexadecimal digits.
    *
-   * Optionally, specific bytes can be deleted during decoding.
-   *
-   * @param encoding the encoding to use for decoding (e.g., "utf-8").
-   * @param delete the bytes to delete during decoding, or {@code null} for no
-   * deletion.
-   * @return a {@link PyObject} representing the decoded string.
+   * @param str the hexadecimal digit string (e.g., {@code "48656c6c6f"}).
+   * @return a {@link PyBytes} instance containing the decoded bytes.
    */
   public PyBytes bytesFromHex(CharSequence str)
   {
@@ -686,7 +682,6 @@ public class PyBuiltIn
    * Creates a Python tuple from a variable-length array of arguments.
    *
    * @param items the objects to include in the tuple.
-   * @param <T> the type of the objects.
    * @return a new {@link PyTuple} instance containing the objects.
    */
   public PyTuple tuple(Object... items)

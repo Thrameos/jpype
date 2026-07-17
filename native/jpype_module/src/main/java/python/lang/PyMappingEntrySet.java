@@ -55,10 +55,10 @@ import java.util.Set;
  * PyMappingEntrySet entrySet = new PyMappingEntrySet(pyMapping, items);
  *
  * // Add a new entry
- * entrySet.add(new AbstractMap.SimpleEntry<>("key", new PyObject("value")));
+ * entrySet.add(new AbstractMap.SimpleEntry&lt;&gt;("key", new PyObject("value")));
  *
  * // Iterate over entries
- * for (Map.Entry<Object, PyObject> entry : entrySet) {
+ * for (Map.Entry&lt;Object, PyObject&gt; entry : entrySet) {
  *     System.out.println(entry.getKey() + " -> " + entry.getValue());
  * }
  *
