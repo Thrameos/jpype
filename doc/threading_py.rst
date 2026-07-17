@@ -4,8 +4,8 @@ Concurrent Processing
 *********************
 
 This chapter covers the topic of threading, synchronization, and multiprocess.
-Much of this material depends on the use of Proxies_ covered in the prior
-chapter.
+Much of this material depends on the use of :ref:`Proxies <Proxies>` covered
+in the prior chapter.
 
 This chapter covers the Python-calling-Java direction. If you are instead
 embedding Python in a Java application, see :doc:`threading_java` for the
@@ -91,8 +91,8 @@ Customizing java.lang.Thread
 
 .. _concurrent_processing_overview:
 
-Overview
---------
+Thread Attachment Overview
+---------------------------
 
 JPype automatically attaches Python threads to the JVM when they interact with
 Java resources. Threads are attached as daemon threads to ensure that they do
@@ -106,8 +106,8 @@ to explicitly detach threads, freeing resources in the JVM and preventing leaks.
 
 .. _concurrent_processing_customized_methods:
 
-Customized Methods
-------------------
+Customized Thread Methods
+--------------------------
 
 The following methods are added to ``java.lang.Thread`` by JPype:
 
@@ -220,8 +220,8 @@ Customizing java.io Streams
 
 .. _customizing_javaio_overview:
 
-Overview
---------
+Stream Customization Overview
+-------------------------------
 
 Just as JPype customizes ``java.lang.Thread`` with attachment methods (see
 `Customizing java.lang.Thread`_ above), it customizes the ``java.io`` stream
@@ -240,8 +240,8 @@ by assigning it to ``sys.stdout``, ``sys.stderr``, or ``sys.stdin``.
 
 .. _customizing_javaio_methods:
 
-Customized Methods
--------------------
+Customized Stream Methods
+---------------------------
 
 .. method:: java.io.Writer.toPython(encoding=None, errors="strict")
    :no-index:

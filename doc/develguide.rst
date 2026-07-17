@@ -901,8 +901,7 @@ those or the source: why the pieces are shaped the way they are.
   multiple-interpreter escape hatch where CPython's subinterpreter support
   allows it.
 
-``python.lang``, ``python.collections``, ``python.io``, ``python.datetime``,
-``python.decimal``, ``python.pathlib``, ``python.exceptions``
+``python.lang``, ``python.collections``, ``python.io``, ``python.datetime``, ``python.decimal``, ``python.pathlib``, ``python.exceptions``
   The generated-feeling but hand-written front-end packages: each is a set
   of Java interfaces (``PyObject``, ``PyDict``, ``PyPath``, ...) backing
   onto live Python objects. These are not special-cased in the bridge --

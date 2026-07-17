@@ -213,12 +213,14 @@ interfaces, and debug Java code—all from the comfort of Python. Happy coding!
 JPype Use Cases
 ===============
 
-Here are three typical reasons to use JPype.
+Here are four typical reasons to use JPype.
 
 - Access to a Java library from a Python program (Python oriented)
 - Visualization of Java data structures via Matplotlib (Java oriented)
 - Interactive Java and Python development including scientific and mathematical
   programming using Python as a Java shell with Spyder or Jupyter notebooks.
+- Embedding Python inside a Java application to reach its scientific,
+  machine-learning, or scripting ecosystem (Java oriented, reverse bridge)
 
 Let's explore each of these options.
 
@@ -478,6 +480,88 @@ was talking about back in March.  That sounds like real fun.
 (This advanced demonstration utilized the concept of :ref:`Proxies
 <Proxies>` and :ref:`Code completion
 <miscellaneous_topics_code_completion>`)
+
+
+.. _introduction_case_4_embedding_python:
+
+Case 4: Embedding Python in Java
+---------------------------------
+
+Suppose you are a Java developer maintaining a long-running enterprise
+service. Product wants a "rules engine" so that analysts can tweak scoring
+logic without waiting for a Java release train, and separately, the data
+science team keeps handing you ``.pkl`` files and asking why the fraud model
+they trained in scikit-learn can't just run inside the service. Rewriting
+either of these in Java is possible but nobody wants to maintain it, and
+shelling out to a Python subprocess for every request is a latency and
+deployment headache you'd rather not own.
+
+This is the mirror image of Cases 1-3: instead of Python reaching into Java,
+Java reaches into Python. JPype's reverse bridge embeds a real CPython
+interpreter inside your JVM process, so Python runs in the same address
+space as your service, with no subprocess, no socket, and no serialization
+between calls.
+
+You start the interpreter once, near the top of your application's
+lifecycle, alongside the JVM your service already runs in.
+
+.. code-block:: java
+
+   import org.jpype.MainInterpreter;
+   import org.jpype.Script;
+   import python.lang.PyObject;
+
+   MainInterpreter interpreter = MainInterpreter.getInstance();
+   if (!interpreter.isStarted())
+       interpreter.start(new String[0]);
+
+   Script rules = new Script(interpreter);
+   rules.exec(
+           "def score(transaction):\n" +
+           "    risk = transaction['amount'] * 0.01\n" +
+           "    if transaction['country'] != transaction['home_country']:\n" +
+           "        risk += 5.0\n" +
+           "    return risk\n");
+
+The analysts' rule now lives in a ``.py`` file the service reloads on
+change, rather than a Java class that needs a full build and deploy. Calling
+it from Java looks like an ordinary method call, just routed through the
+interpreter:
+
+.. code-block:: java
+
+   import python.lang.PyCallable;
+   import python.lang.PyDict;
+
+   PyDict transaction = rules.dict();
+   transaction.putAny("amount", 4200.0);
+   transaction.putAny("country", "RO");
+   transaction.putAny("home_country", "US");
+
+   PyCallable score = (PyCallable) rules.eval("score");
+   PyObject risk = score.call(transaction);
+   System.out.println(risk);  // 47.0
+
+Loading the fraud model is the same story, just with ``joblib`` or
+``pickle`` standing in for hand-written rules:
+
+.. code-block:: java
+
+   rules.exec(
+           "import joblib\n" +
+           "model = joblib.load('fraud_model.pkl')\n");
+
+   PyObject prediction = rules.eval("model.predict([features])");
+
+Because the interpreter lives inside the JVM's process, the transaction
+dictionary above didn't need to be serialized to JSON, written to a socket,
+or shipped to a sidecar process -- it's a real Python object your Java code
+built directly through ``python.lang.PyDict``. The tradeoff, spelled out in
+:doc:`limitations_java`, is that this interpreter can't be restarted and a
+Python-side crash takes the JVM down with it -- the same coupling that gives
+JPype's forward bridge its speed applies here too.
+
+(This use case is explored in depth starting from :doc:`quickguide_java`.)
 
 
 .. _introduction_the_jpype_philosophy:
@@ -911,6 +995,14 @@ translate concepts from one language to the other. It assumes that readers are
 proficient in at least one of the two languages. If you lack a strong
 background in either Python or Java, you may need to consult tutorials or
 introductory materials for the respective language before proceeding.
+
+This chapter, like the rest of the User Guide, is written from the
+Python-calling-Java direction (Cases 1-3 above). JPype also supports the
+reverse direction -- a Java application embedding Python, as in Case 4 -- but
+that direction has its own paired set of chapters (:doc:`quickguide_java`,
+:doc:`jvm_java`, :doc:`types_java`, :doc:`limitations_java`, and others named
+with a ``_java`` suffix throughout this documentation) rather than being
+folded into the material below.
 
 Key Features of the Guide
 -------------------------
