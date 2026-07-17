@@ -317,11 +317,12 @@ class TestPyBuiltInSuite(common.JPypeTestCase):
         result = self.PyBuiltIn.eval(expression, globals_dict, locals_dict)
         self.assertEqual(int(result), 6)
 
-        # 2. The Failure Path: Passing None (which mirrors eval("...", dict(), None))
-        # Since the underlying Python implementation expects a mapping, 
-        # it should propagate a TypeError back across the bridge.
-        with self.assertRaises(TypeError):
-            self.PyBuiltIn.eval(expression, globals_dict, None)
+        # 2. Passing None for locals mirrors eval("...", dict(), None), which
+        # real Python's eval() accepts (locals defaults to globals) - the
+        # bridge must deliver a genuine null as real Python None here, not a
+        # null-backed typed wrapper (see plan/FunctionRetrieval.md).
+        result = self.PyBuiltIn.eval(expression, globals_dict, None)
+        self.assertEqual(int(result), 6)
 
     def test_exec_statement(self):
         globals_dict = self.PyBuiltIn.dict()

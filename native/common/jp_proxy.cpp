@@ -44,8 +44,15 @@ JPPyObject getArgs(JPJavaFrame& frame, jlongArray parameterTypePtrs,
 		jobject obj = frame.GetObjectArrayElement(args, i);
 		JPClass* type = reinterpret_cast<JPClass*> (types[i]);
 		JPValue val = type->getValueFromObject(frame, JPValue(type, obj));
-		// We know the exact type here so we can use cast (except for String which must take slow path)
-		PyTuple_SetItem(pyargs.get(), i+extra, type->convertToPythonObject(frame, val, type!=(JPClass*) (context->_java_lang_String)).keep());
+		// We know the exact type here so we can use cast (except for String,
+		// which must take the slow path, and null, which must always become
+		// real Python None here - this is a reverse-bridge argument slot,
+		// not the JObject(None, cls) typed-null feature, so a caller-supplied
+		// Java null (e.g. PyCallable.call's unset kwargs) must satisfy
+		// Python-side `is None`/`**kwargs` checks on the far side; see
+		// plan/FunctionRetrieval.md.
+		bool cast = obj != nullptr && type != (JPClass*) (context->_java_lang_String);
+		PyTuple_SetItem(pyargs.get(), i+extra, type->convertToPythonObject(frame, val, cast).keep());
 		frame.DeleteLocalRef(obj);
 	}
 	return pyargs;
@@ -78,7 +85,8 @@ JPPyObject getKwArgs(JPJavaFrame& frame, jlongArray parameterTypePtrs,
 		jobject obj = frame.GetObjectArrayElement(args, valIdx);
 		JPClass* type = reinterpret_cast<JPClass*> (types[valIdx]);
 		JPValue val = type->getValueFromObject(frame, JPValue(type, obj));
-		JPPyObject pyval = type->convertToPythonObject(frame, val, type != (JPClass*) (context->_java_lang_String));
+		bool cast = obj != nullptr && type != (JPClass*) (context->_java_lang_String);
+		JPPyObject pyval = type->convertToPythonObject(frame, val, cast);
 		PyDict_SetItemString(pykwargs.get(), keyStr.c_str(), pyval.get());
 		frame.DeleteLocalRef(obj);
 	}

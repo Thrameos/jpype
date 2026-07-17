@@ -163,6 +163,70 @@ public class PyBuiltInNGTest extends PyTestHarness
     assertTrue(upperFunc instanceof PyCallable);
   }
 
+  /**
+   * Isolation harness for plan/FunctionRetrieval.md: four combinations of
+   * {retrieval via getattr vs eval} x {invocation via PyCallable.call() vs
+   * context.call()} against the same plain module-level function, to
+   * determine which axis (retrieval or invocation) is actually broken.
+   */
+  private void fnRetrievalFixture()
+  {
+    context.exec(
+            "class FnRetrievalHolder:\n"
+            + "    pass\n"
+            + "fn_retrieval_holder = FnRetrievalHolder()\n"
+            + "def fn_retrieval_identity(x):\n"
+            + "    return x\n"
+            + "fn_retrieval_holder.identity = fn_retrieval_identity\n");
+  }
+
+  @Test
+  public void testGetattrRetrievalDefaultCallInvocation()
+  {
+    fnRetrievalFixture();
+    PyObject holder = (PyObject) context.eval("fn_retrieval_holder");
+    PyCallable identity = (PyCallable) context.getattr(holder, "identity");
+    PyObject result = identity.call(42);
+    assertEquals(result.toString(), "42");
+  }
+
+  @Test
+  public void testEvalRetrievalContextCallInvocation()
+  {
+    fnRetrievalFixture();
+    PyCallable identity = (PyCallable) context.eval("fn_retrieval_holder.identity");
+    PyObject result = context.call(identity, context.tuple(42), context.dict());
+    assertEquals(result.toString(), "42");
+  }
+
+  @Test
+  public void testGetattrRetrievalContextCallInvocation()
+  {
+    fnRetrievalFixture();
+    PyObject holder = (PyObject) context.eval("fn_retrieval_holder");
+    PyCallable identity = (PyCallable) context.getattr(holder, "identity");
+    PyObject result = context.call(identity, context.tuple(42), context.dict());
+    assertEquals(result.toString(), "42");
+  }
+
+  @Test
+  public void testContextCallWithNullKwargsInvocation()
+  {
+    fnRetrievalFixture();
+    PyCallable identity = (PyCallable) context.eval("fn_retrieval_holder.identity");
+    PyObject result = context.call(identity, context.tuple(42), null);
+    assertEquals(result.toString(), "42");
+  }
+
+  @Test
+  public void testEvalRetrievalDefaultCallInvocation()
+  {
+    fnRetrievalFixture();
+    PyCallable identity = (PyCallable) context.eval("fn_retrieval_holder.identity");
+    PyObject result = identity.call(42);
+    assertEquals(result.toString(), "42");
+  }
+
   @Test
   public void testGetattrDefaultExisting()
   {

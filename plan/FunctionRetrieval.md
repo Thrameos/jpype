@@ -1,16 +1,112 @@
 # Fix `getattr()`-retrieved callables failing on the reverse bridge
 
-## Status (2026-07-11): NOT STARTED - reproduced, root cause narrowed but not confirmed
+## Status (2026-07-17): DONE
 
-Found while writing a Java-drives-Python benchmark (`benchmark/reverse/`,
-`JpypeBench.java`/see [[jpy_vs_jpype_benchmark]]) that exercises jpype's
-reverse bridge (`org.jpype.MainInterpreter` / `Script` / `python.lang.*`)
-more heavily than any existing test does. The benchmark had to route around
-this bug rather than hit it, which means the workaround is now silently
-baked into `JpypeBench.java` and nothing regresses if the real bug reappears
-or gets worse.
+Root cause found and fixed. It was **not** about `getattr()` vs `eval()`
+retrieval, and **not** about `PyCallable.call()`'s default-method dispatch
+vs `context.call()` - both halves of that axis were red herrings from the
+original narrowing. The actual bug: a Java `null` passed as a fixed-arity
+**object-typed** reverse-bridge argument (not a boxed primitive) did not
+convert to real Python `None` when the native argument-marshaling code took
+the "cast" fast path - it stayed a live-but-null-backed Java-object wrapper
+instead. Confirmed by isolating a 5th combination not in the original
+2x2 table: `context.call(identity, args, null)` (null kwargs, no `getattr`
+or `PyCallable.call()` involved at all) reproduced the exact same failure,
+proving retrieval method and invocation style were both irrelevant.
 
-## Reproduction
+**Root cause (confirmed via instrumented tracing, not just reasoning):**
+`getArgs()`/`getKwArgs()` in `native/common/jp_proxy.cpp` (marshal Java
+arguments into a Python argument tuple/dict for a reverse-bridge call, e.g.
+`Backend.call(PyCallable, PyTuple, PyDict kwargs)` implemented by Python)
+called `JPClass::convertToPythonObject(frame, val, cast)` with
+`cast = (type != java_lang_String)` - i.e. `cast=true` for every argument
+except `String`, regardless of whether the argument was actually `null`.
+`JPClass::convertToPythonObject`'s `value.l == nullptr -> return None` fast
+path only runs when `cast == false` (see the comment there: this is
+deliberate for `JObject(None, someClass)` - Java needs to keep the type
+information on an explicit typed null, so it intentionally does *not*
+collapse to Python's untyped `None` singleton in that scenario). Passing
+`cast=true` for a null argument skips that fast path entirely and falls
+through to the `isProxy()` branch, which (for `null`) resolves a null
+`JPProxy*`/wraps a null-backed generic Java-object proxy instead of
+`None`. When Python's `_call(x, v, k)` (`jpype/_jbridge.py`) later does
+`if k is None: ... else: return x(*v, **k)`, `k is None` is false for this
+wrapper, so it takes the `**k` branch - which calls `k.keys()`
+(`_jcollection.py`'s generic `Map.keys()` shim), which calls Java's
+`Map.keySet()` on the null-backed wrapper's underlying (null) `jobject`,
+hitting `JPClass::invoke`'s `obj == nullptr` guard
+(`native/common/jp_class.cpp:202`, raises `PyValueError: method called on
+null object`).
+
+**Isolation traceback confirming this (from
+`PyRun_SimpleString("traceback.print_stack()")` at the crash site):**
+```
+File ".../jpype/_jbridge.py", line 191, in _call
+  return x(*v, **k)
+File ".../jpype/_jcollection.py", line 222, in keys
+  return list(self.keySet())
+```
+
+**Fix** (`native/common/jp_proxy.cpp`, `getArgs`/`getKwArgs`): only pass
+`cast=true` when the argument is actually non-null -
+`bool cast = obj != nullptr && type != java_lang_String;`. A null
+argument now always takes `convertToPythonObject`'s `cast=false` path,
+which converts it to real Python `None` regardless of declared parameter
+type - correct for reverse-bridge argument slots (there is no "keep the
+Java type on this null" use case for an *argument* the way there is for
+`JObject(None, cls)`, which is a distinct, deliberately-preserved forward-
+bridge feature and was **not** touched - `JPClass::convertToPythonObject`
+itself is unchanged; the fix is entirely in the two call sites that decide
+`cast` for reverse-bridge arguments).
+
+**One existing test encoded the bug as expected behavior and needed
+correcting, not preserving:** `test_bridge.py::TestPyBuiltInSuite::
+test_eval_expression` asserted `self.PyBuiltIn.eval(expr, globals, None)`
+must raise `TypeError`, reasoning "the underlying Python implementation
+expects a mapping." Real Python's `eval(expr, globals, None)` is valid
+(locals defaults to globals) - confirmed directly
+(`python3.10 -c "eval('sum([1,2,3])', {}, None)"` returns `6`, no error).
+The old test only passed because the pre-fix bug prevented `None` from
+ever reaching Python's real `eval()` as `None`. Updated the test to assert
+the call succeeds and returns the correct result, matching real Python
+semantics now that the boundary is fixed.
+
+**A first attempt at this fix was too broad and had to be narrowed.**
+Initially moved the `value.l == nullptr -> None` check in
+`JPClass::convertToPythonObject` unconditionally above the `if (!cast)`
+guard, on the reasoning that a null value has no runtime class to look up
+either way so `cast` shouldn't gate the null check. This broke
+`JObject(None, JString)`'s intentional typed-null behavior
+(`test_jstring.py::testNullString`/`testNullCompare`/`testNullAdd`,
+`test_comparable.py::testComparableNull`, and 6 more - 10 failures total)
+because that function is *also* the shared path for the deliberate
+`JObject(None, cls)` forward-bridge feature, which specifically wants
+`cast=true` callers to keep a typed null rather than collapsing to `None`.
+Reverted that, and instead fixed only the two reverse-bridge call sites
+(`getArgs`/`getKwArgs`) that had no legitimate reason to request the
+typed-null behavior for a `null` argument in the first place - `cast=true`
+there was only ever meant to skip the `findClassForObject` runtime-type
+lookup for a known-exact declared type, not to request typed-null
+preservation. **Lesson: `cast` is an overloaded flag with two logically
+separate meanings (skip runtime class resolution vs. preserve typed-null
+identity) baked into one bool across every caller of
+`convertToPythonObject`; a fix motivated by one meaning can silently
+break every other caller relying on the other meaning. Grep all callers
+and re-run the full test suite (not just the isolation tests) before
+trusting a "small" semantic change to a widely-shared conversion
+function.**
+
+Tests: 4 new isolation tests + 1 confirming test in
+`native/jpype_module/src/test/java/python/lang/PyBuiltInNGTest.java`
+(`testGetattrRetrievalDefaultCallInvocation`,
+`testEvalRetrievalContextCallInvocation`,
+`testGetattrRetrievalContextCallInvocation`,
+`testEvalRetrievalDefaultCallInvocation`,
+`testContextCallWithNullKwargsInvocation`), all passing post-fix. Full
+suites clean: Java NGTest 648/648 (14 skipped, pre-existing/unrelated),
+Python `pytest` 1752/1752 (172 skipped), no regressions.
+
+## Reproduction (original, 2026-07-11)
 
 ```java
 MainInterpreter.getInstance().start(new String[0]);
@@ -31,126 +127,17 @@ python.exceptions.PyValueError: method called on null object
 	at python.lang.PyCallable.call(PyCallable.java:98)
 ```
 
-Two independently-working alternatives, either one avoids it:
+This reproduction happened to always go through `PyCallable.call()`'s
+default method, which happened to always pass `null` for kwargs - so it
+looked like a `getattr()`/`.call()` issue until the isolation step (this
+session) tried the missing 4th combination and a bare null-kwargs case,
+which is what actually narrowed it to the real cause above.
 
-```java
-// (A) retrieve via eval() instead of getattr(), same target function
-PyCallable identity = (PyCallable) context.eval("bench_reverse.identity");
-identity.call(42);                                 // works
+## Out of scope (unchanged from original scoping)
 
-// (B) still retrieve via eval(), but invoke via context.call(...)
-//     instead of the PyCallable's own default call() method
-PyCallable identity = (PyCallable) context.eval("bench_reverse.identity");
-context.call(identity, context.tuple(42), context.dict());  // works
-```
-
-`JpypeBench.java` currently uses the combination of (A) retrieval +
-`context.call(...)` invocation (belt and suspenders) - it has **not** been
-confirmed which single change actually fixes it, because both were changed
-at the same time while chasing the working benchmark. See "First step"
-below - this needs to be isolated before any fix is written.
-
-## What's already been narrowed down (not yet confirmed)
-
-- `PyCallable.call(Object... args)`'s default implementation
-  (`native/jpype_module/src/main/java/python/lang/PyCallable.java:96-98`) is
-  `return builtin().backend.call(this, builtin().tuple(args), null);` - i.e.
-  it ultimately calls the exact same `Backend.call(PyCallable, PyTuple,
-  PyDict)` that `context.call(...)` calls directly
-  (`PyBuiltIn.java:231`, `return backend.call(obj, args, kwargs);`). If (A)
-  alone (eval retrieval + the callable's own `.call()`) turns out to work,
-  that rules out the invocation path entirely and confirms the bug is
-  specific to `getattr()`'s retrieval.
-- The Python-side implementation of the `"getattr"` backend primitive is
-  trivial and looks correct: `jpype/_jbridge.py:299`,
-  `"getattr": lambda x,s: getattr(x, str(s))`. It returns the real Python
-  function object (`bench_reverse.identity`) with no wrapping of its own -
-  the same object `eval("bench_reverse.identity")` would resolve to.
-- Both `getattr` and `eval` cross their return value back into Java through
-  the same generic path in `Java_org_jpype_proxy_ProxyInstance_hostInvoke`
-  (`native/common/jp_proxy.cpp:128-238`): call the Python callable, then
-  `returnClass->findJavaConversion(returnMatch)` +
-  `returnMatch.convert()` to box the result as a live `JPProxy` matching the
-  Java-declared return type (`PyObject` for both `getattr` and `eval`,
-  per their `Backend` interface signatures). Since this conversion step is
-  shared code, a bug specific to `getattr` (if retrieval really is the
-  culprit, pending the isolation step above) is more likely to be in
-  something `getattr` does differently upstream of that shared conversion -
-  e.g. how `obj` (the module, itself a proxy from an earlier `eval`) gets
-  unwrapped back to a raw `PyObject*` before `getattr(x, str(s))` runs on
-  it - than in the conversion itself.
-- `python.lang.PyBuiltIn.getattr(PyObject obj, CharSequence key)`
-  (`native/jpype_module/src/main/java/python/lang/PyBuiltIn.java:375-378`)
-  just forwards to `backend.getattr(obj, key)` - no Java-side logic to
-  suspect there either.
-
-None of the above has been read closely enough yet to say *which specific
-line* is wrong - it narrows the search to "something about how `obj` is
-passed as an argument into the `getattr` host call, or something about the
-particular runtime type of the value `getattr` returns (a `function`,
-specifically, vs. whatever `eval` most commonly returns in existing tests)",
-not a confirmed root cause.
-
-## Why existing tests didn't catch this
-
-`PyBuiltInNGTest.testGetattr()` (`native/jpype_module/src/test/java/python/lang/PyBuiltInNGTest.java:159-164`)
-only asserts `upperFunc instanceof PyCallable` - it never actually *calls*
-the retrieved callable. That appears to be the only existing test that
-retrieves a callable via `getattr()` at all, and it stops one assertion
-short of exercising this bug. (Its target, `"hello".upper`, is also a bound
-method on a builtin type, not a plain module-level function - worth testing
-both shapes once this is isolated, in case they hit different code paths.)
-
-## First step (before any fix)
-
-Isolate which axis is actually broken - four combinations, only one
-(`getattr` + `.call()`) is confirmed broken and only one (`eval` +
-`context.call()`) is confirmed working so far:
-
-| retrieval | invocation | status |
-|---|---|---|
-| `getattr(mod, "identity")` | `identity.call(42)` | confirmed **broken** |
-| `eval("mod.identity")` | `context.call(identity, ...)` | confirmed **working** |
-| `getattr(mod, "identity")` | `context.call(identity, ...)` | **not yet tried** |
-| `eval("mod.identity")` | `identity.call(42)` | **not yet tried** |
-
-Write these four as a single throwaway Java test (or extend
-`PyBuiltInNGTest`) before touching any production code. Whichever two rows
-share the same "broken" verdict tells you whether to look at `getattr`'s
-retrieval path or `PyCallable.call()`'s default-method dispatch.
-
-## Fix scope (once isolated)
-
-- If retrieval is the culprit: instrument or trace
-  `Java_org_jpype_proxy_ProxyInstance_hostInvoke` for the `"getattr"` call
-  specifically (`JP_TRACE` calls are already present throughout
-  `jp_proxy.cpp` - build with tracing enabled rather than adding new prints)
-  and compare against an `eval` call side by side, looking for where the
-  returned function's `JPProxy` ends up with a null/zero host reference.
-- If invocation is the culprit: same tracing approach, but on
-  `PyCallable.call()`'s path specifically - check whether `this` (the
-  callable being invoked) round-trips correctly as an *argument* to the
-  `backend.call` host call (i.e. Java proxy -> native `PyObject*`
-  extraction for an argument, as opposed to for a return value - these are
-  different code paths and either could be the one with the bug).
-- Either way, add a regression test next to `PyBuiltInNGTest.testCall`
-  (`native/jpype_module/src/test/java/python/lang/PyBuiltInNGTest.java:38-49`)
-  that actually invokes a `getattr()`-retrieved plain module-level function,
-  not just a builtin bound method - that's the exact shape this plan's
-  reproduction uses and the exact shape `testGetattr` currently stops short
-  of covering.
-- Update `benchmark/reverse/JpypeBench.java` to use whichever retrieval +
-  invocation combination is idiomatic/fixed, removing the current
-  belt-and-suspenders workaround, once the real fix lands - so the
-  benchmark exercises the normal path again instead of permanently dodging
-  the bug it found.
-
-## Out of scope
-
-- No investigation yet into whether this also affects `getattr()` on
-  non-module objects (e.g. an attribute on a plain Python class instance)
-  or only module attribute lookups specifically - the reproduction above
-  only tests the module case because that's what the benchmark needed.
-- Not chasing whether `PyDict`/`PyList`/other `python.lang.*` proxy types
-  retrieved via `getattr()` have the same problem - only `PyCallable` has
-  been reproduced as broken so far.
+- No investigation into whether other `python.lang.*` reverse-bridge
+  interfaces (beyond `PyDict`-typed kwargs) have other null-handling
+  gaps - only the kwargs-null case was reproduced and fixed. The fix
+  itself is general (any null object-typed reverse-bridge argument now
+  gets real `None`), so other cases are expected to be fixed too, but
+  weren't individually re-verified beyond the full test suite passing.
