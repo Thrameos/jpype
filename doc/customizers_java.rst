@@ -75,10 +75,9 @@ method dispatch.
 Worked example
 ------------------
 
-Ground truth: ``DispatchFallbackNGTest``, which defines its own small
-interface (``PyAliceBobCharlieDerik``) with every method ``$``-prefixed,
-against a plain Python class with no ``@JImplements``/``.pyspi`` wiring at
-all:
+The example below uses a small interface (``PyAliceBobCharlieDerik``) with
+every method ``$``-prefixed, against a plain Python class with no
+``@JImplements``/``.pyspi`` wiring at all:
 
 .. code-block:: java
 

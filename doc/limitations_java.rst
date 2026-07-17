@@ -17,9 +17,7 @@ Unimplemented standard library coverage
 ----------------------------------------
 
 Only a subset of the Python standard library has a typed Java front end
-today. Implemented, with a ``WrapperService`` SPI provider and passing
-``NGTest`` coverage under
-``native/jpype_module/src/test/java/python/``:
+today. Implemented, with a ``WrapperService`` SPI provider:
 
 - ``python.io`` — ``io``/``_io`` (``PyIOBase``/``PyBufferedReader``/
   ``PyTextIOWrapper``/etc.)
@@ -73,8 +71,7 @@ concurrency or independent memory ownership.
 A related, deliberate guard: a proxy or wrapped object obtained inside one
 (sub)interpreter cannot be silently smuggled into another interpreter's
 scope. Attempting to do so raises a detection error rather than corrupting
-state (see ``plan/Smuggler.md`` for the underlying mechanism) — this is
-intentional, not a bug to work around.
+state — this is intentional, not a bug to work around.
 
 
 .. _reverse_bridge_limitations_async_thread_pool:

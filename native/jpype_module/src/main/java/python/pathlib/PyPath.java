@@ -41,9 +41,8 @@ import python.lang.PyObject;
  * predicates ({@link #exists()}, {@link #isFile()}, {@link #isDirectory()},
  * {@link #isSymlink()}). It deliberately does not cover the rest of
  * {@code Path}'s I/O surface ({@code open}/{@code read_text}/{@code mkdir}/
- * {@code unlink}/...) — see {@code plan/Pathlib.md} for the scope
- * discussion; a {@code Path.open()} bridge to {@code python.io}'s stream
- * types is left for a follow-up rather than folded in here.
+ * {@code unlink}/...) — a {@code Path.open()} bridge to {@code python.io}'s
+ * stream types is a natural candidate for a future extension.
  */
 public interface PyPath extends PyObject, Comparable<PyPath>
 {

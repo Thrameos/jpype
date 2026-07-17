@@ -4,10 +4,8 @@ Python Types (for Java)
 
 This is the Java-side counterpart to :doc:`types_py`: the ``python.lang``
 type hierarchy that represents Python values on the Java side of the
-reverse bridge. Every interface named below is real, shipping code under
-``native/jpype_module/src/main/java/python/lang/`` with passing coverage
-under ``native/jpype_module/src/test/java/python/lang/`` -- see the
-``package-info.java`` there for the design rationale summarized here.
+reverse bridge. Every interface named below is real, shipping code in the
+``python.lang`` package.
 
 .. contents::
    :local:
@@ -89,12 +87,11 @@ example ``PyList`` is a ``PySequence<PyObject>``, which already pulls in
 Concrete types
 -----------------
 
-The types below are the ones with a dedicated Java interface today. Ground
-truth for every snippet is the matching ``*NGTest.java`` file.
+The types below are the ones with a dedicated Java interface today.
 
 ``PyString``
   Extends ``CharSequence``, so it can be passed anywhere Java expects
-  character data. See ``PyStringNGTest``.
+  character data.
 
   .. code-block:: java
 
@@ -105,7 +102,7 @@ truth for every snippet is the matching ``*NGTest.java`` file.
 ``PyInt`` / ``PyFloat`` / ``PyComplex``
   Numeric types, all ``PyNumber``. Construct with the ``PyBuiltIn``
   ``$int``/``$float`` factories (prefixed with ``$`` because ``int`` and
-  ``float`` are Java reserved words). See ``PyBuiltInNGTest``.
+  ``float`` are Java reserved words).
 
   .. code-block:: java
 
@@ -114,7 +111,6 @@ truth for every snippet is the matching ``*NGTest.java`` file.
 
 ``PyDict``
   A ``PyMapping<PyObject, PyObject>``, so it's a ``java.util.Map``.
-  See ``PyDictNGTest``.
 
   .. code-block:: java
 
@@ -125,7 +121,7 @@ truth for every snippet is the matching ``*NGTest.java`` file.
 ``PyList`` / ``PyTuple``
   Both ``PySequence<PyObject>``, i.e. ``java.util.List``. ``PyTuple`` is
   still immutable underneath -- mutating methods inherited from ``List``
-  will throw. See ``PyBuiltInNGTest``.
+  will throw.
 
   .. code-block:: java
 
@@ -137,7 +133,7 @@ truth for every snippet is the matching ``*NGTest.java`` file.
 
 ``PyBytes`` / ``PyByteArray``
   Both a ``PySequence<PyInt>`` and a ``PyBuffer``. ``PyBytes`` is
-  immutable, ``PyByteArray`` is mutable. See ``PyBytesNGTest``.
+  immutable, ``PyByteArray`` is mutable.
 
   .. code-block:: java
 
@@ -145,7 +141,7 @@ truth for every snippet is the matching ``*NGTest.java`` file.
 
 ``PySlice`` / ``PyRange``
   ``PySlice`` mirrors Python's ``slice`` object; ``PyRange`` is a
-  ``PyIter<PyInt>`` mirroring ``range()``. See ``PyBuiltInNGTest``.
+  ``PyIter<PyInt>`` mirroring ``range()``.
 
   .. code-block:: java
 
@@ -168,7 +164,7 @@ Python exceptions are not part of ``python.lang`` -- they live under
 mirroring Python's own exception hierarchy so they can be caught by type
 from Java. ``PyExc`` (in ``python.lang``) is the underlying handle for
 inspecting the live exception object. See :doc:`quickguide_java`'s
-"Exceptions" section and ``PyExcNGTest``.
+"Exceptions" section.
 
 
 Standard library types

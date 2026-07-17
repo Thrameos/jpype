@@ -40,7 +40,6 @@ import python.lang.PyBuiltIn;
  * distinct name from {@link #path(String, String...)} rather than an
  * overload of it — JPype's proxy dispatch for {@code WrapperService}-backed
  * interfaces routes purely by method name, not by Java overload signature.
- * See {@code plan/SPI_tutorial.md}.
  */
 public interface Pathlib
 {

@@ -34,10 +34,9 @@
  * ({@link PyPath#exists()}, {@link PyPath#isFile()},
  * {@link PyPath#isDirectory()}, {@link PyPath#isSymlink()}). It does not
  * yet cover the rest of {@code Path}'s I/O surface ({@code open}/
- * {@code read_text}/{@code mkdir}/{@code unlink}/...); see
- * {@code plan/Pathlib.md} for the scope discussion behind that split. A
+ * {@code read_text}/{@code mkdir}/{@code unlink}/...). A
  * {@code Path.open()} bridge into {@code python.io}'s stream types is
- * worth revisiting as a follow-up rather than folded into this pass.
+ * a natural candidate for a future extension.
  *
  * <p>
  * {@link PyPath} also offers promotion default methods to the standard

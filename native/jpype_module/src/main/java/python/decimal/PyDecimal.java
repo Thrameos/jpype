@@ -40,8 +40,7 @@ import python.lang.PyObject;
  * and promotion to/from {@link java.math.BigDecimal}. It deliberately does
  * not cover {@code decimal.Context}, {@code localcontext}, or the
  * rounding-mode constants — those are process-global configuration state,
- * not a value type, and are out of scope for this pass; see
- * {@code plan/Decimal.md}.
+ * not a value type.
  */
 public interface PyDecimal extends PyObject, Comparable<PyDecimal>
 {

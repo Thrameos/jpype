@@ -36,8 +36,7 @@
  * PyDecimal#isFinite}), comparison, and promotion to/from
  * {@link java.math.BigDecimal}. It does not cover {@code decimal.Context},
  * {@code localcontext}, or the rounding-mode constants, which are
- * process-global configuration state rather than a value type; see
- * {@code plan/Decimal.md} for the scope discussion behind that split.
+ * process-global configuration state rather than a value type.
  *
  * <p>
  * {@link PyDecimal} also offers a promotion default method to the

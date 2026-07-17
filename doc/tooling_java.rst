@@ -5,10 +5,9 @@ Object Lifetime and Cleanup (for Java)
 This is the Java-side counterpart to :doc:`tooling_py`'s garbage
 collection section: what keeps a Python object alive while Java code holds
 a reference to it, and how to release resources explicitly rather than
-waiting on the garbage collector. Ground truth:
+waiting on the garbage collector. The relevant classes are
 ``org.jpype.ref.NativeReferenceQueue``, ``python.lang.PyMemoryView``, and
-``python.io``'s ``close()``/``closed()`` methods (``PyStringIONGTest``,
-``PyMemoryViewNGTest``).
+``python.io``'s ``close()``/``closed()`` methods.
 
 .. contents::
    :local:
@@ -43,8 +42,7 @@ Explicit release: PyMemoryView
 
 ``PyMemoryView.release()`` (mirroring Python's own
 ``memoryview.release()``) releases the underlying buffer immediately,
-independent of when the Java wrapper itself gets collected. See
-``PyMemoryViewNGTest``.
+independent of when the Java wrapper itself gets collected.
 
 .. code-block:: java
 
@@ -63,7 +61,7 @@ Explicit release: python.io streams
 Python's own file-like object protocol. As with any stream, explicit
 ``close()`` (or try-with-resources, where the type supports
 ``AutoCloseable``) is the correct way to release the underlying resource
-promptly rather than waiting on collection. See ``PyStringIONGTest``:
+promptly rather than waiting on collection:
 
 .. code-block:: java
 

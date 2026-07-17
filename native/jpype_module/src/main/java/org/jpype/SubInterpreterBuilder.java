@@ -161,8 +161,7 @@ public class SubInterpreterBuilder
    * own obmalloc arena, with {@code check_multi_interp_extensions} enabled
    * (required whenever {@code use_main_obmalloc} is off - see
    * {@link #start}). Requires every extension module the subinterpreter
-   * imports, including {@code _jpype}, to be multi-phase-init-safe (true
-   * since {@code plan/MultiPhaseInit.md}).
+   * imports, including {@code _jpype}, to be multi-phase-init-safe.
    *
    * <p>
    * This is the safest legal combination and is also what a bare

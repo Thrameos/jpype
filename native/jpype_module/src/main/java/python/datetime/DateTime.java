@@ -51,7 +51,7 @@ import python.lang.PyBuiltIn;
  * without ever running the {@code default} method's own body. Overloading
  * {@code date(int, int, int)}/{@code date(LocalDate)} under one name would
  * silently forward a raw {@code LocalDate} object to a Python callable
- * that expects three integers. See {@code plan/SPI_tutorial.md}.
+ * that expects three integers.
  */
 public interface DateTime
 {

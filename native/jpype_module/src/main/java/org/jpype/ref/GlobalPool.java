@@ -75,17 +75,13 @@ import java.util.logging.Logger;
  * block (O(1) free-slot search via {@code Long.numberOfTrailingZeros}),
  * and reads ({@link #get}) use {@code VarHandle} acquire/release instead of
  * a lock - only structural mutation ({@link #add}/{@link #remove}) needs
- * to synchronize. This mirrors J2NI's {@code J2GlobalPool}/
- * {@code J2ReferencePool64} allocator, adopted after benchmarking showed
- * the earlier fully-synchronized {@code ArrayList}-based version collapsed
- * under concurrent {@code get()} - the hottest path, since it is called
- * from JNI on effectively every native-to-Java handle resolution - going
- * from ~39M ops/s at 1 reader thread to ~13M at 4 threads, where the
- * block/bitmask design scales to ~575M ops/s at 16 threads (see
- * plan/GlobalPool.md for the full benchmark). The prefix/registry contract
- * above is unrelated to that regression and is kept exactly as designed -
- * per-interpreter pool identity is a correct requirement, only the
- * internal allocator (and, on review, the generation counter) was wrong.</p>
+ * to synchronize. This block/bitmask design scales far better under
+ * concurrent {@link #get} - the hottest path, since it is called from JNI
+ * on effectively every native-to-Java handle resolution - than a naive
+ * fully-synchronized list-based allocator would. The prefix/registry
+ * contract above is independent of that allocator choice: per-interpreter
+ * pool identity is a correct requirement regardless of how slots
+ * themselves are allocated.</p>
  */
 public final class GlobalPool
 {

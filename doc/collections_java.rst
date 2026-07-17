@@ -4,11 +4,8 @@ Python Collections (for Java)
 
 This is the Java-side counterpart to :doc:`collections_py`: the
 ``python.collections`` front end for Python's ``collections`` module. Every
-type named below is real, shipping code under
-``native/jpype_module/src/main/java/python/collections/`` with passing
-coverage under ``native/jpype_module/src/test/java/python/collections/``
-(43 tests) -- see the ``package-info.java`` there for the design rationale
-summarized here.
+type named below is real, shipping code in the ``python.collections``
+package.
 
 .. contents::
    :local:
@@ -52,8 +49,6 @@ Python-flavored, named subset of ``java.util.Deque``'s shape.
 PyDeque
 ---------
 
-See ``PyDequeNGTest``.
-
 .. code-block:: java
 
     PyDeque d = collections.deque(
@@ -68,8 +63,7 @@ See ``PyDequeNGTest``.
 PyCounter
 -----------
 
-A real ``dict`` subclass, so it's also a ``java.util.Map``. See
-``PyCounterNGTest``.
+A real ``dict`` subclass, so it's also a ``java.util.Map``.
 
 .. code-block:: java
 
@@ -84,7 +78,7 @@ PyOrderedDict / PyDefaultDict
 --------------------------------
 
 Both real ``dict`` subclasses. ``PyDefaultDict`` fills in missing keys by
-calling its factory. See ``PyOrderedDictNGTest``, ``PyDefaultDictNGTest``.
+calling its factory.
 
 .. code-block:: java
 
@@ -102,7 +96,7 @@ PyChainMap
 
 A ``MutableMapping``, not a ``dict`` subclass -- extends ``PyMapping``
 rather than ``PyDict``. Writes and deletes always land on the first map in
-the chain. See ``PyChainMapNGTest``.
+the chain.
 
 .. code-block:: java
 

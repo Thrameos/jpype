@@ -5,11 +5,7 @@ Python Dates and Times (for Java)
 The ``python.datetime`` front end for Python's ``datetime`` module -- there
 is no matching Python-side chapter for this one; it's cross-linked from
 :doc:`types_java` rather than paired with a ``_py`` counterpart. Every type
-named below is real, shipping code under
-``native/jpype_module/src/main/java/python/datetime/`` with passing coverage
-under ``native/jpype_module/src/test/java/python/datetime/`` (25 tests) --
-see the ``package-info.java`` there for the design rationale summarized
-here.
+named below is real, shipping code in the ``python.datetime`` package.
 
 .. contents::
    :local:
@@ -50,8 +46,7 @@ Naive vs. aware datetimes
 
 Like Python itself, a ``PyDateTime`` may be *naive* (no timezone
 information) or *aware* (carries a UTC offset). Check with ``isAware()``;
-``utcOffsetSeconds()`` is ``null`` for naive instances. See
-``PyDateTimeNGTest``.
+``utcOffsetSeconds()`` is ``null`` for naive instances.
 
 .. code-block:: java
 

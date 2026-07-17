@@ -5,9 +5,8 @@ Threading (for Java)
 This is the Java-side counterpart to :doc:`threading_py`: what it means to
 call into Python from multiple Java threads, and the async call support
 built on top of that. Read :doc:`jvm_java`'s "GIL model, briefly" section
-first if you haven't -- this chapter is that section in full. Ground truth
-for every claim here is ``python.lang.PyCallable`` and
-``PyCallableAsyncNGTest``.
+first if you haven't -- this chapter is that section in full. Every claim
+here is grounded in ``python.lang.PyCallable``.
 
 .. contents::
    :local:
@@ -49,7 +48,7 @@ Async calls
 ``PyCallable.callAsync(PyTuple, PyDict)`` and
 ``callAsyncWithTimeout(PyTuple, PyDict, long)`` run the call on a bounded,
 fixed-size (32) daemon thread pool and return a ``java.util.concurrent.Future``,
-rather than blocking the calling thread. See ``PyCallableAsyncNGTest``.
+rather than blocking the calling thread.
 
 .. code-block:: java
 
@@ -83,10 +82,9 @@ What's safe from a background thread
 - Calling any ``PyObject``/``PyCallable`` method from any Java thread:
   safe, each call acquires/releases the GIL on its own.
 - Sharing one ``PyObject`` (a function, a container, ...) across multiple
-  threads making concurrent calls into it: safe at the JPype layer --
-  ``PyCallableAsyncNGTest#testManyConcurrentCallAsync`` does exactly this
-  with 50 concurrent calls against the same lambda. Whether it's safe at
-  the *Python* level depends on what that Python code does (mutating
+  threads making concurrent calls into it: safe at the JPype layer, even
+  with many concurrent calls against the same callable. Whether it's safe
+  at the *Python* level depends on what that Python code does (mutating
   shared state without a Python-side lock is exactly as unsafe as it would
   be in pure Python).
 - A call that never returns control to Java -- blocked native code inside

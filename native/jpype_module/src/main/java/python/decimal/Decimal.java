@@ -42,9 +42,8 @@ import python.lang.PyBuiltIn;
  * same precedent as {@code Pathlib#pathFromFile(java.io.File)} and
  * {@code DateTime}'s {@code java.time} convenience factories, all of which
  * convert through a string and re-enter the primitive factory rather than
- * inventing a second construction path. See {@code plan/SPI_tutorial.md}
- * on why a convenience factory needs a distinct name rather than an
- * overload of {@link #decimal(String)}.
+ * inventing a second construction path, since a convenience factory needs
+ * a distinct name rather than an overload of {@link #decimal(String)}.
  */
 public interface Decimal
 {

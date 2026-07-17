@@ -6,9 +6,7 @@ This is the Java-side counterpart to :doc:`jvm_py`: there is no JVM to
 start from this direction (Java is already running), but there is an
 embedded CPython interpreter with its own lifecycle, and that lifecycle has
 sharper edges than starting/stopping a JVM does. Every claim below is
-grounded in ``org.jpype.MainInterpreter`` and ``python.lang.PyTestHarness``,
-the shared setup/teardown fixture every ``*NGTest.java`` in this codebase
-runs under.
+grounded in ``org.jpype.MainInterpreter``.
 
 .. contents::
    :local:
@@ -20,8 +18,7 @@ Starting and stopping
 
 ``MainInterpreter`` is a singleton (``getInstance()``). ``start(String[])``
 boots the embedded CPython interpreter inside the JVM process;
-``isStarted()`` reports whether that has already happened. This is the
-pattern every test in the codebase uses, via ``PyTestHarness``:
+``isStarted()`` reports whether that has already happened:
 
 .. code-block:: java
 
@@ -42,8 +39,7 @@ pattern every test in the codebase uses, via ``PyTestHarness``:
 permanently terminated for the life of the process; there is no restart,
 mirroring the JVM-restart limitation described in :doc:`jvm_py`. A typical
 long-lived application calls ``start()`` once near the top of ``main()``
-and relies on JVM shutdown to tear things down, exactly as
-``PyTestHarness``'s ``@AfterSuite`` hook does:
+and relies on JVM shutdown to tear things down:
 
 .. code-block:: java
 

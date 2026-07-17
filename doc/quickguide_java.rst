@@ -4,10 +4,7 @@ Python QuickStart Guide (for Java)
 
 This is a 5-minute tour of the reverse bridge: a Java application that embeds
 Python and calls into it, rather than a Python program calling Java (that
-direction is :doc:`quickguide_py`). Every snippet below is drawn from a
-passing test under
-``native/jpype_module/src/test/java/python/`` -- see the source file named
-in each section if you want the full picture.
+direction is :doc:`quickguide_py`). Every snippet below runs as shown.
 
 .. contents::
    :local:
@@ -54,8 +51,7 @@ Evaluating and executing code
 
 ``eval()`` returns a value; ``exec()`` runs statements and returns nothing.
 Both take the script's own globals/locals, so names defined by ``exec()``
-are visible to later ``eval()`` calls on the same ``Script``. See
-``PyBuiltInNGTest``.
+are visible to later ``eval()`` calls on the same ``Script``.
 
 .. code-block:: java
 
@@ -75,8 +71,7 @@ Basic types
 Every ``python.lang`` type (``PyString``, ``PyInt``, ``PyFloat``, ``PyDict``,
 ``PyList``, ``PyTuple``, ``PySet``, ...) implements the matching Java
 collection/comparison interfaces where it makes sense, so a ``PyDict`` behaves
-like a ``java.util.Map`` and a ``PyList`` like a ``java.util.List``. See
-``PyStringNGTest``, ``PyDictNGTest``.
+like a ``java.util.Map`` and a ``PyList`` like a ``java.util.List``.
 
 .. code-block:: java
 
@@ -98,8 +93,7 @@ Calling into Python
 Any ``PyCallable`` (a Python function, bound method, lambda, or callable
 object) can be invoked directly with plain Java arguments via
 ``call(Object... args)``, or built up incrementally with ``call()``'s
-fluent ``CallBuilder`` when you need keyword arguments. See
-``PyBuiltInNGTest#testCall``.
+fluent ``CallBuilder`` when you need keyword arguments.
 
 .. code-block:: java
 
@@ -147,7 +141,7 @@ Exceptions
 Python exceptions raised through ``eval()``/``exec()`` or a ``PyCallable``
 call surface as Java exceptions under ``python.exceptions``, mirroring
 Python's own hierarchy (``PyValueError``, ``PyZeroDivisionError``, ...) so
-you can catch them by type. See ``PyExcNGTest``.
+you can catch them by type.
 
 .. code-block:: java
 
