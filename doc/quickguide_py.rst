@@ -2,10 +2,12 @@
 Java QuickStart Guide
 =====================
 
-This is a quick start guide to using JPype with Java.  This guide will show a
+This is a quick start guide to using JPype with Java. This guide will show a
 series of snippets with the corresponding commands in both Java and Python for
-using JPype.  The :doc:`userguide` and :doc:`api` have additional details on
-the use of the JPype module.
+using JPype -- i.e. it covers the Python-calling-Java direction. If you are
+instead embedding Python in a Java application and want Java to call Python,
+see :doc:`quickguide_java`. The :doc:`intro` and :doc:`api` have
+additional details on the use of the JPype module.
 
 JPype uses two factory classes (``JArray`` and ``JClass``) to produce class
 wrappers which can be used to create all Java objects.  These serve as both the
