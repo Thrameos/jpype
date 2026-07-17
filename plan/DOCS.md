@@ -501,3 +501,57 @@ All other cross-references between chapters are `:doc:`/`:ref:` pointers
 to the *other* direction's counterpart chapter (e.g. `types_py.rst` ->
 `:doc:`types_java``), which are cross-track signposts, not same-track
 reading prerequisites, so they don't constrain ordering.
+
+## develguide.rst rework (2026-07-17, same session)
+
+`develguide.rst` predated the reverse bridge entirely (no mention of
+`native/jpype_module`, `python.lang`, `MainInterpreter`, SPI, etc.) and
+carried a lot of first-person historical narrative and opinion from the
+original author (Thrameos) mixed in with genuine architecture. Per user
+direction: pull out anything a general user needs for crash troubleshooting
+into the user guide, trim what's easily discoverable via reading the code
+(agent tools make that cheap now), keep the "why" design reasoning that a
+full comprehensive read would be needed to reconstruct, and add the missing
+embedded-Python architecture. 1150 -> 993 lines despite a net new section.
+
+Moved to `debugging_py.rst`'s existing "Using a Debugger" section (`` .. _using-debugger: ``):
+the Open-JDK 8 `gdb.error: No type named nmethod` issue + Open-JDK 9 fix,
+the `PYTHONMALLOC` memory-pool-recycling debugging tip, and a plain-language
+explanation of JPype's deliberate-crash mechanism (segfault-on-purpose so
+`gdb` gets a clean backtrace, when it's expected, and to file a GitHub issue
+if seen) -- all real content a general user hitting a native crash needs,
+previously only in the developer guide. `develguide.rst`'s "Deliberate
+Crash for Debugging" section was cut down to the one developer-specific
+fact worth keeping (the code lives in `jp_context.cpp`, triggered on
+unrecoverable startup/resource failures) with a pointer to `debugging_py.rst`
+for the walkthrough.
+
+Trimmed: the "History" section's first-person narrative (10+ paragraphs ->
+folded into 2 sentences of Overview), the "Style" section's opining, and
+"On CPython extensions"'s multi-paragraph rant -- kept the factual claims
+each was wrapped around (naming convention rule; always use the vtable
+macros, don't call fields/methods directly). Rewrote the stale "Future
+directions" section (still described an 0.7/0.8/0.9 roadmap where 0.8's
+"pickle support" item is now shipped, and never mentioned the reverse
+bridge shipping at all) to state what's actually done and point at the
+still-real forward-looking item (moving overload resolution into the Java
+thunk; a from-scratch Panama/FFM-based JNI replacement being prototyped
+separately, see [[jpype_j2ni_panama_future]] in memory -- not otherwise
+referenced from this repo).
+
+Added: new "Embedded Python (reverse bridge)" top-level section (between
+"Java native code" and "Tracing and crash diagnosis") covering
+`org.jpype.MainInterpreter`'s singleton-not-factory design (CPython can't
+currently restart/run twice in a process) and `SubInterpreter`/
+`SubInterpreterBuilder` as the escape hatch, the `python.*` front-end
+packages as ordinary `WrapperService` SPI providers (cross-referencing
+`spi.rst` rather than duplicating it), dispatch (`$`-mangled fallback,
+mirroring the forward bridge's own name-mangling) and lifetime (native
+reference queue vs. `JPReferenceQueue` symmetry), and the GIL-per-call
+model in one paragraph (full detail already in `threading_java.rst`). This
+is architecture-level "why", not a duplicate of the `_java.rst` user
+chapters or `spi.rst` -- cross-references those rather than restating them.
+
+Verification: `:doc:` target resolution (all 8 distinct targets referenced
+from `develguide.rst` exist), anchor-collision check, phrase-ref check --
+all clean.

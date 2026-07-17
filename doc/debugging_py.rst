@@ -190,8 +190,10 @@ Using a Debugger
 
 If JPype crashes, it may be necessary to use a debugger to obtain a backtrace.
 However, debugging JPype can be challenging due to the JVM's handling of
-segmentation faults. The JVM intercepts segmentation faults to allocate memory
-or handle internal operations, which can corrupt stack frames.
+segmentation faults. Java installs its own signal handlers that take over the
+process on a segfault, which usually corrupts the stack by the time a core
+file is examined, and can also cause a debugger attached from the start to
+crash immediately rather than let you catch the fault.
 
 To debug JPype using tools such as ``gdb`, you must configure the debugger to
 ignore segmentation faults intentionally triggered by the JVM. For example, use
@@ -204,7 +206,32 @@ the following command to start ``gdb`` and ignore the first fault:
 
 This configuration allows the debugger to bypass JVM-related faults while
 capturing legitimate errors. Additionally, disable Python's fault handler to
-avoid interference with segmentation fault reporting.
+avoid interference with segmentation fault reporting. There is no known way
+to stop the JVM from altering the stack frames in a non-interactively
+produced core dump, so an interactive gdb session (as above) is the
+reliable option.
+
+Older JVMs can add their own wrinkle: Open-JDK 8 has had gdb compatibility
+problems, and starting JPype under gdb may produce ``gdb.error: No type
+named nmethod.`` Upgrading to Open-JDK 9 or later resolves it.
+
+If the crash looks like it's landing in code that makes no sense for what
+you called, suspect Python's memory allocator: CPython recycles freed
+objects from allocation pools rather than always allocating fresh memory,
+so a use-after-free can silently vector into an unrelated object of a
+different type instead of crashing where the bug actually is. Forcing a
+different allocation policy via the ``PYTHONMALLOC`` environment variable
+can avoid the recycling and make the fault easier to catch, though it may
+also shift execution enough that the bug doesn't reproduce the same way.
+
+If you hit a segfault that immediately shows a clean, meaningful backtrace
+at a null-pointer write rather than a garbled crash, that's likely JPype's
+own deliberate-crash mechanism, not memory corruption: JPype intentionally
+triggers a null-pointer write in a handful of catastrophic startup/resource
+failure paths where it cannot deliver an exception to either Python or
+Java, specifically so gdb gets a usable stack trace instead of a swallowed
+signal. If you see this, it indicates a genuine unrecoverable failure --
+please open a GitHub issue with the backtrace.
 
 
 .. _caller sensitive:

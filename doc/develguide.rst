@@ -4,46 +4,22 @@ Developer Guide
 Overview
 --------
 
-This document describes the guts of jpype. It is intended
-lay out the architecture of the jpype code to aid intrepid lurkers
-to develop and debug the jpype code once I am run over by a bus.
-For most of this document I will use the royal we, except where
-I am giving personal opinions expressed only by yours truly, the
-author Thrameos.
+This document lays out the architecture of the JPype code -- the parts that
+are hard to reconstruct from reading the source alone, because they record
+*why* the code is shaped the way it is, not just what it does. For anything
+a general user needs to debug a crash (gdb, attaching debuggers), see
+:doc:`debugging_py`; this guide is for developing and debugging JPype's own
+internals. We use the royal we throughout.
 
-
-History
-~~~~~~~
-
-When I started work on this project it had already existed for over 10 years.
-The original developer had intended a much larger design with modules to
-support multiple languages such as Ruby. As such it was constructed with
-three layers of abstraction. It has a wrapper layer over Java in C++, a
-wrapper layer for the Python api in C++, and an abstraction layer intended
-to bridge Python and other interpreted languages. This multilayer abstraction
-ment that every debugging call had to drop through all of those layers.
-Memory management was split into multiple pieces with Java controlling a
-portion of it, C++ holding a bunch of resources, Python holding additional
-resources, and HostRef controlling the lifetime of objects shared between the
-layers. It also had its own reference counting system for handing Java
-references on a local scale.
-
-This level of complexity was just about enough to scare off all but the most
-hardened programmer. Thus I set out to eliminate as much of this as I could.
-Java already has its own local referencing system to deal in the form of
-LocalFrames. It was simply a matter of setting up a C++ object to
-hold the scope of the frames to eliminate that layer. The Java abstraction
-was laid out in a fashion somewhat orthagonally to the Java inheritance
-diagram. Thus that was reworked to something more in line which could be
-safely completed without disturbing other layers. The multilanguage
-abstraction layer was already pierced in multiple ways for speed. However,
-as the abastraction interwove throughout all the library it was a terrible
-lift to remove and thus required gutting the Python layer as well to support
-the operations that were being performed by the HostRef.
-
-The remaining codebase is fairly slim and reasonably streamlined. This
-rework cut out about 30% of the existing code and sped up the internal
-operations. The Java C++ interface matches the Java class hierachy.
+JPype predates this rewrite by over 10 years, originally designed with a
+multilanguage abstraction layer (to support Ruby and other interpreters
+alongside Python) on top of separate Java, C++, and Python reference-counting
+schemes. That extra layer was cut: Java's own JNI local-frame system replaced
+the custom referencing, and the Java/C++ class hierarchies were realigned to
+match one another directly. The result is a three-layer design -- Python
+front end, a thin CPython C API wrapper, and a C++ JNI layer -- each
+described in its own section below, followed by the Java-embeds-Python
+reverse bridge, which is a separate, newer subsystem with its own layering.
 
 
 Architecture
@@ -186,24 +162,14 @@ type.
 Style
 ~~~~~
 
-One of the aspects of the jpype design is elegance of the factory patterns.
-Rather than expose the user a large number of distinct concepts with different
-names, the factories provide powerfull functionality with the same syntax for
-related things. Boxing a primitive, casting to a specific type, and creating
-a new object are all tied together in one factory, ``JObject``. By also making that
-factory an effective base class, we allow it to be used for ``issubtype`` and
-``isinstance``.
-
-This philosophy is further enhanced by silent customizers which integrate
-Python functionality into the wrappers such that Java classes can be used
-effectively with Python syntax. Consistent use and misuse of Python concepts
-such as ``with`` for defining blocks such as try with resources and synchronized
-hide the underlying complexity and give the feeling to the user that the
-module is integrated completely as a solution such as jython.
-
-When adding a new feature to the Python layer, consider carefully if the
-feature needs to be exposed a new function or if it can be hidden in the
-normal Python syntax.
+JPype's factories deliberately collapse distinct operations into one
+callable: boxing a primitive, casting to a specific type, and creating a new
+object are all tied together in the single ``JObject`` factory, which also
+doubles as a base class so it works with ``issubclass``/``isinstance``.
+Customizers extend this by hooking Java classes into native Python syntax
+(``with`` for try-with-resources and ``synchronized``, iteration protocols
+for collections, etc). When adding a feature to the Python layer, prefer
+hiding it inside existing Python syntax over exposing a new function.
 
 JPype does somewhat break the Python naming conventions. Because Java and
 Python have very different naming schemes, at least part of the kit would
@@ -551,40 +517,16 @@ reference for its scope.
 On CPython extensions
 ~~~~~~~~~~~~~~~~~~~~~
 
-CPython is somewhat of a nightmare to program in. It is not that they did not
-try to document the API, but it is darn complex. The problems extend well
-beyond the reference counting system that we have worked around.  In
-particular, the object model though well developed is very complex, often to
-get it to work you must follow letter for letter the example on the CPython
-user guide, and even then it may all go into the ditch.
-
-The key problem is that there are a lot of very bad examples of how to write
-CPython extension modules out there. Often the these examples bypass the
-appropriate macro and just call the field, or skip the virtual table and try to
-call the Python method directly. It is true that these things do not break
-there example, but they are conditioned on these methods they are calling
-directly to be the right one for the job, but depends a lot on what the
-behavior of the object is supposed to be. Get it wrong and you get really nasty
-segfault.
-
-CPython itself may be partly responsible for some of these problems.  They
-generally seem to trust the user and thus don't verify if the call makes sense.
-It is true that it will cost a little speed to be aggressive about checking the
-type flags and the allocator match, but not checking when the error happens,
-means that it fails far from the original problem source. I would hope that we
-have moved beyond the philosophy that the user should just to whatever they
-want so it runs as fast as possible, but that never appears to be the case. Of
-course, I am just opining from the outside of the tent and I am sure the issues
-are much more complicated it appears superficially. Then again if I can manage
-to provide a safe workspace while juggling the issues of multiple virtual
-machines, I am free to have opinions on the value of trading performance and
-safety.
-
-In short when working on the extension code, make sure you do everything by the
-book, and check that book twice. Always go through the types virtual table and
-use the propery macros to access the resources. Miss one line in some complex
-pattern even once and you are in for a world of hurt. There are very few guard
-rails in the CPython code.
+CPython's C API has very few guard rails: many examples in the wild bypass
+the type's virtual table and call a field or method directly rather than
+going through the proper macro. That works for the example's own narrow
+case, but it's conditioned on assumptions about the object's behavior that
+don't generalize -- get it wrong on a type you didn't anticipate and you get
+a segfault far from the actual mistake, since CPython mostly trusts the
+caller instead of validating type flags and allocator match. When working on
+the extension code, always go through the type's virtual table and use the
+proper accessor macros; skipping this even once in a complex pattern is
+where the memory corruption bugs come from.
 
 
 C++ JNI layer
@@ -934,29 +876,89 @@ Java interfaces, and a memory compiler module which allows Python to directly
 create a class from a string.
 
 
-Tracing
----------
+Embedded Python (reverse bridge)
+---------------------------------
 
-Because the relations between the layers can be daunting especially when things
-go wrong. The CPython and C++ layer have a built in logger. This logger
-must be enabled with a compiler switch to activate. To active the logger, touch
-one of the cpp files in the native directory to mark the build as dirty, then
-compile the ``jpype`` module with: ::
+Everything above is the *Python calls Java* direction. JPype also supports
+the reverse: a Java application embedding CPython and calling into it. This
+is a separate, newer subsystem -- ``native/jpype_module`` -- with its own
+layering that mirrors the forward bridge's shape (a native lifecycle
+manager, generated front-end wrapper types, a proxy/reference-lifetime
+mechanism) but is not built from the same code. The user-facing chapters
+(:doc:`quickguide_java` onward, paired with each forward-bridge chapter)
+document behavior; this section covers what isn't visible just by reading
+those or the source: why the pieces are shaped the way they are.
 
-     python setup.py develop --enable-tracing
+``org.jpype.MainInterpreter``
+  The singleton entry point, analogous to ``startJVM``/``shutdownJVM`` but
+  inverted: it boots an embedded CPython interpreter inside the running JVM
+  process rather than a JVM inside a running Python process. Unlike the
+  forward bridge's JVM, an embedded CPython interpreter cannot currently be
+  restarted or run twice in one process -- CPython's own global state
+  doesn't support it cleanly -- which is why this is a singleton rather
+  than a factory (see :doc:`limitations_java`). ``org.jpype.SubInterpreter``
+  and ``SubInterpreterBuilder`` provide the (experimental, GIL-isolated)
+  multiple-interpreter escape hatch where CPython's subinterpreter support
+  allows it.
 
-Once built run a short test program that demonstrates the problem and capture the
-output of the terminal to a file. This should allow the developer to isolate
-the fault to specific location where it failed.
+``python.lang``, ``python.collections``, ``python.io``, ``python.datetime``,
+``python.decimal``, ``python.pathlib``, ``python.exceptions``
+  The generated-feeling but hand-written front-end packages: each is a set
+  of Java interfaces (``PyObject``, ``PyDict``, ``PyPath``, ...) backing
+  onto live Python objects. These are not special-cased in the bridge --
+  every one of them, including ``python.io``, is an ordinary
+  ``org.jpype.WrapperService`` SPI provider, resolved lazily or eagerly per
+  module. This is deliberate: it means a third-party library can add a
+  Java-interface wrapper for its own Python types (e.g. ``numpy.ndarray``)
+  without touching JPype core. See :doc:`spi` for the full mechanism and
+  ``package-info.java`` in each ``python.*`` package for that package's
+  design rationale.
 
-To use the logger in a function start the ``JP_TRACE_IN(function_name)`` which will
-open a ``try catch`` block.
+Dispatch and lifetime
+  A call through a ``python.*`` interface resolves to a Python callable by
+  name, with a ``$``-mangled fallback path for names that collide with
+  Java keywords or ``Object`` methods (mirrors the forward bridge's own
+  name-mangling problem, solved independently on this side -- see
+  :doc:`customizers_java`). Keeping a live Python object reachable from
+  Java is symmetric to the forward bridge's ``JPReferenceQueue``: the
+  native reference queue (``org.jpype.ref``) pins the Python refcount for
+  as long as a Java-side handle exists, releasing it when the Java object
+  is collected or explicitly closed (:doc:`tooling_java`).
 
-The JPype tracer can be augmented with the Python tracing module to give
-a very good picture of both JPype and Python states at the time of the crash.
-To use the Python tracing, start Python with... ::
+GIL model
+  Every call from Java into Python acquires the GIL for the duration of
+  that call and releases it on return -- there is no persistent
+  "current thread owns the interpreter" state to manage from the Java
+  side, which is what makes it safe to call from multiple Java threads
+  without a manual locking scheme. The cost and the async call-pool built
+  on top of it are covered in :doc:`threading_java`; this is the
+  one-sentence version of why that design was chosen: it trades per-call
+  overhead for not having to reason about GIL ownership across arbitrary
+  Java thread lifetimes.
 
-    python -m trace --trace myscript.py
+
+Tracing and crash diagnosis
+----------------------------
+
+For the walkthrough of attaching gdb, the Open-JDK/gdb ``nmethod`` issue,
+``PYTHONMALLOC``, the ``--enable-tracing`` build flag, and what it means if
+you hit JPype's deliberate-crash mechanism, see :doc:`debugging_py`'s
+"Diagnosing crashes in JPype itself" -- that content is written for anyone
+hitting a native crash, not just core contributors, so it lives in the user
+guide rather than here.
+
+The one piece worth knowing as a developer specifically: the deliberate
+crash (a null-pointer write, so gdb gets a real stack trace instead of a
+signal swallowed by Java or a silent ``terminate``) is reserved for
+catastrophic paths where no exception can be delivered to either side --
+most commonly a resource-loading failure during startup. The pattern lives
+in ``jp_context.cpp``; if you're reordering resource loading there, that's
+the failure mode to watch for.
+
+.. code-block:: cpp
+
+   int *i = nullptr;
+   *i = 0;  // Trigger deliberate crash for gdb backtrace
 
 
 Coverage
@@ -967,184 +969,25 @@ with the ``enable-coverage`` option::
     python setup.py develop --enable-coverage
 
 
-Debugging issues
-----------------
-
-If the tracing function proves inadequate to identify a problem, we often need
-to turn to a general purpose tool like gdb or valgrind.  The JPype core is not
-easy to debug. Python can be difficult to properly monitor especially with
-tools like valgrind due to its memory handling. Java is also challenging to
-debug. Put them together and you have the mother of all debugging issues. There
-are a number of complicating factors. Let us start with how to debug with gdb.
-
-Gdb runs into two major issues, both tied to the signal handler.
-First, Java installs its own signal handlers that take over the entire process
-when a segfault occurs. This tends to cause very poor segfault stacktraces
-when examining a core file, which often is corrupt after the first user frame.
-Second, Java installs its signal handlers in such as way that attempting to run
-under a debugger like gdb will often immediately crash preventing one from
-catching the segfault before Java catches it. This makes for a catch 22,
-you can't capture a meaningful non-interactively produced core file, and you
-can't get an interactive session to work.
-
-Fortunately there are solutions to the interactive session issue. By disabling
-the SIGSEGV handler, we can get past the initial failure and also we can catch
-the stack before it is altered by the JVM. ::
-
-    gdb -ex 'handle SIGSEGV nostop noprint pass' python
-
-Thus far I have not found any good solutions to prevent the JVM from altering
-the stack frames when dumping the core. Thus interactive debugging appears
-to be the best option.
-
-There are additional issues that one should be aware of. Open-JDK 1.8 has had a
-number of problems with the debugger. Starting JPype under gdb may trigger, may
-trigger the following error. ::
-
-    gdb.error: No type named nmethod.
-
-There are supposed to be fixes for this problem, but none worked for me.
-Upgrading to Open-JDK 9 appears to fix the problem.
-
-Another complexity with debugging memory problems is that Python tends to
-hide the problem with its allocation pools. Rather than allocating memory
-when a new object is request, it will often recycle and existing object
-which was collect earlier. The result is that an object which turns out is
-still live becomes recycled as a new object with a new type. Thus suddenly
-a method which was expected to produce some result instead vectors into
-the new type table, which may or may not send us into segfault land
-depending on whether the old and new objects have similar memory layouts.
-
-This can be partially overcome by forcing Python to use a different memory
-allocation scheme. This can avoid the recycling which means we are more likely
-to catch the error, but at the same time means we will be excuting different
-code paths so we may not reach a similar state. If the core dump is vectoring
-off into code that just does not make sense it is likely caused by the memory
-pools. Starting Python 3, it is possible to select the memory allocation policy
-through an enviroment variable.  See the ``PYTHONMALLOC`` setting for details.
-
-
-Deliberate Crash for Debugging
-------------------------------
-
-JPype includes deliberate crashes in its exception handling for scenarios where
-multiple failures occur, making it impossible to deliver errors to either Python
-or Java. These crashes are designed to aid debugging in catastrophic situations
-and offer significant advantages over simple program termination (`terminate`).
-
-When debugging JPype, deliberate crashes (segmentation faults) provide the
-following benefits:
-
-1. **Stack Trace Availability**:
-
-   - Deliberate crashes generate a meaningful stack trace for tools like `gdb`.
-   - Termination does not produce a stack trace, making it harder to identify
-     the root cause of the problem.
-
-2. **Bypassing Signal Handlers**:
-
-   - Deliberate crashes bypass Java's signal handlers, ensuring the stack trace
-     remains intact.
-   - Termination may still be affected by Java's signal handling, corrupting
-     the debugging process.
-
-3. **Memory State Preservation**:
-
-   - Deliberate crashes halt execution immediately, preventing Python's memory
-     recycling from altering the program state.
-   - Termination allows Python to continue recycling memory, which can obscure
-     the root cause of memory-related bugs.
-
-4. **Interactive Debugging**:
-
-   - Deliberate crashes enable interactive debugging with `gdb`, allowing
-     developers to inspect the program state before corruption occurs.
-   - Termination does not provide this opportunity.
-
-For these reasons, deliberate crashes are preferred in catastrophic scenarios
-where debugging is required.
-
-### Implementation and Use Case
-
-In rare and catastrophic situations where all exception handling mechanisms
-fail—such as during startup or when critical resources are unavailable—JPype
-uses a deliberate crash mechanism to produce a meaningful stack trace for
-debugging. This situation most often occurs when JVM resources are not found
-during initialization, resulting in errors that cannot be recovered. Reordering
-the resource loading sequence in `jp_context.cpp` is the most likely source of
-such failures.
-
-The deliberate crash is implemented as follows:
-
-.. code-block:: cpp
-
-   int *i = nullptr;
-   *i = 0;  // Trigger deliberate crash for gdb backtrace
-
-This crash bypasses Java's signal handlers and Python's memory management,
-which can obscure debugging efforts. By triggering a segmentation fault, `gdb`
-can capture the stack trace at the point of failure, providing valuable insight
-into the issue.
-
-### Debugging with `gdb`
-
-To debug using `gdb`, follow these steps:
-
-1. Start Python with `gdb` and disable the SIGSEGV handler:
-
-.. code-block:: bash
-
-      gdb -ex 'handle SIGSEGV nostop noprint pass' python
-
-2. Run the program until the deliberate crash occurs.
-
-3. Use the `bt` command in `gdb` to view the backtrace and identify the source
-   of the problem.
-
-### Important Note
-
-This mechanism is intended exclusively for debugging and should never be
-triggered during normal operation. If you encounter this crash, it indicates a
-critical failure that requires opening an issue on GitHub.
-
-
 
 Future directions
 -----------------
 
-Although the majority of the code has been reworked for JPype 0.7, there is still
-further work to be done. Almost all Java constructs can be exercised from within
-Python, but Java and Python are not static. Thus, we are working on further
-improvements to the jpype core focusing on making the package faster, more
-efficient, and easier to maintain. This section will discuss a few of these options.
+The roadmap this section originally described (0.7 hardening, then 0.8 for
+pickle support and deeper Python/Java integration) is complete -- pickling
+(:doc:`pickling_py`), the reverse bridge (Java embedding Python, see below),
+and SPI-based extensibility (:doc:`spi`) all shipped. The architectural
+ideas worth carrying forward now:
 
-Java based code is much easier to debug as it is possible to swap the thunk code
-with an external jar. Further, Java has much easier management of resources.
-Thus pushing a portion of the C++ layer into the Java layer could further reduce
-the size of the code base. In particular, deciding the order of search for
-method overloads in C++ attempts to reconstruct the Java overload rules. But these
-same rules are already available in Java. Further, the C++ layer is designed
-to make many frequent small calls to Java methods. This is not the preferred
-method to operate in JNI. It is better to have specialized code in Java which
-preforms large tasks such as collecting all of the fields needed for a type
-wrapper and passing it back in a single call, rather than call twenty different
-general purpose methods. This would also vastly reduce the number of ``jmethods``
-that need to be bound in the C++ layer.
+Pushing more of the overload-resolution and type-collection logic from the
+C++ layer into the Java thunk remains attractive: Java already has to
+implement its own overload rules, so C++ reconstructing them is duplicated
+work, and JNI performs better with a few large calls (e.g. "collect all
+fields for this type wrapper") than many small ones. This hasn't been done;
+it would shrink the C++ layer and the number of bound ``jmethods``.
 
-The world of JVMs is currently in flux. Jpype needs to be able to support
-other JVMs. In theory, so long a JVM provides a working JNI layer, there
-is no reason the jpype can't support it. But we need loading routines for
-these JVMs to be developed if there are differences in getting the JVM
-launched.
-
-There is a project page on github shows what is being developed for the
-next release. Series 0.6 was usable, but early versions had notable issues
-with threading and internal memory management concepts had to be redone for
-stability.  Series 0.7 is the first verion after rewrite for
-simplication and hardening.  I consider 0.7 to be at the level of production
-quality code suitable for most usage though still missing some needed
-features. Series 0.8 will deal with higher levels of Python/Java integration such as Java
-class extension and pickle support.  Series 0.9 will be dedicated to any
-additional hardening and edge cases in the core code as we should have complete
-integration.  Assuming everything is completed, we will one day become a
-real boy and have a 1.0 release.
+Longer term, JNI itself is a large piece of surface area to keep correct
+(see `Memory management`_ above). A from-scratch replacement built on the
+Java Panama/FFM API is being prototyped as a separate project; if it
+matures, it would replace the C++ JNI layer described in this guide rather
+than extend it.
