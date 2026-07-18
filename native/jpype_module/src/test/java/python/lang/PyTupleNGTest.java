@@ -120,4 +120,69 @@ public class PyTupleNGTest extends PyTestHarness
     PyTuple tuple = context.tuple("a", "b");
     tuple.add(1, context.str("a"));
   }
+
+  @Test(expectedExceptions = UnsupportedOperationException.class)
+  public void testAddAllThrowsException()
+  {
+    PyTuple tuple = context.tuple("a", "b");
+    tuple.addAll(List.of(context.str("c")));
+  }
+
+  @Test(expectedExceptions = UnsupportedOperationException.class)
+  public void testAddAllAtIndexThrowsException()
+  {
+    PyTuple tuple = context.tuple("a", "b");
+    tuple.addAll(0, List.of(context.str("c")));
+  }
+
+  @Test(expectedExceptions = UnsupportedOperationException.class)
+  public void testClearThrowsException()
+  {
+    PyTuple tuple = context.tuple("a", "b");
+    tuple.clear();
+  }
+
+  @Test
+  public void testContainsAll()
+  {
+    PyTuple tuple = context.tuple("a", "b", "c");
+    assertTrue(tuple.containsAll(List.of(context.str("a"), context.str("b"))));
+    assertFalse(tuple.containsAll(List.of(context.str("a"), context.str("z"))));
+  }
+
+  @Test
+  public void testListIterator()
+  {
+    PyTuple tuple = context.tuple("a", "b", "c");
+    java.util.ListIterator<PyObject> it = tuple.listIterator();
+    int count = 0;
+    while (it.hasNext())
+    {
+      it.next();
+      count++;
+    }
+    assertEquals(count, 3);
+  }
+
+  @Test
+  public void testListIteratorAtIndex()
+  {
+    PyTuple tuple = context.tuple("a", "b", "c");
+    java.util.ListIterator<PyObject> it = tuple.listIterator(1);
+    assertEquals(it.next().toString(), "b");
+  }
+
+  @Test(expectedExceptions = IndexOutOfBoundsException.class)
+  public void testListIteratorAtIndexOutOfBounds()
+  {
+    PyTuple tuple = context.tuple("a", "b", "c");
+    tuple.listIterator(10);
+  }
+
+  @Test
+  public void testParallelStream()
+  {
+    PyTuple tuple = context.tuple("a", "b", "c");
+    assertEquals(tuple.parallelStream().count(), 3);
+  }
 }

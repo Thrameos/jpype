@@ -1,6 +1,6 @@
 # Java module coverage cleanup: systematic pass
 
-## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script. In progress: python.lang (PyMapping views done + real bug fixed; protocol interfaces incl. PyGenerator now done, crash root-caused and fixed, see [[plan/GeneratorCastCrash.md]]). Remaining packages NOT STARTED.
+## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script, python.lang (PyMapping views + real bug fixed; protocol interfaces incl. PyGenerator crash root-caused and fixed, see [[plan/GeneratorCastCrash.md]]; PyCallable.CallBuilder + kwargs-string bug fixed; PyMapping/PySequence/PySet/PyFrozenSet/PyTuple all raised to ~100%; PyMutableSet confirmed NOT deletable, see finding in this doc). Remaining packages NOT STARTED: org.jpype, python.decimal, python.collections, org.jpype.manager, org.jpype.pkg, python.pathlib, org.jpype.ref, python.io, org.jpype.proxy, python.datetime.
 
 `jacoco-maven-plugin` (0.8.14, offline-resolvable from `~/.m2` except one
 missing transitive jar — `plexus-utils:1.1`, fetched once online, now
@@ -250,9 +250,28 @@ starting worklist once a package is picked:
     same debug test that this really does yield a genuine Python `str`).
     Both classes now 100% coverage (was 0%). 785/785 full suite (up from
     775).
-  - Still open: `PyMapping` (39%), `PySequence` (38%), `PySet` (43%),
-    `PyFrozenSet` (46%), `PyTuple` (56%) — partially covered core
-    collection types worth a closer look.
+  - **Partially-covered core types — DONE.** `PyMapping` and `PySequence`
+    were both stuck low for the same reason as the earlier protocol
+    interfaces: `PyDict`/`PyList`/`PyTuple` shadow all their interesting
+    defaults, so the structural probe (`_jpype.pyobject`, both `"mapping"`
+    and `"sequence"` are live `protocol_pipeline` names) is again the real
+    path in - `python.lang.PyMappingNGTest` (14 tests, custom class
+    actually subclassing `collections.abc.Mapping` for the `keys()`/
+    `values()`/`items()`/`get()` mixins, not just `.register()`-ed, plus
+    hand-written `__setitem__`/`__delitem__`/`clear` so `put`/`putAny`/
+    `remove`/`clear`/`putAll` are reachable too) and
+    `python.lang.PySequenceNGTest` (8 tests, custom `collections.abc.Sequence`
+    class) now cover them: `PyMapping` 39% -> 100%, `PySequence` 38% ->
+    100%. `PySet`/`PyFrozenSet`/`PyTuple` are concrete wrapper types (not
+    probe-reachable - not in the 15-name pipeline), so these just needed
+    direct tests for the specific untested defaults: `PySetNGTest` gained
+    `containsAll`/`addAll`/`toArray`/`toArray(T[])`/`stream`/
+    `parallelStream` (43% -> 98%, remaining gap is defensive code jacoco
+    can't fully branch-cover); `PyFrozenSetNGTest` gained
+    `toArray(T[])` (46% -> 100%); `PyTupleNGTest` gained the immutability
+    throws for `addAll`/`addAll(int,...)`/`clear`, plus `containsAll`/
+    `listIterator()`/`listIterator(int)` (valid and out-of-bounds)/
+    `parallelStream` (56% -> 100%). 822/822 full suite (up from 785).
 
 ## Classification rules for each gap (apply per class/method, not per package)
 

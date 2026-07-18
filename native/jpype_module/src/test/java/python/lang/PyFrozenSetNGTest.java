@@ -144,4 +144,17 @@ public class PyFrozenSetNGTest extends PyTestHarness
     assertEquals(array.length, 2);
   }
 
+  @Test
+  public void testToArrayTyped()
+  {
+    PyFrozenSet set = context.frozenset(Arrays.asList("a", "b"));
+    PyObject[] result = set.toArray(new PyObject[0]);
+    assertEquals(result.length, 2);
+
+    PyObject[] bigArray = new PyObject[5];
+    PyObject[] result2 = set.toArray(bigArray);
+    assertSame(result2, bigArray);
+    assertNull(result2[2]);
+  }
+
 }

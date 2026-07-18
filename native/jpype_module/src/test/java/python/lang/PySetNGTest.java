@@ -254,4 +254,56 @@ public class PySetNGTest extends PyTestHarness
     assertEquals(a, b);
   }
 
+  @Test
+  public void testContainsAll()
+  {
+    PySet set = context.set(Arrays.asList("a", "b", "c"));
+    assertTrue(set.containsAll(Arrays.asList(context.str("a"), context.str("b"))));
+    assertFalse(set.containsAll(Arrays.asList(context.str("a"), context.str("z"))));
+  }
+
+  @Test
+  public void testAddAll()
+  {
+    PySet set = context.set(Arrays.asList("a"));
+    assertTrue(set.addAll(Arrays.asList(context.str("b"), context.str("c"))));
+    assertEquals(set.size(), 3);
+    assertFalse(set.addAll(Arrays.asList(context.str("b"))));
+  }
+
+  @Test
+  public void testToArray()
+  {
+    PySet set = context.set(Arrays.asList("a", "b"));
+    Object[] result = set.toArray();
+    assertEquals(result.length, 2);
+  }
+
+  @Test
+  public void testToArrayTyped()
+  {
+    PySet set = context.set(Arrays.asList("a", "b"));
+    PyObject[] result = set.toArray(new PyObject[0]);
+    assertEquals(result.length, 2);
+
+    PyObject[] bigArray = new PyObject[5];
+    PyObject[] result2 = set.toArray(bigArray);
+    assertSame(result2, bigArray);
+    assertNull(result2[2]);
+  }
+
+  @Test
+  public void testStream()
+  {
+    PySet set = context.set(Arrays.asList("a", "b", "c"));
+    assertEquals(set.stream().count(), 3);
+  }
+
+  @Test
+  public void testParallelStream()
+  {
+    PySet set = context.set(Arrays.asList("a", "b", "c"));
+    assertEquals(set.parallelStream().count(), 3);
+  }
+
 }
