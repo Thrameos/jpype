@@ -1,6 +1,6 @@
 # Java module coverage cleanup: systematic pass
 
-## Status (2026-07-18): SETUP DONE, python.exceptions crash blocker FIXED (see [[plan/ExecCrashDebug.md]]), PASS NOT STARTED
+## Status (2026-07-18): SETUP DONE, python.exceptions package CLOSED (see [[plan/ExecCrashDebug.md]] for the crash fix), remaining packages NOT STARTED
 
 `jacoco-maven-plugin` (0.8.14, offline-resolvable from `~/.m2` except one
 missing transitive jar — `plexus-utils:1.1`, fetched once online, now
@@ -52,7 +52,7 @@ building until the `mvn` report alone leaves unexplained gaps.
 | org.jpype.html | 0% | 0% | yes — forward-bridge (`test_javadoc.py`, via `org.jpype.javadoc`) | not started |
 | org.jpype.javadoc | 0% | 0% | yes — forward-bridge (`test_javadoc.py`) | not started |
 | org.jpype.pickle | 0% | 0% | yes — forward-bridge (`test_pickle.py`) | not started |
-| python.exceptions | 27% | n/a | no — reverse-bridge only, all 50 exception classes are this suite's job | not started |
+| python.exceptions | 100% classes reached | n/a | no — reverse-bridge only, all 50 exception classes are this suite's job | **DONE** |
 | org.jpype.internal | 41% | 26% | unknown, check before assuming | not started |
 | org.jpype.script | 52% | 47% | unknown, check before assuming | not started |
 | python.lang | 64% | 49% | no — reverse-bridge only | not started |
@@ -86,24 +86,27 @@ starting worklist once a package is picked:
   including a 0% anonymous `Iterator`).
 - **org.jpype.script**: `JPypeScriptEngine` (49%), `JPypeScriptEngineFactory`
   (57%).
-- **python.exceptions**: **UNBLOCKED — the crash is fixed, see
-  [[plan/ExecCrashDebug.md]] for the full root-cause writeup.** Two real
-  bugs, both fixed: (1) `org.jpype.pkg.PackageManager` couldn't enumerate
-  an application module's own package contents under `--module-path`
-  launch (exactly how Maven runs this suite), so `_jpype._exc` ended up
-  empty and every reverse-bridge exception conversion silently produced the
-  wrong Java exception type; (2) `JPypeException::convertPythonToJava`
-  used `JPPyObject::claim()` instead of `JPPyObject::accept()` on the
-  `_pyexc_convert` call result, turning any conversion failure (bug 1, or
-  any future cause) into an unrecoverable native fail-fast instead of the
-  graceful fallback that was already coded right next to it. Full suite
-  green (662/662, 0 failures) after both fixes, confirmed stable across
-  repeated runs. `exec()`-based tests are now safe to add. 37 of 49
-  concrete exception classes sit at flat 0% per `jacoco.csv` (12 already
-  covered incidentally:
-  `PyArithmeticError`, `PyAttributeError`, `PyBaseException`, `PyException`,
-  `PyIndexError`, `PyKeyError`, `PyLookupError`, `PySyntaxError`,
-  `PySystemExit`, `PyTypeError`, `PyValueError`, `PyZeroDivisionError`).
+- **python.exceptions**: **DONE.** Crash unblocked (see
+  [[plan/ExecCrashDebug.md]] for the full root-cause writeup: bug 1
+  `org.jpype.pkg.PackageManager` couldn't enumerate an application
+  module's own package contents under `--module-path` launch, which left
+  `_jpype._exc` empty; bug 2 `JPypeException::convertPythonToJava` used
+  `JPPyObject::claim()` instead of `JPPyObject::accept()`, turning that
+  into an unrecoverable native fail-fast instead of the graceful fallback
+  already coded next to it). All 38 classes that were still at flat 0% (12
+  others already covered incidentally: `PyArithmeticError`,
+  `PyAttributeError`, `PyBaseException`, `PyException`, `PyIndexError`,
+  `PyKeyError`, `PyLookupError`, `PySyntaxError`, `PySystemExit`,
+  `PyTypeError`, `PyValueError`, `PyZeroDivisionError`) now have a test in
+  new `PyExceptionCoverageNGTest` (`src/test/java/python/exceptions/`),
+  one method per class, each raising the matching Python builtin via
+  `context.exec("raise X(...)")` (or a natural trigger — `eval()` for
+  `NameError`/`StopIteration`/the two `Unicode*Error` cases needing real
+  codec failures — where that was just as simple) and catching the
+  generated Java type. All 50 classes in the package now show nonzero
+  instruction coverage; full suite 700/700 (662 + 38 new), 0 failures, 14
+  skipped (same pre-existing skips), confirmed via `mvn -o verify
+  -Dpython.executable=python3.10`.
   `python.lang.PyExceptionFactory`/`LOOKUP` (checked via grep across
   `native/common`, `native/python`, and all of `src/main/java` — zero
   callers outside its own file and its own test) is **dead code, not the
@@ -113,10 +116,6 @@ starting worklist once a package is picked:
   scanning the real `python.exceptions` package against `builtins.*` at
   startup) called from `JPypeException::convertPythonToJava`
   (`native/common/jp_exception.cpp`).
-  Full root-cause and fix writeup: [[plan/ExecCrashDebug.md]]. Both `eval()`
-  and `exec()`-based tests are safe now; write whichever is the more
-  natural fit per exception type. Next step for this package: work through
-  the 37 zero-coverage classes via the classification rules above.
 - **python.lang**: several 0% classes that look like real, deliberate
   abstractions never exercised standalone — `PyAbstractSet`, `PyContainer`,
   `PyGenerator`, `PyIterable`, `PyMutableSet`, `PySized`, and the dict-view
