@@ -1,16 +1,27 @@
 # Java→Python launch: parameter resolution and caching
 
-## Status (2026-07-17): DOCUMENTED, not yet acted on
+## Status (2026-07-17): Finding 1 fixed; documented in doc/jvm_java.rst
 
 This is a reference/audit document, not a feature plan. It captures how
 `org.jpype.MainInterpreter` currently resolves the parameters used to
 launch the embedded Python interpreter — properties, environment
 variables, the probe/cache subsystem — none of which was previously
-written down anywhere in `plan/` or `doc/`. Two real bugs and a handful of
-untested/undocumented surfaces turned up while mapping this; they're
-recorded here as candidate follow-up work, not fixed yet. See
-`plan/PythonCLI.md` for the follow-on feature (full CLI support from
-`MainInterpreter`) that motivated this audit.
+written down anywhere in `plan/` or `doc/`. See
+`plan/archive/PythonCLI.md` for the follow-on feature (full CLI support
+from `MainInterpreter`) that motivated this audit.
+
+**Finding 1 (dead `prefix`/`exec_prefix`) is now fixed**: removed rather
+than wired up, since they were genuinely never needed (Python calculates
+both from `home` on its own). `python.config.prefix`/
+`python.config.exec_prefix` system properties, the `prefix`/`exec_prefix`
+JNI parameters on `NativeLauncherControl.startMain`, and the corresponding
+`jstring prefix, jstring exec_prefix` parameters on
+`Java_org_jpype_internal_NativeLauncherControl_startMain` in
+`jp_bridge.cpp` are all gone. Full native suite re-verified at 662/662
+after the change. The rest of this document (Finding 3, the probe/cache
+subsystem, subinterpreter config surface) is now written up in
+`doc/jvm_java.rst`'s "Launch configuration" section; Finding 3 (duplicate
+`sys.path` entries) is still open, not fixed by this pass.
 
 ## Where this fits
 
@@ -57,8 +68,6 @@ threaded through `NativeLauncherControl.startMain`:
 | `python.config.program_name` | `program_name` | defaults to the resolved executable |
 | `python.config.home` | `home` | |
 | `python.config.path` | *(not a PyConfig field directly)* | extra `sys.path` entries, see below |
-| `python.config.prefix` | `prefix` | **dead — see Finding 1** |
-| `python.config.exec_prefix` | `exec_prefix` | **dead — see Finding 1** |
 | `python.config.executable` | `executable` | |
 | `python.config.isolated` | *(selects `PyConfig_InitIsolatedConfig` vs `PyConfig_InitPythonConfig`)* | |
 | `python.config.fault_handler` | `faulthandler` | |
@@ -199,19 +208,20 @@ commented out (`:387`) — worth knowing it exists next time this needs
 debugging, since re-enabling it would immediately show Finding 1 below
 (empty `prefix`/`exec_prefix`) if anyone went looking.
 
-### Finding 1: `python.config.prefix`/`exec_prefix` are dead
+### Finding 1: `python.config.prefix`/`exec_prefix` were dead — FIXED 2026-07-17
 
-`startMain`'s JNI signature receives `prefix`/`exec_prefix` parameters
-(threaded all the way from `MainInterpreter.start()`, `:394`/`:396`), but
-`jp_bridge.cpp` never assigns them to `config.prefix`/`config.exec_prefix`
-— only `program_name`/`home`/`executable` go through `assignWideString()`.
-The comment at `:360-361` ("prefix and exec_prefix are usually calculated
-by Python based on home") explains why it might be *safe* to skip, but
-the Java-side property still exists, is documented (informally, via the
-property name itself) as a config knob, and silently does nothing if
-set. Candidate fix: either wire it up (`assignWideString(env, prefix,
-config.prefix)` etc.) or remove the property/parameter and say so
-explicitly rather than leaving a plausible-looking no-op knob.
+`startMain`'s JNI signature received `prefix`/`exec_prefix` parameters
+(threaded all the way from `MainInterpreter.start()`), but `jp_bridge.cpp`
+never assigned them to `config.prefix`/`config.exec_prefix` — only
+`program_name`/`home`/`executable` went through `assignWideString()`. Since
+they were never wired to anything, removed rather than fixed: the
+`python.config.prefix`/`python.config.exec_prefix` properties, the
+`CONF_PREFIX`/`CONF_EXEPREFIX` constants, the `prefix`/`exec_prefix`
+parameters on `NativeLauncherControl.startMain`, and the matching
+`jstring prefix, jstring exec_prefix` parameters on the native
+`Java_org_jpype_internal_NativeLauncherControl_startMain` are all gone.
+No behavior change (they were pure no-ops), confirmed by a clean 662/662
+native suite re-run.
 
 ### Finding 3: module paths land in `sys.path` twice
 
@@ -279,19 +289,14 @@ bare, no-arg `SubInterpreter.start()`'s hardcoded legacy flags are
   exercises `python.config.prefix`, `isolated`, `quiet`, `verbose`,
   `fault_handler`, the `jpype.nocache`/cache-hit path, or the
   `jpype.install` self-heal path at all.
-- **Docs gap**: `doc/jvm_java.rst` (the Java-side interpreter-lifecycle
-  chapter) covers only `start()`/`isStarted()`/`close()`, `PyBuiltIn`/
-  `Script`, and the GIL-per-call model — none of the `python.config.*`
-  surface, the probe/cache subsystem, or `prepare()`'s two-step
-  configure-then-start pattern (documented only in its own Javadoc,
-  `:301-309`) is mentioned there. Worth a follow-up doc pass once the
-  bugs above are resolved one way or the other (fixing dead config before
-  documenting it is better than documenting a no-op).
+- **Docs gap — FIXED 2026-07-17**: `doc/jvm_java.rst` now has a "Launch
+  configuration" section covering the `python.config.*` surface, the
+  probe/cache subsystem, and `prepare()`'s two-step configure-then-start
+  pattern, plus a "Running code the way `python` does" section covering
+  `Runner`/`MainInterpreter.dispatch()`.
 
 ## Out of scope for this document
 
-No code changes were made while producing this audit. The two concrete
-bugs (dead `prefix`/`exec_prefix`, duplicate `sys.path` entries) and the
-cache-staleness gap are recorded as candidate follow-up work, not
-scheduled. `plan/PythonCLI.md` is the actual next action item that grew
-out of this audit.
+Finding 1 (dead `prefix`/`exec_prefix`) is fixed, see above. Finding 3
+(duplicate `sys.path` entries) and the cache-staleness gap remain
+candidate follow-up work, not scheduled.

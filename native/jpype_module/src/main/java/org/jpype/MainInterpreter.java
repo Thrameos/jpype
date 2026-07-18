@@ -76,8 +76,6 @@ public class MainInterpreter implements Interpreter
   final static String CONF_NAME = "python.config.program_name";
   final static String CONF_HOME = "python.config.home";
   final static String CONF_PATH = "python.config.path";
-  final static String CONF_PREFIX = "python.config.prefix";
-  final static String CONF_EXEPREFIX = "python.config.exec_prefix";
   final static String CONF_EXECUTABLE = "python.config.executable";
   final static String CONF_ISOLATED = "python.config.isolated";
   final static String CONF_FAULTHANDLER = "python.config.fault_handler";
@@ -443,9 +441,7 @@ public class MainInterpreter implements Interpreter
     LOGGER.info("Launching Python Interpreter...");
     this.context = NativeLauncherControl.startMain(paths, args,
             programName,
-            System.getProperty(CONF_PREFIX),
             home,
-            System.getProperty(CONF_EXEPREFIX),
             System.getProperty(CONF_EXECUTABLE, this.pythonExecutable),
             getBool(CONF_ISOLATED, "false"),
             getBool(CONF_FAULTHANDLER, "false"),

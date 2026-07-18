@@ -320,8 +320,8 @@ JPContext* launch(JNIEnv* env, jobject interpreter)
  * A list of command line arguments so we can execute command line functionality.
  */
 JNIEXPORT jobject JNICALL Java_org_jpype_internal_NativeLauncherControl_startMain
-(JNIEnv *env, jclass cls, jobjectArray modulePath, jobjectArray args, 
-	jstring name, jstring prefix, jstring home, jstring exec_prefix, jstring executable,
+(JNIEnv *env, jclass cls, jobjectArray modulePath, jobjectArray args,
+	jstring name, jstring home, jstring executable,
 	jboolean isolated, jboolean faulthandler, jboolean quiet, jboolean verbose,
 	jboolean site_import, jboolean user_site, jboolean bytecode, jobject interpreter)
 {
@@ -357,8 +357,9 @@ JNIEXPORT jobject JNICALL Java_org_jpype_internal_NativeLauncherControl_startMai
 		if (!assignWideString(env, name, config.program_name)) goto error_config;
 		if (!assignWideString(env, home, config.home)) goto error_config;
 		if (!assignWideString(env, executable, config.executable)) goto error_config;
-		// Note: prefix and exec_prefix are usually calculated by Python 
-		// based on 'home', but setting them manually here is fine.
+		// prefix/exec_prefix are not accepted as parameters here - Python
+		// calculates them itself from 'home', and there was never a caller
+		// that set them (config.prefix/config.exec_prefix were dead fields).
 
 		// 4. THE READ: This calculates the default sys.path
 		status = PyConfig_Read(&config);
