@@ -94,9 +94,16 @@ starting worklist once a package is picked:
   `unpack`/`assemble`, including a real collect-then-reassemble round trip
   through a 3D array), `order` (endianness per NIO buffer type),
   `getStackTrace`/enclosing-frame truncation, the `Runtime`/`MemoryMXBean`
-  accessors, `getJarPath`. 14% to ~80% (369/462 instructions). Still
-  untouched: `DynamicClassLoader` (23%, including a 0%
-  anonymous `SimpleFileVisitor`), `Reflector0` (was 25%, now 8/12 = 67% — special-loaded via
+  accessors, `getJarPath`. 14% to ~80% (369/462 instructions). `DynamicClassLoader` done — new
+  `DynamicClassLoaderNGTest` builds fresh, isolated instances (never
+  touches the static `install()` singleton the real bootstrap/other tests
+  depend on) and exercises `addPath`/`addPaths` (including the anonymous
+  `SimpleFileVisitor`, now 30/32), `findClass`'s two branches (fallback
+  via `Class.forName` when no resource is found vs. reading bytes and
+  `defineClass`-ing when one is), `findResource`/`findResources`/
+  `addResource`, and `scanJar`'s directory-entry synthesis against a
+  hand-built jar missing them. 23% to ~75% (347/465 instructions).
+  `Reflector0` (was 25%, now 8/12 = 67% — special-loaded via
   `META-INF/versions/0` but its one real method, `callMethod`, is only
   reached through `JPMethod::invokeCallerSensitive`
   (`native/common/jp_method.cpp`), taken exclusively for Java methods
@@ -104,7 +111,7 @@ starting worklist once a package is picked:
   added `CallerSensitiveNGTest` calling
   `JClass('java.lang.Class').forName(...)` from Python to exercise it;
   remaining gap is just the `InvocationTargetException` unwrap branch,
-  not worth forcing), `NativeContext` (56%), `Signal` (process-global
+  not worth forcing). Still untouched: `NativeContext` (56%), `Signal` (process-global
   SIGINT/SIGTERM handler install, already gets incidental coverage from
   interpreter startup — installing real signal handlers from a dedicated
   test is risky, likely leave as-is per classification rule 3),
