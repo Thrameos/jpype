@@ -190,4 +190,166 @@ public class PyDequeNGTest extends PyTestHarness
 
     assertEquals(sb.toString(), "123");
   }
+
+  /**
+   * The real reverse-bridge proxy dispatches {@code rotate()} straight to
+   * Python's {@code deque.rotate()} by mangled name, using Python's own
+   * {@code n=1} default - {@code PyDeque}'s Java-side {@code default void
+   * rotate() { rotate(1); }} bytecode is never actually reached that way
+   * (see the name-only-dispatch note on {@code ProxyInstance.invoke}). A
+   * plain non-bridge stub is the only way to exercise that one line
+   * directly.
+   */
+  private static final class RecordingDeque implements PyDeque
+  {
+    int lastRotateArg = Integer.MIN_VALUE;
+
+    @Override
+    public void rotate(int n)
+    {
+      lastRotateArg = n;
+    }
+
+    @Override
+    public python.lang.PyBuiltIn builtin()
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void addFirst(PyObject e)
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void addLast(PyObject e)
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public PyObject removeFirst()
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public PyObject removeLast()
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public PyObject peekFirst()
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public PyObject peekLast()
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public int size()
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void clear()
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean contains(Object o)
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void append(PyObject value)
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void appendleft(PyObject value)
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public PyObject pop()
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public PyObject popleft()
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void extend(java.util.Collection<? extends PyObject> c)
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void extendleft(java.util.Collection<? extends PyObject> c)
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public int count(Object value)
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public int index(Object value)
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void insert(int index, PyObject value)
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void remove(Object value)
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void reverse()
+    {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Integer maxlen()
+    {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  @Test
+  public void testRotateNoArgDefaultDelegatesToRotateOne()
+  {
+    RecordingDeque d = new RecordingDeque();
+
+    d.rotate();
+
+    assertEquals(d.lastRotateArg, 1);
+  }
 }

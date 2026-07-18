@@ -1,6 +1,6 @@
 # Java module coverage cleanup: systematic pass
 
-## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script, python.lang (PyMapping views + real bug fixed; protocol interfaces incl. PyGenerator crash root-caused and fixed, see [[plan/GeneratorCastCrash.md]]; PyCallable.CallBuilder + kwargs-string bug fixed; PyMapping/PySequence/PySet/PyFrozenSet/PyTuple all raised to ~100%; PyMutableSet confirmed NOT deletable, see finding in this doc), org.jpype (61%→66%; SubInterpreter/most of SubInterpreterBuilder confirmed environment-gated — needs a real Python 3.12 native rebuild, out of scope here — everything else fixable under 3.10 closed out: Script/Interpreter/SpiResource now 100%), python.decimal (72%→100%; tiny package, only `PyDecimalWrapperService`'s getters were uncovered). Remaining packages NOT STARTED: python.collections, org.jpype.manager, org.jpype.pkg, python.pathlib, org.jpype.ref, python.io, org.jpype.proxy, python.datetime.
+## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script, python.lang (PyMapping views + real bug fixed; protocol interfaces incl. PyGenerator crash root-caused and fixed, see [[plan/GeneratorCastCrash.md]]; PyCallable.CallBuilder + kwargs-string bug fixed; PyMapping/PySequence/PySet/PyFrozenSet/PyTuple all raised to ~100%; PyMutableSet confirmed NOT deletable, see finding in this doc), org.jpype (61%→66%; SubInterpreter/most of SubInterpreterBuilder confirmed environment-gated — needs a real Python 3.12 native rebuild, out of scope here — everything else fixable under 3.10 closed out: Script/Interpreter/SpiResource now 100%), python.decimal (72%→100%; tiny package, only `PyDecimalWrapperService`'s getters were uncovered), python.collections (83%→95%; `PyOrderedDict.moveToEnd(key)`'s one-arg default confirmed unreachable through the real bridge — name-only dispatch always resolves to Python's own `move_to_end` first, see finding below). Remaining packages NOT STARTED: org.jpype.manager, org.jpype.pkg, python.pathlib, org.jpype.ref, python.io, org.jpype.proxy, python.datetime.
 
 `jacoco-maven-plugin` (0.8.14, offline-resolvable from `~/.m2` except one
 missing transitive jar — `plexus-utils:1.1`, fetched once online, now
@@ -59,7 +59,7 @@ building until the `mvn` report alone leaves unexplained gaps.
 | org.jpype | 69% | 47% | partial (BootstrapLoader is a static launcher entry point, may be forward-bridge/native-launch only) | not started |
 | python.decimal | 72% | n/a | no | **DONE** |
 | org.jpype.manager | 85% | 75% | unknown, check before assuming | not started |
-| python.collections | 83% | 100% | no | not started |
+| python.collections | 83% | 100% | no | **DONE** |
 | org.jpype.pkg | 85% | 78% | unknown, check before assuming | not started |
 | python.pathlib | 81% | n/a | no | not started |
 | org.jpype.ref | 88% | 67% | unknown, check before assuming | not started |
@@ -133,6 +133,40 @@ starting worklist once a package is picked:
   real registration path is already exercised end-to-end by
   `PyDecimalNGTest`. New `PyDecimalWrapperServiceNGTest` calls the
   getters directly, no `PyTestHarness`/JVM bridge needed.
+- **python.collections**: **DONE** (package total 83% → 95% instruction,
+  852/852 full suite).
+  - `PyDeque` (78% → 100%): `rotate()`'s default (`{ rotate(1); }`) was
+    already exercised for the two-arg form but the zero-arg default was
+    dead from the real bridge's perspective — see the `PyOrderedDict`
+    finding below, same root cause. Added `RecordingDeque`, a plain
+    (non-bridge) stub `implements PyDeque` — cheap here because `PyDeque`
+    only extends `PyObject`+`Iterable`, so the stub is ~20 one-line
+    `throw new UnsupportedOperationException()` overrides plus a real
+    `rotate(int)` that records its argument — calling `.rotate()` on it
+    directly executes the actual default bytecode and asserts it
+    delegates to `rotate(1)`.
+  - `PyCollectionsWrapperService` (43% → 100%): same trivial-getters
+    pattern as `python.decimal`'s `PyDecimalWrapperServiceNGTest`.
+  - `PyOrderedDict.moveToEnd(PyObject)` (the one-arg default) stays at
+    0%/uncovered — **confirmed unreachable through any real-bridge
+    test, not a missing-test gap.** Read `ProxyInstance.invoke`
+    (`org/jpype/proxy/ProxyInstance.java`): every proxied call tries
+    `hostInvoke` first, dispatching by *mangled method name only* (not
+    full signature) — so a 1-arg `moveToEnd(key)` call reaches Python's
+    real `OrderedDict.move_to_end(key)`, which has its own `last=True`
+    default parameter and succeeds immediately. The `defaultHandler`
+    fallback (which would run the Java interface's own `{ moveToEnd(key,
+    true); }` bytecode) only fires when `hostInvoke` finds no matching
+    Python attribute — which never happens here. This is the same
+    name-only-dispatch hazard noted in
+    [[jpype_datetime_spi_status]] (there it was a live bug in
+    `PyDeque.rotate()`; here it's simply permanently-dead Java code, not
+    a bug). Covering it would require a plain stub `implements
+    PyOrderedDict`, but that interface pulls in the full
+    `PyDict`/`PyMapping`/`java.util.Map` surface (10+ abstract methods
+    beyond what `PyDeque` needed) — disproportionate boilerplate for 2
+    lines / <2% of the package, so left undone (same
+    cost/benefit call as `Launcher`'s bootstrap methods in `org.jpype`).
 - **org.jpype.internal**: **DONE** (41%/26% baseline → 74%/60%
   instruction/branch). `Keywords` and `FunctionalAdapters` — plain,
   native-free static utility classes, got ordinary non-bridge NGTest
