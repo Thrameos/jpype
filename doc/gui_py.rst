@@ -22,36 +22,13 @@ issues with threading and event loops.
 setupGuiEnvironment(cb)
 =======================
 
-**Description**:
-
-`setupGuiEnvironment` ensures that GUI applications can run correctly across
-all platforms. It is specifically designed to address macOS's requirement for
-the main thread to run the event loop, but it is also recommended for Swing
-and JavaFX applications on Linux and Windows to maintain cross-platform
-compatibility and proper threading behavior.
-
-**Parameters**:
-
-- **cb**: A callback function that initializes and launches the GUI application.
-
-**Behavior**:
-
-- **macOS**:
-  - Creates a Java thread using a `Runnable` proxy.
-  - Starts the macOS event loop using `PyObjCTools.AppHelper.runConsoleEventLoop()`.
-
-- **Other Platforms (Linux, Windows)**:
-  - Executes the callback function directly.
-
-**Why Use This Function for Swing and JavaFX Applications?**
-
-Swing and JavaFX applications often rely on proper threading and event loop
-management to function correctly. While macOS has strict requirements for
-running the event loop on the main thread, using `setupGuiEnvironment` on
-Linux and Windows ensures consistent behavior and avoids potential threading
-issues, such as race conditions or improper GUI updates.
-
-**Example**:
+``setupGuiEnvironment(cb)`` addresses macOS's requirement that the event
+loop run on the main thread: on macOS it starts ``cb`` on a background Java
+thread and runs the console event loop
+(``PyObjCTools.AppHelper.runConsoleEventLoop()``) on the calling thread; on
+Linux and Windows, where there is no such restriction, it just calls
+``cb()`` directly. Using it unconditionally on all three platforms keeps a
+Swing/JavaFX application's startup code identical everywhere.
 
 .. code-block:: python
 
@@ -109,20 +86,10 @@ the Python environment while the GUI application is running.
 shutdownGuiEnvironment()
 ========================
 
-**Description**:
-
-`shutdownGuiEnvironment` is used to cleanly terminate the macOS event loop. On
-other platforms, it performs no action.
-
-**Behavior**:
-
-- **macOS**:
-  - Stops the macOS event loop using `PyObjCTools.AppHelper.stopEventLoop()`.
-
-- **Other Platforms (Linux, Windows)**:
-  - No action is taken.
-
-**Example**:
+The counterpart to ``setupGuiEnvironment``: on macOS it stops the console
+event loop (``PyObjCTools.AppHelper.stopEventLoop()``); on Linux and Windows
+it's a no-op, since ``setupGuiEnvironment`` never blocked the main thread
+there in the first place.
 
 .. code-block:: python
 
@@ -136,34 +103,12 @@ other platforms, it performs no action.
 Best Practices on GUIs
 --------------------------
 
-- **Use `setupGuiEnvironment` for All Platforms**:
-  Even though macOS has specific requirements, using `setupGuiEnvironment`
-  ensures consistent behavior across all platforms, particularly for Swing
-  and JavaFX applications.
-
-- **Thread Safety**:
-  Always schedule GUI updates using JavaFX's `Platform.runLater` or Swing's
-  `SwingUtilities.invokeLater` to ensure they occur on the appropriate thread.
-
-- **Interactive Debugging**:
-  Launch an interactive shell on a separate thread for debugging while the GUI
-  application is running.
-
-- **Exception Handling**:
-  Wrap callback functions in `try-except` blocks to prevent unhandled
-  exceptions from disrupting the GUI.
-
-- **Cross-Platform Testing**:
-  Test the application on macOS, Linux, and Windows to ensure compatibility.
-
-.. _managing_crossplatform_gui_environments_summary_of_guis:
-
-Summary of GUIs
-===============
-
-The `setupGuiEnvironment` function is a critical tool for managing GUI
-environments across platforms, particularly for Swing and JavaFX-based
-applications. It ensures compatibility with macOS's event loop requirements
-while maintaining simplicity on other platforms. Combined with the ability to
-launch an interactive shell on a separate thread, this approach provides a
-robust solution for developing and debugging GUI applications in Python.
+- Schedule GUI updates using JavaFX's `Platform.runLater` or Swing's
+  `SwingUtilities.invokeLater` so they run on the toolkit's own thread
+  rather than whichever thread happens to call into it.
+- Wrap callback functions passed to `setupGuiEnvironment` in `try`/`except`
+  to prevent an unhandled exception on the background thread from silently
+  killing the GUI startup.
+- Test on macOS specifically, not just Linux/Windows -- it's the one
+  platform where `setupGuiEnvironment`'s behavior actually differs from
+  calling the callback directly.
