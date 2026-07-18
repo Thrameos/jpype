@@ -1,6 +1,6 @@
 # Java module coverage cleanup: systematic pass
 
-## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script, python.lang (PyMapping views + real bug fixed; protocol interfaces incl. PyGenerator crash root-caused and fixed, see [[plan/GeneratorCastCrash.md]]; PyCallable.CallBuilder + kwargs-string bug fixed; PyMapping/PySequence/PySet/PyFrozenSet/PyTuple all raised to ~100%; PyMutableSet confirmed NOT deletable, see finding in this doc), org.jpype (61%→66%; SubInterpreter/most of SubInterpreterBuilder confirmed environment-gated — needs a real Python 3.12 native rebuild, out of scope here — everything else fixable under 3.10 closed out: Script/Interpreter/SpiResource now 100%), python.decimal (72%→100%; tiny package, only `PyDecimalWrapperService`'s getters were uncovered), python.collections (83%→95%; `PyOrderedDict.moveToEnd(key)`'s one-arg default confirmed unreachable through the real bridge — name-only dispatch always resolves to Python's own `move_to_end` first, see finding below), org.jpype.manager (86%→93% instruction / 76%→89% branch; found+fixed a real resource-leak bug in `TypeManager.createClass()`'s lambda/anonymous-class branches, see finding below), org.jpype.pkg (85%→93% instruction / 78%→91% branch; pure classloader/reflection code, no bridge needed, see finding below), python.pathlib (81%→100%; same tiny-package pattern as python.decimal/python.collections, only `PyPathlibWrapperService`'s getters were uncovered), org.jpype.ref (88%→95% instruction / 67%→80% branch; `NativeReference`/`ReferenceSet` are pure bookkeeping despite living next to native cleanup calls, see finding below; `NativeReferenceQueue`/`Worker` and 2 lines of `GlobalPool` left as genuinely native/concurrency-gated), python.io (87%→100% instruction / 74%→100% branch; the `PyDeque.rotate()`-style unreachable-default pattern recurred in `PyIOBase.seek(offset)`, plus several bulk-bypass/branch-combination gaps in the buffered stream adapters, see finding below). Remaining packages NOT STARTED: org.jpype.proxy, python.datetime.
+## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script, python.lang (PyMapping views + real bug fixed; protocol interfaces incl. PyGenerator crash root-caused and fixed, see [[plan/GeneratorCastCrash.md]]; PyCallable.CallBuilder + kwargs-string bug fixed; PyMapping/PySequence/PySet/PyFrozenSet/PyTuple all raised to ~100%; PyMutableSet confirmed NOT deletable, see finding in this doc), org.jpype (61%→66%; SubInterpreter/most of SubInterpreterBuilder confirmed environment-gated — needs a real Python 3.12 native rebuild, out of scope here — everything else fixable under 3.10 closed out: Script/Interpreter/SpiResource now 100%), python.decimal (72%→100%; tiny package, only `PyDecimalWrapperService`'s getters were uncovered), python.collections (83%→95%; `PyOrderedDict.moveToEnd(key)`'s one-arg default confirmed unreachable through the real bridge — name-only dispatch always resolves to Python's own `move_to_end` first, see finding below), org.jpype.manager (86%→93% instruction / 76%→89% branch; found+fixed a real resource-leak bug in `TypeManager.createClass()`'s lambda/anonymous-class branches, see finding below), org.jpype.pkg (85%→93% instruction / 78%→91% branch; pure classloader/reflection code, no bridge needed, see finding below), python.pathlib (81%→100%; same tiny-package pattern as python.decimal/python.collections, only `PyPathlibWrapperService`'s getters were uncovered), org.jpype.ref (88%→95% instruction / 67%→80% branch; `NativeReference`/`ReferenceSet` are pure bookkeeping despite living next to native cleanup calls, see finding below; `NativeReferenceQueue`/`Worker` and 2 lines of `GlobalPool` left as genuinely native/concurrency-gated), python.io (87%→100% instruction / 74%→100% branch; the `PyDeque.rotate()`-style unreachable-default pattern recurred in `PyIOBase.seek(offset)`, plus several bulk-bypass/branch-combination gaps in the buffered stream adapters, see finding below), org.jpype.proxy (91%→96% instruction / 77%→92% branch; almost entirely private/JNI-export-hook static helpers and cache-key types reachable via reflection with no bridge, plus one real `NativeContext`-backed `ProxyType`/`ProxyInstance` construction that needed no native call at all - see finding below; `ProxyInstance.invoke()`'s own varargs/kwargs/shutdown-check lines need a genuine end-to-end Java-callback-invoked-from-Python scenario, out of scope here). Remaining packages NOT STARTED: python.datetime.
 
 `jacoco-maven-plugin` (0.8.14, offline-resolvable from `~/.m2` except one
 missing transitive jar — `plexus-utils:1.1`, fetched once online, now
@@ -64,7 +64,7 @@ building until the `mvn` report alone leaves unexplained gaps.
 | python.pathlib | 81%→100% | n/a | no | **DONE** |
 | org.jpype.ref | 88%→95% | 67%→80% | no | **DONE** |
 | python.io | 87%→100% | 74%→100% | no | **DONE** |
-| org.jpype.proxy | 90% | 76% | unknown, check before assuming | not started |
+| org.jpype.proxy | 91%→96% | 77%→92% | no | **DONE** |
 | python.datetime | 93% | 100% | no | not started |
 
 (Instr% column only — regenerate the full table from
@@ -409,6 +409,60 @@ starting worklist once a package is picked:
       buffer-overflow-triggers-flush test
       (`count + len > buffer.length`), which had no coverage at all
       despite being a plain, easily-reachable path once written.
+- **org.jpype.proxy**: **DONE** (package total 91% → 96% instruction, 77%
+  → 92% branch; 929/929 full suite). No `PyTestHarness`-based tests
+  existed for this package at all before this pass. Most of the gap
+  turned out to be private static helpers and private nested key/utility
+  types (`ProxyType.MethodKey`, `.unwrapPythonException`/`.unwrapObject`/
+  `.getInstance`/`.isObjectMethodSignature`; `ProxyFactory.ReusableKey`/
+  `.InterfaceKey`) - pure Java logic, reachable via reflection
+  (`setAccessible`) with zero native/bridge dependency; confirmed
+  empirically that this module's test run does *not* enforce strong
+  module encapsulation against such reflection (no
+  `InaccessibleObjectException`), unlike the concern that initially
+  seemed to apply given `module-info.java` doesn't `opens
+  org.jpype.proxy`.
+  - New `ProxyTypeStaticsNGTest`: `MethodKey.equals`/`hashCode` (same
+    signature, different name, different param types);
+    `unwrapPythonException`/`unwrapObject`/`getInstance` with `null`,
+    a non-proxy object, and a proxy backed by a foreign (non-
+    `ProxyInstance`) handler - all reachable with a plain
+    `java.lang.reflect.Proxy` and a lambda `InvocationHandler`, no
+    `ProxyType` needed; `isObjectMethodSignature`'s full branch matrix,
+    including a small local `Lookalikes` class with `equals`/`hashCode`/
+    `toString` overloads of the *wrong* arity/param type, to hit the
+    name-matches-but-signature-doesn't branches.
+  - New `ProxyFactoryNGTest`: `ReusableKey`/`InterfaceKey` `equals`/
+    `hashCode` in isolation, via reflection-constructed instances - no
+    `ProxyFactory`/context needed at all for these, since they're just
+    array-comparison wrappers.
+  - New `ProxyTypeBridgeNGTest` (the one case needing a real
+    `NativeContext`): grabs the live context via reflection into
+    `MainInterpreter`'s private `context` field (no public accessor
+    exists), then calls the already-public
+    `NativeContext.getProxyFactory().getProxyType(cleanup, interfaces)`
+    directly - a real `ProxyType`/`ProxyInstance` construction path with
+    **no native call involved** as long as the interface has no default
+    methods and no `@Builtin`-annotated ones (confirmed via `Runnable`),
+    since `getDefaultHandle` is only invoked for actual default methods.
+    This let `unwrapObject`/`getInstance` be tested against a *genuine*
+    `ProxyInstance` handler (not just a foreign one), and let
+    `ProxyFactory.getProxyType`'s FINE-level cache-miss log line be
+    exercised with a throwaway marker interface guaranteed to be a fresh
+    cache entry. Only ever constructs proxies and checks handler
+    identity - never actually invokes a method through one, so none of
+    this touches the real `hostInvoke` native dispatch.
+  - Left uncovered: `ProxyInstance.invoke()`'s own varargs-flattening,
+    `PyKwArgs`-splicing, shutdown-check, and `ThreadLocal` scratch-array
+    growth lines, plus `ProxyType`'s `unwrapPythonException`'s
+    `PyBaseException`/`PyExc` branches (need a real Python exception
+    object crossing back through a proxy call) and its classloader-
+    override loop (needs an interface loaded by a genuinely independent
+    `ClassLoader`) - all of these need an actual end-to-end Java-
+    callback-invoked-from-Python round trip (a Java proxy object really
+    being called by Python code), which no existing test in this suite
+    sets up and which is substantially more machinery than the
+    handler-identity-only checks above; out of scope for this pass.
 - **org.jpype.internal**: **DONE** (41%/26% baseline → 74%/60%
   instruction/branch). `Keywords` and `FunctionalAdapters` — plain,
   native-free static utility classes, got ordinary non-bridge NGTest
