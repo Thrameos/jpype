@@ -204,13 +204,24 @@ starting worklist once a package is picked:
     implementing the matching protocol interface(s) directly - confirmed
     empirically, moved real coverage on `PyAbstractSet`/`PyCollection`
     (which drags `PySized` along for free, since `PyCollection` doesn't
-    override `size()`/`isEmpty()`). `PyMutableSet` is the one genuinely
-    dead interface here - zero implementors anywhere *and* no
-    `protocol_pipeline` entry can ever select it (see
-    [[plan/GeneratorCastCrash.md]] for the full pipeline-name list) - a
-    real deletion candidate (classification rule 2), unlike the other
-    five, which are live API surface probed objects can legitimately
-    reach; not yet actually deleted. **`PyGenerator` found a real
+    override `size()`/`isEmpty()`). **`PyMutableSet` is NOT actually
+    deletable, correcting an earlier finding in this doc.** It has zero
+    implementors and no `protocol_pipeline` entry, so the structural probe
+    can never select it (confirmed, see [[plan/GeneratorCastCrash.md]] for
+    the full pipeline-name list) - but `jpype/_jbridge.py` still loads it
+    eagerly at bootstrap (`JClass("python.lang.PyMutableSet")`) and
+    registers it in `_jpype._protocol["mutable_set"]` and
+    `_jpype._methods`. Verified by actually deleting the file: every
+    `PyTestHarness`-based test failed at `setUpClass` with
+    `PyBuiltIn.getContext()` NPE (bootstrap itself broke), not a
+    class-loading error scoped to `PyMutableSet` alone. Reverted
+    immediately (`git checkout`), suite back to 775/775. So it's dead
+    *as reachable API surface* but not dead *as a referenced class* -
+    deleting it would require also removing its `_jbridge.py` bootstrap
+    registration, which is out of scope for a coverage pass and not worth
+    doing for an interface with an empty method table and no callers.
+    Leaving it in place, unlisted as a deletion candidate. **`PyGenerator`
+    found a real
     crash** doing this - casting a genuine Python generator object to
     `PyGenerator` and calling `.iterator()` on the result segfaulted the
     JVM deterministically. **DONE - root-caused and fixed**: two

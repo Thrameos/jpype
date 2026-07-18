@@ -63,16 +63,29 @@ Same pattern worked cleanly for `PyCollection` (exercises the otherwise
 believed-dead `PySized` too, since `PyCollection` extends it without
 overriding `size()`/`isEmpty()`) and `PyIterable`/`PyContainer`.
 
-**`PyMutableSet` and `PySized` really are dead** by contrast - confirmed
-via `grep`: zero implementors anywhere in the codebase, and neither
-appears in the `protocol_pipeline` name list above, so the structural
-probe can never select them directly either (`PySized` is only reachable
-*indirectly* through `PyCollection`, as noted; `PyMutableSet` has no path
-at all - nothing in the probed interface set ever extends it). Confirmed
-user-clarified reasoning: these defaults exist so *some* implementor -
-built-in or a probed duck-typed object - gets them for free; `PySized` has
-one (`PyCollection`), `PyMutableSet` has none. `PyMutableSet` is the
-actual dead-code deletion candidate, not the other five.
+**`PySized` is dead as standalone probe-reachable surface but not
+deletable** - confirmed via `grep`: zero implementors, and neither it nor
+`PyMutableSet` appears in the `protocol_pipeline` name list above, so the
+structural probe can never select either directly (`PySized` is only
+reachable *indirectly* through `PyCollection`, as noted; `PyMutableSet`
+has no path at all - nothing in the probed interface set ever extends
+it).
+
+**Correction (2026-07-18): `PyMutableSet` is NOT actually a dead-code
+deletion candidate**, despite being unreachable via the structural probe.
+`jpype/_jbridge.py` loads it eagerly at bootstrap regardless -
+`JClass("python.lang.PyMutableSet")` - and registers it in
+`_jpype._protocol["mutable_set"]` and `_jpype._methods[_PyMutableSet]`.
+Verified by actually deleting `PyMutableSet.java`: `mvn -o verify`
+immediately broke every single `PyTestHarness`-based test at
+`setUpClass` with `PyBuiltIn.getContext()` NPE, since `_jbridge.py`'s
+bootstrap sequence throws before it finishes populating the builtin
+context. Reverted via `git checkout`, suite back to 775/775. So this
+interface is dead *as reachable API surface* (no real or duck-typed
+object can ever be proxied as one) but not dead *as a referenced class* -
+deleting the Java file requires also editing `_jbridge.py`'s bootstrap,
+which is a different, riskier change than a plain dead-code removal and
+out of scope here. Left in place.
 
 ## The crash: `PyGenerator`
 
