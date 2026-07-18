@@ -1,6 +1,30 @@
 # Full Python CLI support from `MainInterpreter`
 
-## Status (2026-07-17): NOT STARTED — design only
+## Status (2026-07-17): Runner core methods DONE; main() dispatch NOT STARTED
+
+`org.jpype.Runner` (`native/jpype_module/src/main/java/org/jpype/Runner.java`)
+implements `runModule`/`runFile`/`runCommand`/`pipInstall` per the decisions
+below, with real reverse-bridge test coverage (`RunnerNGTest`, 8/8 passing
+against a live interpreter, not just compiled) - see
+`plan/archive/` note candidate once `main()`'s dispatch (decision #2) lands.
+Two real bugs found and fixed along the way, neither specific to the CLI
+feature itself:
+
+- `native/common/jp_bridge.cpp`'s `startMain` leaked the GIL on any failure
+  path after `Py_InitializeFromConfig` succeeded (both the
+  `appendModulePathsToSysPath` failure and any `JPypeException` from
+  `launch()`/`_jbridge.initialize()`), hanging any later native call that
+  needed the GIL from another thread - in practice, `MainInterpreter.close()`
+  during test teardown. Fixed by adding the same explicit
+  `PyEval_SaveThread()` the success path already used, on both failure paths.
+- `Runner` itself: raw Java `String`s bound into a scratch scope via
+  `PyDict.putAny()` come across as boxed Java-object wrappers, not native
+  Python `str` (JPype's `convertStrings=false` default) - broke
+  `module.startswith(...)` inside `runpy` and `exec(source)`. Fixed by
+  routing every string through `PyBuiltIn.str()` before binding.
+
+Remaining: wire `main(String[] args)`'s `-c`/`-m`/bare-file/`-i` dispatch
+(decision #2) on top of the now-working `Runner` methods.
 
 Follow-on from `plan/LaunchConfig.md` (the launch/config/caching audit).
 Goal: let `org.jpype.MainInterpreter` do what the real `python` binary's
