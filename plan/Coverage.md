@@ -1,6 +1,6 @@
 # Java module coverage cleanup: systematic pass
 
-## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script, python.lang (PyMapping views + real bug fixed; protocol interfaces incl. PyGenerator crash root-caused and fixed, see [[plan/GeneratorCastCrash.md]]; PyCallable.CallBuilder + kwargs-string bug fixed; PyMapping/PySequence/PySet/PyFrozenSet/PyTuple all raised to ~100%; PyMutableSet confirmed NOT deletable, see finding in this doc), org.jpype (61%→66%; SubInterpreter/most of SubInterpreterBuilder confirmed environment-gated — needs a real Python 3.12 native rebuild, out of scope here — everything else fixable under 3.10 closed out: Script/Interpreter/SpiResource now 100%), python.decimal (72%→100%; tiny package, only `PyDecimalWrapperService`'s getters were uncovered), python.collections (83%→95%; `PyOrderedDict.moveToEnd(key)`'s one-arg default confirmed unreachable through the real bridge — name-only dispatch always resolves to Python's own `move_to_end` first, see finding below), org.jpype.manager (86%→93% instruction / 76%→89% branch; found+fixed a real resource-leak bug in `TypeManager.createClass()`'s lambda/anonymous-class branches, see finding below), org.jpype.pkg (85%→93% instruction / 78%→91% branch; pure classloader/reflection code, no bridge needed, see finding below), python.pathlib (81%→100%; same tiny-package pattern as python.decimal/python.collections, only `PyPathlibWrapperService`'s getters were uncovered), org.jpype.ref (88%→95% instruction / 67%→80% branch; `NativeReference`/`ReferenceSet` are pure bookkeeping despite living next to native cleanup calls, see finding below; `NativeReferenceQueue`/`Worker` and 2 lines of `GlobalPool` left as genuinely native/concurrency-gated). Remaining packages NOT STARTED: python.io, org.jpype.proxy, python.datetime.
+## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script, python.lang (PyMapping views + real bug fixed; protocol interfaces incl. PyGenerator crash root-caused and fixed, see [[plan/GeneratorCastCrash.md]]; PyCallable.CallBuilder + kwargs-string bug fixed; PyMapping/PySequence/PySet/PyFrozenSet/PyTuple all raised to ~100%; PyMutableSet confirmed NOT deletable, see finding in this doc), org.jpype (61%→66%; SubInterpreter/most of SubInterpreterBuilder confirmed environment-gated — needs a real Python 3.12 native rebuild, out of scope here — everything else fixable under 3.10 closed out: Script/Interpreter/SpiResource now 100%), python.decimal (72%→100%; tiny package, only `PyDecimalWrapperService`'s getters were uncovered), python.collections (83%→95%; `PyOrderedDict.moveToEnd(key)`'s one-arg default confirmed unreachable through the real bridge — name-only dispatch always resolves to Python's own `move_to_end` first, see finding below), org.jpype.manager (86%→93% instruction / 76%→89% branch; found+fixed a real resource-leak bug in `TypeManager.createClass()`'s lambda/anonymous-class branches, see finding below), org.jpype.pkg (85%→93% instruction / 78%→91% branch; pure classloader/reflection code, no bridge needed, see finding below), python.pathlib (81%→100%; same tiny-package pattern as python.decimal/python.collections, only `PyPathlibWrapperService`'s getters were uncovered), org.jpype.ref (88%→95% instruction / 67%→80% branch; `NativeReference`/`ReferenceSet` are pure bookkeeping despite living next to native cleanup calls, see finding below; `NativeReferenceQueue`/`Worker` and 2 lines of `GlobalPool` left as genuinely native/concurrency-gated), python.io (87%→100% instruction / 74%→100% branch; the `PyDeque.rotate()`-style unreachable-default pattern recurred in `PyIOBase.seek(offset)`, plus several bulk-bypass/branch-combination gaps in the buffered stream adapters, see finding below). Remaining packages NOT STARTED: org.jpype.proxy, python.datetime.
 
 `jacoco-maven-plugin` (0.8.14, offline-resolvable from `~/.m2` except one
 missing transitive jar — `plexus-utils:1.1`, fetched once online, now
@@ -63,7 +63,7 @@ building until the `mvn` report alone leaves unexplained gaps.
 | org.jpype.pkg | 85%→93% | 78%→91% | no — pure JVM classloader/reflection code, no Python bridge involved | **DONE** |
 | python.pathlib | 81%→100% | n/a | no | **DONE** |
 | org.jpype.ref | 88%→95% | 67%→80% | no | **DONE** |
-| python.io | 87% | 74% | no | not started |
+| python.io | 87%→100% | 74%→100% | no | **DONE** |
 | org.jpype.proxy | 90% | 76% | unknown, check before assuming | not started |
 | python.datetime | 93% | 100% | no | not started |
 
@@ -354,6 +354,61 @@ starting worklist once a package is picked:
     undone, same call as `GlobalPool.tryRelease`'s existing
     stamp-mismatch design (already covered) versus these two
     resize-race guards (not).
+- **python.io**: **DONE** (package total 87% → 100% instruction, 74% →
+  100% branch; 907/907 full suite). Two distinct kinds of gap:
+  - `PyIOBase` was entirely uncovered (0%): its only concrete method is
+    `seek(offset)`'s default `whence=0` overload, and - same as
+    `PyDeque.rotate()` in python.collections - the real reverse-bridge
+    proxy dispatches straight to Python's own `seek(offset, whence=0)`
+    by mangled name, so this Java default is never reached through any
+    bridge test. New `PyIOBaseNGTest` with a minimal `RecordingIOBase`
+    stub (mirroring `PyDequeNGTest`'s `RecordingDeque`) covers it in one
+    line, no bridge needed.
+  - `PyIOWrapperService`: same trivial-getters gap as every other SPI
+    `WrapperService` this session - new `PyIOWrapperServiceNGTest`.
+  - The 4 buffered stream adapters (`PyIOReader`/`PyIOWriter`/
+    `PyIOInputStream`/`PyIOOutputStream`, all package-private, backing
+    `asReader()`/`asWriter()`/`asInputStream()`/`asOutputStream()`) had
+    an existing `PyIOBufferingNGTest` (a `PyTestHarness` suite using a
+    dynamic-proxy call-counting spy to assert O(N/bufferSize) round
+    trips) that covered small-buffered reads/writes and the
+    `InputStream`/`OutputStream` large-request bypass paths, but missed
+    several branches once bufferring/bypass logic was examined line by
+    line:
+    - Zero-length `read`/`write` early-returns, for all 4 adapters -
+      trivially added.
+    - `PyIOReader`/`PyIOWriter` (the char-based, `PyTextIOBase`-backed
+      adapters) never had a bulk-bypass (`len >= buffer.length`) test at
+      all - only their byte-based `InputStream`/`OutputStream`
+      counterparts did. Added `testReaderLargeReadBypassesBuffer`/
+      `testWriterLargeWriteBypassesBuffer` (mirroring the existing byte
+      versions) plus `testReaderBulkReadPastEofReturnsMinusOne` (the
+      byte side already had its EOF-during-bulk-bypass case covered by
+      symmetry with `testInputStreamBulkReadPastEofReturnsMinusOne`,
+      added here for both).
+    - `PyIOInputStream.read(byte[],off,len)`: `pos < limit` (buffer
+      already has unconsumed data from a prior small read) was never
+      exercised for the array-read overload - every existing bulk test
+      started from a freshly empty buffer. Added
+      `testInputStreamBulkReadServesFromNonEmptyBufferWithoutRefilling`
+      (one single-byte `read()` first, to leave `pos < limit`, then a
+      small array read) to hit the branch that skips straight to the
+      bottom `arraycopy` without touching `fill()`/the bulk-bypass check
+      at all.
+    - `PyIOOutputStream`'s bulk-bypass alias-vs-copy ternary
+      (`(off == 0 && len == b.length) ? b : Arrays.copyOfRange(...)`)
+      is a genuine 4-branch short-circuit `&&`; the existing
+      `testLargeWriteBypassesBuffer` only ever exercised the
+      `off==0 && len==b.length` (true/true, alias) combination. Added
+      two more: `off != 0` (short-circuits `off==0` to false without
+      evaluating the second operand) and `off==0` with `len <
+      b.length` (evaluates both, second operand false) - the fourth
+      combination (`off != 0`, second operand not evaluated) is the
+      same short-circuit outcome as the first new test, so 3 total
+      calls cover all 4 branch outcomes. Also added a small-write
+      buffer-overflow-triggers-flush test
+      (`count + len > buffer.length`), which had no coverage at all
+      despite being a plain, easily-reachable path once written.
 - **org.jpype.internal**: **DONE** (41%/26% baseline → 74%/60%
   instruction/branch). `Keywords` and `FunctionalAdapters` — plain,
   native-free static utility classes, got ordinary non-bridge NGTest
