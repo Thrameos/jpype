@@ -1,6 +1,6 @@
 # Java module coverage cleanup: systematic pass
 
-## Status (2026-07-18): SETUP DONE, python.exceptions package CLOSED (see [[plan/ExecCrashDebug.md]] for the crash fix), remaining packages NOT STARTED
+## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]] for the crash fix), org.jpype.internal. Remaining packages NOT STARTED.
 
 `jacoco-maven-plugin` (0.8.14, offline-resolvable from `~/.m2` except one
 missing transitive jar — `plexus-utils:1.1`, fetched once online, now
@@ -53,7 +53,7 @@ building until the `mvn` report alone leaves unexplained gaps.
 | org.jpype.javadoc | 0% | 0% | yes — forward-bridge (`test_javadoc.py`) | not started |
 | org.jpype.pickle | 0% | 0% | yes — forward-bridge (`test_pickle.py`) | not started |
 | python.exceptions | 100% classes reached | n/a | no — reverse-bridge only, all 50 exception classes are this suite's job | **DONE** |
-| org.jpype.internal | 41% | 26% | unknown, check before assuming | not started |
+| org.jpype.internal | 74% | 60% | unknown, check before assuming | **DONE** (3 classes left alone, rule 3) |
 | org.jpype.script | 52% | 47% | unknown, check before assuming | not started |
 | python.lang | 64% | 49% | no — reverse-bridge only | not started |
 | org.jpype | 69% | 47% | partial (BootstrapLoader is a static launcher entry point, may be forward-bridge/native-launch only) | not started |
@@ -80,21 +80,20 @@ starting worklist once a package is picked:
   `Script` (60%), `BootstrapLoader`/`WrapperService` (0%, likely
   entry-point/SPI-declaration classes — check reachability before assuming
   testable).
-- **org.jpype.internal**: IN PROGRESS. `Keywords` and `FunctionalAdapters`
-  done — both are plain, native-free static utility classes, so they got
-  ordinary non-bridge NGTest classes (`KeywordsNGTest`,
-  `FunctionalAdaptersNGTest`, `src/test/java/org/jpype/internal/`, no
-  `PyTestHarness`/JVM bridge needed): `Keywords` now 71/74 instructions,
-  `FunctionalAdapters` 6/9 (its anonymous `Iterator` from `mapIterator` and
-  its `MapEntryWithSet` nested class both now fully covered). Remaining
-  in this package: `Support` done — package-private "used exclusively
-  through JNI" per its Javadoc, but every method is plain deterministic
-  Java with no native dependency, so `SupportNGTest` calls them directly
-  (no bridge needed): array-reshaping helpers (`collectRectangular`/
-  `unpack`/`assemble`, including a real collect-then-reassemble round trip
-  through a 3D array), `order` (endianness per NIO buffer type),
-  `getStackTrace`/enclosing-frame truncation, the `Runtime`/`MemoryMXBean`
-  accessors, `getJarPath`. 14% to ~80% (369/462 instructions). `DynamicClassLoader` done — new
+- **org.jpype.internal**: **DONE** (41%/26% baseline → 74%/60%
+  instruction/branch). `Keywords` and `FunctionalAdapters` — plain,
+  native-free static utility classes, got ordinary non-bridge NGTest
+  classes (`KeywordsNGTest`, `FunctionalAdaptersNGTest`, no
+  `PyTestHarness`/JVM bridge needed): `Keywords` 71/74 instructions,
+  `FunctionalAdapters` fully covered including its anonymous `Iterator`
+  and `MapEntryWithSet`. `Support` — package-private "used exclusively
+  through JNI" per its own Javadoc, but every method is plain
+  deterministic Java, so `SupportNGTest` calls them directly: array-
+  reshaping helpers (`collectRectangular`/`unpack`/`assemble`, including a
+  real collect-then-reassemble round trip through a 3D array), `order`
+  (endianness per NIO buffer type), `getStackTrace`/enclosing-frame
+  truncation, the `Runtime`/`MemoryMXBean` accessors, `getJarPath`. 14% to
+  ~80% (369/462 instructions). `DynamicClassLoader` — new
   `DynamicClassLoaderNGTest` builds fresh, isolated instances (never
   touches the static `install()` singleton the real bootstrap/other tests
   depend on) and exercises `addPath`/`addPaths` (including the anonymous
@@ -111,12 +110,24 @@ starting worklist once a package is picked:
   added `CallerSensitiveNGTest` calling
   `JClass('java.lang.Class').forName(...)` from Python to exercise it;
   remaining gap is just the `InvocationTargetException` unwrap branch,
-  not worth forcing). Still untouched: `NativeContext` (56%), `Signal` (process-global
-  SIGINT/SIGTERM handler install, already gets incidental coverage from
-  interpreter startup — installing real signal handlers from a dedicated
-  test is risky, likely leave as-is per classification rule 3),
-  `NativeLauncherControl` (all native-method declarations, near-0% is just
-  the implicit constructor — likely rule 3, not a real gap).
+  not worth forcing).
+  **Left alone, classification rule 3 (intentional/impractical, not a real
+  gap)**: `NativeContext` (56%) — its own class Javadoc says outright "As
+  the JPypeContext can't be tested directly from Java code, it will need
+  to be kept light"; it has a private constructor reachable only from
+  native code via the package-private `@Exported create()` factory, no
+  public accessor exists anywhere to reach the live instance from a test
+  even though one exists during every bridge test run, and its remaining
+  gaps are boot/shutdown-lifecycle code (`shutdown()`'s JVM-exit sequence,
+  `scanExistingJars`) not exercisable mid-suite without spinning up
+  separate JVMs. `Signal` (process-global SIGINT/SIGTERM handler install,
+  already gets incidental coverage from interpreter startup — installing
+  real signal handlers from a dedicated test would affect the whole test
+  JVM's signal disposition, too risky for the coverage gained).
+  `NativeLauncherControl` (all `native` method declarations; JaCoCo can't
+  instrument a native method body at all, so its near-0% is just the
+  implicit default constructor, not a real gap — nothing to write a test
+  for).
 - **org.jpype.script**: `JPypeScriptEngine` (49%), `JPypeScriptEngineFactory`
   (57%).
 - **python.exceptions**: **DONE.** Crash unblocked (see
