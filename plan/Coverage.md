@@ -80,10 +80,23 @@ starting worklist once a package is picked:
   `Script` (60%), `BootstrapLoader`/`WrapperService` (0%, likely
   entry-point/SPI-declaration classes — check reachability before assuming
   testable).
-- **org.jpype.internal**: `Support` (14%), `DynamicClassLoader` (23%,
-  including a 0% anonymous `SimpleFileVisitor`), `Reflector0` (25%),
-  `Keywords` (39%), `NativeContext` (56%), `FunctionalAdapters` (0%,
-  including a 0% anonymous `Iterator`).
+- **org.jpype.internal**: IN PROGRESS. `Keywords` and `FunctionalAdapters`
+  done — both are plain, native-free static utility classes, so they got
+  ordinary non-bridge NGTest classes (`KeywordsNGTest`,
+  `FunctionalAdaptersNGTest`, `src/test/java/org/jpype/internal/`, no
+  `PyTestHarness`/JVM bridge needed): `Keywords` now 71/74 instructions,
+  `FunctionalAdapters` 6/9 (its anonymous `Iterator` from `mapIterator` and
+  its `MapEntryWithSet` nested class both now fully covered). Remaining
+  in this package, still
+  untouched: `Support` (14%), `DynamicClassLoader` (23%, including a 0%
+  anonymous `SimpleFileVisitor`), `Reflector0` (25% — special-loaded via
+  `META-INF/versions/0`, see its class Javadoc; verify reachability before
+  writing a normal test), `NativeContext` (56%), `Signal` (process-global
+  SIGINT/SIGTERM handler install, already gets incidental coverage from
+  interpreter startup — installing real signal handlers from a dedicated
+  test is risky, likely leave as-is per classification rule 3),
+  `NativeLauncherControl` (all native-method declarations, near-0% is just
+  the implicit constructor — likely rule 3, not a real gap).
 - **org.jpype.script**: `JPypeScriptEngine` (49%), `JPypeScriptEngineFactory`
   (57%).
 - **python.exceptions**: **DONE.** Crash unblocked (see
