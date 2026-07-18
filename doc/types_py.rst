@@ -37,7 +37,7 @@ pretty much the wild west.
 In contrast, Java is a strongly typed language.  Each variable can only take
 a value of the specified class or a class that derives from the specified
 class.  Each Java method takes only a specific number and type of arguments.
-The type and number are all checked at compile type to ensure there is
+The type and number are all checked at compile time to ensure there is
 little possibility of error.  As each method requires a specific number and type
 of arguments, a method can be overloaded by having two different
 implementations which take a different list of types sharing the same method
@@ -45,8 +45,8 @@ name. A primitive variable can never hold an object and it can only be converted
 to or from other primitive types unless it is specifically cast to that type.
 Java objects and classes are completely closed.  The methods and fields for a
 particular class and object are defined entirely at compile time.  Though it is
-possible create classes with a dictionary allowing expansion, this is not the
-Java norm and no standard mechanism exists.
+possible to create classes with a dictionary allowing expansion, this is not
+the Java norm and no standard mechanism exists.
 
 Thus we need to introduce a few Java terms to the Python vocabulary.  These are
 "conversion" and "cast".
@@ -58,7 +58,7 @@ Java conversions
 ----------------
 
 A conversion is a permitted change from an object of one type to another.
-Conversions have three different degrees.  These are: exact, derived, implicit,
+Conversions have four different degrees.  These are: exact, derived, implicit,
 and explicit.
 
 Exact conversions are those in which the type of an object is identical.  In
@@ -68,8 +68,8 @@ identical for which exact conversion rules apply.  For example, a Java string
 and a Python string both bind equally well to a method which requires a string,
 thus this is an exact conversion for the purposes of bind types.
 
-The next level of conversion is derived.  A derived class is one which is a
-descends from a required type.  It is better that implicit but worse than
+The next level of conversion is derived.  A derived class is one that
+descends from a required type.  It is better than implicit but worse than
 exact.  If all of the types in a method match are exact or derived then it will
 override a method in which one argument is implicit.
 
@@ -109,7 +109,7 @@ the second is the type to cast to.  The second argument should always be a Java
 type specified using a class wrapper, a Java class instance, or a string.
 Casting will also add a hidden class argument to the resulting object such that
 it is treated as the cast type for the duration of that variable lifespan.
-Therefore, a variable create by casting is stuck as that type and cannot revert
+Therefore, a variable created by casting is stuck as that type and cannot revert
 back to its original for the purposes of method resolution.
 
 The object construction and casting are sometimes a bit blurry.  For example,
@@ -155,7 +155,7 @@ Of particular interest is the concept of Java ``null``.  In Java, null is a
 typeless entity which can be placed wherever an object is taken to
 indicate that the object is not available.  The equivalent concept in Python is
 ``None``.  Thus all methods that accept any object type that permit a null will
-accept None as an augment with implicit conversion.  However, sometime it is
+accept None as an argument with implicit conversion.  However, sometimes it is
 necessary to pass an explicit type to the method resolution.  To achieve this
 in JPype use ``Type@None`` which will create a null pointer with the
 desired type.  To test if something is null we have to compare the handle to
@@ -163,9 +163,9 @@ None.  This unfortunately trips up some code quality checkers.  The idiom in
 Python is ``obj is None``, but as this only matches things that Python
 considers identical, we must instead use ``obj==None``.
 
-Casting ``None`` is use to specify types when calling between overloads
+Casting ``None`` is used to specify types when calling between overloads
 with variadic arguments such as ``foo(Object a)`` and ``foo(Object... many)``.
-If we want to call ``foo(None)`` is is ambiguous whether we intend to call the
+If we want to call ``foo(None)`` it is ambiguous whether we intend to call the
 first with a null object or the second with a null array.  We can resolve the
 ambiguity with ``foo(java.lang.Object@None)`` or
 ``foo(java.lang.Object[:]@None)``
@@ -306,11 +306,13 @@ be no ambiguity as to what data a particular lookup.
 
 The meta class ``JInterface`` is used to check if a class type is an interface
 using ``isinstance``.  Classes that are pure interfaces cannot be instantiated,
-thus, there is not such thing as an abstract instance.  Therefore, every
-Java object should have Objects cannot actual be pure interfaces.  To
-represent this in Python every interface inherits ``java.lang.Object`` methods
-even through it does not have ``java.lang.Object`` as a parent.  This ensures
-that anonymous classes and lambdas have full object behavior.
+thus, there is no such thing as an abstract instance.  Every value used from
+Python still needs real object behavior (``equals``, ``hashCode``,
+``toString``, ...) even when its static type is a pure interface with no
+object of its own.  To provide this in Python, every interface inherits
+``java.lang.Object`` methods even though it does not have
+``java.lang.Object`` as a parent.  This ensures that anonymous classes and
+lambdas have full object behavior.
 
 .. _jpype_types_classes:
 
@@ -330,7 +332,7 @@ All Java classes have the following functionality.
 Class constructor
   The class constructor is accessed by using the Python call syntax ``()``.
   This special method invokes a dispatch whenever the class is called
-  as a function.  If an matching constructor is found a new Java instance
+  as a function.  If a matching constructor is found a new Java instance
   is created and a Python handle to that instance is returned.  In the case
   of primitive types, the constructor creates a Java value with the exact
   type requested.
@@ -351,14 +353,15 @@ Set attribute
   In general, JPype only allows the setting of public non-final fields.  If you
   attempt to set any attribute on an object that does not correspond to a
   settable field it will produce an ``AttributeError``.  There is one exception
-  to this rule.  Sometime it is necessary to attach addition private meta data to
-  classes and objects.  Attributes that begin with an underbar are consider to be
-  Python private attributes.  Private attributes handled by the default Python
-  attribute handler allowing these attributes to be attached to to attach data to
-  the Python handle.  This data is invisible to Java and it is retained only on
-  the Python instance.  If an object with Python meta data is passed to Java
-  and Java returns the object, the new Python handle will not contain any of the
-  attached data as this data was lost when the object was passed to Java.
+  to this rule.  Sometimes it is necessary to attach additional private
+  metadata to classes and objects.  Attributes that begin with an underbar are
+  considered to be Python private attributes.  These are handled by the
+  default Python attribute mechanism, letting them be attached directly to the
+  Python handle.  This data is invisible to Java and it is retained only on
+  the Python instance.  If an object with Python metadata is passed to Java
+  and Java returns the object, the new Python handle will not contain any of
+  the attached data, since that data was lost when the object was passed to
+  Java.
 
 ``class_`` Attribute
   For Java classes there is a special attribute called ``class``.  This
@@ -565,8 +568,8 @@ Character specialization
 
    orig = [1, 2, 3]
    obj = jpype.JInt[:](orig)
-   a.modifies(obj)   # Modifies the array by multiplying all elements by 2
-   orig[:] = obj     # Copies all the values back from Java to Python
+   javaInstance.modifies(obj)   # a Java method that doubles each element in place
+   orig[:] = obj                # copies the changed values back into the Python list
 
 
 .. _jpype_types_buffer_classes:
@@ -576,21 +579,21 @@ Buffer classes
 
 In addition to array types, JPype also supports Java ``nio`` buffer types.
 Buffers in Java come in two flavors.  Array backed buffers have no special
-access.  Direct buffers are can converted to Python buffers with both
+access.  Direct buffers can be converted to Python buffers with both
 read and write capabilities.
 
 Each primitive type in Java has its own buffer type named based on the
-primitive type.  ``java.nio.ByteBuffer`` has the greatest control allowing
-any type to be read and written to it.  Buffers in Java function are like
+primitive type.  ``java.nio.ByteBuffer`` has the greatest control, allowing
+any type to be read and written to it.  Buffers in Java function like
 memory mapped files and have a concept of a read and write pointer which
 is used to traverse the array.  They also have direct index access to their
 specified primitive type.
 
-Java buffer provide an additional Python method:
+Java buffers provide an additional Python method:
 
 Buffer transfer
-  Buffer transfers from a Java buffer works for a direct buffer.  Array backed
-  buffers will raise a ``BufferError``.  Use the Python ``memoryview(jarray)``
+  Buffer transfers from a Java buffer work for a direct buffer.  Array backed
+  buffers will raise a ``BufferError``.  Use the Python ``memoryview(buffer)``
   function to create a buffer that can be used to transfer any portion of a Java
   buffer out.  Memory views of Java buffers are readable and writable.
 
@@ -615,7 +618,7 @@ corresponding to a Python type as implicit matches.
 
 In addition, they produce an exact match with their corresponding Java
 type. The type conversion for this is somewhat looser than Java.  While Java
-provides automatic unboxing of a Integer to a double primitive, JPype can
+provides automatic unboxing of an Integer to a double primitive, JPype can
 implicitly convert Integer to a Double boxed.
 
 To box a primitive into a specific type such as to place it into a
@@ -731,8 +734,8 @@ considered to be equivalent classes.
 
 Because Java strings are in fact just pointers to blob of bytes they are
 actually slightly less than a full object in some JVM implementation.  This is
-a violation of the Object Orients (OO) principle, never take something away by
-inheritance.  Unfortunately, Java is a frequent violator of that rule, so
+a violation of the Object Oriented (OO) principle, never take something away
+by inheritance.  Unfortunately, Java is a frequent violator of that rule, so
 this is just one of those exceptions you have to trip over.  Therefore, certain
 operations such as using a string as a threading control with ``notify`` or ``wait``
 may lead to unexpected results.  If you are thinking about using a Java string
@@ -756,7 +759,7 @@ Hash
   This ensures that they will always match the same dictionary keys as
   the corresponding string in Python.  The Python hash can be determined using
   the Python ``hash(str)`` function.  Null pointers are not currently handled.
-  To get the actually Java hash, use ``s.hashCode()``
+  To get the actual Java hash, use ``s.hashCode()``
 
 Contains
   Java strings implement the concept of ``in`` when using the Java method
@@ -1107,26 +1110,26 @@ There are special conversion rules for ``java.lang.Object`` and ``java.lang.Numb
 ============== ========== ========= =========== ========= ========== ========== =========== ========= ========== =========== ========= ================== =================
 Python\\Java    byte      short       int       long       float     double     boolean     char      String      Array       Object    java.lang.Object   java.lang.Class
 ============== ========== ========= =========== ========= ========== ========== =========== ========= ========== =========== ========= ================== =================
-    int         I [1]_     I [1]_       X          I        I [3]_     I [3]_     X [8]_                                                       I [11]_
-   long         I [1]_     I [1]_     I [1]_       X        I [3]_     I [3]_                                                                  I [11]_
-   float                                                    I [1]_       X                                                                     I [11]_
+    int         I [1]_     I [1]_       X          I        I [3]_     I [3]_     X [7]_                                                       I [10]_
+   long         I [1]_     I [1]_     I [1]_       X        I [3]_     I [3]_                                                                  I [10]_
+   float                                                    I [1]_       X                                                                     I [10]_
  sequence
 dictionary
   string                                                                                     I [2]_       X                                    I
   unicode                                                                                    I [2]_       X                                    I
-   JByte          X                                                                                                                            I [9]_
-  JShort                     X                                                                                                                 I [9]_
-   JInt                                 X                                                                                                      I [9]_
-   JLong                                           X                                                                                           I [9]_
-  JFloat                                                      X                                                                                I [9]_
-  JDouble                                                                X                                                                     I [9]_
- JBoolean                                                                           X                                                          I [9]_
-   JChar                                                                                       X                                               I [9]_
+   JByte          X                                                                                                                            I [8]_
+  JShort                     X                                                                                                                 I [8]_
+   JInt                                 X                                                                                                      I [8]_
+   JLong                                           X                                                                                           I [8]_
+  JFloat                                                      X                                                                                I [8]_
+  JDouble                                                                X                                                                     I [8]_
+ JBoolean                                                                           X                                                          I [8]_
+   JChar                                                                                       X                                               I [8]_
   JString                                                                                                 X                                    I
   JArray                                                                                                          I/X [4]_                     I
-  JObject                                                                                                         I/X [6]_    I/X [7]_         I/X [7]_
+  JObject                                                                                                         I/X [5]_    I/X [6]_         I/X [6]_
   JClass                                                                                                                                       I                  X
- "Boxed"[10]_     I          I          I          I          I          I          I                                                          I
+ "Boxed"[9]_      I          I          I          I          I          I          I                                                          I
 ============== ========== ========= =========== ========= ========== ========== =========== ========= ========== =========== ========= ================== =================
 
 .. [1] Conversion will occur if the Python value fits in the Java
@@ -1143,22 +1146,22 @@ dictionary
 .. [4] Number of dimensions must match and the types must be
        compatible.
 
-.. [6] Only if the specified type is a compatible array class.
+.. [5] Only if the specified type is a compatible array class.
 
-.. [7] The object class is an exact match, otherwise
+.. [6] The object class is an exact match, otherwise
        implicit.
 
-.. [8] Only the values `True` and `False` are implicitly converted to
+.. [7] Only the values `True` and `False` are implicitly converted to
        booleans.
 
-.. [9] Primitives are boxed as per Java rules.
+.. [8] Primitives are boxed as per Java rules.
 
-.. [10] Java boxed types are mapped to Python primitives, but will
-        produce an implicit conversion even if the Python type is an exact
-        match. This is to allow for resolution between methods
-        that take both a Java primitive and a Java boxed type.
+.. [9] Java boxed types are mapped to Python primitives, but will
+       produce an implicit conversion even if the Python type is an exact
+       match. This is to allow for resolution between methods
+       that take both a Java primitive and a Java boxed type.
 
-.. [11] Boxed to ``java.lang.Number``
+.. [10] Boxed to ``java.lang.Number``
 
 
 Exception Handling
