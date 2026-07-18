@@ -39,7 +39,7 @@ JPype is split into several distinct pieces.
   This CPython layer acts as a front end for passing to the C++ layer.
   It performs some error checking. In addition to the module functions in
   ``_JModule``, the module has multiple Python classes to support the native jpype
-  code such as ``_JClass``, ``_JArray``, ``_JValue``, ``_JValue``, etc.
+  code such as ``_JClass``, ``_JArray``, ``_JObject``, etc.
 
 CPython API wrapper
   In addition to the exposed Python module layer, there is also a C++ wrapper
@@ -51,7 +51,7 @@ C++ JNI layer
   The guts that drive Java are in the C++ layer located in ``native/common``. This layer
   has the namespace ``JP``. The code is divided into wrappers for each Java type,
   a typemanager for mapping from Java names to class instances, support classes
-  for proxies, and a thin JNI layer used to help ensure rigerous use of the same
+  for proxies, and a thin JNI layer used to help ensure rigorous use of the same
   design patterns in the code. The primary responsibility of this layer is
   type conversion and matching of method overloads.
 
@@ -70,7 +70,7 @@ Java layer
 The ``jpype`` module itself is made of a series of support classes which
 act as factories for the individual wrappers that are created to mirror
 each Java class. Because it is not possible to wrap all Java classes
-with staticly created wrappers, instead jpype dynamically creates
+with statically created wrappers, instead jpype dynamically creates
 Python wrappers as requested by the user.
 
 The wrapping process is triggered in two ways. The user can manually
@@ -83,8 +83,8 @@ Because the classes are created dynamically, the class structure
 uses a lot of Python meta programming.
 Each class wrapper derives from the class wrappers of each of the
 wrappers corresponding to the Java classes that each class extends
-and implements. The key to this is to hacked ``mro``. The ``mro``
-orders each of the classes in the tree such that the most drived
+and implements. The key to this is a hacked ``mro``. The ``mro``
+orders each of the classes in the tree such that the most derived
 class methods are exposed, followed by each parent class. This
 must be ordered to break ties resulting from multiple inheritance
 of interfaces.  The factory classes are grafted into the type system
@@ -112,7 +112,7 @@ when using.  These aliased classes are ``JObject``, ``JString``, and
 ``jvalue``
 ++++++++++
 
-In the earlier design, wrappers, primitives and objects were all seperate
+In the earlier design, wrappers, primitives and objects were all separate
 concepts. At the JNI layer these are unified by a common element called
 jvalue. A ``jvalue`` is a union of all primitives with the jobject. The jobject
 can represent anything derived from Java object including the pseudo class
@@ -152,11 +152,11 @@ have exposed methods as they are shadows for action for actual Java types.
 
 The user calls with the specified arguments to create a resource. The factory
 calls the ``__new__`` method when creating an instance of the derived object. And
-the C++ wrapper calls the method with internally construct resource such as
-``_JClass`` or ``_JValue``.  Most of the internal calls currently create the
+the C++ wrapper calls the method that internally constructs the resource, such
+as ``_JClass`` or ``_JObject``.  Most of the internal calls currently create the
 resource directly without calling the factories.  The gateway for this is
-``PyJPValue_create`` which delegates the process to the corresponding specialized
-type.
+``PyJPValue_assignJavaSlot``, which attaches the C++ ``JPValue`` to the
+already-allocated Python instance's Java slot (see :ref:`javaslots` below).
 
 
 Style
@@ -189,9 +189,9 @@ someone may have used of it previously, we will contrast it with the
 revised system so that the customizers can be converted.
 
 In the previous system, a global list stored all customizers.
-When a class was created, it went though the list and asked the class if
+When a class was created, it went through the list and asked the class if
 it matched that class name. If it matched, it altered the dict of members
-to be created so when the dynamic class was finished it had the custome
+to be created so when the dynamic class was finished it had the custom
 behavior.  This system wasn't very scalable as each customizer added more
 work to the class construction process.
 
@@ -234,7 +234,7 @@ an instance which will correspond to a Java resource such as class, array,
 method, or value.
 
 Jpype objects work with the inner layers by inheriting from a set of special
-``_jpype`` classes.  This class hiarachy is mantained by the meta class
+``_jpype`` classes.  This class hierarchy is maintained by the meta class
 ``_jpype._JClass``.  The meta class does type hacking of the Python API
 to insert a reserved memory slot for the ``JPValue`` structure.  The meta
 class is used to define the Java base classes:
@@ -245,10 +245,16 @@ class is used to define the Java base classes:
  * ``_JObject`` - Base type of all Java object instances extending Python object.
  * ``_JNumberLong`` - Base type for integer style types extending Python int.
  * ``_JNumberFloat`` - Base type for float style types extending Python float.
- * ``_JNumberChar`` - Special wrapper type for JChar and java.lang.Character
-   types extending Python float.
+ * ``_JChar`` - Special wrapper type for JChar and java.lang.Character
+   types extending Python str.
+ * ``_JBoolean`` - Base type for JBoolean extending Python int.
  * ``_JException`` - Base type for exceptions extending Python Exception.
- * ``_JValue`` - Generic capsule representing any Java type or instance.
+ * ``_JBuffer`` - Base type for Java buffer-backed types supporting the
+   Python buffer protocol.
+
+There is no single generic capsule type any more: an earlier design had
+one (``_JValue``), but it was removed once every concrete type above
+carried its own Java slot directly (see :ref:`javaslots` below).
 
 These types are exposed to Python to implement Python functionality specific
 to the behavior expected by the Python type.  Under the hood these types are
@@ -268,21 +274,21 @@ Python native portion. Most of the functions provided in the module are
 for control and auditing.
 
 Resources are created by setting attributes on the ``_jpype`` module
-prior to calling ``startJVM``.   When the JVM is started each of th
+prior to calling ``startJVM``.   When the JVM is started each of the
 required resources are copied from the module attribute lists to the
 module internals.  Setting the attributes after the JVM is started has
 no effect.  Resources are verified to exist when the JVM is started
-and any missing resource are reported as an error.
+and any missing resources are reported as an error.
 
 ``_JClass`` class
 ~~~~~~~~~~~~~~~~~~~
 
-The class wrappers have a metaclass ``_jpyep._JClass`` which serves as
+The class wrappers have a metaclass ``_jpype._JClass`` which serves as
 the guardian to ensure the slot is attached, provide for the inheritance
 checks, and control access to static fields and methods.  The slot holds
 a java.lang.Class instance but it does not have any of the methods normally
 associate with a Java class instance exposed.  A java.lang.Class instance
-can be converted to a Jave class wrapper using ``JClass``.
+can be converted to a Java class wrapper using ``JClass``.
 
 
 ``_JMethod`` class
@@ -290,7 +296,7 @@ can be converted to a Jave class wrapper using ``JClass``.
 
 This class acts as descriptor with a call method.  As a descriptor accessing its
 methods through the class will trigger its ``__get__`` function, thus
-getting ahold of it within Python is a bit tricky.  The ``__get__`` mathod
+getting ahold of it within Python is a bit tricky.  The ``__get__`` method
 is used to bind the static unbound method to a particular object instance
 so that we can call with the first argument as the ``this`` pointer.
 
@@ -335,18 +341,20 @@ class are created and held using ``with``.  It has two methods
 system.
 
 
-``_JValue`` class
+The Java slot
 ~~~~~~~~~~~~~~~~~~~
 
-Java primitive and object instance derive from special Python derived
-types.  These each have the Python functionality to be exposed and
-a Java slot.  The most generic of these is ``_JValue`` which is simply
-a capsule holding the Java C++ type wrapper and a Java jvalue union.
-CPython methods for the ``PyJPValue`` apply to all CPython objects
-that hold a Java slot.
+Java primitive and object instances derive from the special Python types
+listed above (``_JObject``, ``_JNumberLong``, ``_JChar``, ...).  These each
+have the Python functionality to be exposed and a Java slot -- a reserved
+block of memory (see :ref:`javaslots` below) holding a C++ ``JPValue``.
+There is no separate generic wrapper class holding that slot; the ``PyJPValue_*``
+C functions (``PyJPValue_getJavaSlot``, ``PyJPValue_assignJavaSlot``, ...)
+operate directly on any CPython object that carries the slot, regardless of
+its concrete Python type.
 
-Specific implementation exist for object, numbers, characters, and
-exceptions.  But fundimentally all are treated the same internally
+Specific implementations exist for object, numbers, characters, and
+exceptions.  But fundamentally all are treated the same internally
 and thus the CPython type is effectively erased outside of Python.
 
 Unlike ``jvalue`` we hold the object type in the C++ ``JPValue``
@@ -356,21 +364,22 @@ object. Using a class other than the actual class serves to allow
 an object to be cast and thus treated like another type for the purposes
 of overloading. This mechanism is what allows the ``JObject`` factory
 to perform a typecast to make an object instance act like one of its
-base classes..
+base classes.
 
 .. _javaslots:
 
 Java Slots
 ------------------
 
-THe key to achieving reasonable speed within CPython is the use of slots.
+The key to achieving reasonable speed within CPython is the use of slots.
 A slot is a dedicated memory location that can be accessed without consulting
-the dictionary or bases of an object.  CPython achieve this by reserving space
-within the type structure and by using a set of bit flags so that it can avoid costly.
-The reserved space in order by number and thus avoids the need to access the
+the dictionary or bases of an object.  CPython achieves this by reserving space
+within the type structure and by using a set of bit flags so that it can avoid
+costly dictionary lookups.
+The reserved space is ordered by number and thus avoids the need to access the
 dictionary while the bit flags serve to determine the type without traversing
-the ``__mro__`` structure.  We had to implement the same effect which deriving
-from a wide variety for Python types including type, object, int, long, and
+the ``__mro__`` structure.  We had to implement the same effect while deriving
+from a wide variety of Python types including type, object, int, long, and
 Exception.  Adding the slot directly to the type and objects base memory
 does not work because these types all have different memory layouts.  We could
 have a table look up based on the type but because we must obey both the CPython
@@ -379,20 +388,20 @@ memory layout of Python objects.  Instead we have to think outside the box,
 or rather outside the memory footprint of Python objects.
 
 CPython faces the same conflict internally as inheritance often forces adding
-a dictionary or weak reference list onto a variably size type sych as long.
-For those cases it adds extract space to the basesize of the object and then
+a dictionary or weak reference list onto a variably size type such as long.
+For those cases it adds extra space to the basesize of the object and then
 ignores that space for the purposes of checking inheritance. It pairs this
 with an offset slot that allows for location of the dynamic placed slots.
-We cannot replicate this in the same way because the CPython interals are
-all specialize static members and there is no provision for introducting
+We cannot replicate this in the same way because the CPython internals are
+all specialized static members and there is no provision for introducing
 user defined dynamic slots.
 
 Therefore, instead we will add extra memory outside the view of Python
-objects though the use of a custom allocator. We intercept the call to
+objects through the use of a custom allocator. We intercept the call to
 create an object allocation and then call the regular Python allocators
-with the extra memory added to the request.  As our extrs slot has
-resource in the form of Java global references associated with it, we
-must deallocate those resource regardless of the type that has been
+with the extra memory added to the request.  As our extra slot has
+resources in the form of Java global references associated with it, we
+must deallocate those resources regardless of the type that has been
 extended.  We perform this task by creating a custom finalize method to
 serve as the destructor.  Thus a Java slot requires
 overriding each of ``tp_alloc``, ``tp_free`` and ``tp_finalize``.  The
@@ -407,10 +416,10 @@ We can test if the slot is present by looking to see if both `tp_alloc` and
 effectively a slot as we can test and access with O(1).
 
 Accessing the slot requires testing if the slot exists for the object,
-then computing the sice of the object using the basesize and itemsize
-associate with the type and then offsetting the Python object pointer
+then computing the size of the object using the basesize and itemsize
+associated with the type and then offsetting the Python object pointer
 appropriately.  The overall cost is O(1), though is slightly more
-heavy that directly accesssing an offset.
+expensive than directly accessing an offset.
 
 
 CPython API layer
@@ -471,7 +480,7 @@ Python referencing
 ~~~~~~~~~~~~~~~~~~
 
 One of the most miserable aspects of programming with CPython is the relative
-inconsistancy of referencing. Each method in Python may use a Python object or steal
+inconsistency of referencing. Each method in Python may use a Python object or steal
 it, or it may return a borrowed reference or give a fresh reference. Similar
 command such as getting an element from a list and getting an element from a tuple
 can have different rules. This was a constant source of bugs requiring
@@ -484,18 +493,18 @@ pointer ``JPPyObject`` with the policy that it was created with such as
 ``use_``, ``borrowed_``, ``claim_`` or ``call_``.
 
 ``use_``
-  This policy means that the reference counter needs to be incremented and the start
-  and the end. We must reference it because if we don't and some Python call
-  destroys the refernce out from under us, the system may crash and burn.
+  This policy means that the reference counter needs to be incremented at the start
+  and decremented at the end. We must reference it because if we don't and some Python call
+  destroys the reference out from under us, the system may crash and burn.
 
 ``borrowed_``
-  This policy means we were to be give a borrowed reference that we are expected
+  This policy means we were given a borrowed reference that we are expected
   to reference and unreference when complete, but the command that returned it
-  can fail. Thus before reference it, the system must check if an error has
+  can fail. Thus before referencing it, the system must check if an error has
   occurred. If there is an error, it is promoted to an exception.
 
 ``claim_``
-  This policy is used when we are given a new object with is already referenced
+  This policy is used when we are given a new object which is already referenced
   for us. Thus we are to steal the reference for the duration of our use and
   then dereference when we are done to keep it from leaking.
 
@@ -673,7 +682,7 @@ proceeds down the road another two miles before coming to flaming death.
 Moral of the story, always create a local frame even if you are handling a global
 reference. If passed or returned a reference of any kind, it is a borrowed reference
 belonging to the caller or being held by the current local frame. Thus it must
-be treated accordingly. If you have to hold a global use the appropraite ``JPRef``
+be treated accordingly. If you have to hold a global use the appropriate ``JPRef``
 class to ensure it is exception and dtor safe. For further information
 read ``native/common/jp_javaframe.h``.
 
@@ -697,10 +706,10 @@ For type conversion, a C++ class wrapper provides four methods.
   and then make a determination of whether a conversion is possible.
   It reports ``none_`` if there is no possible conversion, ``explicit_`` if the
   conversion is only acceptable if forced such as returning from a proxy,
-  ``implicit_`` if the conversion is possible and acceptable as part of an
-  method call, or ``exact_`` if this type converts without ambiguity. It is excepted
+  ``implicit_`` if the conversion is possible and acceptable as part of a
+  method call, or ``exact_`` if this type converts without ambiguity. It is expected
   to check for something that is already a Java resource of the correct type
-  such as ``JPValue``, or something this is implementing the behavior as an interface
+  such as ``JPValue``, or something that is implementing the behavior as an interface
   in the form of a ``JPProxy``.
 
 ``convertToJava``
@@ -713,7 +722,7 @@ For type conversion, a C++ class wrapper provides four methods.
   Python wrapper instance.
 
 ``getValueFromObject``
-  This converts a Java object into a ``JPValue`` corresponding. This unboxes
+  This converts a Java object into a corresponding ``JPValue``. This unboxes
   primitives.
 
 Array conversion
@@ -728,7 +737,7 @@ Invocation and Fields
 ++++++++++++++++++++++
 
 To convert a return type produced from a Java call, each type needs to be
-able to invoke a method with that return type. This corresponses the underlying
+able to invoke a method with that return type. This corresponds to the underlying
 JNI design. The methods invoke and invokeStatic are used for this purpose.
 Similarly accessing fields requires type conversion using the methods
 ``getField`` and ``setField``.
@@ -851,7 +860,7 @@ The key method in this module is transcribe with signature
       const JPEncoding& targetEncoding)
 
 There are two encodings provided, ``JPEncodingUTF8`` and ``JPEncodingJavaUTF8``.
-By selecting the source and traget encoding transcribe can convert to or
+By selecting the source and target encoding transcribe can convert to or
 from Java to Python encoding.
 
 Incidentally that same modified UTF coding is used in storing symbols in the
@@ -963,9 +972,9 @@ the failure mode to watch for.
 Coverage
 --------
 Some of the tests require additional instrumentation to run, this can be enabled
-with the ``enable-coverage`` option::
+with the CMake ``ENABLE_COVERAGE`` option::
 
-    python setup.py develop --enable-coverage
+    pip install -e . --config-setting cmake.args="-DENABLE_COVERAGE=ON"
 
 
 
