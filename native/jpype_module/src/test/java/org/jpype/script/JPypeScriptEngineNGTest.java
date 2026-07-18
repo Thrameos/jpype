@@ -16,15 +16,20 @@
  */
 package org.jpype.script;
 
+import java.io.StringReader;
+import javax.script.Bindings;
 import javax.script.Invocable;
+import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
 import org.testng.annotations.Test;
 import python.lang.PyTestHarness;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 /**
  * Ports the shape of jpy's {@code Jsr223Test} (plan/JSR223.md): engine
@@ -102,5 +107,146 @@ public class JPypeScriptEngineNGTest extends PyTestHarness
   public void testInvokeUndefinedFunctionThrows() throws Exception
   {
     ((Invocable) engine()).invokeFunction("does_not_exist");
+  }
+
+  @Test
+  public void testGetFactory()
+  {
+    assertTrue(engine().getFactory() instanceof JPypeScriptEngineFactory);
+  }
+
+  @Test
+  public void testCreateBindings()
+  {
+    Bindings bindings = engine().createBindings();
+    assertNotNull(bindings);
+    bindings.put("k", "v");
+    assertEquals(bindings.get("k"), "v");
+  }
+
+  @Test
+  public void testEvalReader() throws Exception
+  {
+    Object result = engine().eval(new StringReader("3 + 4"));
+    assertEquals(result.toString(), "7");
+  }
+
+  @Test
+  public void testEvalRuntimeErrorWrapsInScriptException()
+  {
+    try
+    {
+      engine().eval("this_name_does_not_exist_zzz");
+      fail("Expected a ScriptException");
+    } catch (ScriptException ex)
+    {
+      // expected - a real Python runtime error, not the syntax-error
+      // fallback-to-exec path.
+    }
+  }
+
+  @Test
+  public void testGlobalScopeIsShadowedByEngineScope() throws Exception
+  {
+    ScriptEngine engine = engine();
+    Bindings globalScope = engine.createBindings();
+    globalScope.put("shadow_test_var", "from-global");
+    engine.getContext().setBindings(globalScope, ScriptContext.GLOBAL_SCOPE);
+    try
+    {
+      // Not set in ENGINE_SCOPE - global should be visible.
+      Object viaGlobal = engine.eval("shadow_test_var");
+      assertEquals(viaGlobal.toString(), "from-global");
+
+      // Now shadow it in ENGINE_SCOPE (higher precedence).
+      engine.put("shadow_test_var", "from-engine");
+      Object viaEngine = engine.eval("shadow_test_var");
+      assertEquals(viaEngine.toString(), "from-engine");
+    } finally
+    {
+      engine.getContext().setBindings(engine.createBindings(), ScriptContext.GLOBAL_SCOPE);
+    }
+  }
+
+  @Test
+  public void testToNativeUnwrapsJavaObjectRoundTrip() throws Exception
+  {
+    java.util.ArrayList<String> javaObj = new java.util.ArrayList<>();
+    javaObj.add("marker");
+    engine().put("java_round_trip_obj", javaObj);
+    Object result = engine().eval("java_round_trip_obj");
+    assertTrue(result instanceof java.util.ArrayList);
+    assertEquals(result, javaObj);
+  }
+
+  @Test
+  public void testInvokeMethodOnPyObject() throws Exception
+  {
+    ScriptEngine engine = engine();
+    // The class def is a statement (falls back to exec, no return value) -
+    // the instantiation must be its own eval() call to get the instance
+    // itself back rather than null.
+    engine.eval(
+            "class ScriptEngineTestFoo:\n"
+            + "    def bar(self, x):\n"
+            + "        return x + 1\n");
+    Object instance = engine.eval("ScriptEngineTestFoo()");
+    Object result = ((Invocable) engine).invokeMethod(instance, "bar", 5);
+    assertEquals(result.toString(), "6");
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testInvokeMethodOnNonPyObjectThrows() throws Exception
+  {
+    ((Invocable) engine()).invokeMethod("not a PyObject", "anything");
+  }
+
+  @Test(expectedExceptions = NoSuchMethodException.class)
+  public void testInvokeMethodMissingAttributeThrows() throws Exception
+  {
+    ScriptEngine engine = engine();
+    engine.eval("class ScriptEngineTestEmpty:\n    pass\n");
+    Object instance = engine.eval("ScriptEngineTestEmpty()");
+    ((Invocable) engine).invokeMethod(instance, "no_such_method");
+  }
+
+  public interface Squarer
+  {
+
+    Object square(int n);
+  }
+
+  @Test
+  public void testGetInterfaceOnEngine() throws Exception
+  {
+    ScriptEngine engine = engine();
+    engine.eval("def square(n):\n    return n * n\n");
+    Squarer squarer = ((Invocable) engine).getInterface(Squarer.class);
+    assertEquals(squarer.square(7).toString(), "49");
+  }
+
+  @Test
+  public void testGetInterfaceOnObject() throws Exception
+  {
+    ScriptEngine engine = engine();
+    engine.eval(
+            "class ScriptEngineTestSquarer:\n"
+            + "    def square(self, n):\n"
+            + "        return n * n\n");
+    Object instance = engine.eval("ScriptEngineTestSquarer()");
+    Squarer squarer = ((Invocable) engine).getInterface(instance, Squarer.class);
+    assertEquals(squarer.square(8).toString(), "64");
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testGetInterfaceNonInterfaceThrows() throws Exception
+  {
+    ((Invocable) engine()).getInterface(String.class);
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testGetInterfaceOnObjectNonPyObjectThrows() throws Exception
+  {
+    ((Invocable) engine()).getInterface("not a PyObject", Squarer.class);
   }
 }

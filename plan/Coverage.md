@@ -1,6 +1,6 @@
 # Java module coverage cleanup: systematic pass
 
-## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]] for the crash fix), org.jpype.internal. Remaining packages NOT STARTED.
+## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]] for the crash fix), org.jpype.internal, org.jpype.script. Remaining packages NOT STARTED.
 
 `jacoco-maven-plugin` (0.8.14, offline-resolvable from `~/.m2` except one
 missing transitive jar — `plexus-utils:1.1`, fetched once online, now
@@ -54,7 +54,7 @@ building until the `mvn` report alone leaves unexplained gaps.
 | org.jpype.pickle | 0% | 0% | yes — forward-bridge (`test_pickle.py`) | not started |
 | python.exceptions | 100% classes reached | n/a | no — reverse-bridge only, all 50 exception classes are this suite's job | **DONE** |
 | org.jpype.internal | 74% | 60% | unknown, check before assuming | **DONE** (3 classes left alone, rule 3) |
-| org.jpype.script | 52% | 47% | unknown, check before assuming | not started |
+| org.jpype.script | ~90% | ~82% | unknown, check before assuming | **DONE** |
 | python.lang | 64% | 49% | no — reverse-bridge only | not started |
 | org.jpype | 69% | 47% | partial (BootstrapLoader is a static launcher entry point, may be forward-bridge/native-launch only) | not started |
 | python.decimal | 72% | n/a | no | not started |
@@ -128,8 +128,22 @@ starting worklist once a package is picked:
   instrument a native method body at all, so its near-0% is just the
   implicit default constructor, not a real gap — nothing to write a test
   for).
-- **org.jpype.script**: `JPypeScriptEngine` (49%), `JPypeScriptEngineFactory`
-  (57%).
+- **org.jpype.script**: **DONE.** `JPypeScriptEngineFactory` — every
+  getter is plain deterministic Java with no interpreter dependency, so
+  new `JPypeScriptEngineFactoryNGTest` (no bridge) covers all of them
+  directly; now fully covered (134/134). `JPypeScriptEngine` — extended
+  the existing bridge-based `JPypeScriptEngineNGTest` with
+  `getFactory`/`createBindings`/`eval(Reader,...)`, a real runtime error
+  (not just a syntax-error fallback) getting wrapped into
+  `ScriptException`, `GLOBAL_SCOPE` vs. `ENGINE_SCOPE` precedence, the
+  `PyJavaObject` unboxing round trip in `toNative`, both `invokeMethod`
+  success/failure paths, and both `getInterface` overloads (including
+  their `IllegalArgumentException` branches). One real test-writing gotcha
+  hit along the way: a multi-line `class Foo:\n ...\nFoo()` string isn't
+  expression-shaped, so `eval()` takes the statement-fallback path and
+  returns `null`, not the instance — the class def and the instantiation
+  need to be two separate `eval()` calls. 49% to ~89%
+  (319/360 instructions).
 - **python.exceptions**: **DONE.** Crash unblocked (see
   [[plan/ExecCrashDebug.md]] for the full root-cause writeup: bug 1
   `org.jpype.pkg.PackageManager` couldn't enumerate an application
