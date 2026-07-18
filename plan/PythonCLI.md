@@ -160,32 +160,33 @@ interpreter. Needs a concrete test: `runModule("pip", "install",
 about the failure, not hang or corrupt interpreter state for subsequent
 calls.
 
-## Open questions to resolve during implementation
+## Decisions (locked in 2026-07-17)
 
-1. Where does this live — new methods directly on `MainInterpreter`, or
-   a new small helper class (mirroring how `Script` was split out
-   instead of cramming `eval`/`exec` onto `Interpreter` itself)? Leaning
-   toward a new class (`PyCLI`? `Runner`?) taking an `Interpreter` in its
-   constructor, matching `Script`'s existing shape, so this is equally
-   usable against a `SubInterpreter`.
-2. Should `main(String[] args)` itself start dispatching `-c`/`-m`/file
-   automatically (making `java org.jpype.MainInterpreter -m pip install
-   X` work as a literal CLI, matching the class's own Javadoc claim of
-   "pretending we are a python variant") once the underlying
-   `runModule`/`runFile`/`runCommand` methods exist? Likely yes — that's
-   the actual motivating use case — but should land as a second step
-   after the underlying methods are implemented and tested
-   independently, not bundled into the same change.
-3. Does `SystemExit` translation belong in this new code, or should it
-   be a more general reverse-bridge concern (any `Script.exec`/`eval`
-   call can already raise `SystemExit` today, not just these new
-   methods — worth checking whether that's already handled sanely
-   before assuming it's new scope here).
-4. `runFile`'s `run_path` vs. plain `exec(Files.readString(...))` choice
-   needs an actual test against something like a `__main__.py`-containing
-   directory or a zipapp to confirm `run_path`'s extra behavior is worth
-   the dependency on `runpy`'s more complex code path vs. a plain
-   `exec`.
+1. **New class, not `MainInterpreter` methods.** Mirror `Script`: a small
+   class (working name `Runner`) constructed from an `Interpreter`, so it
+   works against `SubInterpreter` too and doesn't bloat `MainInterpreter`.
+   Houses `runModule`/`runFile`/`runCommand`/`pipInstall`.
+2. **Implement `runModule`/`runFile`/`runCommand` first; wire `main()`'s
+   auto-dispatch as a separate, later step.** Land and test the
+   underlying methods in isolation before touching the CLI entry point
+   — `main()`'s dispatch is just thin argv-parsing (`-c`/`-m`/bare-file/
+   `-i` detection) around them once they exist.
+3. **Catch `SystemExit`, translate to a checked exception carrying the
+   exit code.** Don't let it propagate as a generic Python exception,
+   don't swallow it. Before implementing, check whether `Script.exec`/
+   `eval` already has *some* `SystemExit` behavior today — if so, match
+   that existing convention rather than inventing a second one.
+4. **Use `runpy.run_path()` for `runFile`, not plain `exec()`.** Matches
+   real `python script.py` behavior for free (line numbers,
+   `__main__.py`-containing directories, zipapps) — not worth
+   maintaining a second, less-faithful code path.
+5. **Always restore `sys.argv`** after `runModule`/`runFile`/`runCommand`
+   returns, success or exception. `MainInterpreter` is long-lived (unlike
+   a real `python` process, which just exits), so leaving `sys.argv`
+   mutated after a one-off call is a footgun for any Java code that
+   keeps using the interpreter afterward. No real-Python precedent to
+   preserve here, since a real CLI process never needs to restore
+   anything.
 
 ## Relationship to `plan/LaunchConfig.md`'s findings
 
