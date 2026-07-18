@@ -17,7 +17,6 @@
 package python.lang;
 
 import org.jpype.internal.FunctionalAdapters;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.function.Function;
@@ -219,7 +218,14 @@ class PyMappingValues<K extends PyObject, V extends PyObject> implements Collect
   @Override
   public Object[] toArray()
   {
-    return new ArrayList<>(this).toArray();
+    // Do not route through `new ArrayList<>(this)` - its constructor calls
+    // this.toArray() internally, recursing into this same method and
+    // overflowing the stack.
+    Object[] result = new Object[size()];
+    int i = 0;
+    for (Object o : this)
+      result[i++] = o;
+    return result;
   }
 
   /**
@@ -231,8 +237,18 @@ class PyMappingValues<K extends PyObject, V extends PyObject> implements Collect
    * @return an array of values
    */
   @Override
+  @SuppressWarnings("unchecked")
   public <T> T[] toArray(T[] a)
   {
-    return new ArrayList<>(this).toArray(a);
+    int size = size();
+    if (a.length < size)
+      a = (T[]) java.lang.reflect.Array.newInstance(a.getClass().getComponentType(), size);
+    int i = 0;
+    Object[] result = a;
+    for (Object o : this)
+      result[i++] = o;
+    if (a.length > size)
+      a[size] = null;
+    return a;
   }
 }
