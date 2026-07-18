@@ -1,6 +1,6 @@
 # Java module coverage cleanup: systematic pass
 
-## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script, python.lang (PyMapping views + real bug fixed; protocol interfaces incl. PyGenerator crash root-caused and fixed, see [[plan/GeneratorCastCrash.md]]; PyCallable.CallBuilder + kwargs-string bug fixed; PyMapping/PySequence/PySet/PyFrozenSet/PyTuple all raised to ~100%; PyMutableSet confirmed NOT deletable, see finding in this doc), org.jpype (61%→66%; SubInterpreter/most of SubInterpreterBuilder confirmed environment-gated — needs a real Python 3.12 native rebuild, out of scope here — everything else fixable under 3.10 closed out: Script/Interpreter/SpiResource now 100%), python.decimal (72%→100%; tiny package, only `PyDecimalWrapperService`'s getters were uncovered), python.collections (83%→95%; `PyOrderedDict.moveToEnd(key)`'s one-arg default confirmed unreachable through the real bridge — name-only dispatch always resolves to Python's own `move_to_end` first, see finding below), org.jpype.manager (86%→93% instruction / 76%→89% branch; found+fixed a real resource-leak bug in `TypeManager.createClass()`'s lambda/anonymous-class branches, see finding below), org.jpype.pkg (85%→93% instruction / 78%→91% branch; pure classloader/reflection code, no bridge needed, see finding below), python.pathlib (81%→100%; same tiny-package pattern as python.decimal/python.collections, only `PyPathlibWrapperService`'s getters were uncovered). Remaining packages NOT STARTED: org.jpype.ref, python.io, org.jpype.proxy, python.datetime.
+## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script, python.lang (PyMapping views + real bug fixed; protocol interfaces incl. PyGenerator crash root-caused and fixed, see [[plan/GeneratorCastCrash.md]]; PyCallable.CallBuilder + kwargs-string bug fixed; PyMapping/PySequence/PySet/PyFrozenSet/PyTuple all raised to ~100%; PyMutableSet confirmed NOT deletable, see finding in this doc), org.jpype (61%→66%; SubInterpreter/most of SubInterpreterBuilder confirmed environment-gated — needs a real Python 3.12 native rebuild, out of scope here — everything else fixable under 3.10 closed out: Script/Interpreter/SpiResource now 100%), python.decimal (72%→100%; tiny package, only `PyDecimalWrapperService`'s getters were uncovered), python.collections (83%→95%; `PyOrderedDict.moveToEnd(key)`'s one-arg default confirmed unreachable through the real bridge — name-only dispatch always resolves to Python's own `move_to_end` first, see finding below), org.jpype.manager (86%→93% instruction / 76%→89% branch; found+fixed a real resource-leak bug in `TypeManager.createClass()`'s lambda/anonymous-class branches, see finding below), org.jpype.pkg (85%→93% instruction / 78%→91% branch; pure classloader/reflection code, no bridge needed, see finding below), python.pathlib (81%→100%; same tiny-package pattern as python.decimal/python.collections, only `PyPathlibWrapperService`'s getters were uncovered), org.jpype.ref (88%→95% instruction / 67%→80% branch; `NativeReference`/`ReferenceSet` are pure bookkeeping despite living next to native cleanup calls, see finding below; `NativeReferenceQueue`/`Worker` and 2 lines of `GlobalPool` left as genuinely native/concurrency-gated). Remaining packages NOT STARTED: python.io, org.jpype.proxy, python.datetime.
 
 `jacoco-maven-plugin` (0.8.14, offline-resolvable from `~/.m2` except one
 missing transitive jar — `plexus-utils:1.1`, fetched once online, now
@@ -62,7 +62,7 @@ building until the `mvn` report alone leaves unexplained gaps.
 | python.collections | 83% | 100% | no | **DONE** |
 | org.jpype.pkg | 85%→93% | 78%→91% | no — pure JVM classloader/reflection code, no Python bridge involved | **DONE** |
 | python.pathlib | 81%→100% | n/a | no | **DONE** |
-| org.jpype.ref | 88% | 67% | unknown, check before assuming | not started |
+| org.jpype.ref | 88%→95% | 67%→80% | no | **DONE** |
 | python.io | 87% | 74% | no | not started |
 | org.jpype.proxy | 90% | 76% | unknown, check before assuming | not started |
 | python.datetime | 93% | 100% | no | not started |
@@ -302,6 +302,58 @@ starting worklist once a package is picked:
     .newDirectoryStream`); and `toURI`'s `catch (Exception e)` →
     `RuntimeException` (explicitly documented in its own comment as
     "should never occur").
+- **org.jpype.ref**: **DONE** (package total 88% → 95% instruction, 67%
+  → 80% branch; 891/891 full suite). `NativeReference` and `ReferenceSet`
+  are both package-private, so a same-package NGTest can construct and
+  drive them directly with no reflection at all - but they live right
+  next to real native cleanup calls (`NativeReference
+  .removeHostReference`, a native method dereferencing and invoking a
+  genuine C++ function pointer), so every new test here deliberately
+  only ever uses `cleanup == 0` entries, which every guard in this code
+  is written to short-circuit on *before* touching the native call -
+  fabricating a nonzero cleanup value would either no-op (if native
+  doesn't recognize it) or crash the JVM outright, not meaningfully test
+  anything.
+  - New `NativeReferenceNGTest`: `hashCode()`/`equals()` are plain field
+    comparisons - the constructor itself never touches native code (it
+    just stores fields; the native methods are separate, explicitly
+    invoked elsewhere), so this needed no bridge at all.
+  - New `ReferenceSetNGTest`: `size()`'s trivial getter; `add()`'s and
+    `remove()`'s `cleanup == 0` early-return guards (both short-circuit
+    before any pool access, so no setup beyond a bare `NativeReference`
+    is needed); and `flush()`'s loop/continue/tail-reset path, reached by
+    directly seeding a `ReferenceSet.Pool` (bypassing the public `add()`,
+    which itself refuses zero-cleanup entries) with one `cleanup == 0`
+    entry - covers the loop structure and the "skip a stale slot"
+    continue without ever reaching the real `removeHostReference` call
+    two lines below it (left uncovered, same reasoning as above).
+  - `NativeReferenceQueue`/its inner `Worker` thread stayed essentially
+    untouched (33/155 and 7/65 instructions missed respectively): the
+    constructor itself requires a live `NativeContext` and immediately
+    makes real native calls, and the interesting uncovered branches
+    (`InterruptedException` during shutdown, the worker's sentinel-wake
+    loop, the critical-error catch-all) are real-bridge-lifecycle/timing
+    edge cases already implicitly covered end-to-end by every
+    `PyTestHarness` test's own bridge startup/shutdown - not practical to
+    drive deterministically from a standalone unit test without
+    fabricating fake native context state, which is exactly the kind of
+    substitution [[jpype_feedback_benchmark_before_substituting]] and
+    [[jpype_feedback_trust_invariants]] warn against here.
+  - `GlobalPool` (already extensively tested by an existing
+    `GlobalPoolNGTest`, including the prefix-wraparound stamp-mismatch
+    case referenced in [[jpype_globalpool_allocator_status]]) has 2 lines
+    left uncovered: `get()`'s `block == null` return and `remove()`'s
+    `slots[blockIdx] == null` return. Both are lock-free-resize
+    consistency guards - reachable in real use only via a handle whose
+    decoded index lands in a `slots` region that's been array-doubled by
+    `realloc` but not yet backfilled, or from a `remove()` on a
+    since-invalidated block. No add()-driven sequence produces such a
+    handle; only fabricating one via the class's `private static
+    encode(...)` (through reflection) could reach these two lines, and
+    doing so risks exercising invented rather than real state - left
+    undone, same call as `GlobalPool.tryRelease`'s existing
+    stamp-mismatch design (already covered) versus these two
+    resize-race guards (not).
 - **org.jpype.internal**: **DONE** (41%/26% baseline → 74%/60%
   instruction/branch). `Keywords` and `FunctionalAdapters` — plain,
   native-free static utility classes, got ordinary non-bridge NGTest
