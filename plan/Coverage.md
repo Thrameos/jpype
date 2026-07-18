@@ -1,6 +1,6 @@
 # Java module coverage cleanup: systematic pass
 
-## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script, python.lang (PyMapping views + real bug fixed; protocol interfaces incl. PyGenerator crash root-caused and fixed, see [[plan/GeneratorCastCrash.md]]; PyCallable.CallBuilder + kwargs-string bug fixed; PyMapping/PySequence/PySet/PyFrozenSet/PyTuple all raised to ~100%; PyMutableSet confirmed NOT deletable, see finding in this doc), org.jpype (61%→66%; SubInterpreter/most of SubInterpreterBuilder confirmed environment-gated — needs a real Python 3.12 native rebuild, out of scope here — everything else fixable under 3.10 closed out: Script/Interpreter/SpiResource now 100%), python.decimal (72%→100%; tiny package, only `PyDecimalWrapperService`'s getters were uncovered), python.collections (83%→95%; `PyOrderedDict.moveToEnd(key)`'s one-arg default confirmed unreachable through the real bridge — name-only dispatch always resolves to Python's own `move_to_end` first, see finding below). Remaining packages NOT STARTED: org.jpype.manager, org.jpype.pkg, python.pathlib, org.jpype.ref, python.io, org.jpype.proxy, python.datetime.
+## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script, python.lang (PyMapping views + real bug fixed; protocol interfaces incl. PyGenerator crash root-caused and fixed, see [[plan/GeneratorCastCrash.md]]; PyCallable.CallBuilder + kwargs-string bug fixed; PyMapping/PySequence/PySet/PyFrozenSet/PyTuple all raised to ~100%; PyMutableSet confirmed NOT deletable, see finding in this doc), org.jpype (61%→66%; SubInterpreter/most of SubInterpreterBuilder confirmed environment-gated — needs a real Python 3.12 native rebuild, out of scope here — everything else fixable under 3.10 closed out: Script/Interpreter/SpiResource now 100%), python.decimal (72%→100%; tiny package, only `PyDecimalWrapperService`'s getters were uncovered), python.collections (83%→95%; `PyOrderedDict.moveToEnd(key)`'s one-arg default confirmed unreachable through the real bridge — name-only dispatch always resolves to Python's own `move_to_end` first, see finding below), org.jpype.manager (86%→93% instruction / 76%→89% branch; found+fixed a real resource-leak bug in `TypeManager.createClass()`'s lambda/anonymous-class branches, see finding below). Remaining packages NOT STARTED: org.jpype.pkg, python.pathlib, org.jpype.ref, python.io, org.jpype.proxy, python.datetime.
 
 `jacoco-maven-plugin` (0.8.14, offline-resolvable from `~/.m2` except one
 missing transitive jar — `plexus-utils:1.1`, fetched once online, now
@@ -58,7 +58,7 @@ building until the `mvn` report alone leaves unexplained gaps.
 | python.lang | 77% | 61% | no — reverse-bridge only | in progress, protocol interfaces + PyGenerator crash fixed (see [[plan/GeneratorCastCrash.md]]) |
 | org.jpype | 69% | 47% | partial (BootstrapLoader is a static launcher entry point, may be forward-bridge/native-launch only) | not started |
 | python.decimal | 72% | n/a | no | **DONE** |
-| org.jpype.manager | 85% | 75% | unknown, check before assuming | not started |
+| org.jpype.manager | 85% | 75% | unknown, check before assuming | **DONE** |
 | python.collections | 83% | 100% | no | **DONE** |
 | org.jpype.pkg | 85% | 78% | unknown, check before assuming | not started |
 | python.pathlib | 81% | n/a | no | not started |
@@ -167,6 +167,84 @@ starting worklist once a package is picked:
     beyond what `PyDeque` needed) — disproportionate boilerplate for 2
     lines / <2% of the package, so left undone (same
     cost/benefit call as `Launcher`'s bootstrap methods in `org.jpype`).
+- **org.jpype.manager**: **DONE** (package total 86% → 93% instruction,
+  76% → 89% branch; 869/869 full suite). This package already had an
+  unused asset: `TypeFactoryHarness` (`src/test/.../TypeFactoryHarness.java`)
+  is a complete fake `TypeFactory`/`TypeAudit` implementation built
+  specifically so `TypeManager`'s class-wrapping/reflection bookkeeping
+  can be exercised entirely off the native bridge (no JVM↔Python
+  bridge, no `PyTestHarness`) - but it was only ever driven by a manual
+  `main()`-based demo (`TestTypeManager`) that never ran as part of the
+  automated suite, so none of that coverage existed. New
+  `TypeManagerNGTest` converts that demo into real `@Test` methods plus
+  new scenarios:
+  - The original demo scenario (init → wrap a multi-dim primitive array,
+    a lambda, an anonymous-implements-interface class, and an
+    anonymous-extends-class instance → shutdown → assert zero leaked
+    native resources) as `testInitCreateFindShutdownNoLeaks`.
+  - **Found and fixed a real bug** while wiring this up: the assertion
+    failed with 1 leaked resource. Root cause in
+    `TypeManager.createClass()` (`org/jpype/manager/TypeManager.java`):
+    its lambda/anonymous-class branches (`cls.isSynthetic() &&
+    ...$Lambda$...`, `cls.isAnonymousClass()`) call
+    `createOrdinaryClass(interfaceOrSuperclass, flags)` **directly**,
+    bypassing the `checkCache`/`classMap` lookup that the ordinary
+    top-level `findClass`/`createClass` path always does first. Every
+    *previously-wrapped* interface implemented by a second, unrelated
+    lambda or anonymous class (e.g. two different anonymous classes
+    both implementing the same functional interface) got a brand new
+    native class resource created and registered over the old
+    `classMap` entry - orphaning the first resource, which then never
+    gets destroyed at shutdown. This is a real, live leak in the actual
+    reverse-bridge class-wrapping path (every real bridge session
+    wraps a mix of lambdas/anonymous classes over its lifetime), not
+    just a test artifact. **Fixed** by adding a `wrapperFor(cls, kind)`
+    helper that checks `classMap` before delegating to
+    `createOrdinaryClass`, and routing all three call sites (lambda,
+    single-interface-anonymous, anonymous-extends superclass) through
+    it instead of calling `createOrdinaryClass` unconditionally.
+  - `lookupByName` (pure reflection, no context needed - confirmed via
+    its own `new TypeManager(null, null)` constructor path, which is
+    explicitly documented as "used in unittesting, but it avoids all
+    methods that call context"): direct-class lookup, array dimension
+    peeling (`int[][][]`), JNI-style `/`-separated names, all 8
+    primitive-name special cases, the inner-class dot→`$` fallback
+    probe, and the not-found→`null` case.
+  - `ClassDescriptor` (84% → **100%**): its package-private constructor
+    and `getMethod` are directly testable in-package - the zero
+    class-pointer `NullPointerException` and `getMethod`'s
+    not-found→`0` return, neither reachable from the constructor's only
+    other caller (`createOrdinaryClass`, which never passes a zero
+    pointer in practice).
+  - `ModifierCode` (75% → **100%**, new `ModifierCodeNGTest`): pure
+    bitflag `get`/`decode` round-trip, no bridge needed.
+  - `TypeManager.Destroyer` (from a **pre-fix** baseline of 89%/93%
+    down to 50%/29% immediately after the leak fix landed, then back up
+    to 86%/78% after a deliberate stress test): the leak fix above
+    means the real bridge now creates measurably fewer redundant native
+    class resources over its lifetime, so its own final `shutdown()`
+    no longer incidentally churns past `Destroyer`'s `BLOCK_SIZE=1024`
+    flush threshold as often - a real, desirable reduction in native
+    resource churn, but it left those overflow branches under-tested
+    by accident rather than by design. Replaced the accidental coverage
+    with a deliberate one: `testShutdownFlushesDestroyerQueueOverflow`
+    wraps ~130 diverse real JDK classes (`java.lang`/`java.util`/
+    `java.util.concurrent`/`java.io`/`java.nio`/reflection/etc, each via
+    `findClass`+`populateMembers`) in one `TypeManager` session, then
+    shuts it down - enough real method/field/constructor dispatch
+    arrays accumulate to trigger the queue-overflow flush repeatedly,
+    without fabricating fake resource ids (the harness's own `destroy()`
+    validates every id it's asked to destroy actually exists, so
+    synthetic ids via reflection would just throw). Two edge branches
+    remain uncovered: `add(long)`'s exact `index == BLOCK_SIZE` path and
+    `add(long[])`'s `v.length > BLOCK_SIZE/2` direct-destroy path -
+    hitting those precisely would need engineering an exact boundary
+    count or a single class with >512 own members, not worth the
+    precision for 2-3 lines.
+  - `TypeManager` overall stayed at 91%/86% - the remainder is native
+    JNI-facing declarations, reflection-failure `catch` blocks, and the
+    startup GIL-leak diagnostic (`NativeLauncherControl.isGilHeld()`
+    after `init()`), none practical to drive from a plain unit test.
 - **org.jpype.internal**: **DONE** (41%/26% baseline → 74%/60%
   instruction/branch). `Keywords` and `FunctionalAdapters` — plain,
   native-free static utility classes, got ordinary non-bridge NGTest

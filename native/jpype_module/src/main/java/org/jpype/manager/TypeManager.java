@@ -190,16 +190,16 @@ public class TypeManager
       // If is it lambda, we need a special wrapper
       // we don't want to create a class each time in that case.
       // Thus use the parent interface for this class
-      out = createOrdinaryClass(cls.getInterfaces()[0], flags).classPtr;
+      out = wrapperFor(cls.getInterfaces()[0], flags).classPtr;
     } else if (cls.isAnonymousClass())
     {
       // This one is more of a burden.  It depends what whether is was
       // anonymous extends or implements.
       if (cls.getInterfaces().length == 1)
-        out = createOrdinaryClass(cls.getInterfaces()[0], flags).classPtr;
+        out = wrapperFor(cls.getInterfaces()[0], flags).classPtr;
       else
       {
-        ClassDescriptor parent = createOrdinaryClass(cls.getSuperclass(), flags);
+        ClassDescriptor parent = wrapperFor(cls.getSuperclass(), flags);
         out = createAnonymous(parent);
       }
     } else if (cls.isArray())
@@ -494,6 +494,22 @@ public class TypeManager
   }
 //</editor-fold>
 //<editor-fold desc="classes" defaultstate="defaultstate">
+
+  // createClass()'s lambda/anonymous branches need the wrapper for a
+  // *different* class than the one being created (the interface or
+  // superclass being implemented/extended) - unlike the top-level
+  // createClass() dispatch, that class may already have been wrapped by
+  // an earlier, unrelated lambda/anonymous class implementing the same
+  // interface. createOrdinaryClass() itself always creates unconditionally,
+  // so callers that don't already know the class is new must check the
+  // cache first or they'll orphan the previous wrapper's native resource.
+  private ClassDescriptor wrapperFor(Class<?> cls, EnumSet<Kind> kind)
+  {
+    ClassDescriptor cached = this.classMap.get(cls);
+    if (cached != null)
+      return cached;
+    return createOrdinaryClass(cls, kind);
+  }
 
   private ClassDescriptor createOrdinaryClass(Class<?> cls, EnumSet<Kind> kind)
   {
