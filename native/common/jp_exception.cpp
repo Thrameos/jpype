@@ -337,7 +337,14 @@ void JPypeException::convertPythonToJava(JPJavaFrame& frame)
 
 	// Execute the Python conversion method: _pyexc_convert(exc)
 	// This returns our normalized _jpype._JProxy instance wrapping the Java Throwable
-	JPPyObject proxy_res = JPPyObject::claim(PyObject_CallFunctionObjArgs(pyexc_convert_fn, exc.get(), nullptr));
+	// NOTE: must use accept(), not claim() - a failure in _pyexc_convert (e.g.
+	// _jpype._exc not fully populated) is a real, expected-to-happen-sometimes
+	// condition handled by the isNull() check right below via fail(). claim()
+	// asserts non-null and throws on failure, which put a second JPypeException
+	// on top of this try block and tripped toJava's "exception handling itself
+	// failed" fail-fast (a deliberate null-deref) - crashing the whole JVM
+	// instead of surfacing a normal Java exception. See plan/ExecCrashDebug.md.
+	JPPyObject proxy_res = JPPyObject::accept(PyObject_CallFunctionObjArgs(pyexc_convert_fn, exc.get(), nullptr));
 	if (proxy_res.isNull())
 	{
 		// If Python code raises an unhandled exception during conversion, it's trapped here

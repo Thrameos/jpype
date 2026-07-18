@@ -17,6 +17,7 @@
 package org.jpype.pkg;
 
 import java.io.IOException;
+import java.lang.module.ModuleReader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -37,6 +38,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.jpype.internal.Keywords;
 
 /**
@@ -87,8 +89,9 @@ public class PackageManager
     {
       name = name.replace(".", "/");
     }
-    return isModulePackage(name) 
-//            || isBasePackage(name) 
+    return isModulePackage(name)
+            || isNamedModulePackage(name.replace('/', '.'))
+//            || isBasePackage(name)
             || isJarPackage(name);
   }
 
@@ -106,11 +109,13 @@ public class PackageManager
   public static Map<String, URI> getContentMap(String packageName)
   {
     Map<String, URI> out = new HashMap<>();
+    String dottedName = packageName.replace('/', '.');
     packageName = packageName.replace(".", "/");
     // We need to merge all the file systems into one view like the classloader
     getJarContents(out, packageName);
 //    getBaseContents(out, packageName);
     getModuleContents(out, packageName);
+    getNamedModuleContents(out, dottedName);
     return out;
   }
 
@@ -296,6 +301,81 @@ public class PackageManager
       } catch (IOException ex)
       {
       }
+    }
+  }
+
+//</editor-fold>
+//<editor-fold desc="named application modules" defaultstate="collapsed">
+  /**
+   * Checks if a package belongs to a named (application) module resolved
+   * into the boot layer - i.e. a module supplied via {@code --module-path}/
+   * {@code --add-modules} on the launch command line, as opposed to a JDK
+   * platform module (handled by {@link #isModulePackage}) or classpath/
+   * unnamed-module content (handled by {@link #isJarPackage}).
+   *
+   * <p>
+   * {@code ClassLoader.getResources(String)} (used by {@link #getJarContents})
+   * does not reliably enumerate a named module's own package contents - only
+   * classpath/unnamed-module resources and anything patched in via
+   * {@code --patch-module}. Without this, a package that lives solely inside
+   * the {@code org.jpype} module itself (e.g. {@code python.exceptions}, when
+   * this code is embedded into a JVM launched with
+   * {@code --module-path=.../org.jpype-*.jar --add-modules=org.jpype}) is
+   * invisible to {@link #getContentMap} even though every class in it is
+   * perfectly loadable by name.</p>
+   *
+   * @param dottedName The name of the package, dot-separated.
+   * @return {@code true} if a boot-layer named module declares this package.
+   */
+  private static boolean isNamedModulePackage(String dottedName)
+  {
+    return findModuleForPackage(dottedName).isPresent();
+  }
+
+  private static Optional<java.lang.module.ResolvedModule> findModuleForPackage(String dottedName)
+  {
+    return ModuleLayer.boot().configuration().modules().stream()
+            .filter(rm -> rm.reference().descriptor().packages().contains(dottedName))
+            .findFirst();
+  }
+
+  /**
+   * Retrieves the contents of a package declared by a named application
+   * module, via {@link ModuleReader#list()} - the module-path counterpart to
+   * {@link #getJarContents}. See {@link #isNamedModulePackage} for why this
+   * is needed in addition to the classloader/jar-based lookup.
+   *
+   * @param out is the map to store the result in.
+   * @param dottedName is the name of the package, dot-separated.
+   */
+  private static void getNamedModuleContents(Map<String, URI> out, String dottedName)
+  {
+    Optional<java.lang.module.ResolvedModule> found = findModuleForPackage(dottedName);
+    if (!found.isPresent())
+      return;
+    String prefix = dottedName.replace('.', '/') + "/";
+    try (ModuleReader reader = found.get().reference().open())
+    {
+      reader.list().forEach(resourceName ->
+      {
+        if (!resourceName.startsWith(prefix))
+          return;
+        String rest = resourceName.substring(prefix.length());
+        // Only direct children (skip sub-packages and inner classes).
+        if (rest.isEmpty() || rest.indexOf('/') != -1 || rest.contains("$"))
+          return;
+        if (!rest.endsWith(".class"))
+          return;
+        String key = Keywords.wrap(rest.substring(0, rest.length() - 6));
+        try
+        {
+          reader.find(resourceName).ifPresent(uri -> out.put(key, uri));
+        } catch (IOException ex)
+        {
+        }
+      });
+    } catch (IOException ex)
+    {
     }
   }
 
