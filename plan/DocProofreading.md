@@ -1,7 +1,6 @@
 # Systematic proofreading pass over doc/*.rst
 
-## Status (2026-07-17): in progress — 29 of 36 files verified (Groups 1-3
-fully done), plan below covers the rest of Group 4
+## Status (2026-07-17): DONE — all 36 files verified (Groups 1-4 complete)
 
 ## Where this fits
 
@@ -85,6 +84,9 @@ Not a wordsmithing pass. Per file:
 | `limitations_java.rst` | Verified python.re/python.queue are still unimplemented (plan/Re.md, plan/Queue.md still "not started") -- accurate, no changes |
 | `imports.rst` | Fixed 3 real bugs in examples: wrong package name (nio.files->nio.file), and 2 uninstantiable-type constructor calls (ByteBuffer/Path) replaced with real factories |
 | `dbapi2.rst` | Major: 4 wrong setter names in the JDBC-type table, java.sql.SQLError doesn't exist (->SQLException), 4 exception classes wrongly attributed to java.sql instead of javax.sql.rowset(.serial/.spi), broken cursor.use link, malformed :py:class: role, typos |
+| `api.rst` | Mostly autodoc directives, verified they resolve; 2 grammar typos |
+| `android.rst` | Grammar/typo pass (many); behavioral claims not locally verifiable (no android source tree here) |
+| `develguide.rst` | Major: described a `_JValue` generic capsule class and `PyJPValue_create` function that no longer exist (removed by the object-model migration) -- rewrote the meta-class list, Factories section, and "_JValue class" subsection to describe the real current slot mechanism; fixed a wrong _JNumberChar/float claim (real name _JChar, extends str); same stale setup.py build-flag issue as install.rst/debugging_py.rst; ~25 typos |
 
 ## Systematic visit order for the rest
 
@@ -131,15 +133,15 @@ or freshly-verified `_py.rst` sibling for consistency:
 
 ### Group 4 — Reference chapters
 
-- [ ] `api.rst`
+- [x] `api.rst` — done, see above
 - [x] `dbapi2.rst` — done, see above. The split from `dbapi2_py.rst` is
       exactly as `dbapi2_py.rst` already describes: that page is a thin
       redirect, this is the real reference (autodoc'd Connection/Cursor/
       JDBCType, the exception hierarchy, the type-mapping table).
 - [x] `imports.rst` — done, see above
 - [x] `spi.rst` — done, see above
-- [ ] `android.rst`
-- [ ] `develguide.rst`
+- [x] `android.rst` — done, see above
+- [x] `develguide.rst` — done, see above
 - [x] `caller_sensitive.rst` — done as a side effect of `debugging_py.rst`,
       see above
 
