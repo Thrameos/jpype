@@ -1,7 +1,7 @@
 # Systematic proofreading pass over doc/*.rst
 
-## Status (2026-07-17): in progress — 27 of 36 files verified (Groups 1-3
-fully done), plan below covers the rest (Group 4)
+## Status (2026-07-17): in progress — 29 of 36 files verified (Groups 1-3
+fully done), plan below covers the rest of Group 4
 
 ## Where this fits
 
@@ -83,6 +83,8 @@ Not a wordsmithing pass. Per file:
 | `customizers_java.rst` | Verified `$`-mangle function verbatim against ProxyType.java, plus PyKwArgs/error-message claims against a real test -- accurate, no changes |
 | `tooling_java.rst` | Verified PyMemoryView.release()/NativeReferenceQueue/close()/closed() against source -- accurate, no changes |
 | `limitations_java.rst` | Verified python.re/python.queue are still unimplemented (plan/Re.md, plan/Queue.md still "not started") -- accurate, no changes |
+| `imports.rst` | Fixed 3 real bugs in examples: wrong package name (nio.files->nio.file), and 2 uninstantiable-type constructor calls (ByteBuffer/Path) replaced with real factories |
+| `dbapi2.rst` | Major: 4 wrong setter names in the JDBC-type table, java.sql.SQLError doesn't exist (->SQLException), 4 exception classes wrongly attributed to java.sql instead of javax.sql.rowset(.serial/.spi), broken cursor.use link, malformed :py:class: role, typos |
 
 ## Systematic visit order for the rest
 
@@ -130,10 +132,11 @@ or freshly-verified `_py.rst` sibling for consistency:
 ### Group 4 — Reference chapters
 
 - [ ] `api.rst`
-- [ ] `dbapi2.rst` (note: distinct from `dbapi2_py.rst` above — check
-      what the split between these two actually is; if unclear, that's
-      itself a finding)
-- [ ] `imports.rst`
+- [x] `dbapi2.rst` — done, see above. The split from `dbapi2_py.rst` is
+      exactly as `dbapi2_py.rst` already describes: that page is a thin
+      redirect, this is the real reference (autodoc'd Connection/Cursor/
+      JDBCType, the exception hierarchy, the type-mapping table).
+- [x] `imports.rst` — done, see above
 - [x] `spi.rst` — done, see above
 - [ ] `android.rst`
 - [ ] `develguide.rst`
