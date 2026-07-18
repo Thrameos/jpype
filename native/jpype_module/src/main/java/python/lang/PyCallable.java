@@ -270,13 +270,23 @@ public interface PyCallable extends PyObject
     /**
      * Adds a single keyword argument to the call sequence.
      *
+     * <p>
+     * {@code name} is converted to a genuine Python {@code str} via
+     * {@link PyBuiltIn#str(Object)} before being stored: a plain Java
+     * {@link CharSequence}/{@link String} crossing the bridge unconverted
+     * stays a Java object on the Python side (matched by {@code __eq__}/
+     * {@code __hash__}, but not an instance of {@code str}), which
+     * CPython's keyword-argument machinery rejects outright with
+     * {@code TypeError: keywords must be strings} once this dict is used
+     * as {@code **kwargs}.</p>
+     *
      * @param name the name of the keyword argument
      * @param value the value of the keyword argument
      * @return this {@link CallBuilder} instance for chaining
      */
     public CallBuilder kwarg(CharSequence name, Object value)
     {
-      jkwargs.add(new CallBuilderEntry<Object, Object>(name, value));
+      jkwargs.add(new CallBuilderEntry<Object, Object>(builtin.str(name.toString()), value));
       return this;
     }
 

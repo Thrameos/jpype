@@ -233,10 +233,25 @@ starting worklist once a package is picked:
     tests for all five live interfaces (`PyAbstractSet`/`PyContainer`/
     `PyIterable`/`PyCollection`/`PyGenerator`) now live in
     `python.lang.ProtocolInterfaceCoverageNGTest`; 775/775 full suite.
-  - Also still open: `PyCallable.CallBuilder`/`CallBuilderEntry` (0%,
-    119+20 instructions) — a builder-pattern API surface with no test
-    touching it at all. `PyMapping` (39%), `PySequence` (38%), `PySet`
-    (43%), `PyFrozenSet` (46%), `PyTuple` (56%) are partially covered core
+  - **`PyCallable.CallBuilder`/`CallBuilderEntry` — DONE.** Added
+    `python.lang.PyCallBuilderNGTest` (10 tests: `arg`/`args`/`kwarg`/
+    `kwargs`/`clear`/chaining, `execute`/`executeAsync`/
+    `executeAsync(timeout)`, `CallBuilderEntry`'s immutability). Found a
+    real production bug in the process: `CallBuilder.kwarg(CharSequence,
+    Object)` stored the raw Java `CharSequence` as the dict key, so any
+    call using `.kwarg(...)`/`.kwargs(...)` (with real keyword arguments,
+    not just positional) raised `PyTypeError: keywords must be strings`
+    once `execute()` tried to use the resulting dict as `**kwargs` -
+    verified via a debug test that a Java `String` crossing the bridge
+    unconverted stays a distinct Java-wrapped object (matched by
+    `__eq__`/`__hash__`, but not `isinstance(x, str)`), which CPython's
+    keyword-argument machinery rejects outright. Fixed by converting the
+    key through `PyBuiltIn.str(...)` before storing it (confirmed via the
+    same debug test that this really does yield a genuine Python `str`).
+    Both classes now 100% coverage (was 0%). 785/785 full suite (up from
+    775).
+  - Still open: `PyMapping` (39%), `PySequence` (38%), `PySet` (43%),
+    `PyFrozenSet` (46%), `PyTuple` (56%) — partially covered core
     collection types worth a closer look.
 
 ## Classification rules for each gap (apply per class/method, not per package)
