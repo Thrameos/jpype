@@ -214,8 +214,7 @@ Use Cases of JPickler
 Conclusion for JPicker
 ======================
 
-JPickler simplifies serialization of Java objects in Python, enabling seamless
-integration between the two ecosystems. By following best practices and
+JPickler simplifies serialization of Java objects in Python. By following best practices and
 understanding its limitations, you can use JPickler effectively for
 persistence, data exchange, and debugging tasks.
 

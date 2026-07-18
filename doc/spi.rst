@@ -24,6 +24,10 @@ special case built into the bridge — it is an ordinary SPI provider,
 checked against its resource directory,
 ``native/jpype_module/src/main/resources/python/io/spi/``.
 
+.. contents::
+   :local:
+   :depth: 1
+
 The interface
 --------------
 
@@ -33,6 +37,7 @@ The interface
         String[] getModuleNames();
         String getVersion();
         Iterable<String> getResources();
+        default void initialize(Backend backend) {}
     }
 
 ``getModuleNames()``
@@ -58,9 +63,14 @@ The interface
       }
 
   ``SpiLoader.listPyspiResources`` works whether the provider's classes are
-  on the classpath as an exploded directory (``mvn test``) or packaged
-  inside a jar (the ``ant``-built ``org.jpype.jar``) — both are exercised by
-  this project's own build.
+  on the classpath as an exploded directory or packaged inside a jar, and
+  returns them in sorted filename order — both are exercised by this
+  project's own build.
+
+``initialize(Backend)``
+  A default no-op hook. **Nothing calls it today** — ``SpiLoader`` never
+  invokes it, and no other code path does either. Treat it as reserved, not
+  as a live extension point; don't design a provider around it.
 
 Registering the provider
 -------------------------
@@ -89,27 +99,82 @@ module descriptor's ``provides ... with`` clause is consulted instead:
         provides org.jpype.WrapperService with python.io.PyIOWrapperService;
     }
 
+This distinction is not academic: ``org.jpype``'s own ``module-info.java``
+declares all five of its built-in providers (``python.io``,
+``python.collections``, ``python.datetime``, ``python.pathlib``,
+``python.decimal``) via ``provides ... with``, and only ``python.io`` also
+ships a ``META-INF/services`` file (unused at runtime, since the
+module-path route already finds it). A **third-party** provider is not
+part of the ``org.jpype`` module, so it cannot rely on that ``provides``
+clause — it must ship its own ``META-INF/services/org.jpype.WrapperService``
+so classpath/module-path discovery of a foreign module still finds it.
+
 At interpreter startup, ``org.jpype.SpiLoader.load(installer)`` loads every
-registered ``WrapperService``, reads each of its declared resources, and
-replays them into the ``Installer`` — eagerly or lazily, per each resource's
-own header (below). This happens once, from ``MainInterpreter.setInstaller``.
+registered ``WrapperService`` (in whatever order ``ServiceLoader`` yields
+them), reads each one's declared resources in the order ``getResources()``
+returns them, and replays them into the ``Installer`` — eagerly or lazily,
+per each resource's own header (below). This happens once, from
+``MainInterpreter.setInstaller``, after the shared ``Backend`` has already
+been bound (see `Backends`_ below — some SPI resources depend on that
+ordering).
 
 The ``.pyspi`` resource format
 -------------------------------
 
 Each ``.pyspi`` file is a small ``key: value`` header, a line containing
-only ``---``, then a blob of Python source. When that source is ``exec``'d,
-it must bind a top-level name ``METHODS`` to a ``dict[str, Callable]``
-mapping Java-interface method names to the Python callables that implement
-them.
+exactly ``---``, then a blob of Python source, exactly as read by
+``SpiResource.parse``:
 
-There are two kinds of resource, selected by the header's ``kind:`` field.
+- The header/body separator is the literal substring ``"\n---\n"`` — not
+  just "a line with three dashes somewhere." A malformed file raises
+  ``"Missing '---' header/body separator"`` at load time, not later.
+- Header lines are trimmed; blank lines and lines starting with ``#`` are
+  skipped as comments.
+- Recognized header keys: ``kind`` (``class`` or ``backend``, defaults to
+  ``class`` if omitted), ``module``, ``class``, ``interface`` (always
+  required), ``lazy`` (``true``/anything else = false). There is no
+  ``version`` or ``package`` header field. Unrecognized keys are accepted
+  silently and simply never read — a typo in a header key fails silently,
+  not loudly, so double-check spelling rather than relying on a load-time
+  error to catch it.
+- The body, after the separator, is ``exec``'d as a full Python module
+  body — ordinary imports and helper ``def``s are allowed before the
+  required top-level ``METHODS = {...}`` binding. Several built-in
+  providers do exactly this (``pathlib``'s ``_compare_to``/``_join``
+  helpers, ``datetime``'s ``_utc_offset_seconds``, mini-backends importing
+  their own modules).
+
+**The ``METHODS`` key convention is not simply the Java method name.** It
+depends on whether the target Java interface extends
+``python.lang.PyObject``:
+
+- **Class registrations** (``kind: class``) target interfaces that extend
+  ``PyObject`` — every one of them does, since that's what makes them
+  ``PyObject``-family wrappers. Those interfaces go through JPype's
+  ``$``-mangled dispatch (:doc:`customizers_java`), so every key in
+  ``METHODS`` must be **dot-prefixed** to match: ``interface.getvalue()``
+  is reached through the key ``".getvalue"``, not ``"getvalue"``. Every
+  real ``kind: class`` resource in this repo uses dotted keys — see
+  ``python/io/spi/_io.BytesIO.pyspi`` below.
+- **Mini-backend registrations** (``kind: backend``) target interfaces that
+  do *not* extend ``PyObject`` (they're plain factory-style interfaces),
+  so they are never mangled — keys are the **plain** method name
+  (``"bytesIO"``, not ``".bytesIO"``).
+
+Getting this wrong doesn't fail at load time — the resource parses and
+registers fine, and the class-to-interface mapping succeeds. It fails
+later, as a clean ``NoSuchMethodError``/miss the first time Java actually
+calls the method, since the mangled wire name JPype looks up (``.foo``)
+was never present as a key. If a registered class's methods appear to not
+be found at call time, checking the dot prefix is the first thing to
+check.
 
 Class registration
 ~~~~~~~~~~~~~~~~~~~
 
 Declares that instances of a given Python class should be viewable as a
-given Java interface:
+given Java interface. Every entry in ``METHODS`` is called as an unbound
+method — the wrapped instance is always the first positional argument:
 
 .. code-block:: text
 
@@ -119,13 +184,11 @@ given Java interface:
     interface: python.io.PyBytesIO
     ---
     METHODS = {
-        "getvalue": lambda x: x.getvalue(),
+        ".getvalue": lambda x: x.getvalue(),
     }
 
 ``module``/``class`` identify the Python type (``_io.BytesIO``);
 ``interface`` is the fully qualified Java interface it should satisfy.
-Every entry in ``METHODS`` takes the wrapped instance as its first
-argument, exactly like an unbound method.
 
 By default this registration is **eager** — replayed immediately at
 interpreter startup, regardless of whether that Python class has been
@@ -141,7 +204,7 @@ instance of the class is actually seen crossing into Java:
     lazy: true
     ---
     METHODS = {
-        "getvalue": lambda x: x.getvalue(),
+        ".getvalue": lambda x: x.getvalue(),
     }
 
 Lazy registration exists for two reasons. First, it avoids paying the
@@ -151,24 +214,35 @@ until their package is imported — a third-party type like a ``numpy``
 subclass cannot be registered eagerly at all, since the class object
 doesn't exist yet at interpreter boot.
 
-Lazy resolution is batched **by module, not by class**: the first time any
-instance of an unresolved type crosses into Java, every ``lazy: true``
-resource for every ``__module__`` value across that type's ``__mro__`` gets
-registered in one pass, not just the one class that triggered the miss.
-This matters because of a real gotcha in the standard library's own
-``io`` module: the public abstract base classes (``io.IOBase``,
-``io.BufferedIOBase``, ...) report ``__module__ == "io"``, while every
-concrete class (``_io.BytesIO``, ``_io.StringIO``, ...) reports
+Mechanically, an eager resource is registered by calling
+``importlib.import_module(pyModule)``, ``getattr(mod, pyClass)``, then
+recording the result in the same two module-level dicts JPype's own
+hand-written core types use: ``_jpype._concrete[pyType] = interface`` and
+``_jpype._methods[interface] = methods``. A lazy resource skips all of
+that at load time and just stashes ``(interface, methodsSource)`` under
+``_jpype._lazy_pending[module][class]``.
+
+The lazy hook fires from the type-probe cache miss path
+(``_LazyCache.__getitem__``, the dict backing ``_jpype._cache``): the first
+time an *unrecognized* type is seen crossing into Java, it computes the set
+of ``__module__`` values across **that type's entire MRO**, intersects it
+against the pending-module keys, and — for every match — eagerly resolves
+**every** class still pending for that module in one pass, not just the
+one class that triggered the miss. Resolution is therefore batched by
+module, not by class. This matters because of a real gotcha in the
+standard library's own ``io`` module: the public abstract base classes
+(``io.IOBase``, ``io.BufferedIOBase``, ...) report ``__module__ == "io"``,
+while every concrete class (``_io.BytesIO``, ``_io.StringIO``, ...) reports
 ``__module__ == "_io"``, the C accelerator module actually backing the
 ``io`` facade. A provider that only declared ``getModuleNames()`` as
 ``{"io"}`` would never see its concrete-class resources triggered — hence
 ``PyIOWrapperService`` declaring both ``"io"`` and ``"_io"``. Any real
-third-party package with a similar Python-facade/C-accelerator split (numpy
-included) needs the same treatment.
+third-party package with a similar Python-facade/C-accelerator split
+(numpy included) needs the same treatment.
 
 Once resolved — eagerly at boot or lazily on first miss — there is no
 further per-call cost: the class-to-interface mapping is a plain cache
-lookup from then on, whether the code path is `eager` or `lazy`.
+lookup from then on, whether the resolution was eager or lazy.
 
 Mini-backend registration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -176,11 +250,11 @@ Mini-backend registration
 A provider frequently needs its own module-level entry points — mostly
 factory functions, since a wrapped type's constructor has to live
 somewhere. These cannot be added to JPype's own shared ``Backend``
-interface — that is one fixed, compiled interface bound once to one
-hardcoded dict, and no per-provider extension point exists on it (nor
-should core ``python.lang`` gain per-provider knowledge). Instead, a
-provider declares its own small backend-shaped interface and registers a
-resource of ``kind: backend``:
+interface — that is one fixed, compiled interface bound once, JVM-wide,
+and no per-provider extension point exists on it (nor should core
+``python.lang`` gain per-provider knowledge). Instead, a provider declares
+its own small backend-shaped interface and registers a resource of
+``kind: backend``:
 
 .. code-block:: text
 
@@ -216,16 +290,138 @@ does this via ``IO.using(PyBuiltIn context)``, mirroring how any live
         PyBytesIO bytesIO(PyBuffer initial);
     }
 
+Backends
+--------
+
+Two, unrelated registries share the name "backend" and are easy to
+confuse:
+
+- **The shared ``Backend``** (``org.jpype.Backend``) is one large, fixed
+  interface (``call``, ``getattr``, ``newDict``, ``type``, ...) bound
+  exactly once, JVM-wide, as a static field on ``MainInterpreter`` before
+  any SPI loading happens. Every ``PyObject`` reaches it through
+  ``builtin()``. Providers never extend or touch it directly.
+- **Mini-backends** are per-provider, per-interpreter: each ``kind:
+  backend`` resource registers its interface into a
+  ``ConcurrentHashMap<Class<?>, Object>`` on the interpreter's
+  ``NativeContext``, looked up later via ``context.getBackend(MyIface
+  .class)`` (throws ``IllegalStateException`` if that provider's resource
+  was never discovered/registered). ``PyBuiltIn.getBackend`` is just a
+  forwarding call to this map.
+
+A mini-backend interface like ``IO`` does *not* extend ``PyObject`` — it's
+a plain construction-and-lookup facade — so it is never ``$``-mangled, and
+its ``METHODS`` keys stay unmangled (see the format note above).
+
+Annotations that interact with SPI
+------------------------------------
+
+Three unrelated annotations live near this machinery; only one has
+anything to do with SPI registration:
+
+- ``@JImplements`` (Python-side, ``jpype._jproxy``) builds an ordinary
+  proxy from a hand-written Python class with ``@JOverride``-annotated
+  methods. It is a completely separate route to the same ``$``-mangled
+  dispatch mechanism SPI-registered classes use — see
+  :doc:`customizers_java` — and has no ``.pyspi``/``WrapperService``
+  involvement at all.
+- ``@Bypass`` (``org.jpype.annotation.Bypass``, Java-side) marks an
+  interface method whose call should **never** cross into Python: the
+  proxy invokes the interface's own default-method body directly via a
+  ``MethodHandle`` and skips the downcall entirely. ``PyMapping``'s
+  default ``get(Object)`` (plain ``x[key]``) is bypassed this way, while
+  ``PyDict``'s override that needs real dict semantics is not. This is
+  orthogonal to SPI registration — it fires (or doesn't) purely based on
+  the interface's own method declaration, regardless of whether the
+  concrete class behind it was registered eagerly, lazily, or not at all.
+- ``@Builtin`` (``org.jpype.annotation.Builtin``) is an internal marker
+  used to let an interface method return the ``PyBuiltIn`` backing a proxy
+  (how ``builtin()`` itself is implemented). Not something a provider
+  author needs to use.
+
+Bypassing SPI entirely
+------------------------
+
+``.pyspi``/``WrapperService`` is the sanctioned route for *persistent*
+registration — something that should apply to every instance of a Python
+class, discovered automatically at startup. For one-off or exploratory
+work against a Python object that isn't (fully) covered by a built-in
+front end, two lighter routes exist, both documented in full in
+:doc:`customizers_java`:
+
+- **``$``-mangled direct dispatch**: name an interface method ``$foo`` to
+  reach the wrapped object's real ``foo`` attribute directly, bypassing
+  JPype's own dispatch map (and therefore any ``METHODS`` registration)
+  entirely. Construct via ``jpype.JProxy(iface, dict=...)`` plus an
+  ``@``-cast, or via manual registration (below) — both routes work.
+- **Manual registration**: everything a ``.pyspi`` class registration does
+  at load time reduces to two dict writes —
+  ``_jpype._concrete[pyType] = javaInterface`` and
+  ``_jpype._methods[javaInterface] = methodsDict``. These are private,
+  unwrapped implementation details (no public ``jpype.registerWrapper(...)``
+  exists), but seeing them spelled out is often the fastest way to
+  understand what a ``.pyspi`` file actually does, or to prototype a
+  registration before committing it to a resource file.
+
+Argument-passing conventions, and when overloads are allowed
+----------------------------------------------------------------
+
+**Reverse direction — a ``METHODS`` entry being called from Java.** Every
+entry is invoked unbound-method style, wrapped instance first:
+``lambda x, *args: ...``. Arguments arrive as ordinary Python
+objects/primitives — standard JPype boxing rules apply on the way in, no
+extra unwrapping is needed inside the callable.
+
+**Forward direction — Python calling a proxy method** (``$``-mangled or
+plain, whether SPI-registered or hand-built via ``@JImplements``):
+varargs methods (``Object... args``) get their trailing array unpacked
+before the call reaches Python; a trailing ``PyKwArgs`` argument
+(``python.lang.PyKwArgs``, built via ``PyKwArgs.of().kw(name, value)``) is
+recognized specially and splits into real Python ``**kwargs`` on the
+far side — so ``obj.$bob(1L, 2L, PyKwArgs.of().kw("key", "K"))`` reaches
+Python as ``bob(1, 2, key="K")``, not as three positional arguments.
+
+**Overload resolution — the one real limitation to design around.**
+``$``-mangling (and the ``.``-mangling used by ``.pyspi`` ``METHODS``
+keys) operates on **method name only**, with no visibility into parameter
+types. Two Java overloads sharing a name — e.g. ``PyDict``'s
+``remove(Object)`` and ``remove(Object, Object)`` — mangle to the exact
+same wire name and therefore land on the **same single entry** in
+``METHODS``. There is no overload-aware dispatch at the wire layer; if
+both overloads need to reach Python, the shared Python callable has to
+disambiguate itself, typically on ``len(args)`` (this is exactly what
+``PyDict``'s real ``remove`` binding does — dispatches on arity because
+both Java overloads share one wire name).
+
+Practical guidance:
+
+- **Prefer a single, unambiguous Java signature per SPI-exposed method**
+  when writing a new interface. This is where strong typing pays off —
+  a Java interface with one signature per method name maps cleanly onto
+  one Python callable per ``METHODS`` key, with no dispatch logic needed
+  inside the callable at all.
+- **Allow overloads only when the shared callable can cheaply
+  disambiguate** — arity is enough for ``remove(Object)`` vs.
+  ``remove(Object, Object)``; type-based disambiguation on
+  ``isinstance(args[i], ...)`` also works but is more fragile as more
+  overloads accumulate.
+- **If overloads need genuinely independent behavior that can't cheaply
+  share one callable, don't use Java overloading at all** — give the
+  interface methods distinct names instead. The SPI plumbing has no way
+  to route same-named overloads to different Python callables; the
+  interface design has to route around that, not the ``.pyspi`` file.
+
 Worked example: ``python.io``
 -------------------------------
 
 ``python.io.PyIOWrapperService`` covers the full shape described above in
 one small provider:
 
-- ``getModuleNames()`` returns ``{"io", "_io"}``, for the reason given above.
-- ``getResources()`` is the one-line directory scan over
-  ``python/io/spi/``, so adding a new class means dropping a new
-  ``.pyspi`` file there — nothing in the service class itself changes.
+- ``getModuleNames()`` returns ``{"io", "_io"}``, for the ``io``/``_io``
+  split reason given above.
+- ``getResources()`` is a one-line directory scan over ``python/io/spi/``,
+  so adding a new class means dropping a new ``.pyspi`` file there —
+  nothing in the service class itself changes.
 - The abstract protocol interfaces (``PyIOBase``, ``PyBufferedIOBase``,
   ``PyTextIOBase``, ``PyRawIOBase``) are registered eagerly, since they
   exist as compiled Java types regardless of which concrete Python classes
@@ -240,6 +436,7 @@ one small provider:
   points that cannot live on the shared ``Backend``.
 
 A third-party provider follows the same three steps: write the Java
-interfaces, write one ``.pyspi`` file per Python class (eager for anything
-guaranteed to exist at boot, ``lazy: true`` for everything else), and write
-one ``kind: backend`` file if the package needs its own factory functions.
+interfaces, write one ``.pyspi`` file per Python class (dotted
+``METHODS`` keys, eager for anything guaranteed to exist at boot,
+``lazy: true`` for everything else), and write one ``kind: backend`` file
+(plain ``METHODS`` keys) if the package needs its own factory functions.

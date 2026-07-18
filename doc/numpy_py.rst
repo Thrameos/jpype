@@ -25,7 +25,7 @@ Transferring Arrays Between Python and Java
 ===========================================
 
 JPype supports bidirectional transfers of arrays between Python (NumPy) and Java.
-This allows seamless integration of numerical libraries with Java's ecosystem.
+This lets numerical libraries on either side operate on the same underlying data.
 
 
 
@@ -134,8 +134,8 @@ Summary of NumPy
 ----------------
 
 JPype provides efficient bidirectional array transfers between Python and Java.
-By following the outlined constraints and best practices, users can achieve
-seamless integration for numerical and scientific applications.
+Following the outlined constraints and best practices keeps numerical and
+scientific transfers working correctly.
 
 
 .. _working_with_numpy_buffer_backed_numpy_arrays:
@@ -249,8 +249,8 @@ object and return a readonly Java ByteBuffer if the source object is readonly.
 NumPy Primitives
 ================
 
-JPype provides seamless integration with NumPy, allowing efficient data
-transfers between Python and Java. NumPy arrays can be mapped to Java boxed
+JPype integrates with NumPy directly, allowing efficient data transfers
+between Python and Java. NumPy arrays can be mapped to Java boxed
 types or primitive arrays. However, certain types, such as `np.float16`, are
 converted to compatible Java types during transfer.
 

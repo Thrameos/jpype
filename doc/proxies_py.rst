@@ -3,7 +3,7 @@
 Calling Python Code from Java
 *****************************
 Proxies in JPype enable Python objects to implement Java interfaces directly,
-allowing seamless interaction between Python and Java. These proxies are
+so Java code can call into Python without knowing it. These proxies are
 specifically designed to implement Java interfaces, acting as wrapper classes
 that disguise the Python nature of the object in a Java type-safe manner.
 
@@ -18,7 +18,7 @@ all. Both directions involve Java calling into Python, but the object
 being passed around plays a different role in each.
 
 In Java, proxies are foreign elements that pretend to implement a Java
-interface. JPype leverages this proxy API to allow Python code to implement any
+interface. JPype uses this proxy API to allow Python code to implement any
 Java interface. While proxies allow Python objects to fulfill the contract of a
 Java interface, they are not equivalent to subclassing Java classes in Python.
 
@@ -48,8 +48,8 @@ Passing Python Callables to Java Functional Interfaces
 
 JPype supports passing Python functions, methods, and bound methods directly to
 Java methods or fields that implement `FunctionalInterface`. This allows Python
-code to seamlessly integrate with Java's functional programming constructs,
-such as lambdas and method references, without requiring a proxy or explicit
+code to be used directly as Java's functional programming constructs, such
+as lambdas and method references, without requiring a proxy or explicit
 implementation of the interface.
 
 ### Supported Use Cases

@@ -26,6 +26,11 @@ Latest Changes:
     ``java.math.BigDecimal`` to ``toPython()`` for the same public,
     documented convention.
 
+  - Added ``toPython()`` customizer to ``java.lang.reflect.Method``, binding
+    one already-resolved overload to a plain Python callable (instance
+    methods take the instance as an explicit first argument) and skipping
+    JPype's normal per-call overload search.
+
   - Added ``org.jpype.SubInterpreterBuilder``, a ``ProcessBuilder``-style
     configuration object for launching PEP 684 subinterpreters with
     non-default ``PyInterpreterConfig`` options (own GIL, own obmalloc,

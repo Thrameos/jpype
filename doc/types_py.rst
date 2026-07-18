@@ -890,8 +890,8 @@ following differences:
 Buffer Transfers
 ----------------
 Java arrays provide efficient buffer transfers for primitive types using Python's
-`memoryview`. This allows seamless integration with libraries like NumPy for
-numerical operations. For strategies to optimize data exchange, 
+`memoryview`. This allows direct use with libraries like NumPy for numerical
+operations, without a copy. For strategies to optimize data exchange, 
 see :ref:`Optimize Data Transfers <optimize_data_transfers>`.
 
 .. code-block:: python

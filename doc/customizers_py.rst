@@ -5,8 +5,8 @@ Customization
 
 JPype supports customization to enhance the integration between Java and Python.
 This allows users to modify Java classes and type conversions to better suit
-their needs, making Java APIs more Pythonic or enabling seamless interaction
-with Python data structures.
+their needs, making Java APIs more Pythonic or letting them interoperate
+directly with Python data structures.
 
 This chapter covers the Python-calling-Java direction. If you are instead
 embedding Python in a Java application, see :doc:`customizers_java` for the
@@ -18,7 +18,7 @@ There are two primary types of customizations available:
 1. **Class Customizers**: Add Python methods and properties to Java classes to
    make them behave like native Python classes.
 2. **Type Conversion Customizers**: Define implicit conversions between Python
-   types and Java types for seamless interoperability.
+   types and Java types.
 
 .. _customization_class_customizers:
 
@@ -413,6 +413,5 @@ To ensure effective use of customizations, follow these best practices:
 5. **Document Customizations**: Clearly document the purpose and behavior of
    customizations to assist other developers working on the codebase.
 
-By leveraging class and type conversion customizers, JPype users can create
-seamless integrations between Python and Java, making Java APIs feel native to
-Python programmers.
+Class and type conversion customizers together let JPype users make Java
+APIs feel native to Python programmers.

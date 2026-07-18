@@ -208,7 +208,6 @@ native Python objects while retaining their underlying Java functionality.
 Wrappers encapsulate Java references, such as class instances, arrays, or boxed
 types, and may also include proxies when implementing Java interfaces.
 
-Future versions of JPype aim to introduce the ability to manipulate Python
-objects from Java. In this case, wrappers will represent Python objects from the
-perspective of Java, providing a seamless interface for Java code to interact
-with Python objects.
+The reverse direction -- Java manipulating Python objects -- is also
+supported, via the ``python.lang`` wrapper hierarchy (:doc:`types_java`)
+rather than this same ``Wrapper`` mechanism.

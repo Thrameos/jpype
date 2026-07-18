@@ -29,7 +29,7 @@ Iterable
 --------
 
 Java classes that implement ``java.util.Iterable`` are customized to support
-Python's iteration constructs. This allows seamless use in Python `for` loops
+Python's iteration constructs, so they work directly in Python `for` loops
 and list comprehensions. For example, a Java ``ArrayList`` can be iterated
 directly:
 
@@ -74,8 +74,8 @@ without requiring additional conversion. For example:
 Collection
 ----------
 
-Java classes that inherit from ``java.util.Collection`` integrate seamlessly
-with Python's collection constructs. They support operations such as length
+Java classes that inherit from ``java.util.Collection`` work directly with
+Python's collection constructs. They support operations such as length
 retrieval, iteration, and implicit conversion of Python sequences into Java
 collections. For example:
 
@@ -284,8 +284,7 @@ Using Java Streams for Functional Operations
 
 Java's `Stream` API provides powerful functional programming constructs, such
 as `filter`, `map`, and `reduce`. JPype allows Python developers to use these
-methods with Java collections, enabling them to leverage Java's robust
-libraries.
+methods with Java collections directly.
 
 
 
@@ -392,8 +391,8 @@ Best Practices for Collection Processing
    - Use Pythonic constructs for simplicity and readability.
    - Use Java streams for performance-critical or enterprise applications.
 
-2. **Leverage JPype's Seamlessness**:
-   - Combine Pythonic constructs and Java methods to get the best of both worlds.
+2. **Mix Pythonic and Java-native calls freely**:
+   - Combine Pythonic constructs and Java methods on the same object as needed.
 
 3. **Optimize for Performance**:
    - Avoid frequent back-and-forth calls between Python and Java. Cache results when possible.

@@ -402,6 +402,40 @@ combination (currently: disabling ``USE_MAIN_OBMALLOC`` without enabling
    evaluates subinterpreter expressions should expect that failure mode
    and still guarantee cleanup around it.
 
+.. _customizing_javalangreflect_method:
+
+Customizing java.lang.reflect.Method
+=====================================
+
+``java.lang.reflect.Method`` also has a ``toPython()`` customizer, but it
+serves a different purpose than the value-copy and stream conversions above:
+it turns one already-resolved overload into a plain Python callable, bound to
+exactly that signature.
+
+.. method:: java.lang.reflect.Method.toPython()
+   :no-index:
+
+   Returns a Python callable bound to this specific ``Method`` object,
+   skipping JPype's normal per-call overload search. Because a
+   ``java.lang.reflect.Method`` has no attribute to bind ``self`` to,
+   instance methods take the instance as an explicit first argument:
+   ``m.toPython()(instance, *args)``. Static methods are called directly,
+   ``m.toPython()(*args)``. Calling the result with an argument count or
+   types that don't match this one signature raises ``TypeError`` rather
+   than falling back to search other overloads of the same name.
+
+This is useful when a ``Method`` was obtained via reflection (for example
+``Class.getDeclaredMethod(name, *parameterTypes)``) and the exact overload
+is already known, so repeating JPype's normal overload resolution on every
+call would be redundant:
+
+.. code-block:: python
+
+   Math = jpype.JClass("java.lang.Math")
+   m = Math.class_.getDeclaredMethod("max", jpype.JInt, jpype.JInt)
+   f = m.toPython()
+   f(3, 5)  # 5, calls exactly this overload
+
 .. _synchronized:
 
 Synchronization
