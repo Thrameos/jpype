@@ -1,5 +1,28 @@
 # Tutorial: adding a new stdlib type via WrapperService SPI
 
+## Status (2026-07-17): DONE, retired to doc/spi.rst
+
+The reusable, non-obvious gotchas from this tutorial's "real bugs" section
+now live in `doc/spi.rst`'s "Practical gotchas for provider authors"
+section: the Python-side-default-argument rule (bug #1) and the
+`__missing__`-vs-`.get()` protocol lesson (bug #2). Bug #4 (overload
+dispatch is name-only, no arity/type awareness) was already documented in
+`doc/spi.rst`'s "Argument-passing conventions" section before this pass.
+Bug #3 (`PyMapping.get()`'s missing try/except) was a one-time code fix,
+already shipped and covered by tests -- not a documentation gap.
+
+The step-by-step process (reference files to read, in order; the
+`.pyspi`/module-name/factory-interface/Javadoc/NGTest checklist) is
+process guidance for whoever writes the *next* `plan/<Something>.md`
+scoping a new stdlib wrapper, not end-user or provider-author reference
+material -- `doc/spi.rst` and `WrapperService.java`'s Javadoc are the
+correct home for the latter, and now carry everything reusable from here.
+This file is archived as-is for that narrower audience; no further doc
+page rewrite was warranted for the process-checklist portion.
+
+Verified: `python3 -m sphinx -b html . /tmp/spi_doc_build -q` clean, zero
+warnings.
+
 Written after implementing `plan/archive/Collections.md` (PyDeque/PyOrderedDict/
 PyDefaultDict/PyCounter), to save the next person from re-deriving the
 `python.io` reference pattern and re-discovering the two bugs below the

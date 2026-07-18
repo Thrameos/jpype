@@ -411,6 +411,65 @@ Practical guidance:
   to route same-named overloads to different Python callables; the
   interface design has to route around that, not the ``.pyspi`` file.
 
+Practical gotchas for provider authors
+-----------------------------------------
+
+Found while building the ``python.collections``, ``python.datetime``, and
+``python.pathlib`` providers — none of these are wiring mistakes, they're
+wrong assumptions about how Python semantics carry across the bridge, and
+the same class of bug is easy to reintroduce in a new provider.
+
+**A Java ``default`` method's hardcoded argument does not reach the Python
+side.** Given a Python method with a default argument
+(``OrderedDict.move_to_end(key, last=True)``), the natural-looking Java
+translation is:
+
+.. code-block:: java
+
+    void moveToEnd(PyObject key, boolean last);
+    default void moveToEnd(PyObject key) { moveToEnd(key, true); }
+
+This does not work: dispatch routes by ``METHODS`` key (the mangled method
+name), not by Java signature, so the one-arg call reaches the ``.pyspi``
+lambda directly with only ``(x, key)`` — the default-method body never
+runs. Put the default on the **Python** side instead, exactly like
+``io.IOBase.pyspi``'s ``_io_seek(x, offset, whence=0)`` does:
+
+.. code-block:: python
+
+    def _move_to_end(x, key, last=True):
+        x.move_to_end(key, bool(last))
+
+The Java ``default`` overload can stay as API surface / a Javadoc anchor,
+but must not be relied on to supply the default — the ``.pyspi`` callable
+has to handle the shorter argument list itself.
+
+**A stdlib type's "special missing-key/out-of-range" behavior may only be
+implemented on one protocol method, not the one you'd inherit for free.**
+``collections.Counter``'s "returns 0 for a missing key" behavior is
+implemented via ``__missing__``, which fires through ``__getitem__`` only
+— not through ``.get()``. It is tempting to assume a `dict` subclass's
+special behavior shows up through every inherited ``Map``-surface method;
+confirm which protocol method actually implements it before writing
+Javadoc that claims otherwise:
+
+.. code-block:: text
+
+    python3 -c "import collections; c = collections.Counter(); print(c.get('x'), c['x'])"
+    # None 0   <- these differ; one inherited method cannot cover both
+
+**Return type matters even though dispatch doesn't check it.** A
+``$``-mangled or SPI-registered method declared to return plain
+``java.lang.Object`` gets a hard ``PyTypeError`` at call time, not a
+silent pass-through — the ``Object``-typed conversion path never includes
+the Python-proxy conversion the way a ``PyObject``-rooted return type
+does. Always declare the tightest real ``PyObject``-hierarchy return type
+the method actually produces (``PyTuple``, ``PyString``, ...); plain
+``PyObject`` itself is safe but loose — it always matches, so it proves
+nothing about the returned shape (a numpy wrapper returning a scalar would
+get silently typed as bare ``PyObject`` instead of the specific numeric
+type if the interface author wasn't careful).
+
 Worked example: ``python.io``
 -------------------------------
 

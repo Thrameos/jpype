@@ -1,5 +1,37 @@
 # Document the SPI/$-mangled construction hazards for provider authors
 
+## Status (2026-07-17): DONE, retired to doc/
+
+The failure-mode catalog (item 2) and the `Object`-vs-`PyObject`/`PyTuple`
+return-type hazard (item 3) were already present, or have now been added,
+across two existing manual pages rather than a new one:
+
+- `doc/customizers_java.rst` already had the `$`-mangled dispatch
+  mechanism, worked example, and failure-mode catalog (item 2) in full.
+  Added a short paragraph after the worked example explaining *why* the
+  `@`-cast is required (item 2's other half): `Script.eval()`'s generic
+  `PyObject` return lets `pythonConversion` win before `proxyConversion`
+  runs unless the cast forces it, per `jp_pythontype.cpp:34-41`.
+- `doc/spi.rst` already documented varargs flattening (item 4, under
+  "Argument-passing conventions") and the overload-name-collision rule.
+  Added a new "Practical gotchas for provider authors" section covering
+  the `Object`-vs-`PyObject` return-type hazard (item 3), plus two related
+  gotchas surfaced by `plan/archive/SPI_tutorial.md` (Python-side default
+  arguments, `__missing__`-vs-`.get()`) since they're the same *kind* of
+  hazard and belong in the same section rather than split across pages.
+- `WrapperService.java`'s class Javadoc got a one-line pointer to
+  `doc/spi.rst` for the gotchas, per this plan's "short pointer in
+  Javadoc, full detail in the manual" recommendation.
+
+Item 1 (the historical `JPProxyIndirectDict::getCallable` trap) is already
+covered as "why the normal route works" context inside
+`plan/archive/DispatchFallback.md` and doesn't need independent placement
+in end-user docs — it's implementation history, not a live hazard a
+provider author needs to route around today.
+
+Verified: `python3 -m sphinx -b html . /tmp/spi_doc_build -q` clean, zero
+warnings; `mvn -q -o compile` clean.
+
 ## Status (2026-07-11): scoped, not started
 
 ## Where this fits

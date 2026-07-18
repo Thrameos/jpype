@@ -95,6 +95,16 @@ every method ``$``-prefixed, against a plain Python class with no
                                           // registration every real SPI
                                           // provider uses -- both routes work
 
+The ``@``-cast is not optional decoration -- it's required whenever the
+value comes back through ``Script.eval()``'s generic ``PyObject`` return
+type. Conversion tries a fixed-order list of candidate paths, and the
+plain structural/duck-typing path (``pythonConversion``) is tried *before*
+the proxy-aware path (``proxyConversion``) ever runs; without an explicit
+``targetClass @ pyProxy`` cast on the Python side, the structural path can
+win first and the result never becomes the target interface at all. This
+applies to any construction route that goes through a generically-typed
+``eval()``/``exec()`` result, not just this worked example.
+
     PyTuple result = obj.$alice(42L);
     result.toString();                   // "('alice', 42)"
 

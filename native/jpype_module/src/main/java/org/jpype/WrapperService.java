@@ -11,6 +11,9 @@ import java.util.Collections;
  * provides org.jpype.WrapperService with my.package.NumpyWrapperService;
  * }</pre>
  * {@code python.io.PyIOWrapperService} is a complete worked example.
+ * See {@code doc/spi.rst} for the full spec, including provider gotchas
+ * (default arguments, return-type hazards) worth reading before writing
+ * a new {@code .pyspi} resource.
  */
 public interface WrapperService {
 
