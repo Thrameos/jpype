@@ -1,6 +1,34 @@
 # Python 3.12 support, subinterpreter test completion, and test-quality audit
 
-## Status (2026-07-18): scoped, not started
+## Status (2026-07-18): Phase 1 DONE, Phase 2 mostly already done, Phase 3 not started
+
+**Phase 1 root cause found and fixed**: the `mvn verify -Dpython.executable=python3.12`
+`NullPointerException` was a plain stale-build issue, not a source regression.
+`build/cp312-cp312-linux_x86_64/_jpype.so` was compiled before the last
+edits to `jp_exception.cpp`, `pyjp_probe.cpp`, and `jp_pythontypes.cpp` (those
+three files were newer than the `.so`), and `~/.jpype/jpype.properties` had
+cached the stale probe result on top of that. Rebuilt via
+`make -f project/dev.mk PYTHON=python3.12 all` (per
+[[jpype_feedback_use_devmk_not_adhoc_ninja]], not ad hoc ninja) and deleted
+`~/.jpype/jpype.properties`. Both `mvn -o verify -Dpython.executable=python3.12`
+and `...=python3.10` now reach `BUILD SUCCESS`, 932/932, 0 failures/errors.
+[[jpype_build_env_gotchas]]'s line 28 claim was actually correct in spirit —
+just describing a state that had since gone stale from later edits — not a
+real regression. Corrected memory accordingly.
+
+**Phase 2 steps 1-3 turn out to already be done**, discovered while verifying
+this plan's own "current state" claims rather than trusting them: under a
+fresh python3.12 build, `SubInterpreterNGTest` runs 8/8 passing with 0 skips
+(not skipping at all), and `SubInterpreterBuilderNGTest` runs 8/8 passing
+with 0 skips (an earlier stale surefire `.txt` report, from an 11:56 run
+before the rebuild, had shown 6/8 skipped — the fresh 13:36 junitreports XML
+supersedes it). `NativeLauncherControl.isGilHeld()`
+(`native/common/jp_bridge.cpp:598`) already has the `_PyThreadState_GetCurrent()
+!= nullptr` fix in place, landed in commit `e5a93a46` ("Multi-phase init,
+python.io completion, cross-interpreter safety, and dispatch mangling") —
+well before this plan was scoped. [[jpype_subinterpreter_difficulty]]'s
+"isGilHeld() false-positive remains open" note is now stale; only step 4
+(coverage gap) remains open, tracked below.
 
 Follows on from [[plan/archive/Coverage.md]] (the reverse-bridge coverage
 pass, now fully closed). That pass ran exclusively under
@@ -64,15 +92,41 @@ Leads worth checking, in rough cheapest-first order:
   [[jpype_final_mission_status]]'s Launcher/MainInterpreter split) rather
   than only observing the downstream null.
 
-**Decision to make once green**: should `python.executable=python3.12`
-become the pom.xml default (it's currently hardcoded to python3.12 per
-[[jpype_build_env_gotchas]], but this whole repo's dev workflow has been
-overriding it to python3.10 for a long time), or should both stay
-supported in parallel indefinitely? Surface this to the user rather than
-deciding unilaterally — it affects every future session's default `mvn`
-invocation.
+**Decision made 2026-07-18**: user chose to leave the pom.xml default as
+python3.12 (no change) — both versions stay supported, python3.10 remains
+an explicit `-Dpython.executable=python3.10` override as it has been.
 
-## Phase 2: finish subinterpreter testing
+## Phase 2: finish subinterpreter testing — DONE 2026-07-18
+
+Step 4 (the only remaining item, see Status above) closed out:
+`SubInterpreterBuilder` went from instr 86%/branch 69% to **100%/100%**
+(added `testStartWiresWriterOutputErrorAndReaderInput` and
+`testStartWiresOutputStreamErrorAndInputStreamInput` in
+`SubInterpreterBuilderNGTest`, covering the Writer/Reader and
+OutputStream/InputStream wiring branches of `start()` for `err`/`in` that
+only `out` had real coverage for before). `SubInterpreter` went from instr
+79%/branch 57% to instr 3-missed/branch 1-missed (added
+`testGetBackendAndInstallerReturnRealInstances`,
+`testSetBackendAfterStartThrows`, `testSetInstallerAfterStartThrows`,
+`testStartAfterCloseThrowsIllegalState`, `testCloseAfterCloseThrowsIllegalState`,
+`testStartWhileAlreadyStartedIsIdempotentNoOp` in `SubInterpreterNGTest`).
+
+**One deliberate gap left uncovered**: `SubInterpreter.start()`'s
+`isGilHeld()`-true branch (`SubInterpreter.java:168-170`, the
+`LOGGER.severe("GIL still held ... leaked GIL acquire")` line) is a
+defensive log for a genuine native-level GIL leak. Per
+[[jpype_feedback_trust_invariants]], not fabricating a fake leaked-GIL state
+just to paint this line green — the call-lifetime invariant (a correctly
+functioning `startSubInterpreter` never leaves the GIL held) already rules
+it out by construction, and forcing it would mean corrupting real native
+state to hit a log line.
+
+940/940 tests pass under python3.12, all existing tests still pass under
+python3.10 (new subinterpreter tests self-skip there via `startOrSkip()`'s
+existing `SkipException` pattern).
+
+Original phase 2 scoping, largely superseded by the above (kept for
+context on how steps 1-3 were verified before being found already-done):
 
 Prerequisite: Phase 1 green, since `SubInterpreterNGTest`/
 `SubInterpreterBuilderNGTest` self-skip via `SkipException` on

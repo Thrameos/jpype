@@ -19,6 +19,8 @@ package python.lang;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jpype.Backend;
+import org.jpype.Installer;
 import org.jpype.Script;
 import org.jpype.SubInterpreter;
 import org.jpype.internal.NativeLauncherControl;
@@ -26,6 +28,7 @@ import org.testng.SkipException;
 import org.testng.annotations.Test;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -275,5 +278,82 @@ public class SubInterpreterNGTest extends PyTestHarness
     }
     assertFalse(NativeLauncherControl.isGilHeld(),
             "GIL leaked after the cross-interpreter smuggle attempt");
+  }
+
+  @Test
+  public void testGetBackendAndInstallerReturnRealInstances()
+  {
+    SubInterpreter sub = startOrSkip();
+    try
+    {
+      assertNotNull(sub.getBackend(), "getBackend() should return the Backend installed during start()");
+      assertNotNull(sub.getInstaller(), "getInstaller() should return the Installer installed during start()");
+    } finally
+    {
+      sub.close();
+    }
+  }
+
+  @Test
+  public void testSetBackendAfterStartThrows()
+  {
+    // start() already drove setBackend() once via the native callback; a
+    // second call must be rejected as a reconfiguration attempt, before
+    // touching either argument.
+    SubInterpreter sub = startOrSkip();
+    try
+    {
+      assertThrows(RuntimeException.class, () -> sub.setBackend(null, (Backend) null));
+    } finally
+    {
+      sub.close();
+    }
+  }
+
+  @Test
+  public void testSetInstallerAfterStartThrows()
+  {
+    SubInterpreter sub = startOrSkip();
+    try
+    {
+      assertThrows(RuntimeException.class, () -> sub.setInstaller((Installer) null));
+    } finally
+    {
+      sub.close();
+    }
+  }
+
+  @Test
+  public void testStartAfterCloseThrowsIllegalState()
+  {
+    SubInterpreter sub = startOrSkip();
+    sub.close();
+    assertThrows(IllegalStateException.class, sub::start);
+  }
+
+  @Test
+  public void testCloseAfterCloseThrowsIllegalState()
+  {
+    SubInterpreter sub = startOrSkip();
+    sub.close();
+    assertThrows(IllegalStateException.class, sub::close);
+  }
+
+  @Test
+  public void testStartWhileAlreadyStartedIsIdempotentNoOp()
+  {
+    SubInterpreter sub = startOrSkip();
+    try
+    {
+      // Second start() call: backend is already non-null, so this must be a
+      // silent no-op (not a relaunch, not a reconfiguration error).
+      sub.start();
+      assertTrue(sub.isStarted());
+      Script script = new Script(sub);
+      assertEquals(script.eval("1 + 1").toString(), "2");
+    } finally
+    {
+      sub.close();
+    }
   }
 }

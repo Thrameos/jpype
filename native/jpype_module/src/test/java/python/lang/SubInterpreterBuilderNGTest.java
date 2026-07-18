@@ -20,6 +20,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.StringReader;
+import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.function.Supplier;
 import org.jpype.Script;
@@ -201,6 +202,60 @@ public class SubInterpreterBuilderNGTest extends PyTestHarness
     assertSame(builder.setError(new OutputStreamWriter(new ByteArrayOutputStream())), builder);
     assertSame(builder.setInput(new java.io.ByteArrayInputStream(new byte[0])), builder);
     assertSame(builder.setInput(new StringReader("")), builder);
+  }
+
+  @Test
+  public void testStartWiresWriterOutputErrorAndReaderInput()
+  {
+    // testSetOutputCapturesPrint/testSetterOverloadsChainAndAssign already
+    // cover the OutputStream/InputStream overloads through start(); this
+    // covers the Writer/Reader overloads' own wiring branches inside
+    // start() (setOutput(Writer)/setError(Writer)/setInput(Reader)), not
+    // just the setter's own field assignment.
+    StringWriter capturedOut = new StringWriter();
+    StringWriter capturedErr = new StringWriter();
+    SubInterpreterBuilder builder = SubInterpreterBuilder.elevated()
+            .setOutput(capturedOut)
+            .setError(capturedErr)
+            .setInput(new StringReader("42\n"));
+    SubInterpreter sub = startOrSkip(builder);
+    try
+    {
+      Script script = new Script(sub);
+      script.exec("import sys; print('out', end=''); print('err', end='', file=sys.stderr)");
+      script.exec("import sys; sys.stdout.flush(); sys.stderr.flush()");
+      assertEquals(capturedOut.toString(), "out");
+      assertEquals(capturedErr.toString(), "err");
+      assertEquals(script.eval("input()").toString(), "42");
+    } finally
+    {
+      sub.close();
+    }
+  }
+
+  @Test
+  public void testStartWiresOutputStreamErrorAndInputStreamInput()
+  {
+    // testSetOutputCapturesPrint already wires an OutputStream for `out`
+    // through start(); this covers the OutputStream overload's own wiring
+    // branches for `err` and `in` specifically (setError(OutputStream)/
+    // setInput(InputStream)), which testStartWiresWriterOutputErrorAndReaderInput
+    // deliberately used the Writer/Reader overloads for instead.
+    ByteArrayOutputStream capturedErr = new ByteArrayOutputStream();
+    SubInterpreterBuilder builder = SubInterpreterBuilder.elevated()
+            .setError(capturedErr)
+            .setInput(new java.io.ByteArrayInputStream("42\n".getBytes(StandardCharsets.UTF_8)));
+    SubInterpreter sub = startOrSkip(builder);
+    try
+    {
+      Script script = new Script(sub);
+      script.exec("import sys; print('err', end='', file=sys.stderr); sys.stderr.flush()");
+      assertEquals(new String(capturedErr.toByteArray(), StandardCharsets.UTF_8), "err");
+      assertEquals(script.eval("input()").toString(), "42");
+    } finally
+    {
+      sub.close();
+    }
   }
 
   @Test
