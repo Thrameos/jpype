@@ -1,5 +1,24 @@
 # Document toPython() as a general forward-facing conversion convention
 
+## Status (2026-07-17): DONE, superseded by direct work in doc/threading_py.rst
+
+This plan predates `plan/DOCS.md`'s split of `userguide.rst` into the
+current paired `doc/*_py.rst`/`doc/*_java.rst` files, so its references to
+`userguide.rst` line numbers are stale. The actual documentation work it
+scoped happened anyway, landing in `doc/threading_py.rst`'s "Customizing
+java.io Streams" section (now generalized beyond streams) plus a new
+"Customizing java.lang.reflect.Method" subsection for the later
+`plan/ReflectMethod.md` addition. All seven `toPython()` types this plan
+called out — `java.io.Writer`/`Reader`/`OutputStream`/`InputStream`,
+`java.time.Instant`, `java.sql.Date`/`Time`/`Timestamp`,
+`java.math.BigDecimal`, `java.nio.file.Path`, `java.io.File` — are
+documented there with `.. method::` entries, plus `java.lang.reflect.Method`
+which this plan didn't anticipate. Item 3 (cross-referencing the matching
+forward `JConversion`) was not done explicitly; see
+`plan/DocProofreading.md` if that gap is worth revisiting.
+
+## Original scoping (kept for history)
+
 ## Status (2026-07-11): scoped, not started; depends on plan/ToPython.md landing first
 
 ## Where this fits
