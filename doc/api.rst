@@ -81,8 +81,8 @@ with Java classes.
 Proxies
 ~~~~~~~
 
-JPype can implement Java interfaces either by using decorators or by manually 
-creating a JProxy.  Java only support proxying interfaces, thus we cannot 
+JPype can implement Java interfaces either by using decorators or by manually
+creating a JProxy.  Java only supports proxying interfaces, thus we cannot
 extend an existing Java class.
 
 .. autoclass:: jpype.JProxy
@@ -93,8 +93,8 @@ Customized Classes
 
 JPype provides standard customizers for Java interfaces so that Java objects 
 have syntax matching the corresponding Python objects. The customizers are 
-automatically bound to the class on creation without user intervention.  We are 
-documentating the functions that each customizer adds here.  Information about
+automatically bound to the class on creation without user intervention.  We are
+documenting the functions that each customizer adds here.  Information about
 Java methods can be found in the Javadoc.
 
 These internal classes can be used as example of how to implement your own 
