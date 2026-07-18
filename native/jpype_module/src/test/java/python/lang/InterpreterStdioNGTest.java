@@ -18,6 +18,8 @@ package python.lang;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.OutputStreamWriter;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import org.jpype.MainInterpreter;
 import org.jpype.Script;
@@ -112,6 +114,54 @@ public class InterpreterStdioNGTest extends PyTestHarness
       context.exec("import sys");
       assertEquals(context.eval("sys.stdin.readline()").toString(), "first line\n");
       assertEquals(context.eval("sys.stdin.readline()").toString(), "second line\n");
+    } finally
+    {
+      interpreter.resetInput();
+    }
+  }
+
+  @Test
+  public void testSetOutputWriterCapturesPrint()
+  {
+    MainInterpreter interpreter = MainInterpreter.getInstance();
+    ByteArrayOutputStream captured = new ByteArrayOutputStream();
+    try
+    {
+      interpreter.setOutput(new OutputStreamWriter(captured, StandardCharsets.UTF_8));
+      context.exec("print('hello writer', end='')");
+      context.exec("import sys; sys.stdout.flush()");
+      assertEquals(new String(captured.toByteArray(), StandardCharsets.UTF_8), "hello writer");
+    } finally
+    {
+      interpreter.resetOutput();
+    }
+  }
+
+  @Test
+  public void testSetErrorWriterCapturesStderrWrite()
+  {
+    MainInterpreter interpreter = MainInterpreter.getInstance();
+    ByteArrayOutputStream captured = new ByteArrayOutputStream();
+    try
+    {
+      interpreter.setError(new OutputStreamWriter(captured, StandardCharsets.UTF_8));
+      context.exec("import sys; sys.stderr.write('writer boom'); sys.stderr.flush()");
+      assertEquals(new String(captured.toByteArray(), StandardCharsets.UTF_8), "writer boom");
+    } finally
+    {
+      interpreter.resetError();
+    }
+  }
+
+  @Test
+  public void testSetInputReaderFeedsReadline()
+  {
+    MainInterpreter interpreter = MainInterpreter.getInstance();
+    try
+    {
+      interpreter.setInput(new StringReader("reader line\n"));
+      context.exec("import sys");
+      assertEquals(context.eval("sys.stdin.readline()").toString(), "reader line\n");
     } finally
     {
       interpreter.resetInput();

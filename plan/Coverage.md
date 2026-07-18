@@ -1,6 +1,6 @@
 # Java module coverage cleanup: systematic pass
 
-## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script, python.lang (PyMapping views + real bug fixed; protocol interfaces incl. PyGenerator crash root-caused and fixed, see [[plan/GeneratorCastCrash.md]]; PyCallable.CallBuilder + kwargs-string bug fixed; PyMapping/PySequence/PySet/PyFrozenSet/PyTuple all raised to ~100%; PyMutableSet confirmed NOT deletable, see finding in this doc). Remaining packages NOT STARTED: org.jpype, python.decimal, python.collections, org.jpype.manager, org.jpype.pkg, python.pathlib, org.jpype.ref, python.io, org.jpype.proxy, python.datetime.
+## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script, python.lang (PyMapping views + real bug fixed; protocol interfaces incl. PyGenerator crash root-caused and fixed, see [[plan/GeneratorCastCrash.md]]; PyCallable.CallBuilder + kwargs-string bug fixed; PyMapping/PySequence/PySet/PyFrozenSet/PyTuple all raised to ~100%; PyMutableSet confirmed NOT deletable, see finding in this doc), org.jpype (61%→66%; SubInterpreter/most of SubInterpreterBuilder confirmed environment-gated — needs a real Python 3.12 native rebuild, out of scope here — everything else fixable under 3.10 closed out: Script/Interpreter/SpiResource now 100%). Remaining packages NOT STARTED: python.decimal, python.collections, org.jpype.manager, org.jpype.pkg, python.pathlib, org.jpype.ref, python.io, org.jpype.proxy, python.datetime.
 
 `jacoco-maven-plugin` (0.8.14, offline-resolvable from `~/.m2` except one
 missing transitive jar — `plexus-utils:1.1`, fetched once online, now
@@ -76,10 +76,56 @@ numbers will move as tests get added.)
 Pulled from `jacoco.csv`, classes under 60% instruction coverage — the
 starting worklist once a package is picked:
 
-- **org.jpype**: `SubInterpreter` (10%), `SubInterpreterBuilder` (56%),
-  `Script` (60%), `BootstrapLoader`/`WrapperService` (0%, likely
-  entry-point/SPI-declaration classes — check reachability before assuming
-  testable).
+- **org.jpype**: **DONE** (package total 61% → 66% instruction, 22 new tests
+  across 3 new files + 2 extended existing files, 845/845 full suite).
+  `SubInterpreter` (9%) and most of `SubInterpreterBuilder`'s `start()` path
+  stay low — **environment-gated, not a missing-test gap**: this repo's
+  native library is built against Python 3.10, and PEP 684 subinterpreters
+  require 3.12+, so every `startOrSkip()`-guarded test in
+  `SubInterpreterNGTest`/`SubInterpreterBuilderNGTest` self-skips (confirmed
+  live: a python3.12 interpreter exists on this machine but the native
+  `.so`/jar are built for 3.10, and switching would require a real
+  `project/dev.mk` rebuild with `PYTHON=python3.12`, out of scope for a
+  coverage-only pass). `BootstrapLoader` (native `loadLibrary` stub) is
+  likewise left at 0% — nothing to unit-test in a JNI declaration.
+  `WrapperService` is an SPI interface whose default methods are exercised
+  by `python.io`'s real provider elsewhere.
+  Concretely fixable under 3.10 and closed out this pass:
+  - `SubInterpreterBuilder`: added direct tests for the five setter
+    overloads (`setOutput(Writer)`, `setError(OutputStream/Writer)`,
+    `setInput(InputStream/Reader)`) — plain field assignments, don't need a
+    real subinterpreter launch to cover, only needed a test that *calls*
+    them. 56% → 69%.
+  - `Script` (`org/jpype/ScriptNGTest.java`, new): the two-arg constructor
+    (explicit globals/locals) and `importModule(module, as)` were
+    previously only reachable through subinterpreter tests (env-gated, see
+    above) — turns out neither needs a subinterpreter at all, the main
+    interpreter exercises the same code paths. 60% → **100%**.
+  - `Interpreter` (`InterpreterStdioNGTest`, extended): added the
+    `Writer`/`Reader` overloads of `setOutput`/`setError`/`setInput`
+    (already had `OutputStream`/`InputStream` coverage). → **100%**.
+  - `Launcher` (`org/jpype/LauncherNGTest.java`, new): only `parseVersion`
+    (incl. the swallowed-`NumberFormatException` fallback branch) and a
+    fresh-instance getter/`isPrepared()` check are pure/side-effect-free;
+    the rest (detective-probe subprocess spawn, pip self-healing, on-disk
+    property-file cache, native `System.load`) is bootstrap code that
+    drives real subprocesses/network/filesystem and is already exercised
+    once, implicitly, by every other test class's one-time interpreter
+    startup — not a good target for isolated unit tests without dedicated
+    subprocess-mocking infrastructure. 41% → 43%.
+  - `SpiLoader` (`org/jpype/SpiLoaderNGTest.java`, new): reflection-invoked
+    the private `readResource`'s not-found branch directly (only reachable
+    otherwise through a real `ServiceLoader`-discovered provider), plus
+    `listPyspiResources`'s empty-directory and file-protocol-sorted paths.
+    The jar-protocol branch stays uncovered — only triggers when scanning
+    resources actually packaged inside a jar on the classpath, which
+    `mvn test`'s exploded-directory classpath never produces.
+  - `SpiResource` (`org/jpype/SpiResourceNGTest.java`, new): pure
+    `.pyspi`-header string parsing, no I/O — every
+    `IllegalArgumentException` branch (missing separator, malformed
+    header line, missing `interface:`, lazy-backend rejection, missing
+    `module:`/`class:` for kind=class), comment/blank-line skipping, and
+    the `kind` default. → **100%**.
 - **org.jpype.internal**: **DONE** (41%/26% baseline → 74%/60%
   instruction/branch). `Keywords` and `FunctionalAdapters` — plain,
   native-free static utility classes, got ordinary non-bridge NGTest

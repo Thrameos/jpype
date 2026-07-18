@@ -17,6 +17,9 @@
 package python.lang;
 
 import java.io.ByteArrayOutputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.function.Supplier;
 import org.jpype.Script;
@@ -28,6 +31,7 @@ import org.testng.annotations.Test;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotSame;
+import static org.testng.Assert.assertSame;
 
 /**
  * Exercises {@link SubInterpreterBuilder}: the {@code Option} EnumSet
@@ -180,6 +184,23 @@ public class SubInterpreterBuilderNGTest extends PyTestHarness
       sub1.close();
       sub2.close();
     }
+  }
+
+  @Test
+  public void testSetterOverloadsChainAndAssign()
+  {
+    // These setters are plain field assignments returning `this` for
+    // chaining - no native launch needed, so unlike the rest of this class
+    // they don't need startOrSkip()/version gating. Only the OutputStream
+    // overload of setOutput and the wiring inside start() (env-gated, see
+    // testSetOutputCapturesPrint) were previously exercised; this covers
+    // the remaining Writer/Reader/InputStream overloads.
+    SubInterpreterBuilder builder = new SubInterpreterBuilder();
+    assertSame(builder.setOutput(new OutputStreamWriter(new ByteArrayOutputStream())), builder);
+    assertSame(builder.setError(new ByteArrayOutputStream()), builder);
+    assertSame(builder.setError(new OutputStreamWriter(new ByteArrayOutputStream())), builder);
+    assertSame(builder.setInput(new java.io.ByteArrayInputStream(new byte[0])), builder);
+    assertSame(builder.setInput(new StringReader("")), builder);
   }
 
   @Test
