@@ -414,6 +414,13 @@ success_config:
 		if (!appendModulePathsToSysPath(env, modulePath))
 		{
 			fail(env, "failed to append module paths to sys.path");
+			// Same GIL-leak hazard as the success path below: PyGILState_Ensure()
+			// above found the GIL already locked (from Py_InitializeFromConfig),
+			// so we must explicitly drop it before returning to Java, or this
+			// thread holds it forever and every other thread's first
+			// PyGILState_Ensure() deadlocks - including a later shutdown call
+			// on another thread.
+			PyEval_SaveThread();
 			return nullptr;
 		}
 
@@ -435,10 +442,21 @@ success_config:
 
 	} catch (JPypeException& ex)
 	{
+		// Reachable only after the PyGILState_Ensure() above succeeded (every
+		// earlier failure path uses `goto error_config`/returns directly, not
+		// a throw) - so the GIL is always held here. convertException() needs
+		// the GIL to inspect the Python exception state, so release it only
+		// *after* that call, not before (releasing first crashes inside
+		// PyErr_Occurred() - confirmed the hard way). Same leak hazard as the
+		// success path and the appendModulePathsToSysPath failure above:
+		// without this, this thread holds the GIL forever and a later
+		// shutdown call on another thread deadlocks.
 		convertException(env, ex);
+		PyEval_SaveThread();
 	}	catch (...)
 	{
 		fail(env, "C++ exception during start");
+		PyEval_SaveThread();
 	}
 	return nullptr;
 }
