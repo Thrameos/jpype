@@ -77,9 +77,21 @@ public class PyMemoryViewNGTest extends PyTestHarness
   @Test
   public void testRelease()
   {
+    // release() must reach the real Python memoryview, not just flip a
+    // Java-side flag: a released memoryview refuses further buffer access
+    // (raises ValueError) and, since it no longer holds an export lock on
+    // the underlying bytearray, that bytearray becomes resizable again -
+    // both of which fail if release() silently no-ops.
     PyByteArray bytes = context.bytearray(3);
     PyMemoryView view = context.memoryview(bytes);
+    context.globals().putAny("view", view);
+    context.globals().putAny("data", bytes);
+
     view.release();
+
+    assertThrows(RuntimeException.class, () -> context.exec("view[0]"));
+    context.exec("data.append(1)");
+    assertEquals(bytes.size(), 4, "bytearray should be resizable again once its memoryview export lock was released");
   }
 
 }

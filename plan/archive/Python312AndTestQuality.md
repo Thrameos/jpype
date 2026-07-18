@@ -1,6 +1,6 @@
 # Python 3.12 support, subinterpreter test completion, and test-quality audit
 
-## Status (2026-07-18): Phase 1 DONE, Phase 2 mostly already done, Phase 3 not started
+## Status (2026-07-18): ALL THREE PHASES DONE
 
 **Phase 1 root cause found and fixed**: the `mvn verify -Dpython.executable=python3.12`
 `NullPointerException` was a plain stale-build issue, not a source regression.
@@ -174,7 +174,48 @@ Steps:
    outside `SubInterpreterNGTest` (any other test/assertion that calls it
    as a "did we leak" check) and fix those callers' expectations too if so.
 
-## Phase 3: test-quality audit — remove meaningless tests
+## Phase 3: test-quality audit — DONE 2026-07-18
+
+Ran the audit as scoped below. Two passes:
+1. **Automated no-assertion scan** across all 93 `*NGTest.java` files
+   (brace-matched every `@Test` method body, flagged any with no
+   `assert*`/`fail(`/`expectedExceptions` call). 6 hits, only 1 real:
+   `PyMemoryViewNGTest.testRelease` called `view.release()` and checked
+   nothing — no exception path, no observable side effect verified. Fixed
+   by asserting the two real, production-code-verifying consequences of a
+   released memoryview: further access raises (`view[0]` after release),
+   and the underlying bytearray's export lock is gone (it becomes
+   resizable again). The other 5 flagged hits were false positives from
+   the regex, not meaningless tests: 3 use bare Python-side `assert`
+   statements inside `context.exec(...)` strings (real assertions, just
+   not Java `assert*(...)` calls the regex could see), 1 delegates its
+   real `assertNotNull`/`assertTrue` check into a lazily-memoizing helper
+   method rather than the `@Test` body itself, 1 relies on "must not
+   throw" as the real assertion for a code path where throwing would mean
+   a real regression (touching an un-initialized `pool`/`pools` field) —
+   both legitimate.
+2. **Manual review of every `UnsupportedOperationException`-stub file**
+   (`grep -rl UnsupportedOperationException src/test`, 12 files, matching
+   the count noted when this plan was scoped). All 12 are legitimate:
+   10 use `@Test(expectedExceptions = UnsupportedOperationException.class)`
+   to verify a real Java-collection-view immutability contract (e.g.
+   `PyTupleNGTest`, `PyDictKeySetNGTest`) — that's exercising real
+   production code, not padding a stub. The other 2
+   (`PyDequeNGTest`'s `RecordingDeque`, `PyIOBaseNGTest`'s
+   `RecordingIOBase`) are the interface-stub pattern the plan called out
+   by name — both isolate exactly one real default-method computation and
+   assert its actual delegated argument, not a hardcoded value.
+3. Searched separately for any other test-authored `implements Py...`
+   stub classes beyond those two — none found.
+
+**Net result**: 1 meaningless test found and fixed (not removed — its
+assertion gap was fixable without losing the coverage it already had).
+No tests were net-removed; the audit's premise (a systemic problem) didn't
+pan out — this test suite is in materially better shape than the "12
+stub files" framing suggested when the plan was scoped. Full suite green
+after the fix: 940/940 under python3.12, matching count under python3.10.
+
+Original phase 3 scoping, kept for context on the method used:
 
 **The pattern to find**: a test that implements an interface (often with
 every unused method throwing `UnsupportedOperationException`, a pattern
