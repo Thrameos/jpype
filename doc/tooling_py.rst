@@ -19,7 +19,7 @@ the classpath.  This includes the JDK package documentation.
 For example to get the documentation for ``java.lang.Class``, we start the JVM
 with the JDK documentation zip file on the classpath.
 
-.. code-block: java
+.. code-block:: python
 
      import jpype
      jpype.startJVM(classpath='jdk-11.0.7_doc-all.zip')
@@ -29,7 +29,7 @@ or for the methods with ``help(java.lang.String.trim)``.  To use the javadoc
 supplied by a third party include the both the jar and javadoc in the
 classpath.
 
-.. code-block: java
+.. code-block:: python
 
      import jpype
      jpype.startJVM(classpath=['gson-2.8.5.jar', 'gson-2.8.5-javadoc.jar'])
@@ -95,8 +95,8 @@ Follow the regular Python philosophy : **Write it all in Python, then write
 only those parts that need it in C.** Except this time, it's write the parts
 that need it in Java.
 
-Everytime an object is passed back and forth, it will incure a conversion
-cost.. In cases where a given object (be it a string, an object, an array, etc
+Every time an object is passed back and forth, it will incur a conversion
+cost. In cases where a given object (be it a string, an object, an array, etc
 ...) is passed often into Java, the object should be converted once and cached.
 For most situations, this will address speed issues.
 
@@ -120,7 +120,7 @@ Code completion
 Python supports a number of different code completion engines that are
 integrated in different Python IDEs.  JPype has been tested with both the
 IPython greedy completion engine and Jedi.  Greedy has the disadvantage
-that is will execute code resulting potentially resulting in an undesirable
+that it will execute code, potentially resulting in an undesirable
 result in Java.
 
 JPype is Jedi aware and attempts to provide whatever type information that
@@ -158,8 +158,8 @@ Garbage collection
 
 Garbage collection (GC) is supposed to make life easier for the programmer by
 removing the need to manually handle memory.  For the most part it is a good
-thing.  However, just like running a kitchen with two chiefs is a bad idea,
-running with two garbage collections is also bad.  In JPype we have to contend
+thing.  However, just like running a kitchen with two chefs is a bad idea,
+running with two garbage collectors is also bad.  In JPype we have to contend
 with the fact that both Java and Python provide garbage collection for their
 memory and neither provided hooks for interacting with an external garbage
 collector.
@@ -169,7 +169,7 @@ period of time but they are in a structure with a reference loop internal to
 Python.  The structures and handles are small so Python doesn't see an issue,
 but each of those handles is holding 1M of memory in Java space.  As the heap
 fills up Java begins garbage collecting, but the resources can't be freed
-because Python hasn't cleanup up these structures.  The reverse occurs if a
+because Python hasn't cleaned up these structures.  The reverse occurs if a
 proxy has any large NumPy arrays.  Java doesn't see a problem as it has plenty
 of space to work in but Python is running its GC like mad trying to free up
 space to work.
@@ -182,7 +182,7 @@ is running out of space and Python is asked to clean up its space as well.  The
 reverse case is more complicated as Python can't just call Java's expensive
 routine any time it wants.  Instead JPype maintains a low-water and high-water
 mark on Python owned memory.  Each time it nears a high-water mark during a
-Python collection, Java GC gets called.  If the water level shrinks than
+Python collection, Java GC gets called.  If the water level shrinks then
 Java was holding up Python memory and the low-water mark is reset.
 Depending on the amount of memory being exchanged the Java GC may trigger
 as few as once every 50 Python GC cycles or as often as every other.
