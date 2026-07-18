@@ -41,17 +41,6 @@ JPype is intended for Python developers who need to use Java libraries, or
 Java developers who want to use Python for scripting, debugging, or
 visualization.
 
-.. _introduction_why_use_jpype?:
-
-Why Use JPype?
---------------
-JPype makes it easy to integrate Python and Java, enabling developers to:
-
-1. Access Java libraries directly from Python code.
-2. Debug Java data structures interactively using Python tools.
-3. Use Python's flexibility for scientific computing while leveraging Java's
-   robustness for enterprise applications.
-
 .. _introduction_prerequisites:
 
 Prerequisites
@@ -109,53 +98,11 @@ After installation, verify that JPype is installed correctly by running::
 
 Your First JPype Program
 ------------------------
-Follow these steps to write and run your first JPype program:
-
-
-.. _introduction_step_1_start_the_jvm:
-
-Step 1: Start the JVM
-~~~~~~~~~~~~~~~~~~~~~
-JPype requires the JVM to be started before interacting with Java. All calls
-to the Java prior to the start of the JVM will fail. Use the
-`jpype.startJVM()` function to start the JVM::
-
-    import jpype
-
-    # Start the JVM
-    jpype.startJVM(classpath=[])
-
-.. _introduction_step_2_access_java_classes:
-
-Step 2: Access Java Classes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-JPype allows you to import and use Java classes directly. For example, import
-Java's `java.lang.String` class::
-
-    from java.lang import String
-
-.. _introduction_step_3_use_java_objects:
-
-Step 3: Use Java Objects
-~~~~~~~~~~~~~~~~~~~~~~~~
-Create and manipulate Java objects just like Python objects::
-
-    java_string = String("Hello from Java!")
-    print(java_string.toUpperCase())  # Output: HELLO FROM JAVA!
-
-.. _introduction_step_4_shut_down_the_jvm:
-
-Step 4: Shut Down the JVM
-~~~~~~~~~~~~~~~~~~~~~~~~~
-Once the program is complete the JVM will exit when Python does.  All termination
-code is handled automatically.
-
-
-.. _introduction_complete_example:
-
-Complete Example
-~~~~~~~~~~~~~~~~
-Save the following code in a file named `hello_jpype.py`:
+The JVM must be started (with ``jpype.startJVM()``) before any Java class is
+touched -- calls made before that point fail. Once started, Java classes are
+imported and used directly as if they were Python classes; when the program
+ends, the JVM shuts down with it, and that termination is handled
+automatically. Save the following in a file named `hello_jpype.py`:
 
 .. code-block:: python
 
@@ -163,7 +110,7 @@ Save the following code in a file named `hello_jpype.py`:
     import jpype.imports
 
     # Start the JVM
-    jpype.startJVM(classpath=["../jar/*","../classes","com.amce-1.0.jar"])
+    jpype.startJVM(classpath=["../jar/*","../classes","com.acme-1.0.jar"])
 
     # Import Java classes
     from java.lang import String
@@ -181,30 +128,9 @@ You should see the output::
 
     HELLO FROM JAVA!
 
-
-.. _introduction_next_steps:
-
-Next Steps
-----------
-Once you've successfully set up JPype, explore the following topics:
-
-1. **Accessing Java Libraries**: Learn how to use JPype to interact with third-
-   party Java libraries.
-2. **Working with Java Collections**: Discover how JPype integrates Java
-   collections with Python's `collections` module.
-3. **Implementing Java Interfaces in Python**: Use JPype's proxy functionality
-   to implement Java interfaces in Python.
-4. **Debugging Java Code**: Use JPype as an interactive shell for debugging
-   Java programs.
-
-
-.. _introduction_summary_of_jpype:
-
-Summary of JPype
-----------------
-With JPype, you can access Java libraries, implement Java interfaces, and
-debug Java code, all from Python.
-
+The rest of this guide works through what each of those pieces -- library
+access, collections, interface implementation, debugging -- looks like in
+practice, starting with the four use cases below.
 
 
 .. _introduction_jpype_use_cases:
@@ -250,7 +176,7 @@ an example in Java so you just have to port it into Python.
 
   package com.paying.customer;
 
-  import com.paying.customer.DataBase
+  import com.paying.customer.DataBase;
 
   public class MyExample {
      public void main(String[] args) {
@@ -459,7 +385,7 @@ is working.
   experiment.addMonitor(hm)
   experiment.run()
   readings = hm.getResults()
-  plt.plot(readings[:,0], readings[:,1)
+  plt.plot(readings[:,0], readings[:,1])
   plt.show()
 
 To your surprise, it says unable to find method addMonitor with an error message::
@@ -744,7 +670,7 @@ where Java needs to embed Python for scripting purposes.
 
 PyJnius
 -------
-PyJnius <https://github.com/kivy/pyjnius>_ is another Python-to-Java bridge.
+`PyJnius <https://github.com/kivy/pyjnius>`_ is another Python-to-Java bridge.
 Its syntax is somewhat similar to JPype, allowing classes to be loaded and
 accessed with Java-native syntax. PyJnius supports customization of Java
 classes to make them appear more Pythonic. However, PyJnius lacks support for
@@ -759,7 +685,7 @@ requiring Python-Java integration.
 
 Jython
 ------
-Jython <https://www.jython.org/>_ is a reimplementation of Python in Java. It
+`Jython <https://www.jython.org/>`_ is a reimplementation of Python in Java. It
 allows Python code to run directly on the JVM, providing seamless access to
 Java libraries. Jython, while limited to Python 2, played a significant role in
 bridging Python and Java in earlier development eras. It may still be useful for
