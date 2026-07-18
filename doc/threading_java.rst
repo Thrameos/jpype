@@ -33,13 +33,23 @@ Python call on one thread doesn't have to freeze the rest of your Java
 application; other Java threads keep running until *they* need the GIL
 too.
 
-This holds across subinterpreters as well. ``org.jpype.SubInterpreter``
-can start additional interpreters alongside the main one, but they are
-**legacy-style**: all subinterpreters share the same process GIL (not full
-PEP 684 per-interpreter GIL isolation), because ``_jpype`` is a
-single-phase-init extension. Don't rely on subinterpreters for independent
-concurrency -- see :doc:`limitations_java` for the full caveat, including
-the cross-interpreter proxy-smuggling guard.
+Subinterpreters add a wrinkle, but not the one you'd expect. ``_jpype`` is
+built with multi-phase init (it declares ``Py_mod_multiple_interpreters =
+Py_MOD_PER_INTERPRETER_GIL_SUPPORTED``), so it is eligible for genuine,
+own-GIL subinterpreters. ``org.jpype.SubInterpreterBuilder`` launches
+exactly that: its default configuration (``ownGil()``) gives each
+subinterpreter its own GIL and its own obmalloc arena -- full PEP 684
+isolation, not shared with the main interpreter or any other
+subinterpreter. The bare, no-argument ``org.jpype.SubInterpreter.start()``
+is the one exception: it always launches with the older **legacy**
+configuration -- shared process GIL, shared obmalloc -- kept for
+backward compatibility, not because ``_jpype`` requires it. Use the
+builder (and ``SubInterpreterBuilder.elevated()`` if you specifically need
+the shared-GIL combination, e.g. to import a single-phase-init extension
+that own-GIL isolation would otherwise reject) rather than assuming
+subinterpreters are always legacy-style -- see :doc:`limitations_java` for
+the full caveat, including the cross-interpreter proxy-smuggling guard
+that still applies even under own-GIL isolation.
 
 
 Async calls

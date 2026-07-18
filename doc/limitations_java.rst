@@ -55,23 +55,32 @@ data crossing this direction as ``python.io`` streams or individual
 
 .. _reverse_bridge_limitations_subinterpreters:
 
-Subinterpreters are legacy-style, not fully isolated
+Subinterpreter isolation depends on how you launch it
 --------------------------------------------------------
 
 ``org.jpype.Interpreter``/``SubInterpreter`` can start additional Python
 subinterpreters alongside the main one (verified with two subinterpreters
 plus the main interpreter running concurrently with no cross-talk or
-hangs). This is **legacy-style multi-interpreter support**: all
-subinterpreters share the same process GIL and the same CPython object
-allocator as the main interpreter, because ``_jpype`` is a single-phase-init
-extension. It is not full PEP 684 (per-interpreter GIL) isolation — don't
-document or rely on it as if separate subinterpreters give independent
-concurrency or independent memory ownership.
+hangs). ``_jpype`` is built with multi-phase init and declares itself
+eligible for a genuinely isolated own-GIL configuration
+(``Py_mod_multiple_interpreters = Py_MOD_PER_INTERPRETER_GIL_SUPPORTED``),
+so full PEP 684 isolation — its own GIL and its own CPython object
+allocator, not shared with the main interpreter — is available and is in
+fact the *default* ``org.jpype.SubInterpreterBuilder`` configuration
+(``ownGil()``). The one exception is the bare, no-argument
+``SubInterpreter.start()`` entry point: it always launches with the older
+**legacy** configuration — shared process GIL, shared allocator — kept for
+backward compatibility. Don't assume a subinterpreter is legacy-style just
+because it's a subinterpreter; check which launch path produced it. Use
+``SubInterpreterBuilder.elevated()`` if shared-GIL behavior is what you
+actually need (e.g. to import a single-phase-init extension that own-GIL
+isolation's ``check_multi_interp_extensions`` would otherwise reject).
 
-A related, deliberate guard: a proxy or wrapped object obtained inside one
-(sub)interpreter cannot be silently smuggled into another interpreter's
-scope. Attempting to do so raises a detection error rather than corrupting
-state — this is intentional, not a bug to work around.
+A related, deliberate guard applies regardless of GIL configuration: a
+proxy or wrapped object obtained inside one (sub)interpreter cannot be
+silently smuggled into another interpreter's scope. Attempting to do so
+raises a detection error rather than corrupting state — this is
+intentional, not a bug to work around.
 
 
 .. _reverse_bridge_limitations_async_thread_pool:
