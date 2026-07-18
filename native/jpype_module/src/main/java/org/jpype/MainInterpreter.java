@@ -18,22 +18,13 @@ package org.jpype;
 
 import org.jpype.internal.NativeLauncherControl;
 import org.jpype.internal.NativeContext;
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Stream;
 import python.lang.PyBuiltIn;
 import python.lang.PyCallable;
 import python.lang.PyObject;
@@ -70,7 +61,6 @@ public class MainInterpreter implements Interpreter
 {
 
   final static Logger LOGGER = Logger.getLogger(NativeContext.class.getName());
-  final static String PROBE = "/org/jpype/resources/probe.py";
 
   // Configuration variables
   final static String CONF_NAME = "python.config.program_name";
@@ -86,16 +76,6 @@ public class MainInterpreter implements Interpreter
   final static String CONF_WRITEBC = "python.config.write_bytecode";
 
   final static String MOD_PATH = "python.module.path";
-  final static String PYTHON_EXEC = "python.executable";
-  final static String PYTHON_LIB = "python.lib";
-
-  final static String JPYPE_LIB = "jpype.lib";
-  final static String JPYPE_ARCH = "jpype.arch";
-  final static String JPYPE_NOCACHE = "jpype.nocache";
-  final static String JPYPE_INSTALL = "jpype.install";
-  final static String JPYPE_VER = "jpype.version";
-
-  final static String PROPERTIES = "jpype.properties";
 
   /**
    * Indicates whether the interpreter is active.
@@ -106,30 +86,14 @@ public class MainInterpreter implements Interpreter
   private boolean terminated = false;
 
   /**
-   * Indicates whether the operating system is Windows.
+   * Locates, probes, and loads the Python environment this interpreter runs.
    */
-  private final boolean isWindows = checkWindows();
-
-  /**
-   * Path to the JPype library.
-   */
-  private String jpypeLibrary;
-
-  /**
-   * Version of the JPype library.
-   */
-  private String jpypeVersion;
+  private final Launcher launcher = new Launcher();
 
   /**
    * List of module paths used by the Python interpreter.
    */
   private final List<String> modulePaths = new ArrayList<>();
-  private String pythonExecutable;
-
-  /**
-   * Path to the Python library.
-   */
-  private String pythonLibrary;
 
   /**
    * The backend used to interact with Python.
@@ -359,12 +323,7 @@ public class MainInterpreter implements Interpreter
    */
   public void prepare()
   {
-    if (this.pythonLibrary != null)
-      return; // Already prepared or started
-
-    // Run the environmental audit
-    resolveLibraries();
-
+    launcher.prepare();
     LOGGER.info("Interpreter prepared. Ready for inspection or launch.");
   }
 
@@ -386,31 +345,31 @@ public class MainInterpreter implements Interpreter
     active = true;
 
     // 1. Ensure the environment is prepared
-    if (this.pythonLibrary == null)
+    if (!launcher.isPrepared())
       prepare();
 
     // 2. Audit check: Ensure we have the minimum viable components
-    if (jpypeLibrary == null || pythonLibrary == null)
+    if (launcher.getJpypeLibrary() == null || launcher.getPythonLibrary() == null)
     {
       LOGGER.severe("Bridge initialization failed: Libraries not found.");
       throw new UnsatisfiedLinkError("Unable to find _jpype or libpython modules");
     }
 
-    if (this.jpypeVersion.equals("NOT_FOUND"))
+    if (launcher.getJpypeVersion().equals("NOT_FOUND"))
       throw new UnsatisfiedLinkError("Jpype module not found");
 
     // 4. Compatibility check
-    int[] version = parseVersion(this.jpypeVersion);
-    int[] required = parseVersion(NativeContext.VERSION);
+    int[] version = Launcher.parseVersion(launcher.getJpypeVersion());
+    int[] required = Launcher.parseVersion(NativeContext.VERSION);
     if (version[0] < required[0] || (version[0] == required[0] && version[1] < required[1]))
-      throw new LinkageError("JPype version " + jpypeVersion + " is older than required " + NativeContext.VERSION);
+      throw new LinkageError("JPype version " + launcher.getJpypeVersion() + " is older than required " + NativeContext.VERSION);
 
     // 5. Load Native Binaries
-    installNatives();
+    launcher.installNatives();
 
     // 6. Final Configuration Dump (The "Detective's" Report)
-    // Pull everything from system properties now that resolveLibraries() has run
-    String programName = System.getProperty(CONF_NAME, this.pythonExecutable);
+    // Pull everything from system properties now that the launcher has run
+    String programName = System.getProperty(CONF_NAME, launcher.getPythonExecutable());
     String home = System.getProperty(CONF_HOME);
     String pythonPath = System.getProperty(CONF_PATH);
 
@@ -442,7 +401,7 @@ public class MainInterpreter implements Interpreter
     this.context = NativeLauncherControl.startMain(paths, args,
             programName,
             home,
-            System.getProperty(CONF_EXECUTABLE, this.pythonExecutable),
+            System.getProperty(CONF_EXECUTABLE, launcher.getPythonExecutable()),
             getBool(CONF_ISOLATED, "false"),
             getBool(CONF_FAULTHANDLER, "false"),
             getBool(CONF_QUIET, "false"),
@@ -507,64 +466,6 @@ public class MainInterpreter implements Interpreter
 
 //<editor-fold desc="internal" defaultstate="collapsed">
   /**
-   * Determines if the current operating system is Windows.
-   *
-   * @return {@code true} if the operating system is Windows; {@code false}
-   * otherwise.
-   */
-  private static boolean checkWindows()
-  {
-    String osName = System.getProperty("os.name");
-    return osName.startsWith("Windows");
-  }
-
-  /**
-   * Loads the detective probe from the resources directory.
-   */
-  private String loadProbeResource()
-  {
-    // Get the module that contains the Interpreter class
-    Module module = MainInterpreter.class.getModule();
-
-    try (InputStream is = module.getResourceAsStream(PROBE))
-    {
-      if (is == null)
-      {
-        throw new RuntimeException("Missing resource: " + PROBE
-                + " (Ensure it is in the module path and the package is included in the JAR)");
-      }
-      return new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-    } catch (IOException e)
-    {
-      throw new RuntimeException("Failed to load detective probe from resources", e);
-    }
-  }
-
-  /**
-   * Parses a version string into an integer array.
-   *
-   * @param version The version string to parse (e.g., "3.9.7").
-   * @return An integer array representing the version (e.g., [3, 9, 7]).
-   */
-  private static int[] parseVersion(String version)
-  {
-    String[] parts = version.split("\\.");
-    int[] out = new int[3];
-    try
-    {
-      for (int i = 0; i < parts.length; ++i)
-      {
-        if (i == 3)
-          break;
-        out[i] = Integer.parseInt(parts[i]);
-      }
-    } catch (NumberFormatException ex)
-    {
-    }
-    return out;
-  }
-
-  /**
    * Constructs a new {@code Interpreter}.
    *
    * <p>
@@ -578,386 +479,9 @@ public class MainInterpreter implements Interpreter
       this.modulePaths.addAll(Arrays.asList(paths.split(File.pathSeparator)));
   }
 
-  /**
-   * Searches the system PATH for an executable.
-   *
-   * @param exec The name of the executable to search for.
-   * @return The path to the executable, or {@code null} if not found.
-   */
-  private String checkPath(String exec)
-  {
-    String path = System.getenv("PATH");
-    if (path == null)
-      return null;
-    String[] parts = path.split(File.pathSeparator);
-    for (String part : parts)
-    {
-      Path test = Paths.get(part, exec);
-      if (Files.exists(test) && Files.isExecutable(test))
-        return test.toString();
-    }
-    return null;
-  }
-
-  /**
-   * Determines the location of the Python executable to use for probing.
-   *
-   * <p>
-   * This method uses the following sources to locate the executable:</p>
-   * <ul>
-   * <li>Java system property {@code python.executable}</li>
-   * <li>Environment variable {@code PYTHONHOME}</li>
-   * <li>First `python3` found in the system PATH</li>
-   * </ul>
-   *
-   * @return The path to the Python executable.
-   * @throws RuntimeException If the executable cannot be located.
-   */
-  private String getExecutable()
-  {
-    // Was is supplied via Java?
-    String out = System.getProperty(PYTHON_EXEC);
-
-    // Was it passed as environment variable?
-    if (out != null)
-      return out;
-
-    String home = System.getenv("PYTHONHOME");
-    if (home != null)
-    {
-      if (isWindows)
-      {
-        return Paths.get(home, "python.exe").toString();
-      } else
-      {
-        // On Linux, the binary is almost always in the 'bin' folder
-        // relative to the HOME/Prefix.
-        return Paths.get(home, "bin", "python3").toString();
-      }
-    }
-
-    String suffix = isWindows ? ".exe" : "";
-    String onPath = checkPath("python" + suffix);
-    if (onPath != null)
-      return onPath;
-
-    throw new RuntimeException("Unable to locate Python executable");
-  }
-
-  private String makeHash(String path)
-  {
-    // No need to be cryptographic here.  We just need a unique key
-    long hash = 0;
-    for (int i = 0; i < path.length(); ++i)
-    {
-      hash = hash * 0x19185193123l + path.charAt(i);
-    }
-    return Long.toHexString(hash);
-  }
-
-  private void executeProbe(Properties probed)
-  {
-    try
-    {
-      // Load the script from resources instead of a constant
-      String script = loadProbeResource();
-
-      String[] cmd =
-      {
-        pythonExecutable, "-c", script
-      };
-      LOGGER.info("Executing Detective Probe from resources");
-
-      ProcessBuilder pb = new ProcessBuilder(cmd);
-
-      String jpypeDevPath = System.getProperty("jpype.path");
-      if (jpypeDevPath != null)
-      {
-        String currentPath = pb.environment().getOrDefault("PYTHONPATH", "");
-        String separator = isWindows ? ";" : ":";
-        String newPath = jpypeDevPath + (currentPath.isEmpty() ? "" : separator + currentPath);
-        pb.environment().put("PYTHONPATH", newPath);
-        LOGGER.log(Level.INFO, "Probe PYTHONPATH augmented with: {0}", jpypeDevPath);
-      }
-
-      Process process = pb.start();
-
-      try (InputStream is = process.getInputStream())
-      {
-        probed.load(is);
-      }
-
-      // Standard error handling using your existing logic
-      try (BufferedReader err = new BufferedReader(new InputStreamReader(process.getErrorStream())))
-      {
-        String line;
-        while ((line = err.readLine()) != null)
-        {
-          LOGGER.log(Level.WARNING, "Python Probe: {0}", line);
-        }
-      }
-
-      if (process.waitFor() != 0)
-        throw new RuntimeException("Python probe failed. Check logs.");
-    } catch (IOException | InterruptedException ex)
-    {
-      throw new RuntimeException("Failed to execute detective probe", ex);
-    }
-  }
-
-  /**
-   * Resolves the OS-specific directory for JPype configuration and cache.
-   *
-   * * @return The Path to the JPype app data directory.
-   */
-  private Path getAppPath()
-  {
-    String homeDir = System.getProperty("user.home");
-    // Windows uses AppData/Roaming, Unix uses a hidden dot-folder
-    String appHome = isWindows ? "AppData/Roaming/JPype" : ".jpype";
-    return Paths.get(homeDir, appHome);
-  }
-
-  /**
-   * Store the results of the probe in the users home directory so we can skip
-   * future probes.
-   *
-   * @param key is a hash code for this python environment.
-   * @param exe is the location of the executable.
-   */
-  private void saveCache(String key, String exe, Properties probed)
-  {
-    LOGGER.log(Level.INFO, "Updating cache: {0} {1}", objs(key, exe));
-    try
-    {
-      Path appPath = getAppPath(); // Helper to get .jpype or AppData path
-      if (!Files.exists(appPath))
-        Files.createDirectories(appPath);
-
-      Path propFile = appPath.resolve(PROPERTIES);
-      Properties cacheProps = new Properties();
-      if (Files.exists(propFile))
-      {
-        try (InputStream is = Files.newInputStream(propFile))
-        {
-          cacheProps.load(is);
-        }
-      }
-
-      // Store the exe location for reference
-      cacheProps.setProperty(key, exe);
-
-      // Store every property found by the probe with the unique hash prefix
-      for (String name : probed.stringPropertyNames())
-        cacheProps.setProperty(key + "-" + name, probed.getProperty(name));
-
-      try (OutputStream os = Files.newOutputStream(propFile))
-      {
-        cacheProps.store(os, "JPype Environment Cache");
-      }
-    } catch (IOException ex)
-    {
-      LOGGER.log(Level.WARNING, "Could not save JPype cache: {0}", ex.getMessage());
-    }
-  }
-
-  private boolean loadFromCache(String key, Properties probed)
-  {
-    Path propFile = getAppPath().resolve(PROPERTIES);
-    LOGGER.log(Level.FINE, "Load from cache {0}", propFile);
-    if (!Files.exists(propFile))
-      return false;
-
-    try (InputStream is = Files.newInputStream(propFile))
-    {
-      Properties allCache = new Properties();
-      allCache.load(is);
-
-      String prefix = key + "-";
-      boolean found = false;
-      for (String name : allCache.stringPropertyNames())
-      {
-        if (name.startsWith(prefix))
-        {
-          String cleanName = name.substring(prefix.length());
-          probed.setProperty(cleanName, allCache.getProperty(name));
-          LOGGER.log(Level.FINE, "  {0} {1}", objs(cleanName, allCache.getProperty(name)));
-          found = true;
-        }
-      }
-
-      // Final sanity check: does the cached library actually exist?
-      if (found)
-      {
-        String lib = probed.getProperty(PYTHON_LIB);
-        return lib != null && Files.exists(Paths.get(lib));
-      }
-    } catch (IOException ex)
-    {
-      LOGGER.log(Level.FINE, "Cache read failed: {0}", ex.getMessage());
-    }
-    return false;
-  }
-
-  private void resolveLibraries()
-  {
-    this.pythonExecutable = getExecutable();
-    String key = makeHash(pythonExecutable);
-    Properties probedProps = new Properties();
-
-    boolean noCache = Boolean.parseBoolean(System.getProperty(JPYPE_NOCACHE, "false")); //
-    boolean attemptInstall = Boolean.parseBoolean(System.getProperty(JPYPE_INSTALL, "false"));
-
-    LOGGER.log(Level.FINE, "{0}={1}", objs(JPYPE_NOCACHE, noCache));
-    LOGGER.log(Level.FINE, "{0}={1}", objs(JPYPE_INSTALL, attemptInstall));
-
-    if (!noCache && loadFromCache(key, probedProps))
-    {
-      LOGGER.log(Level.INFO, "Cache hit: {0}", pythonExecutable);
-    } else
-    {
-      try
-      {
-        executeProbe(probedProps);
-      } catch (RuntimeException e)
-      {
-        if (attemptInstall)
-        {
-          LOGGER.info("JPype not found. Attempting binary installation via pip...");
-          runPipInstall();
-          executeProbe(probedProps); // Re-probe after install
-        } else
-        {
-          throw e;
-        }
-      }
-      saveCache(key, pythonExecutable, probedProps);
-    }
-    applyDefaults(probedProps);
-    // Sync the instance variables with the now-probed System Properties
-    this.pythonLibrary = System.getProperty(PYTHON_LIB);
-    this.jpypeLibrary = System.getProperty(JPYPE_LIB);
-    this.jpypeVersion = System.getProperty(JPYPE_VER);
-  }
-
-  /**
-   * Attempts to install JPype1. Prioritizes local wheel files to support
-   * offline environments.
-   */
-  private void runPipInstall()
-  {
-    try
-    {
-      // 1. Get requirements from the detective probe and context
-      int[] v = parseVersion(NativeContext.VERSION);
-      String versionReq = String.format("%d.%d", v[0], v[1]);
-      String arch = System.getProperty(JPYPE_ARCH, "undetermined");
-      LOGGER.log(Level.INFO, "Self-healer searching for local wheel matching: {0}", arch);
-
-      // 2. Look for an explicit wheel in a local 'resources' or 'dep' folder
-      Path localRepo = getAppPath().resolve("dep");
-      Path explicitWheel = findLocalWheel(localRepo, versionReq, arch);
-
-      String[] cmd;
-      if (explicitWheel != null)
-      {
-        LOGGER.log(Level.INFO, "Found local wheel: {0}", explicitWheel.getFileName());
-        cmd = new String[]
-        {
-          pythonExecutable, "-m", "pip", "install", explicitWheel.toString()
-        };
-      } else
-      {
-        // Fallback to network only if allowed
-        LOGGER.log(Level.WARNING, "No local wheel found for {0}. Attempting network install...", arch);
-        cmd = new String[]
-        {
-          pythonExecutable, "-m", "pip", "install",
-          "JPype1>=" + versionReq, "--only-binary", ":all:"
-        };
-      }
-
-      // 3. Execute
-      LOGGER.log(java.util.logging.Level.INFO, "Running: {0}", String.join(" ", cmd));
-      ProcessBuilder pb = new ProcessBuilder(cmd).inheritIO();
-      if (pb.start().waitFor() != 0)
-        throw new RuntimeException("Installation failed. Offline mode and no local wheel found for " + arch);
-    } catch (Exception e)
-    {
-      throw new RuntimeException("Self-healer failed", e);
-    }
-  }
-
-  /**
-   * Scans a directory for a .whl file matching the version and architecture.
-   */
-  private Path findLocalWheel(Path dir, String version, String arch) throws IOException
-  {
-    if (!Files.exists(dir))
-      return null;
-    try (Stream<Path> stream = Files.list(dir))
-    {
-      return stream
-              .filter(p -> p.toString().endsWith(".whl"))
-              .filter(p -> p.toString().contains(version))
-              .filter(p -> p.toString().contains(arch))
-              .findFirst()
-              .orElse(null);
-    }
-  }
-
-  private void applyDefaults(Properties probed)
-  {
-    for (String name : probed.stringPropertyNames())
-    {
-      // override if not set externally
-      if (System.getProperty(name) == null)
-      {
-        System.setProperty(name, probed.getProperty(name));
-        LOGGER.log(Level.FINE, "Setting default: {0} = {1}", objs(name, probed.getProperty(name)));
-      }
-    }
-  }
-
-  private void installNatives()
-  {
-    // 3. Log the resolved environment details
-    LOGGER.info("JPype Bridge Environment:");
-    LOGGER.log(Level.INFO, "  Python Executable: {0}", this.pythonExecutable);
-    LOGGER.log(Level.INFO, "  Python Library:    {0}", this.pythonLibrary);
-    LOGGER.log(Level.INFO, "  JPype Library:     {0}", this.jpypeLibrary);
-    LOGGER.log(Level.INFO, "  JPype Version:     {0}", this.jpypeVersion);
-
-    try
-    {
-      if (!isWindows)
-      {
-        // We need the Python library loaded with global scope which is not possible from Java directly.
-        String jpypeBootstrapLibrary = jpypeLibrary.replace("jpype.", "jpyne.");
-        LOGGER.log(Level.FINE, "Loading Linux bootstrap: {0}", jpypeBootstrapLibrary);
-        System.load(jpypeBootstrapLibrary);
-        BootstrapLoader.loadLibrary(pythonLibrary);
-      } else
-      {
-        System.load(pythonLibrary);
-      }
-      System.load(jpypeLibrary);
-      LOGGER.info("Native libraries loaded successfully.");
-    } catch (UnsatisfiedLinkError e)
-    {
-      LOGGER.log(Level.SEVERE, "Linkage Error: Check if architecture matches {0}", System.getProperty(JPYPE_ARCH));
-      throw e;
-    }
-  }
-
   private boolean getBool(String key, String def)
   {
     return Boolean.parseBoolean(System.getProperty(key, def));
-  }
-
-  private Object[] objs(Object... obj)
-  {
-    return obj;
   }
 
 //</editor-fold>
