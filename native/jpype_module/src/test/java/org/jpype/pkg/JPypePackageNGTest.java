@@ -16,11 +16,14 @@
 **************************************************************************** */
 package org.jpype.pkg;
 
+import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
+import org.jpype.internal.DynamicClassLoader;
 import static org.testng.Assert.*;
 import org.testng.annotations.Test;
 
@@ -90,6 +93,97 @@ public class JPypePackageNGTest
     Arrays.sort(contents);
     String[] result = Arrays.copyOfRange(contents, 0, 2);
     assertEquals(result, expResult);
+  }
+
+  @Test
+  public void testGetObjectReturnsSubpackageName()
+  {
+    Package instance = new Package("java");
+    Object result = instance.getObject("lang");
+    assertEquals(result, "java.lang");
+  }
+
+  @Test
+  public void testGetObjectNotFoundReturnsNull()
+  {
+    Package instance = new Package("java.lang");
+    assertNull(instance.getObject("ThisClassDoesNotExistXYZ"));
+  }
+
+  @Test
+  public void testGetContentsSkipsNullEntries()
+  {
+    Package instance = new Package("java.lang");
+    instance.contents.put("__coverageTestNullEntry__", null);
+    for (String s : instance.getContents())
+      assertNotEquals(s, "__coverageTestNullEntry__");
+  }
+
+  @Test
+  public void testIsPublicBadMagicReturnsFalse() throws IOException
+  {
+    Path tmp = Files.createTempFile("bogus", ".class");
+    try
+    {
+      Files.write(tmp, new byte[]
+      {
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+      });
+      assertFalse(Package.isPublic(tmp));
+    } finally
+    {
+      Files.deleteIfExists(tmp);
+    }
+  }
+
+  /**
+   * Hand-built minimal class-file header: real magic/cpcount, then a single
+   * constant-pool entry whose tag (2) isn't one of the recognized cases -
+   * exercises the {@code default: return false} branch of the constant-pool
+   * scan without needing a real malformed .class off disk.
+   */
+  @Test
+  public void testIsPublicUnsupportedConstantPoolTagReturnsFalse() throws IOException
+  {
+    Path tmp = Files.createTempFile("bogus2", ".class");
+    try
+    {
+      byte[] data = new byte[]
+      {
+        (byte) 0xCA, (byte) 0xFE, (byte) 0xBA, (byte) 0xBE,
+        0, 0, 0, 0x34,
+        0, 2,
+        2, 0, 0
+      };
+      Files.write(tmp, data);
+      assertFalse(Package.isPublic(tmp));
+    } finally
+    {
+      Files.deleteIfExists(tmp);
+    }
+  }
+
+  @Test
+  public void testCheckCacheRefreshesWhenDynamicClassLoaderCodeChanges() throws Exception
+  {
+    ClassLoader original = PackageManager.classloader;
+    DynamicClassLoader dyn = new DynamicClassLoader(original);
+    try
+    {
+      PackageManager.setClassLoader(dyn);
+      Package instance = new Package("java.lang");
+      int codeBefore = instance.code;
+      assertEquals(codeBefore, dyn.getCode());
+
+      dyn.addURL(new java.io.File(".").toURI().toURL());
+      assertNotEquals(dyn.getCode(), codeBefore);
+
+      instance.checkCache();
+      assertEquals(instance.code, dyn.getCode());
+    } finally
+    {
+      PackageManager.setClassLoader(original);
+    }
   }
 
 }

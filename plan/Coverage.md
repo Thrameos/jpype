@@ -1,6 +1,6 @@
 # Java module coverage cleanup: systematic pass
 
-## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script, python.lang (PyMapping views + real bug fixed; protocol interfaces incl. PyGenerator crash root-caused and fixed, see [[plan/GeneratorCastCrash.md]]; PyCallable.CallBuilder + kwargs-string bug fixed; PyMapping/PySequence/PySet/PyFrozenSet/PyTuple all raised to ~100%; PyMutableSet confirmed NOT deletable, see finding in this doc), org.jpype (61%→66%; SubInterpreter/most of SubInterpreterBuilder confirmed environment-gated — needs a real Python 3.12 native rebuild, out of scope here — everything else fixable under 3.10 closed out: Script/Interpreter/SpiResource now 100%), python.decimal (72%→100%; tiny package, only `PyDecimalWrapperService`'s getters were uncovered), python.collections (83%→95%; `PyOrderedDict.moveToEnd(key)`'s one-arg default confirmed unreachable through the real bridge — name-only dispatch always resolves to Python's own `move_to_end` first, see finding below), org.jpype.manager (86%→93% instruction / 76%→89% branch; found+fixed a real resource-leak bug in `TypeManager.createClass()`'s lambda/anonymous-class branches, see finding below). Remaining packages NOT STARTED: org.jpype.pkg, python.pathlib, org.jpype.ref, python.io, org.jpype.proxy, python.datetime.
+## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script, python.lang (PyMapping views + real bug fixed; protocol interfaces incl. PyGenerator crash root-caused and fixed, see [[plan/GeneratorCastCrash.md]]; PyCallable.CallBuilder + kwargs-string bug fixed; PyMapping/PySequence/PySet/PyFrozenSet/PyTuple all raised to ~100%; PyMutableSet confirmed NOT deletable, see finding in this doc), org.jpype (61%→66%; SubInterpreter/most of SubInterpreterBuilder confirmed environment-gated — needs a real Python 3.12 native rebuild, out of scope here — everything else fixable under 3.10 closed out: Script/Interpreter/SpiResource now 100%), python.decimal (72%→100%; tiny package, only `PyDecimalWrapperService`'s getters were uncovered), python.collections (83%→95%; `PyOrderedDict.moveToEnd(key)`'s one-arg default confirmed unreachable through the real bridge — name-only dispatch always resolves to Python's own `move_to_end` first, see finding below), org.jpype.manager (86%→93% instruction / 76%→89% branch; found+fixed a real resource-leak bug in `TypeManager.createClass()`'s lambda/anonymous-class branches, see finding below), org.jpype.pkg (85%→93% instruction / 78%→91% branch; pure classloader/reflection code, no bridge needed, see finding below). Remaining packages NOT STARTED: python.pathlib, org.jpype.ref, python.io, org.jpype.proxy, python.datetime.
 
 `jacoco-maven-plugin` (0.8.14, offline-resolvable from `~/.m2` except one
 missing transitive jar — `plexus-utils:1.1`, fetched once online, now
@@ -60,7 +60,7 @@ building until the `mvn` report alone leaves unexplained gaps.
 | python.decimal | 72% | n/a | no | **DONE** |
 | org.jpype.manager | 85% | 75% | unknown, check before assuming | **DONE** |
 | python.collections | 83% | 100% | no | **DONE** |
-| org.jpype.pkg | 85% | 78% | unknown, check before assuming | not started |
+| org.jpype.pkg | 85%→93% | 78%→91% | no — pure JVM classloader/reflection code, no Python bridge involved | **DONE** |
 | python.pathlib | 81% | n/a | no | not started |
 | org.jpype.ref | 88% | 67% | unknown, check before assuming | not started |
 | python.io | 87% | 74% | no | not started |
@@ -245,6 +245,63 @@ starting worklist once a package is picked:
     JNI-facing declarations, reflection-failure `catch` blocks, and the
     startup GIL-leak diagnostic (`NativeLauncherControl.isGilHeld()`
     after `init()`), none practical to drive from a plain unit test.
+- **org.jpype.pkg**: **DONE** (package total 85% → 93% instruction, 78%
+  → 91% branch; 881/881 full suite). Unlike every other package touched
+  this session, `Package`/`PackageManager` are pure JVM
+  classloader/reflection/class-file-parsing code - no Python bridge, no
+  `PyTestHarness` needed, everything driven from plain constructors and
+  static methods. Extended `JPypePackageNGTest` and added new
+  `PackageManagerNGTest`:
+  - `Package.getObject`: the is-a-subpackage return path (`"java"` →
+    `getObject("lang")` → `"java.lang"`), and the
+    not-found→`ClassNotFoundException`→`null` catch path.
+  - `Package.getContents`: null-valued `contents` map entries (possible
+    after `PackageManager.getContentMap` misses a resource) are skipped
+    via `continue`, not passed to `PackageManager.getPath`.
+  - `Package.isPublic`: hand-built minimal byte arrays (not real
+    `.class` files) to hit the bad-magic-number `return false` and the
+    constant-pool-scan `default: return false` for an unrecognized tag
+    (2) - far cheaper than compiling a genuinely malformed class file.
+  - `Package.checkCache`: the actual cache-refresh path (not just the
+    early-return "unchanged" path) needs `PackageManager.classloader` to
+    really be an `org.jpype.internal.DynamicClassLoader` with a
+    `getCode()` that changes - `new DynamicClassLoader(parent)` plus
+    `addURL(...)` (which bumps its `code` field) does this directly,
+    swapped in/out via `PackageManager.setClassLoader` around the test.
+  - `PackageManager.getPath`/`getFileSystemProvider`: both throw
+    `FileSystemNotFoundException` for an unrecognized URI scheme -
+    `getFileSystemProvider` is `private`, reached via reflection.
+  - `PackageManager.isModulePackage`/`getModuleContents`: the
+    >3-path-segment search-key-truncation branch, exercised with a
+    5-segment dotted name (`java.lang.invoke.MethodHandles.Lookup`) -
+    the inner class itself isn't a package, but the truncated lookup
+    against its enclosing module still has to run to find that out.
+  - `PackageManager.isJarPackage`: needed a package name that resolves
+    on the plain classpath but isn't part of any JDK or `org.jpype`
+    module (every real package name already used elsewhere in the suite
+    - `java`, `java.lang`, `org.jpype.*` - matches earlier via
+    `isModulePackage`/`isNamedModulePackage` and never reaches this
+    method's loop body at all). Added a throwaway marker resource at
+    `src/test/resources/zzcoveragetestpkg/marker.txt` and called
+    `isJarPackage` directly via reflection (going through the public
+    `isPackage` entry point left it ambiguous *which* of the three
+    checks actually matched, once a prior bridge-startup test in the
+    same suite run has permanently swapped `PackageManager.classloader`
+    to the `DynamicClassLoader` singleton installed by
+    `NativeContext`/`DynamicClassLoader.install`).
+  - Left uncovered (env-gated or disproportionate to fix): the
+    `modules.isEmpty()` guard in `isModulePackage` (only reachable if no
+    `jrt:` filesystem is discoverable at all - would need bypassing a
+    `final static` field via reflection for one line); every remaining
+    `catch (IOException ...)`/`catch (... | URISyntaxException ex)`
+    block guarding real filesystem/module-reader calls; the MRJAR
+    (multi-release jar) overlay-detection branch in `getJarContents`
+    (needs an actual multi-release jar fixture); the jar-filesystem
+    trailing-separator trim in `collectContents` (a zipfs-specific
+    quirk, not reproducible via a plain directory `Files
+    .newDirectoryStream`); and `toURI`'s `catch (Exception e)` →
+    `RuntimeException` (explicitly documented in its own comment as
+    "should never occur").
 - **org.jpype.internal**: **DONE** (41%/26% baseline → 74%/60%
   instruction/branch). `Keywords` and `FunctionalAdapters` — plain,
   native-free static utility classes, got ordinary non-bridge NGTest
