@@ -87,8 +87,15 @@ starting worklist once a package is picked:
   `PyTestHarness`/JVM bridge needed): `Keywords` now 71/74 instructions,
   `FunctionalAdapters` 6/9 (its anonymous `Iterator` from `mapIterator` and
   its `MapEntryWithSet` nested class both now fully covered). Remaining
-  in this package, still
-  untouched: `Support` (14%), `DynamicClassLoader` (23%, including a 0%
+  in this package: `Support` done — package-private "used exclusively
+  through JNI" per its Javadoc, but every method is plain deterministic
+  Java with no native dependency, so `SupportNGTest` calls them directly
+  (no bridge needed): array-reshaping helpers (`collectRectangular`/
+  `unpack`/`assemble`, including a real collect-then-reassemble round trip
+  through a 3D array), `order` (endianness per NIO buffer type),
+  `getStackTrace`/enclosing-frame truncation, the `Runtime`/`MemoryMXBean`
+  accessors, `getJarPath`. 14% to ~80% (369/462 instructions). Still
+  untouched: `DynamicClassLoader` (23%, including a 0%
   anonymous `SimpleFileVisitor`), `Reflector0` (was 25%, now 8/12 = 67% — special-loaded via
   `META-INF/versions/0` but its one real method, `callMethod`, is only
   reached through `JPMethod::invokeCallerSensitive`
