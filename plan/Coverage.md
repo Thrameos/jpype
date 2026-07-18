@@ -89,9 +89,15 @@ starting worklist once a package is picked:
   its `MapEntryWithSet` nested class both now fully covered). Remaining
   in this package, still
   untouched: `Support` (14%), `DynamicClassLoader` (23%, including a 0%
-  anonymous `SimpleFileVisitor`), `Reflector0` (25% — special-loaded via
-  `META-INF/versions/0`, see its class Javadoc; verify reachability before
-  writing a normal test), `NativeContext` (56%), `Signal` (process-global
+  anonymous `SimpleFileVisitor`), `Reflector0` (was 25%, now 8/12 = 67% — special-loaded via
+  `META-INF/versions/0` but its one real method, `callMethod`, is only
+  reached through `JPMethod::invokeCallerSensitive`
+  (`native/common/jp_method.cpp`), taken exclusively for Java methods
+  annotated `@jdk.internal.reflect.CallerSensitive` like `Class.forName` —
+  added `CallerSensitiveNGTest` calling
+  `JClass('java.lang.Class').forName(...)` from Python to exercise it;
+  remaining gap is just the `InvocationTargetException` unwrap branch,
+  not worth forcing), `NativeContext` (56%), `Signal` (process-global
   SIGINT/SIGTERM handler install, already gets incidental coverage from
   interpreter startup — installing real signal handlers from a dedicated
   test is risky, likely leave as-is per classification rule 3),
