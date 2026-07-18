@@ -44,7 +44,9 @@ Before starting the JVM, ensure the following prerequisites are met:
 How to Start the JVM
 --------------------
 To start the JVM, use the ``jpype.startJVM()`` function. This function
-initializes the JVM with the specified options. The key arguments are:
+initializes the JVM with the specified options. Raw JVM flags (``-ea``,
+``-Xmx512m``, ...) are given as positional arguments; JPype's own behavior
+is controlled with keyword arguments, the most commonly used being:
 
 - **``classpath``**: A list of paths to JAR files or directories containing
   Java classes.
@@ -52,8 +54,6 @@ initializes the JVM with the specified options. The key arguments are:
   automatically converted to Python strings.
 - **``ignoreUnrecognized``**: A flag that suppresses errors for unrecognized
   JVM options.
-- **Additional JVM options**: Any valid JVM arguments (e.g., ``-Xmx`` for
-  memory allocation).
 
 
 Example: Starting the JVM
@@ -64,10 +64,10 @@ Here is a typical example of starting the JVM:
 
     import jpype
 
-    # Start the JVM with classpath and options
+    # Start the JVM with classpath and a raw JVM flag
     jpype.startJVM(
-        classpath=['lib/*', 'classes'],
-        jvmOptions=["-ea"]  # Enable assertions
+        "-ea",  # Enable assertions
+        classpath=['lib/*', 'classes']
     )
 
 
@@ -247,42 +247,40 @@ non-ASCII paths.
 
 .. _controlling_the_jvm_additional_flags_for_startjvm:
 
-Additional Flags for `startJVM()`
----------------------------------
-JPype provides several optional flags for `startJVM()` to customize the JVM
-startup process:
+Additional Keyword Arguments for `startJVM()`
+----------------------------------------------
+Beyond ``classpath``, ``convertStrings``, and ``ignoreUnrecognized`` above,
+``startJVM()`` accepts:
 
-1. **`jvmOptions`**: A list of JVM options for memory, debugging, or garbage
-   collection tuning.
-   Example: ``jpype.startJVM(jvmOptions=["-Xmx512m", "-XX:+UseG1GC"])``
+1. **``jvmpath``**: Path to the JVM shared library, if it can't be found
+   automatically (see :ref:`controlling_the_jvm_automatic_jvm_path_detection`
+   below). It may also be given as the first positional argument.
+   Example: ``jpype.startJVM(jvmpath="/path/to/libjvm.so")``
 
-2. **`ignoreUnrecognized`**: Suppresses errors for unrecognized JVM options.
-   Example: ``jpype.startJVM(ignoreUnrecognized=True)``
+2. **``modulepath``**: A list of paths added to the JVM's module path, for
+   Java modular applications.
+   Example: ``jpype.startJVM(modulepath=["modules/*"])``
 
-3. **`convertStrings`**: Controls automatic conversion of Java strings to
-   Python strings.
-   Example: ``jpype.startJVM(convertStrings=False)``
+3. **``add_modules``**, **``add_opens``**, **``add_exports``**,
+   **``add_reads``**: Correspond to the JVM's ``--add-modules``,
+   ``--add-opens``, ``--add-exports``, and ``--add-reads`` flags for the
+   Java Platform Module System.
 
-4. **`classpath`**: Specifies paths to JAR files and Java classes.
-   Example: ``jpype.startJVM(classpath=["lib/*", "classes"])``
+4. **``interrupt``**: Whether JPype installs a ``^C`` signal handler that
+   stops the process; when ``False``, ``^C`` is instead delivered to Python
+   as a normal ``KeyboardInterrupt``. Defaults to ``False`` when Python is
+   running as an interactive shell.
 
-5. **`jvmPath`**: Specifies the path to the JVM shared library.
-   Example: ``jpype.startJVM(jvmPath="/path/to/libjvm.so")``
+5. **``minimum_version``**: Raises if the detected JVM is older than the
+   given version string.
 
-6. **`attachThread`**: Automatically attaches Python threads to the JVM.
-   Example: ``jpype.startJVM(attachThread=True)``
+Anything else -- memory limits (``-Xmx512m``), GC tuning
+(``-XX:+UseG1GC``), assertions (``-ea``), system properties (``-Dkey=val``)
+-- is a raw JVM flag, passed positionally rather than as a keyword:
 
-7. **`disableGC`**: Disables JPype's garbage collection hooks.
-   Example: ``jpype.startJVM(disableGC=True)``
+.. code-block:: python
 
-8. **`stackTrace`**: Enables detailed stack traces for Java exceptions.
-   Example: ``jpype.startJVM(stackTrace=True)``
-
-9. **`initializers`**: A list of Python functions executed during JVM startup.
-   Example: ``jpype.startJVM(initializers=[setup])``
-
-10. **`modulePath`**: Specifies the module path for Java modular applications.
-    Example: ``jpype.startJVM(modulePath=["modules/*"])``
+    jpype.startJVM("-Xmx512m", "-XX:+UseG1GC", classpath=["lib/*", "classes"])
 
 .. _string_conversions:
 
@@ -296,7 +294,7 @@ unnecessary conversions.
 
 If enabled (``convertStrings=True``), Java strings are returned as Python
 strings, but this can impact performance and chaining of Java string methods.
-This option is consisted a legacy option as it will result in unncessary
+This option is considered a legacy option as it will result in unnecessary
 calls to ``str()`` every time a String is passed from Java.
 
 Best practice: Set ``convertStrings=False`` unless your application explicitly
@@ -368,18 +366,6 @@ Best Practices for JVM starting
   it running for the program's lifetime.
 - **Monitor Resource Usage**: If your application uses large Java objects,
   monitor memory usage to avoid out-of-memory errors.
-
-.. _controlling_the_jvm_starting_the_jvm_summary:
-
-Summary of JVM starting
------------------------
-Starting the JVM is a critical step in using JPype to integrate Python with
-Java. By following the guidelines in this section, you can ensure a smooth
-startup process, avoid common pitfalls, and configure the JVM to meet your
-application's needs. Proper classpath configuration, architecture matching, and
-memory allocation are key to successful integration. Debugging tools and best
-practices are available to help troubleshoot issues and optimize performance.
-
 
 .. _shutdownJVM:
 
@@ -506,9 +492,9 @@ from any other thread will raise an exception.
     jpype.shutdownJVM()
 
 
-Numerous examples found on the internet explicity state that `shutdownJVM` is a
+Numerous examples found on the internet explicitly state that `shutdownJVM` is a
 good practice.  These examples are legacy from early development.  At the time
-shutdownJVM brutally closed the JVM and bypassed all for the JVM shutdown routines
+shutdownJVM brutally closed the JVM and bypassed all of the JVM's shutdown routines,
 thus causing the program to skip over errors in the JPype module resulting
 from mishandled race conditions.   While it is still acceptable to shutdown the
 JVM and may be desirable to do so if a module needs a particular order to shutdown
@@ -595,17 +581,4 @@ Best Practices for JVM Shutdown
   other unintended consequences.
 
 
-.. _controlling_the_jvm_summary_of_jvm_shutdown:
-
-Summary of JVM Shutdown
-------------------------
-
-JPype's shutdown process is designed to ensure that resources are cleaned up
-properly and the JVM terminates gracefully. While shutting down the JVM manually
-is possible, it introduces risks that can lead to instability and crashes. For
-most applications, the JVM should be allowed to shut down automatically when the
-Python process exits. If manual shutdown is required, take precautions to ensure
-that all Java references and shared resources are properly cleaned up before
-shutting down the JVM. Avoid forceful termination unless absolutely necessary,
-as it bypasses critical cleanup routines in both Python and Java.
 
