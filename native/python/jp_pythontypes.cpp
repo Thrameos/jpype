@@ -571,8 +571,12 @@ void JPPyErrFrame::clear()
 void JPPyErrFrame::normalize()
 {
 	// Python uses lazy evaluation on exceptions thus we can't modify it until
-	// we have forced it to realize the exception.
-	if (!PyExceptionInstance_Check(m_ExceptionValue.get()))
+	// we have forced it to realize the exception. A frame with no exception
+	// value at all (e.g. good == false, or fetch() came back empty) must
+	// not reach PyExceptionInstance_Check - it dereferences the PyObject*
+	// unconditionally, so a null m_ExceptionValue is a segfault, not a
+	// clean "not an exception instance" false.
+	if (m_ExceptionValue.get() != nullptr && !PyExceptionInstance_Check(m_ExceptionValue.get()))
 	{
 		JPPyObject args = JPPyTuple_Pack(m_ExceptionValue.get());
 		m_ExceptionValue = JPPyObject::call(PyObject_Call(m_ExceptionClass.get(), args.get(), nullptr));
