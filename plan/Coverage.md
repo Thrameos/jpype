@@ -1,6 +1,6 @@
 # Java module coverage cleanup: systematic pass
 
-## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script, python.lang (PyMapping views + real bug fixed; protocol interfaces incl. PyGenerator crash root-caused and fixed, see [[plan/GeneratorCastCrash.md]]; PyCallable.CallBuilder + kwargs-string bug fixed; PyMapping/PySequence/PySet/PyFrozenSet/PyTuple all raised to ~100%; PyMutableSet confirmed NOT deletable, see finding in this doc), org.jpype (61%→66%; SubInterpreter/most of SubInterpreterBuilder confirmed environment-gated — needs a real Python 3.12 native rebuild, out of scope here — everything else fixable under 3.10 closed out: Script/Interpreter/SpiResource now 100%). Remaining packages NOT STARTED: python.decimal, python.collections, org.jpype.manager, org.jpype.pkg, python.pathlib, org.jpype.ref, python.io, org.jpype.proxy, python.datetime.
+## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script, python.lang (PyMapping views + real bug fixed; protocol interfaces incl. PyGenerator crash root-caused and fixed, see [[plan/GeneratorCastCrash.md]]; PyCallable.CallBuilder + kwargs-string bug fixed; PyMapping/PySequence/PySet/PyFrozenSet/PyTuple all raised to ~100%; PyMutableSet confirmed NOT deletable, see finding in this doc), org.jpype (61%→66%; SubInterpreter/most of SubInterpreterBuilder confirmed environment-gated — needs a real Python 3.12 native rebuild, out of scope here — everything else fixable under 3.10 closed out: Script/Interpreter/SpiResource now 100%), python.decimal (72%→100%; tiny package, only `PyDecimalWrapperService`'s getters were uncovered). Remaining packages NOT STARTED: python.collections, org.jpype.manager, org.jpype.pkg, python.pathlib, org.jpype.ref, python.io, org.jpype.proxy, python.datetime.
 
 `jacoco-maven-plugin` (0.8.14, offline-resolvable from `~/.m2` except one
 missing transitive jar — `plexus-utils:1.1`, fetched once online, now
@@ -57,7 +57,7 @@ building until the `mvn` report alone leaves unexplained gaps.
 | org.jpype.script | ~90% | ~82% | unknown, check before assuming | **DONE** |
 | python.lang | 77% | 61% | no — reverse-bridge only | in progress, protocol interfaces + PyGenerator crash fixed (see [[plan/GeneratorCastCrash.md]]) |
 | org.jpype | 69% | 47% | partial (BootstrapLoader is a static launcher entry point, may be forward-bridge/native-launch only) | not started |
-| python.decimal | 72% | n/a | no | not started |
+| python.decimal | 72% | n/a | no | **DONE** |
 | org.jpype.manager | 85% | 75% | unknown, check before assuming | not started |
 | python.collections | 83% | 100% | no | not started |
 | org.jpype.pkg | 85% | 78% | unknown, check before assuming | not started |
@@ -126,6 +126,13 @@ starting worklist once a package is picked:
     header line, missing `interface:`, lazy-backend rejection, missing
     `module:`/`class:` for kind=class), comment/blank-line skipping, and
     the `kind` default. → **100%**.
+- **python.decimal**: **DONE** (package total 72% → 100% instruction,
+  848/848 full suite). Tiny package — only `PyDecimalWrapperService`'s
+  three trivial getters (`getModuleNames`, `getVersion`, `getResources`)
+  were uncovered; `Decimal`/`PyDecimal` were already at 100% and the
+  real registration path is already exercised end-to-end by
+  `PyDecimalNGTest`. New `PyDecimalWrapperServiceNGTest` calls the
+  getters directly, no `PyTestHarness`/JVM bridge needed.
 - **org.jpype.internal**: **DONE** (41%/26% baseline → 74%/60%
   instruction/branch). `Keywords` and `FunctionalAdapters` — plain,
   native-free static utility classes, got ordinary non-bridge NGTest
