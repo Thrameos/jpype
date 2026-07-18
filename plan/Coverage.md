@@ -1,6 +1,6 @@
 # Java module coverage cleanup: systematic pass
 
-## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script. In progress: python.lang (PyMapping views done + real bug fixed; a new PyGenerator crash found, see [[plan/GeneratorCastCrash.md]], not yet fixed). Remaining packages NOT STARTED.
+## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script. In progress: python.lang (PyMapping views done + real bug fixed; protocol interfaces incl. PyGenerator now done, crash root-caused and fixed, see [[plan/GeneratorCastCrash.md]]). Remaining packages NOT STARTED.
 
 `jacoco-maven-plugin` (0.8.14, offline-resolvable from `~/.m2` except one
 missing transitive jar — `plexus-utils:1.1`, fetched once online, now
@@ -55,7 +55,7 @@ building until the `mvn` report alone leaves unexplained gaps.
 | python.exceptions | 100% classes reached | n/a | no — reverse-bridge only, all 50 exception classes are this suite's job | **DONE** |
 | org.jpype.internal | 74% | 60% | unknown, check before assuming | **DONE** (3 classes left alone, rule 3) |
 | org.jpype.script | ~90% | ~82% | unknown, check before assuming | **DONE** |
-| python.lang | 77% | 61% | no — reverse-bridge only | in progress, PyGenerator crash found (see [[plan/GeneratorCastCrash.md]]) |
+| python.lang | 77% | 61% | no — reverse-bridge only | in progress, protocol interfaces + PyGenerator crash fixed (see [[plan/GeneratorCastCrash.md]]) |
 | org.jpype | 69% | 47% | partial (BootstrapLoader is a static launcher entry point, may be forward-bridge/native-launch only) | not started |
 | python.decimal | 72% | n/a | no | not started |
 | org.jpype.manager | 85% | 75% | unknown, check before assuming | not started |
@@ -210,16 +210,18 @@ starting worklist once a package is picked:
     [[plan/GeneratorCastCrash.md]] for the full pipeline-name list) - a
     real deletion candidate (classification rule 2), unlike the other
     five, which are live API surface probed objects can legitimately
-    reach. **`PyGenerator` found a real crash** doing this - casting a
-    genuine Python generator object to `PyGenerator` and reading the
-    result back into Java (`context.eval(...)`) segfaults the JVM
-    deterministically. Full repro, what's ruled out, and next steps:
-    [[plan/GeneratorCastCrash.md]]. Real tests for
-    `PyAbstractSet`/`PyContainer`/`PyIterable`/`PyCollection` via this
-    pattern are not yet committed (only diagnostic code was run) -
-    next-session TODO once `PyGenerator` is resolved (or skip it and land
-    the other four independently, `PyGenerator` isn't a blocker for
-    them).
+    reach; not yet actually deleted. **`PyGenerator` found a real
+    crash** doing this - casting a genuine Python generator object to
+    `PyGenerator` and calling `.iterator()` on the result segfaulted the
+    JVM deterministically. **DONE - root-caused and fixed**: two
+    independent bugs (an unrelated-interface method-name collision
+    between `PyIterable` and `PyIter`/`PyGenerator` in
+    `pyjp_probe.cpp`'s `interrogate()`, plus a real infinite-recursion
+    logic bug in `PyGenerator.iterator()`'s own default). Full
+    root-cause writeup: [[plan/GeneratorCastCrash.md]]. Real committed
+    tests for all five live interfaces (`PyAbstractSet`/`PyContainer`/
+    `PyIterable`/`PyCollection`/`PyGenerator`) now live in
+    `python.lang.ProtocolInterfaceCoverageNGTest`; 775/775 full suite.
   - Also still open: `PyCallable.CallBuilder`/`CallBuilderEntry` (0%,
     119+20 instructions) — a builder-pattern API surface with no test
     touching it at all. `PyMapping` (39%), `PySequence` (38%), `PySet`

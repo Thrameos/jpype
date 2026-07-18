@@ -1,10 +1,13 @@
 # Debug: `PyGenerator`-typed cast return crashes the JVM
 
-## Status (2026-07-18): REPRODUCED, MINIMAL REPRO IN HAND, NOT ROOT-CAUSED
+## Status (2026-07-18): ROOT-CAUSED AND FIXED. Two independent bugs, both fixed.
 
 Found while chasing coverage for `python.lang`'s protocol interfaces
-(`plan/Coverage.md`). Not yet fixed - this doc exists so a future session
-doesn't have to re-derive the reproduction steps.
+(`plan/Coverage.md`). `mvn -o verify -Dpython.executable=python3.10`:
+775/775 (five new tests, `ProtocolInterfaceCoverageNGTest`), 0 failures,
+14 skips (same baseline). `PyGenerator` casting, `.iter()`, `.iterator()`,
+and iteration via `next()` are now all safe to test normally - the ban in
+the old "Impact on plan/Coverage.md" section below no longer applies.
 
 ## Background: how the protocol interfaces actually get exercised
 
@@ -105,35 +108,101 @@ different variants while isolating it):
   before a local hs_err file gets written); only `Segmentation fault
   (core dumped)` on stderr and Surefire's "forked VM terminated" wrapper.
 
-## Hypothesis (not verified)
+## Root cause: two independent bugs, both needed to be fixed
 
-`PyGenerator.iterator()` is the interface's only default method; `iter()`
-is abstract (native-dispatched). Suspect something in `ProxyType`'s
-per-method descriptor construction (`native org.jpype.proxy.ProxyType.
-getDefaultHandle`, see `[[plan/Coverage.md]]`'s note on `MethodHandles`-
-based default invocation) mishandles `PyGenerator`'s particular mix of one
-abstract + one generic-typed default method during the value's return
-conversion, as opposed to construction-time dispatch (which never crashed
-in isolation for the other four interfaces). Not confirmed - this is a
-guess for where to start, not a diagnosis.
+Confirmed via Java-side diagnostics (`System.err.println` in
+`ProxyType`'s constructor, no gdb needed - the crash site turned out to
+be pure Java/JVM-level infinite recursion, not a native memory bug) plus
+one native one-liner. Reproduced with a scratch `DiagTest.java` (not
+committed - see `ProtocolInterfaceCoverageNGTest` for the permanent
+version) that isolated the crash down to `PyGenerator.iterator()`
+specifically (`.iter()` alone was always safe; the earlier belief that
+`context.eval("_b")` itself crashed was wrong - eval always succeeded,
+the crash only ever needed a `.iterator()` call, which the original
+repro's follow-up `print(...)` never happened to trigger).
 
-## Next steps for whoever picks this up
+### Bug 1: `PyIterable` and `PyIter`/`PyGenerator` are genuinely unrelated
+Java interfaces that both declare `iter()`/`iterator()`
 
-1. Use the instrumentation-over-gdb method from `plan/ExecCrashDebug.md`
-   (`fprintf(stderr, ...)` checkpoints compiled into the real binary,
-   rebuilt via `make -f project/dev.mk`, reproduced via `mvn -o test
-   -Dtest=<scratch class>` - not gdb-wrapping Surefire, previously proven
-   unreliable) - same playbook, different crash site.
-2. Disassemble against the `_jpype.so` binary + whatever `hs_err_pid*.log`
-   (if any) appears this time, same as the original crash investigation.
-3. The minimal repro above is the starting reproducer - no need to
-   rediscover it.
+`native/python/pyjp_probe.cpp`'s `interrogate()` independently flags
+`is_iterable`, `is_iterator`, and `is_generator` from `collections.abc`
+subclass checks. Since `Generator` subclasses `Iterator` subclasses
+`Iterable`, a real Python generator sets all three, so the structural
+probe attached **both** `PyIterable` and `PyGenerator` (via `PyIter`) to
+the same dynamic proxy. `PyIter`/`PyGenerator` do NOT Java-extend
+`PyIterable` (a deliberate API split - generators have a different
+method surface), so from `org.jpype.proxy.ProxyType`'s point of view
+these are "genuinely unrelated interfaces" sharing a method name -
+exactly the diamond case its `isBetter()` tie-break was written for. But
+that tie-break unconditionally prefers *any* default over a plain
+abstract method, which is wrong here: `PyGenerator.iter()` is
+deliberately left abstract (same pattern as `PyDict.get()`) to force
+native dispatch, and `PyIterable.iter()`'s ordinary default
+(`builtin().iter(this)`) won the tie-break instead, diverting dispatch
+away from the intended native path.
+
+**Fix** (`native/python/pyjp_probe.cpp`, `interrogate()`): suppress
+`is_iterable` whenever `is_iterator` already holds, so the two
+interfaces are never combined on the same proxy - mirrors the real
+`collections.abc` subsumption (every `Iterator`/`Generator` already *is*
+an `Iterable`) instead of relying on a generic, unrelated-interface
+tie-break to sort out a collision that shouldn't exist in the first
+place.
+
+### Bug 2 (the actual crash mechanism): `PyGenerator.iterator()`'s own
+default recurses into itself forever
+
+Independent of bug 1 - confirmed by fixing bug 1 alone and reproducing
+the crash again unchanged. `PyGenerator.iterator()`'s default was:
+```java
+default Iterator<T> iterator() { return iter().iterator(); }
+```
+For a real generator, `iter()` (Python's `__iter__`) returns the
+generator itself - the same underlying Python object, structurally
+satisfying the exact same interface set. So the returned `PyIter<T>` is,
+at the Java dispatch level, *also* a `PyGenerator`-typed proxy, and
+calling `.iterator()` on it dispatches straight back into this same
+default. Every cycle crosses back into native code (proxy construction,
+GIL acquisition) rather than staying in pure Java stack frames, so it
+exhausts the native/C stack and SIGSEGVs well before the JVM's own
+`StackOverflowError` guard would ever catch a pure-Java infinite
+recursion - explaining why no `hs_err_pid*.log`/clean Java exception was
+ever produced.
+
+**Fix** (`python/lang/PyGenerator.java`): construct the wrapper directly
+instead of re-dispatching, matching `PyIter.iterator()`'s own default
+(`new PyIterator<>(this)`):
+```java
+default Iterator<T> iterator() { return new PyIterator<>(iter()); }
+```
+
+Both fixes are required together: bug 1 alone left the crash unchanged
+(verified); bug 1's fix is still worth keeping independently since it
+also restores `PyGenerator.iter()`'s intended native dispatch (bug 1 was
+silently routing it through `PyIterable`'s default instead).
+
+## Verification
+
+`mvn -o verify -Dpython.executable=python3.10`: 775/775 (up from 770;
+five new tests in `python.lang.ProtocolInterfaceCoverageNGTest`), 0
+failures, 14 skips (same pre-existing baseline). New test
+`testGeneratorCastAndIteration` casts a real two-value generator,
+iterates it fully via the Java `Iterator` interface, and asserts the
+values come back in order - this is the regression test for the crash.
+
+## Is there any remaining path to hit this?
+
+No known one. `PyGenerator.iterator()`'s fix is unconditional - it no
+longer self-recurses regardless of what interface combination a future
+probe change might produce. Bug 1's fix closes the specific
+`PyIterable`/`PyIter` collision at its source (rather than only papering
+over `PyGenerator`'s symptom), so any other duck-typed object satisfying
+`is_iterator` (plain iterators, not just generators) also gets the
+collision-free interface set.
 
 ## Impact on `plan/Coverage.md`
 
-`PyGenerator` itself cannot be safely tested until this is root-caused -
-casting one crashes the JVM outright, unlike a normal test failure. Do
-**not** add a `PyGenerator` cast test to the suite until this is fixed.
-`PyAbstractSet`/`PyContainer`/`PyIterable`/`PyCollection`/`PySized` are
-all safe and were exercised via the pattern above (not yet committed as
-real tests as of this doc - only diagnostic/throwaway code was run).
+Resolved - `PyGenerator` is no longer unsafe to test.
+`PyAbstractSet`/`PyContainer`/`PyIterable`/`PyCollection`/`PyGenerator`
+are all now covered by committed tests in
+`python.lang.ProtocolInterfaceCoverageNGTest`.

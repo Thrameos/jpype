@@ -70,6 +70,11 @@ public interface PyGenerator<T extends PyObject> extends PyIter<T>
   @Override
   default Iterator<T> iterator()
   {
-    return iter().iterator();
+    // Do not call `.iterator()` on iter()'s result: a Python generator's
+    // __iter__ returns itself, so the returned PyIter is structurally the
+    // same generator and would dispatch straight back into this same
+    // default forever. Wrap the PyIter directly instead, matching
+    // PyIter.iterator()'s own default.
+    return new PyIterator<>(iter());
   }
 }

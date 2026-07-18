@@ -117,9 +117,20 @@ static void interrogate(PyJPModuleState* st, JPPyObject& interfaces, PyTypeObjec
 	if (object != nullptr)
 		PyList_Append(interfaces.get(), object);
 
+	// PyIter (and PyGenerator, which extends it) does not Java-extend
+	// PyIterable, even though every Python iterator/generator structurally
+	// satisfies Iterable too (collections.abc.Iterator/Generator both
+	// subclass Iterable). Adding both interfaces to the same proxy makes
+	// their independently-declared iter()/iterator() methods collide:
+	// ProxyType::isBetter() treats them as genuinely unrelated and lets
+	// PyIterable's plain default win over PyGenerator's deliberately
+	// abstract, native-forcing iter() - whose default body then calls back
+	// into iter()/iterator() forever, blowing the native stack (SIGSEGV,
+	// see plan/GeneratorCastCrash.md). Suppress is_iterable whenever
+	// is_iterator already holds so the two interfaces are never combined.
 	bool flags[15] = {
 		is_callable, is_buffer, is_sequence, is_mapping,
-		is_iterable, is_iterator, is_generator, is_coroutine,
+		is_iterable && !is_iterator, is_iterator, is_generator, is_coroutine,
 		is_awaitable, is_set, is_collection, is_container,
 		as_index, (as_int || as_float), (!as_int && !as_float && nb_or)
 	};
