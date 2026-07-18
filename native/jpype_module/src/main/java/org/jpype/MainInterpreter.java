@@ -247,7 +247,59 @@ public class MainInterpreter implements Interpreter
     // launching a python shell.
     MainInterpreter interpreter = getInstance();
     interpreter.start(args);
-    interpreter.interactive();
+    interpreter.dispatch(args);
+  }
+
+  /**
+   * Interprets {@code args} the way the real {@code python} command line
+   * would - {@code -c command}, {@code -m module}, a bare script-file
+   * argument, an optional leading {@code -i} to drop into the interactive
+   * shell afterward, or (with none of the above) go straight to
+   * {@link #interactive()}, matching today's default behavior.
+   *
+   * <p>
+   * Built on {@link Runner}, so the actual execution is exactly
+   * {@code runCommand}/{@code runModule}/{@code runFile} - see
+   * {@code plan/PythonCLI.md} for why this isn't done via {@code Py_RunMain}
+   * or by reading {@code PyConfig}'s own already-parsed argv fields.</p>
+   *
+   * @param args command-line arguments, as passed to {@link #main(String[])}.
+   */
+  public void dispatch(String[] args)
+  {
+    int i = 0;
+    boolean interactiveAfter = false;
+    while (i < args.length && args[i].equals("-i"))
+    {
+      interactiveAfter = true;
+      i++;
+    }
+    if (i >= args.length)
+    {
+      interactive();
+      return;
+    }
+
+    String token = args[i];
+    String[] remaining = Arrays.copyOfRange(args, i + 1, args.length);
+    Runner runner = new Runner(this);
+    if (token.equals("-c"))
+    {
+      if (remaining.length == 0)
+        throw new IllegalArgumentException("Argument expected for the -c option");
+      runner.runCommand(remaining[0], Arrays.copyOfRange(remaining, 1, remaining.length));
+    } else if (token.equals("-m"))
+    {
+      if (remaining.length == 0)
+        throw new IllegalArgumentException("Argument expected for the -m option");
+      runner.runModule(remaining[0], Arrays.copyOfRange(remaining, 1, remaining.length));
+    } else
+    {
+      runner.runFile(Paths.get(token), remaining);
+    }
+
+    if (interactiveAfter)
+      interactive();
   }
 
   /**

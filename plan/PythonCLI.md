@@ -1,12 +1,26 @@
 # Full Python CLI support from `MainInterpreter`
 
-## Status (2026-07-17): Runner core methods DONE; main() dispatch NOT STARTED
+## Status (2026-07-17): DONE
 
-`org.jpype.Runner` (`native/jpype_module/src/main/java/org/jpype/Runner.java`)
-implements `runModule`/`runFile`/`runCommand`/`pipInstall` per the decisions
-below, with real reverse-bridge test coverage (`RunnerNGTest`, 8/8 passing
-against a live interpreter, not just compiled) - see
-`plan/archive/` note candidate once `main()`'s dispatch (decision #2) lands.
+Both halves are implemented and tested against a real reverse-bridge
+interpreter (not just compiled):
+
+- `org.jpype.Runner` (`native/jpype_module/src/main/java/org/jpype/Runner.java`)
+  implements `runModule`/`runFile`/`runCommand`/`pipInstall` per the
+  decisions below. `RunnerNGTest`: 8/8 passing.
+- `MainInterpreter.dispatch(String[] args)` implements the `-c`/`-m`/
+  bare-file/`-i` argv dispatch (decision #2) on top of `Runner`, called
+  from `main()` in place of the old unconditional `interactive()`. Leading
+  `-i` flags are collected, the remaining action (if any) is dispatched via
+  `Runner`, then `interactive()` runs afterward if `-i` was given; no
+  action and no `-i` falls through to `interactive()` directly, matching
+  today's original default. `-i` itself isn't covered by an automated
+  test - it's an interactive REPL over the process's real stdin, and no
+  existing test in this codebase drives `interactive()` at all.
+  `MainInterpreterDispatchNGTest`: 6/6 passing.
+
+Full native suite after both changes: 662/662 passing, 0 regressions.
+
 Two real bugs found and fixed along the way, neither specific to the CLI
 feature itself:
 
@@ -22,9 +36,6 @@ feature itself:
   Python `str` (JPype's `convertStrings=false` default) - broke
   `module.startswith(...)` inside `runpy` and `exec(source)`. Fixed by
   routing every string through `PyBuiltIn.str()` before binding.
-
-Remaining: wire `main(String[] args)`'s `-c`/`-m`/bare-file/`-i` dispatch
-(decision #2) on top of the now-working `Runner` methods.
 
 Follow-on from `plan/LaunchConfig.md` (the launch/config/caching audit).
 Goal: let `org.jpype.MainInterpreter` do what the real `python` binary's
