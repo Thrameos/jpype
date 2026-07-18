@@ -138,10 +138,10 @@ Errors reported by Python fault handler
 The JVM takes over the standard fault handlers resulting in unusual behavior if
 Python handlers are installed.  As part of normal operations the JVM will
 trigger a segmentation fault when starting and when interrupting threads.
-Pythons fault handler can intercept these operations and interpret these as
-real faults.  The Python fault handler with then reporting extraneous fault
-messages or prevent normal JVM operations.  When operating with JPype, Python
-fault handler module should be disabled.
+Python's fault handler can intercept these operations and interpret these as
+real faults.  The Python fault handler will then report extraneous fault
+messages or prevent normal JVM operations.  When operating with JPype, the
+Python fault handler module should be disabled.
 
 This is particularly a problem for running under pytest as the first action it
 performs is to take over the error handlers. This can be disabled by adding
@@ -159,16 +159,16 @@ this block as a fixture at the start of the test suite.
 This code enables fault handling and then returns the default handlers which
 will point back to those set by Java.
 
-Python faulthandlers can also interfer with the JIT compiler.  The Java
+Python faulthandlers can also interfere with the JIT compiler.  The Java
 Just-In-Time (JIT) compiler determines when a portion of code needs to be
 compiled into machine code to improve performance.  When it does, it triggers
-either a SEGSEGV or SEGBUS depending on the machine architecture which breaks
+either a SIGSEGV or SIGBUS depending on the machine architecture which breaks
 out any threads which are currently executing the existing code.  Because the
 JIT compiler self triggers, this will cause a failure to appear in a call which
 worked earlier in the execution without an issue.
 
 If the Python fault handler interrupts this process, it will produce a "Fatal
-Python Error:" followed by either SIGSEGV or SEGBUS.  This error message then
+Python Error:" followed by either SIGSEGV or SIGBUS.  This error message then
 fails to hit the needed Java handler resulting in a crash.  This message will
 disappear if the JIT compiler is disabled with the option "-Xint".  Running
 without the JIT compiler creates a severe performance penalty so disabling the
@@ -214,12 +214,13 @@ Unsupported Python versions
 Python 3.8 and earlier
 ~~~~~~~~~~~~~~~~~~~~~~
 
-The oldest version of Python that we currently support is Python 3.5.  Before
-Python 3.5 there were a number of structural difficulties in the object model
-and the buffering API.  In principle, those features could be excised from
-JPype to extend support to older Python 3 series version, but that is unlikely
-to happen without a significant effort.  Recent changes in memory models
-require Python 3.8 or later.
+The oldest version of Python that we currently support is Python 3.8. Before
+Python 3.8, recent changes in memory models make continued support
+impractical, and before Python 3.5 there were a number of structural
+difficulties in the object model and the buffering API. In principle, those
+older-version features could be excised from JPype to extend support to an
+earlier Python 3 series version, but that is unlikely to happen without a
+significant effort.
 
 
 .. _miscellaneous_topics_python_2:
@@ -294,7 +295,7 @@ Cygwin
 ~~~~~~
 
 Cygwin was usable with previous versions of JPype, but there were numerous
-issues for which there is was not good solution solution.
+issues for which there was no good solution.
 
 Cygwin does not appear to pass environment variables to the JVM properly
 resulting in unusual behavior with certain windows calls. The path
