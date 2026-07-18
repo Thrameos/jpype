@@ -12,7 +12,7 @@ additional details on the use of the JPype module.
 JPype uses two factory classes (``JArray`` and ``JClass``) to produce class
 wrappers which can be used to create all Java objects.  These serve as both the
 base class for the corresponding hierarchy and as the factory to produce new
-wrappers.  Casting operators are used to construct specify types of Java types
+wrappers.  Casting operators are used to construct specific Java types
 (``JObject``, ``JString``, ``JBoolean``, ``JByte``, ``JChar``, ``JShort``,
 ``JInt``, ``JLong``, ``JFloat``, ``JDouble``). Two special classes serve as the
 base classes for exceptions (``JException``) and interfaces (``JInterface``).
@@ -380,7 +380,7 @@ otherwise be in conflict.  Each of the Java types are exposed in JPype
 
     .. [12] ``JInt`` acts as a casting operator
     .. [13] list, sequences, or np.array can be used to initialize.
-    .. [14] ``JInt`` specifies the prmitive type. ``JObject`` boxes the primitive.
+    .. [14] ``JInt`` specifies the primitive type. ``JObject`` boxes the primitive.
 
 
 Strings
@@ -435,14 +435,14 @@ all JString objects should be converted to Python.
 +---------------------------+---------------------------------------------------------+---------------------------------------------------------+
 
     .. [15] ``JString`` constructs a ``java.lang.String``
-    .. [16] All ``java.lang.String`` constuctors work.
+    .. [16] All ``java.lang.String`` constructors work.
     .. [17] ``str()`` converts the object for comparison
 
 
 Arrays
 ------
 
-Arrays are create using the JArray class factory. They operate like Python lists, but they are 
+Arrays are created using the JArray class factory. They operate like Python lists, but they are
 fixed in size.
 
 
@@ -482,7 +482,7 @@ fixed in size.
 |                           |                                                         |                                                         |
 | Get last element          | .. code-block:: java                                    | .. code-block:: python                                  |
 |                           |                                                         |                                                         |
-|                           |     MyClass a = array[array.length];                    |     a = array[-1]                                       |
+|                           |     MyClass a = array[array.length-1];                  |     a = array[-1]                                       |
 |                           |                                                         |                                                         |
 +---------------------------+---------------------------------------------------------+---------------------------------------------------------+
 |                           |                                                         |                                                         |
@@ -557,7 +557,7 @@ possible to operate in a similar fashion to Python objects.
 |                           |                                                         |                                                         |
 | Set list item [19]_       | .. code-block:: java                                    | .. code-block:: python                                  |
 |                           |                                                         |                                                         |
-|                           |     myList.set(0, 1)                                    |     myList[0]=Jint(1)                                   |
+|                           |     myList.set(0, 1)                                    |     myList[0]=JInt(1)                                   |
 |                           |                                                         |                                                         |
 +---------------------------+---------------------------------------------------------+---------------------------------------------------------+
 |                           |                                                         |                                                         |
@@ -594,7 +594,7 @@ possible to operate in a similar fashion to Python objects.
 |                           |                                                         |                                                         |
 | Set map item [19]_        | .. code-block:: java                                    | .. code-block:: python                                  |
 |                           |                                                         |                                                         |
-|                           |     myMap.set("foo", 1)                                 |     myMap["foo"] = Jint(1)                              |
+|                           |     myMap.set("foo", 1)                                 |     myMap["foo"] = JInt(1)                              |
 |                           |                                                         |                                                         |
 +---------------------------+---------------------------------------------------------+---------------------------------------------------------+
 |                           |                                                         |                                                         |
@@ -633,24 +633,24 @@ private methods and fields.
 |                           |                                                         |     field = cls.getDeclaredField(                       |
 |                           |                                                         |         "internalField")                                |
 |                           |                                                         |     field.setAccessible(True)                           |
-|                           |                                                         |     field.get()                                         |
+|                           |                                                         |     field.get(myObject)                                 |
 |                           |                                                         |                                                         |
 +---------------------------+---------------------------------------------------------+---------------------------------------------------------+
 |                           |                                                         |                                                         |
 | Accessing a specific      |                                                         | .. code-block:: python                                  |
 | overload [21]_            |                                                         |                                                         |
 |                           |                                                         |     cls = MyClass.class_                                |
-|                           |                                                         |     cls.getDeclaredMethod("call", JInt)                 |
-|                           |                                                         |     cls.invoke(myObject, JInt(1))                       |
+|                           |                                                         |     m = cls.getDeclaredMethod("call", JInt)             |
+|                           |                                                         |     m.invoke(myObject, JInt(1))                         |
 |                           |                                                         |                                                         |
 +---------------------------+---------------------------------------------------------+---------------------------------------------------------+
 |                           |                                                         |                                                         |
 | Convert a                 |                                                         | .. code-block:: python                                  |
 | ``java.lang.Class`` into  |                                                         |                                                         |
 | Python wrapper [22]_      |                                                         |     # Something returned a java.lang.Class              |
-|                           |                                                         |     MyClassJava = getClassMethod()                      |
+|                           |                                                         |     myClassJava = getClassMethod()                      |
 |                           |                                                         |                                                         |
-|                           |                                                         |     # Convert to it to Python                           |
+|                           |                                                         |     # Convert it to Python                              |
 |                           |                                                         |     MyClass = JClass(myClassJava)                       |
 |                           |                                                         |                                                         |
 +---------------------------+---------------------------------------------------------+---------------------------------------------------------+
@@ -686,8 +686,8 @@ JPype can implement a Java interface by annotating a Python class.  Each
 method that is required must be implemented.
 
 JPype does not support extending a class directly in Python.  Where it is
-necessary to exend a Java class, it is required to create a Java extension
-with an interface for each methods that are to be accessed from Python.
+necessary to extend a Java class, it is required to create a Java extension
+with an interface for each method that is to be accessed from Python.
 
 
 +---------------------------+---------------------------------------------------------+---------------------------------------------------------+
@@ -714,7 +714,8 @@ with an interface for each methods that are to be accessed from Python.
 |                           |                                                         |                                                         |
 +---------------------------+---------------------------------------------------------+---------------------------------------------------------+
 
-    .. [23] Support for use of Python function as Java 8 lambda is WIP.
+    .. [23] Not supported; extend the class in Java and expose an interface
+            for the methods Python needs to reach.
     .. [24] Any Java functional interface can take a lambda or callable.
 
 
