@@ -1,6 +1,6 @@
 # Java module coverage cleanup: systematic pass
 
-## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]] for the crash fix), org.jpype.internal, org.jpype.script. Remaining packages NOT STARTED.
+## Status (2026-07-18): SETUP DONE. Closed: python.exceptions (see [[plan/ExecCrashDebug.md]]), org.jpype.internal, org.jpype.script. In progress: python.lang (PyMapping views done + real bug fixed; a new PyGenerator crash found, see [[plan/GeneratorCastCrash.md]], not yet fixed). Remaining packages NOT STARTED.
 
 `jacoco-maven-plugin` (0.8.14, offline-resolvable from `~/.m2` except one
 missing transitive jar — `plexus-utils:1.1`, fetched once online, now
@@ -55,7 +55,7 @@ building until the `mvn` report alone leaves unexplained gaps.
 | python.exceptions | 100% classes reached | n/a | no — reverse-bridge only, all 50 exception classes are this suite's job | **DONE** |
 | org.jpype.internal | 74% | 60% | unknown, check before assuming | **DONE** (3 classes left alone, rule 3) |
 | org.jpype.script | ~90% | ~82% | unknown, check before assuming | **DONE** |
-| python.lang | 64% | 49% | no — reverse-bridge only | not started |
+| python.lang | 77% | 61% | no — reverse-bridge only | in progress, PyGenerator crash found (see [[plan/GeneratorCastCrash.md]]) |
 | org.jpype | 69% | 47% | partial (BootstrapLoader is a static launcher entry point, may be forward-bridge/native-launch only) | not started |
 | python.decimal | 72% | n/a | no | not started |
 | org.jpype.manager | 85% | 75% | unknown, check before assuming | not started |
@@ -174,15 +174,57 @@ starting worklist once a package is picked:
   scanning the real `python.exceptions` package against `builtins.*` at
   startup) called from `JPypeException::convertPythonToJava`
   (`native/common/jp_exception.cpp`).
-- **python.lang**: several 0% classes that look like real, deliberate
-  abstractions never exercised standalone — `PyAbstractSet`, `PyContainer`,
-  `PyGenerator`, `PyIterable`, `PyMutableSet`, `PySized`, and the dict-view
-  family `PyMappingEntrySet(Iterator)`/`PyMappingKeySet`/`PyMappingValues`
-  (0%, sizable — 98–124 instructions each). Also `PyCallable.CallBuilder`/
-  `CallBuilderEntry` (0%, 119+20 instructions) — a builder-pattern API
-  surface with no test touching it at all. `PyMapping` (39%), `PySequence`
-  (38%), `PySet` (43%), `PyFrozenSet` (46%), `PyTuple` (56%) are partially
-  covered core collection types worth a closer look.
+- **python.lang**: IN PROGRESS.
+  - **The `PyMapping*` view family — DONE, and a real bug found.**
+    `PyChainMap` (`python.collections`) is the one concrete type in the
+    codebase that *doesn't* shadow `PyMapping`'s own `keySet()`/
+    `values()`/`entrySet()` defaults the way `PyDict` does (`PyDict`
+    builds its own `PyDictKeySet`/`PyDictValues`/`PyDictItems` instead) -
+    so it's the real path to `PyMappingKeySet`/`PyMappingValues`/
+    `PyMappingEntrySet(Iterator)`. Extended `PyChainMapNGTest` to exercise
+    all three views (iteration, contains/containsAll, add/remove/clear,
+    `entry.setValue()`, `toArray()`) and found a genuine production bug:
+    all three views' `toArray()` used `new ArrayList<>(this).toArray()`,
+    but `ArrayList`'s constructor itself calls `c.toArray()` -
+    `StackOverflowError` on every call. `PySet.toArray()` already carries
+    a comment flagging this exact trap; these three didn't. Fixed the
+    same way `PySet` does (manual iteration into a sized array), see
+    commit `48370d31`. All four classes now ~80-90% (was 0%).
+  - **The bare protocol interfaces — `PyAbstractSet`, `PyContainer`,
+    `PyIterable`, `PyGenerator`, `PyCollection`, `PySized`, `PyMutableSet`
+    — turned out NOT to be simply "never exercised standalone" as first
+    assumed.** Every JPype-owned concrete type (`PySet`, `PyList`, ...)
+    shadows these protocol defaults with its own redeclaration, so
+    `context.set(...)`/etc. never reaches them - that's the 0% baseline.
+    But the *real*, intended path is JPype's structural duck-typing probe
+    (`native/python/pyjp_probe.cpp`, exposed as
+    `_jpype.pyobject(target_type, python_object)`): a genuinely custom
+    Python class/object (not one of JPype's own concrete types) gets
+    matched against `collections.abc` protocols and produces a Java proxy
+    implementing the matching protocol interface(s) directly - confirmed
+    empirically, moved real coverage on `PyAbstractSet`/`PyCollection`
+    (which drags `PySized` along for free, since `PyCollection` doesn't
+    override `size()`/`isEmpty()`). `PyMutableSet` is the one genuinely
+    dead interface here - zero implementors anywhere *and* no
+    `protocol_pipeline` entry can ever select it (see
+    [[plan/GeneratorCastCrash.md]] for the full pipeline-name list) - a
+    real deletion candidate (classification rule 2), unlike the other
+    five, which are live API surface probed objects can legitimately
+    reach. **`PyGenerator` found a real crash** doing this - casting a
+    genuine Python generator object to `PyGenerator` and reading the
+    result back into Java (`context.eval(...)`) segfaults the JVM
+    deterministically. Full repro, what's ruled out, and next steps:
+    [[plan/GeneratorCastCrash.md]]. Real tests for
+    `PyAbstractSet`/`PyContainer`/`PyIterable`/`PyCollection` via this
+    pattern are not yet committed (only diagnostic code was run) -
+    next-session TODO once `PyGenerator` is resolved (or skip it and land
+    the other four independently, `PyGenerator` isn't a blocker for
+    them).
+  - Also still open: `PyCallable.CallBuilder`/`CallBuilderEntry` (0%,
+    119+20 instructions) — a builder-pattern API surface with no test
+    touching it at all. `PyMapping` (39%), `PySequence` (38%), `PySet`
+    (43%), `PyFrozenSet` (46%), `PyTuple` (56%) are partially covered core
+    collection types worth a closer look.
 
 ## Classification rules for each gap (apply per class/method, not per package)
 
