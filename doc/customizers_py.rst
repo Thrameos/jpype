@@ -81,11 +81,10 @@ class and are not hidden by the Java implementations.
 The customizer copies methods, callable objects, ``__new__``, class member
 strings, and properties.
 
-
 .. _customization_type_conversion_customizers:
 
 Type Conversion Customizers
-===========================
+============================
 
 JPype allows users to define custom conversion methods that are called whenever
 a specified Python type is passed to a particular Java type. To specify a
@@ -106,11 +105,10 @@ prevent the conversion from being applied. Exclusions always apply first.
 User-supplied conversions are tested after all internal conversions have been
 exhausted and are always considered to be an implicit conversion.
 
-
 .. _customization_example_converting_python_sequences_to_java_collections:
 
 Example: Converting Python Sequences to Java Collections
---------------------------------------------------------
+----------------------------------------------------------
 
 The following example demonstrates how to convert Python sequences into Java
 collections:
@@ -134,169 +132,52 @@ collections.abc.Sequence  java.util.Collection
 collections.abc.Mapping   java.util.Map
 ========================= ==============================
 
-
 .. _customization_jpype_beans_module:
 
 JPype Beans Module
-==================
+====================
 
-.. _customization_overview_of_jpype_beans:
+The ``jpype.beans`` module is an optional feature that converts Java
+Bean-style getter/setter methods into Python properties: a class with
+``getName()``/``setName(x)`` gains a Python ``name`` property backed by
+those two methods. It's particularly useful for interactive programming or
+when working with Java classes that heavily follow the Bean pattern.
 
-Overview of JPype Beans
------------------------
-
-The `jpype.beans` module is an optional feature that converts Java Bean-style
-getter and setter methods into Python properties. This customization is
-particularly useful for interactive programming or when working with Java
-classes that follow the Bean pattern.
-
-However, this behavior is not enabled by default because it can lead to
-confusion about whether a class is exposing a variable or a property added by
-JPype. Additionally, it violates Python's principle of *"There should be one--
-and preferably only one --obvious way to do it."* and the C++ principle of
-*"You only pay for what you use."*
-
-If you find this feature useful, you can enable it explicitly by importing the
-`jpype.beans` module.
-
-.. _customization_enabling_beans_as_properties:
-
-Enabling Beans as Properties
-----------------------------
-
-To enable the `jpype.beans` module, simply import it into your Python program:
-
-.. code-block:: python
-
-  import jpype.beans
-
-Once enabled, the module applies globally to all Java classes that have already
-been loaded, as well as any classes loaded afterward. This behavior cannot be
-undone after the module is imported.
-
-.. _customization_how_it_jpype_beans_works:
-
-How It JPype beans Works
-------------------------
-
-The `jpype.beans` module scans Java classes for methods that follow the Bean
-naming conventions:
-
-- **Getter methods**: Methods prefixed with `get` (e.g., `getName`) are treated
-  as property accessors.
-- **Setter methods**: Methods prefixed with `set` (e.g., `setName`) are treated
-  as property mutators.
-
-For example, a Java class with the following methods:
-
-.. code-block:: java
-
-  public class Person {
-      private String name;
-
-      public String getName() {
-          return name;
-      }
-
-      public void setName(String name) {
-          this.name = name;
-      }
-  }
-
-Will automatically expose the `name` field as a Python property:
+It is not enabled by default, because it makes it ambiguous from the
+outside whether a given attribute is a real Java field or a property
+synthesized by JPype, and it applies globally and irreversibly to every
+Java class already loaded and every class loaded afterward -- there is no
+scoped or per-class opt-in. Enable it by importing it once:
 
 .. code-block:: python
 
   import jpype
   import jpype.beans
-
   jpype.startJVM()
 
-  Person = jpype.JClass("Person")
+  Person = jpype.JClass("Person")   # has getName()/setName(String)
   person = Person()
-  person.name = "Alice"  # Calls setName("Alice")
-  print(person.name)     # Calls getName(), Output: Alice
+  person.name = "Alice"  # calls setName("Alice")
+  print(person.name)     # calls getName(), "Alice"
 
-.. _customization_implementation_details_of_jpype_beans:
-
-Implementation Details of JPype beans
--------------------------------------
-
-The module works by:
-
-1. Identifying getter and setter methods in Java classes using the
-   `_isBeanAccessor()` and `_isBeanMutator()` methods.
-2. Creating Python properties for these methods.
-3. Adding the properties to the class dynamically.
-
-The customization applies retroactively to all classes currently loaded and
-globally to all future classes.
-
-.. _customization_limitations_of_jpype_beans:
-
-Limitations of JPype beans
---------------------------
-
-1. **Global Behavior**: Once enabled, the customization applies to all Java
-   classes globally. It cannot be undone.
-2. **Confusion with Existing Members**: If a Java class already has a Python
-   member with the same name as a property, the property will not be added to
-   avoid conflicts.
-3. **Ambiguity**: This feature can make it unclear whether a field is a true
-   Java variable or a property added by JPype.
-
-.. _customization_best_practices_for_jpype_beans:
-
-Best Practices for JPype beans
-------------------------------
-
-- Use this module only when working with Java classes that heavily rely on the
-  Bean pattern.
-- Avoid enabling this module in large projects unless absolutely necessary, as
-  the global behavior may lead to unintended consequences.
-- Document its usage clearly in your codebase to avoid confusion for other
-  developers.
-
-.. _customization_summary_of_jpype_beans:
-
-Summary of JPype beans
-----------------------
-
-The `jpype.beans` module provides a convenient way to work with Java Bean-style
-classes in Python by exposing getter and setter methods as Python properties.
-While useful in certain scenarios, it is an optional feature that must be
-explicitly enabled and should be used with caution due to its global and
-irreversible behavior.
+If a Java class already has a Python member with the same name as a
+would-be property, the property is not added, avoiding a silent collision.
+Given the global, irreversible nature of the module, prefer it for
+interactive/exploratory use or small scripts, and reach for an explicit
+:ref:`class customizer <customization_class_customizers>` instead in a
+library that other code will import, so the behavior stays local and
+predictable.
 
 .. _customization_resolving_method_name_conflicts_with_customizers:
 
 Resolving Method Name Conflicts with Customizers
-================================================
+==================================================
 
-.. _customization_overview_of_conflict_resolution:
-
-Overview of conflict resolution
--------------------------------
-
-When working with Java classes in Python, conflicts can arise between public
-fields and methods that share the same name. JPype provides tools to resolve
-these conflicts using customizers, allowing you to rename fields or methods
-dynamically and expose them in a Pythonic way.
-
-This section demonstrates how to use a customizer to resolve such conflicts by
-renaming fields or methods and exposing them as Python properties.
-
-.. _customization_example_renaming_conflicting_fields_and_methods:
-
-Example: Renaming Conflicting Fields and Methods
-------------------------------------------------
-
-Consider a Java class with a field and a method that share the same name.
-Without customization, JPype will expose the method, and the field will be
-hidden. To resolve this, you can use a customizer to rename the conflicting
-field or method and expose it as a Python property.
-
-Here’s an example:
+When a Java class has a public field and a public method sharing the same
+name, JPype exposes the method and the field becomes inaccessible by that
+name. A customizer can walk the class's declared fields and expose the
+shadowed ones under a different name -- here, appending an underscore and
+wrapping the field in a Python ``property``:
 
 .. code-block:: python
 
@@ -307,111 +188,28 @@ Here’s an example:
             field.set(E, V)
         return property(get, set)
 
-    @jpype.JImplementationFor("java.lang.Object")  # Use your base class.
+    @jpype.JImplementationFor("java.lang.Object")  # use your own base class
     class MyCustomizer(object):
 
-        # This is applied to every class that derives from the type
+        # applied to every class deriving from the base class above
         def __jclass_init__(cls):
-            # Traverse the fields
             for field in cls.class_.getDeclaredFields():
                 name = str(field.getName())
-                tp = type(cls.__dict__.get(str(field.getName()), None))
+                tp = type(cls.__dict__.get(name, None))
 
-                # Watch for private methods
                 if tp is type(None):
-                    continue
+                    continue  # not a name JPype already bound
 
-                # Resolve conflicts between public fields and methods
                 if tp is jpype.JMethod:
+                    # a method already owns this name; expose the field as `name_`
                     cls._customize("%s_" % name, asProperty(field))
 
-.. _customization_how_it_conflict_resolution_works:
+Given a Java class ``A`` with both a field ``mean`` and a method ``mean``,
+this customizer exposes the field as ``a.mean_`` (gettable and settable)
+alongside the method still reachable as ``a.mean()``.
 
-How It Conflict Resolution Works
---------------------------------
-
-1. **Field Traversal**: The customizer iterates over all declared fields in the
-   class using `getDeclaredFields()`.
-2. **Conflict Detection**: For each field, it checks whether a public method
-   with the same name exists.
-3. **Renaming**: If a conflict is detected, the field is renamed by appending
-   an underscore (`_`) to its name.
-4. **Property Creation**: The renamed field is exposed as a Python property
-   using the `property()` function.
-
-.. _customization_example_usage_of_conflict_resolution:
-
-Example Usage of Conflict Resolution
-------------------------------------
-
-Suppose you have a Java class `A` with a field `mean` and a method `mean`.
-Without customization, the field would be inaccessible. Using the customizer
-above, you can expose the field as `mean_`:
-
-.. code-block:: python
-
-    A = jpype.JClass("A")
-    a = A()
-    print(a.mean_)  # Access the renamed field
-    a.mean_ = 2      # Modify the field
-    print(a.mean_)   # Verify the updated value
-
-.. _customization_notes_on_global_customizers:
-
-Notes on Global Customizers
----------------------------
-
-- The customizer is applied globally to all classes that derive from the
-  specified base class (`java.lang.Object` in this example). You can replace
-  the base class with a more specific class to limit the scope of the
-  customization.
-- This approach is particularly useful for resolving conflicts in large Java
-  libraries or frameworks where method and field names overlap frequently.
-
-.. _customization_best_practices_regarding_name_resolution_customizers:
-
-Best Practices Regarding Name Resolution Customizers
-----------------------------------------------------
-
-- Use meaningful naming conventions when renaming fields or methods to avoid
-  confusion.
-- Document customizations clearly in your codebase to help other developers
-  understand the changes.
-- Test the customizer thoroughly to ensure it behaves as expected across all
-  relevant classes.
-
-.. _customization_summary_of_naming_conflict_resolution:
-
-Summary of Naming Conflict Resolution
--------------------------------------
-
-This example demonstrates how to use JPype customizers to resolve conflicts
-between fields and methods in Java classes. By renaming conflicting fields or
-methods and exposing them as Python properties, you can create a more Pythonic
-interface for interacting with Java classes.
-
-
-.. _customization_best_practices_for_class_customization:
-
-Best Practices For Class Customization
-======================================
-
-To ensure effective use of customizations, follow these best practices:
-
-1. **Define Customizers Early**: Always define customizers before the first
-   instance of the class is created to ensure proper initialization.
-
-2. **Test Customizations Thoroughly**: Verify that the customized behavior
-   works as expected, especially for complex or heavily-used classes.
-
-3. **Avoid Conflicts**: Ensure that customizers do not introduce conflicting
-   methods or properties, especially when customizing multiple interfaces.
-
-4. **Monitor Performance**: Be mindful of performance implications when adding
-   extensive customizations.
-
-5. **Document Customizations**: Clearly document the purpose and behavior of
-   customizations to assist other developers working on the codebase.
-
-Class and type conversion customizers together let JPype users make Java
-APIs feel native to Python programmers.
+``__jclass_init__`` runs once per class the customizer applies to (here,
+every class deriving from ``java.lang.Object`` -- in practice, narrow the
+base class in ``@JImplementationFor`` to limit the scope), which is what
+makes this pattern practical for name collisions that recur across a large
+Java library rather than a one-off.

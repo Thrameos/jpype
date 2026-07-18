@@ -47,22 +47,15 @@ Passing Python Callables to Java Functional Interfaces
 =======================================================
 
 JPype supports passing Python functions, methods, and bound methods directly to
-Java methods or fields that implement `FunctionalInterface`. This allows Python
-code to be used directly as Java's functional programming constructs, such
-as lambdas and method references, without requiring a proxy or explicit
-implementation of the interface.
+Java methods or fields that expect a ``FunctionalInterface``. This lets Python
+code be used directly as Java's functional programming constructs, such as
+lambdas and method references, without requiring a proxy or explicit
+implementation of the interface. This works with any Java method or field
+that expects a functional interface, including Java Streams
+(``java.util.stream``), Java Executors (``java.util.concurrent``), and
+custom functional interfaces defined in Java code.
 
-### Supported Use Cases
-
-This feature works with any Java method or field that expects a
-`FunctionalInterface`. Common examples include:
-- Java Streams (`java.util.stream`)
-- Java Executors (`java.util.concurrent`)
-- Custom functional interfaces defined in Java code
-
-### Example: Passing a Python Function to a Java Method
-
-Suppose you have a Java method that expects a `java.util.function.Function`:
+Suppose you have a Java method that expects a ``java.util.function.Function``:
 
 .. code-block:: java
 
@@ -70,67 +63,40 @@ Suppose you have a Java method that expects a `java.util.function.Function`:
 
     public class Example {
         public static String applyFunction(Function<String, String> func, String input) {
-         return func.apply(input);
+            return func.apply(input);
         }
     }
 
-You can pass a Python function directly to this method:
+A plain Python function, a lambda, or a bound method can all be passed
+directly where that ``Function`` is expected:
 
 .. code-block:: python
 
-    import jpype import jpype.imports
+    import jpype
+    import jpype.imports
     jpype.startJVM()
 
-    from java.util.function import Function from Example import Example
+    from java.util.function import Function
+    from Example import Example
 
-    # Define a Python function
     def to_uppercase(s):
         return s.upper()
 
-    # Pass the Python function to the Java method
-    result = Example.applyFunction(to_uppercase, "hello")
-    print(result)  #Output: HELLO
-
-### Example: Using a Lambda Expression
-
-Python lambdas can also be passed to Java methods:
-
-.. code-block:: python
-
-    # Pass a lambda expression
-    result = Example.applyFunction(lambda s: s[::-1], "hello")
-    print(result)  #Output: olleh
-
-### Example: Using a Bound Method
-
-Bound methods of Python objects can be passed as well:
-
-.. code-block:: python
+    print(Example.applyFunction(to_uppercase, "hello"))          # HELLO
+    print(Example.applyFunction(lambda s: s[::-1], "hello"))     # olleh
 
     class StringManipulator:
         def reverse(self, s):
             return s[::-1]
 
     manipulator = StringManipulator()
-    result = Example.applyFunction(manipulator.reverse, "hello")
-    print(result)  # Output: olleh
+    print(Example.applyFunction(manipulator.reverse, "hello"))   # olleh
 
-### Notes and Best Practices
-
-1. **Performance**: While using Python callables is convenient, it may not be
-as performant as implementing a full Java proxy for high-frequency calls. Use
-proxies for performance-critical applications.
-
-2. **Error Handling**: If an exception occurs within the Python callable, it
-will be wrapped in a `RuntimeException` when passed back to Java.
-
-3. **Type Matching**: Ensure that the Python callable returns a type compatible
-with the expected Java return type. Implicit conversions will be applied where
-possible.
-
-By leveraging this feature, you can simplify integration between Python and
-Java, especially when working with Java's functional programming APIs.
-
+This is convenient, but it is not as fast as a real Java proxy for
+high-frequency calls -- prefer a proxy (below) on a hot path. If an exception
+occurs within the Python callable, it is wrapped in a ``RuntimeException`` on
+the Java side. The return value must be implicitly convertible to the Java
+type the interface declares.
 
 .. _@JImplements:
 
@@ -176,16 +142,19 @@ dispatch:
         @JOverride
         def callOverloaded(self, *args):
             # always use the wild card args when implementing a dispatch
-            if len(args)==2:
+            if len(args) == 2:
                 return self.callMethod1(*args)
-            if len(args)==1 and isinstance(args[0], JString):
+            if len(args) == 1 and isinstance(args[0], JString):
                 return self.callMethod2(*args)
             raise RuntimeError("Incorrect arguments")
 
-       def callMethod1(self, a1, a2):
+        def callMethod1(self, a1, a2):
             # ...
-       def callMethod2(self, jstr):
+            pass
+
+        def callMethod2(self, jstr):
             # ...
+            pass
 
 .. _calling_python_code_from_java_multiple_interfaces:
 
@@ -211,6 +180,7 @@ achieve this, specify the interface using a string and add the keyword argument
     @JImplements("org.foo.JavaInterface", deferred=True)
     class MyImpl:
         # ...
+        pass
 
 
 Deferred proxies are not checked at declaration time, but instead at the time
@@ -298,42 +268,17 @@ or you can use a dictionary.
 Wrapping a Python instance with new behaviors for Java
 ======================================================
 
-JPype allows a JProxy to implement Java interfaces using a combination of a
-dictionary (dict) and an object instance (inst). This feature enables arbitrary
-Python objects to dynamically define methods via a dictionary while also
-providing methods from the object's class. The combined approach is
-particularly useful for cases where some methods are predefined in a Python
-class and others need to be dynamically added or overridden.  This is useful when
-the names and functionality of a Python object need to be made to conform to
-Java's expected behaviors.
-
-.. _calling_python_code_from_java_syntax:
-
-Syntax
-------
-The JProxy factory supports both dict and inst as keyword arguments. When both are provided:
-
- * Methods in the dictionary take precedence.
- * The inst object is passed as the self argument to methods defined in the dictionary.
- * If a method is not found in the dictionary, JPype will fall back to the default method implementation in Java.
-
-.. code-block:: python
-
-    JProxy(interface, dict=my_dict, inst=my_instance)
-
-Example: Combining dict and inst
-Suppose you have a Java interface:
+``JProxy`` also accepts ``dict`` and ``inst`` together. This lets a Python
+object satisfy a Java interface using a mix of its own methods and methods
+supplied ad hoc through a dictionary -- useful when the object's existing
+method names don't match what the interface expects, or when only some of
+the interface's methods are already implemented on the object. If a method
+name is present in both, the dictionary entry wins and receives ``inst`` as
+its first (``self``) argument; if a name is present in neither, JPype falls
+back to the interface's own default method if it has one, and raises
+``NotImplementedError`` otherwise.
 
 .. code-block:: java
-
-    public interface MyInterface {
-        String method1();
-        String method2();
-    }
-
-You can implement this interface using both a dictionary and an object instance:
-
-.. code-block:: python
 
     public interface MyInterface {
         String method1();
@@ -341,9 +286,8 @@ You can implement this interface using both a dictionary and an object instance:
             return "hello";
         }
     }
-    You can implement this interface using both a dictionary and an object instance:
 
-    .. code-block:: python
+.. code-block:: python
 
     from jpype import JProxy
 
@@ -351,97 +295,23 @@ You can implement this interface using both a dictionary and an object instance:
         def __init__(self, name):
             self.name = name
 
-    # Define a dictionary with methods
     my_dict = {
         "method1": lambda self: f"Hello, {self.name} from method1"
     }
-
-    # Create an instance of the class
     my_instance = MyClass("Alice")
 
-    # Combine the dictionary and instance in a JProxy
     proxy = JProxy("MyInterface", dict=my_dict, inst=my_instance)
 
-    # Use the proxy in Java
-    print(proxy.method1())  # Output: Hello, Alice from method1
-    print(proxy.method2())  # Falls back to Java's default method implementation
+    print(proxy.method1())  # Hello, Alice from method1
+    print(proxy.method2())  # hello -- falls back to the interface's default method
 
-
-.. _calling_python_code_from_java_notes_and_best_practices:
-
-Notes and Best Practices
-------------------------
-Method Resolution:
-
- * Methods in the dictionary take precedence over methods in the instance.
-
- * If a method is not found in the dictionary, JPype will attempt to resolve it in the
-   instance.
-
-Error Handling:
-
- * If neither the dictionary nor the instance provides the required method, a NotImplementedError will be raised.
-
-Flexibility:
-
-This approach allows dynamic addition or overriding of methods via the dictionary while retaining the benefits of object-oriented programming with the instance.
-
-Example: Dynamic Overrides
-You can dynamically override methods in the instance using the dictionary:
-
-.. code-block:: python
-
-    class MyClass:
-        def __init__(self, name):
-            self.name = name
-
-    # Define a dictionary to override methods
-    my_dict = {
-        "method1": lambda self: f"Overridden method1 for {self.name}"
-    }
-
-    my_instance = MyClass("Bob")
-
-    proxy = JProxy("MyInterface", dict=my_dict, inst=my_instance)
-
-    print(proxy.method1())  # Output: Overridden method1 for Bob
-    print(proxy.method2())  # Falls back to Java's default method implementation
-
-
-.. _calling_python_code_from_java_proxying_python_objects:
-
-Proxying Python objects
-=======================
-
-Sometimes it is necessary to push a Python object into Java memory space as an
-opaque object.  This can be achieved using be implementing a proxy for
-an interface which has no methods.  For example, ``java.io.Serializable`` has
-no arguments and little functionality beyond declaring that an object can be
-serialized. As low-level proxies to not automatically convert back to Python
-upon returning to Java, the special keyword argument ``convert`` should be set
-to True.
-
-For example, let's place a generic Python object such as NumPy array into Java.
-
-.. code-block:: python
-
-    import numpy as np
-    u = np.array([[1,2],[3,4]])
-    ls = java.util.ArrayList()
-    ls.add(jpype.JProxy(java.io.Serializable, inst=u, convert=True))
-    u2 = ls.get(0)
-    print(u is u2)  # True!
-
-We get the expected result of ``True``.  The Python has passed through Java
-unharmed.  In future versions of JPype, this method will be extended to provide
-access to Python methods from within Java by implementing a Java interface that
-points to back to Python objects.
-
+This also means the dictionary can be used to override a method the
+instance already provides, without modifying the instance's class.
 
 .. _calling_python_code_from_java_reference_loops:
 
 Reference Loops
-===============
+================
 
 It is strongly recommended that object used in proxies must never hold a
 reference to a Java container.  If a Java container is asked to hold a Python
@@ -469,3 +339,30 @@ Therefore, using a proxy as a Java map key can be problematic.  So long as
 it remains in the Java map, it will maintain the same identify.  But once
 it is removed, it is free to switch identities every time it is garbage
 collected.
+
+.. _calling_python_code_from_java_proxying_python_objects:
+
+Proxying Python objects
+========================
+
+Sometimes it is necessary to push a Python object into Java memory space as an
+opaque object.  This can be achieved using be implementing a proxy for
+an interface which has no methods.  For example, ``java.io.Serializable`` has
+no arguments and little functionality beyond declaring that an object can be
+serialized. As low-level proxies to not automatically convert back to Python
+upon returning to Java, the special keyword argument ``convert`` should be set
+to True.
+
+For example, let's place a generic Python object such as NumPy array into Java.
+
+.. code-block:: python
+
+    import numpy as np
+    u = np.array([[1,2],[3,4]])
+    ls = java.util.ArrayList()
+    ls.add(jpype.JProxy(java.io.Serializable, inst=u, convert=True))
+    u2 = ls.get(0)
+    print(u is u2)  # True!
+
+We get the expected result of ``True``.  The Python has passed through Java
+unharmed.

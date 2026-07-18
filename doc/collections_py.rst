@@ -241,24 +241,11 @@ example:
 
 .. _collections_integrating_pythonic_constructs_with_java_collections:
 
-Integrating Pythonic Constructs with Java Collections
-======================================================
+Combining Pythonic Constructs with Java Streams
+================================================
 
-JPype enables Python developers to interact with Java collections and streams
-while leveraging Python's idiomatic constructs, such as list comprehensions and
-generator expressions. This section explores how Pythonic constructs and Java
-methods can be used interchangeably or combined for efficient manipulation of
-data structures.
-
-
-
-.. _collections_using_pythonic_constructs_with_java_collections:
-
-Using Pythonic Constructs with Java Collections
-------------------------------------------------
-JPype enables Python developers to interact with Java collections while
-leveraging Python's idiomatic constructs, such as list comprehensions and
-generator expressions. For example:
+Because Java collections satisfy Python's iteration protocol, ordinary list
+comprehensions and generator expressions work directly on them:
 
 .. code-block:: python
 
@@ -272,139 +259,31 @@ generator expressions. For example:
     filtered = [item.upper() for item in jlist if item.startswith("a")]
     print(filtered)  # Output: ['APPLE']
 
-Combining Pythonic constructs with Java methods allows developers to use the
-best tools for the task, whether they prefer Python's simplicity or Java's
-robustness.
-
-
-.. _collections_using_java_streams_for_functional_operations:
-
-Using Java Streams for Functional Operations
----------------------------------------------
-
-Java's `Stream` API provides powerful functional programming constructs, such
-as `filter`, `map`, and `reduce`. JPype allows Python developers to use these
-methods with Java collections directly.
-
-
-
-.. _collections_example_filtering_and_mapping_with_java_streams:
-
-Example: Filtering and Mapping with Java Streams
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Java's own `Stream` API (`filter`, `map`, `reduce`, `.parallelStream()`, ...)
+is available the same way, called directly on the collection:
 
 .. code-block:: python
 
    from java.util.stream import Collectors
 
-   # Use Java Stream API for filtering and mapping
    filtered = jlist.stream().filter(lambda s: s.startswith("a")).map(
        lambda s: s.upper()).collect(Collectors.toList())
    print(filtered)  # Output: [APPLE]
 
-Advantages of Java Streams:
-- Integration with Java's enterprise libraries.
-- Parallel processing capabilities (e.g., `.parallelStream()`).
-- Type-safe operations with Java's generics.
-
-
-
-.. _collections_comparison_pythonic_constructs_vs_java_methods:
-
-Comparison: Pythonic Constructs vs Java Methods
-------------------------------------------------
-
-+---------------------------+---------------------------------------+
-| **Feature**               | **Pythonic Constructs**               |
-|                           | **(List Comprehensions)**             |
-+---------------------------+---------------------------------------+
-| Syntax                    | Concise and readable                  |
-+---------------------------+---------------------------------------+
-| Performance               | Python interpreter overhead           |
-+---------------------------+---------------------------------------+
-| Parallel Processing       | Requires external libraries           |
-|                           | (e.g., `multiprocessing`)             |
-+---------------------------+---------------------------------------+
-| Type Safety               | Dynamic typing                        |
-+---------------------------+---------------------------------------+
-| Ease of Use               | Familiar to Python developers         |
-+---------------------------+---------------------------------------+
-
-
-.. _collections_combining_pythonic_constructs_and_java_methods:
-
-Combining Pythonic Constructs and Java Methods
-----------------------------------------------
-
-JPype allows developers to mix Pythonic constructs and Java methods for maximum
-flexibility. For example, you can use Java streams for complex operations and
-Pythonic constructs for post-processing.
-
-
-.. _collections_example_combining_streams_and_list_comprehensions:
-
-Example: Combining Streams and List Comprehensions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The two mix freely -- a Java stream can feed a Python comprehension for
+further processing, or vice versa:
 
 .. code-block:: python
 
-   # Use Java Stream API for filtering
    filtered_stream = jlist.stream().filter(lambda s: s.startswith("a")).collect(
        Collectors.toList())
-
-   # Use Pythonic list comprehension for further processing
    final_result = [item.lower() for item in filtered_stream]
    print(final_result)  # Output: ['apple']
 
-
-.. _collections_when_to_use_each_approach:
-
-When to Use Each Approach
--------------------------
-
-+-------------------------------------------+---------------------------+
-| **Scenario**                              | **Recommended Approach**  |
-+-------------------------------------------+---------------------------+
-| Simple filtering or mapping               | Pythonic constructs       |
-|                                           | (list comprehensions)     |
-+-------------------------------------------+---------------------------+
-| Complex operations (e.g., grouping,       | Java Streams              |
-| reducing)                                 |                           |
-+-------------------------------------------+---------------------------+
-| Integration with Java enterprise          | Java Streams              |
-| libraries                                 |                           |
-+-------------------------------------------+---------------------------+
-| Quick prototyping or debugging            | Pythonic constructs       |
-+-------------------------------------------+---------------------------+
-| Parallel processing                       | Java Streams              |
-|                                           | (`parallelStream`)        |
-+-------------------------------------------+---------------------------+
-
-
-
-.. _collections_best_practices_for_collection_processing:
-
-Best Practices for Collection Processing
-----------------------------------------
-
-1. **Choose the Right Tool for the Job**:
-   - Use Pythonic constructs for simplicity and readability.
-   - Use Java streams for performance-critical or enterprise applications.
-
-2. **Mix Pythonic and Java-native calls freely**:
-   - Combine Pythonic constructs and Java methods on the same object as needed.
-
-3. **Optimize for Performance**:
-   - Avoid frequent back-and-forth calls between Python and Java. Cache results when possible.
-
-
-
-.. _collections_conclusion_on_collection_processing:
-
-Conclusion on Collection Processing
------------------------------------
-
-JPype enables Python developers to work with Java collections using both
-Pythonic constructs and Java methods. Whether you prefer Python's simplicity or
-Java's robustness, JPype provides the flexibility to choose the paradigm that
-best fits your workflow.
+As a rule of thumb: reach for a Python comprehension for simple
+filtering/mapping and quick prototyping, and for a Java stream when the
+operation is more naturally expressed with Java's built-in collectors
+(grouping, reducing, `.parallelStream()`) or needs to interoperate with a
+Java API that already expects a `Stream`. Whichever you pick, avoid
+frequent small back-and-forth calls across the Python/Java boundary in a
+loop -- collect data in bulk, then process it on one side.
