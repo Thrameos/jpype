@@ -365,6 +365,12 @@ void JPypeException::toPython()
 		JPTracer::trace("Fatal error in exception handling");
 
 		// You shall not pass!
+		fprintf(stderr, "[JPype] FATAL: exception handling failed while converting a Java "
+				"exception back to Python (toPython(), catch(...)). This crash is an "
+				"INTENTIONAL fail-fast, not a spontaneous segfault: interpreter/JNI error "
+				"state can no longer be trusted enough to unwind safely. See the design note "
+				"in native/common/jp_exception.cpp (JPypeException::toPython).\n");
+		fflush(stderr);
 		int *i = nullptr;
 		*i = 0;
 	}
@@ -423,6 +429,17 @@ void JPypeException::toJava()
 		JPTracer::trace(info.getFile(), info.getFunction(), info.getLine());
 
 		// Take one for the team.
+		fprintf(stderr, "[JPype] FATAL: a second exception (type=%d, what()=\"%s\", at %s:%s:%d) "
+				"was thrown while converting a Python exception to Java (toJava(), "
+				"catch(JPypeException&)). This crash is an INTENTIONAL fail-fast, not a "
+				"spontaneous segfault: exception conversion is not itself allowed to fail, so "
+				"once it does, interpreter state can no longer be trusted enough to unwind "
+				"safely. Find and fix whatever threw the second exception (see "
+				"plan/ExecCrashDebug.md for a worked example) rather than treating this crash "
+				"itself as the bug. See the design note in native/common/jp_exception.cpp "
+				"(JPypeException::toJava).\n",
+				ex.m_Type, ex.what(), info.getFile(), info.getFunction(), info.getLine());
+		fflush(stderr);
 		int *i = nullptr;
 		*i = 0;
 		// GCOVR_EXCL_STOP
@@ -433,6 +450,11 @@ void JPypeException::toJava()
 		JPTracer::trace("Fatal error in exception handling");
 
 		// It is pointless, I can't go on.
+		fprintf(stderr, "[JPype] FATAL: a non-JPypeException exception escaped while converting "
+				"a Python exception to Java (toJava(), catch(...)). This crash is an "
+				"INTENTIONAL fail-fast, not a spontaneous segfault - see the design note in "
+				"native/common/jp_exception.cpp (JPypeException::toJava).\n");
+		fflush(stderr);
 		int *i = nullptr;
 		*i = 0;
 		// GCOVR_EXCL_STOP
