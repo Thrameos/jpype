@@ -87,16 +87,24 @@ Compile JPype using the `build <https://pypi.org/project/build/>`__ module (this
 
   python -m build /path/to/source
 
-A number of additional argument may be provided.
+JPype's build is driven by CMake (via `scikit-build-core
+<https://scikit-build-core.readthedocs.io/>`__), so additional options are
+passed through as CMake defines using ``-C``/``--config-setting``:
 
---enable-build-jar   Force setup to recreate the jar from scratch. 
---enable-tracing     Build a verison of JPype with full logging to the 
-                     console. This can be used to diagnose tricky JNI
-                     issues.
+``-DENABLE_BUILD_JAR=ON``
+  Force the build to recreate the jar from scratch (default: on).
+
+``-DENABLE_TRACING=ON``
+  Build a version of JPype with full JNI-call logging to the console.
+  This can be used to diagnose tricky JNI issues.
+
+``-DENABLE_COVERAGE=ON``
+  Build with instrumentation for coverage measurement and fault
+  injection (see :ref:`instrumentation`).
 
 For example::
 
-    python -m build /path/to/source -C--global-option=build_ext -C--global-option="--enable-tracing"
+    python -m build /path/to/source -C cmake.args="-DENABLE_TRACING=ON"
 
 After building, JPype can be tested using the test bench. The test
 bench requires JDK to build.

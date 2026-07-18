@@ -70,8 +70,8 @@ Sometimes getting to the level of a debugger is challenging especially if the
 code is large and error occurs rarely. In this case, it is often beneficial to
 attach data to an exception. To achieve this, we need to write a small utility
 class. Java exceptions are not strictly speaking expandable, but they can be
-chained. Thus, it we create a dummy exception holding a ``java.util.Map`` and
-attach it to as the cause of the exception, it will be passed back down the
+chained. Thus, if we create a dummy exception holding a ``java.util.Map`` and
+attach it as the cause of the exception, it will be passed back down the
 call stack until it reaches Python. We can then use ``getCause()`` to retrieve
 the map containing the relevant data.
 
@@ -84,7 +84,7 @@ Capturing the state
 If the program is not running in an interactive shell or the program run time
 is long, we may not want to deal with the problem during execution. In this
 case, we can serialize the state of the relevant classes and variables. To use
-this option, we mus make sure all of the classes in Java that we are using
+this option, we must make sure all of the classes in Java that we are using
 are ``Serializable``.  Then add a condition that detects the faulty algorithm state.
 When the fault occurs, create a ``java.util.HashMap`` and populate it with
 the values to be examined from within Python.  Use serialization to write
@@ -151,14 +151,14 @@ Tracing
 -------
 
 Tracing mode logs every JNI call, along with object addresses and exceptions,
-to the console. To enable tracing, JPype must be recompiled with the
-``--enable-tracing`` option.
+to the console. To enable tracing, JPype must be recompiled with the CMake
+``ENABLE_TRACING`` option.
 
 This can be done via:
 
 .. code-block:: shell
 
-    python setup.py develop --enable-tracing --enable-build-jar
+    pip install -v -e . -C cmake.args="-DENABLE_TRACING=ON"
 
 
 Tracing is useful for identifying failures that originate in one JNI call but
@@ -173,8 +173,9 @@ Instrumentation
 
 JPype supports an instrumentation mode for testing error-handling paths. This
 mode allows you to simulate faults at designated points in JPype's execution
-flow. To enable instrumentation, recompile JPype with the ``--enable-coverage``
-option.
+flow. To enable instrumentation, recompile JPype with the CMake
+``ENABLE_COVERAGE`` option (``pip install -e . --config-setting
+cmake.args="-DENABLE_COVERAGE=ON"``).
 
 Once instrumentation is enabled, use the private module command
 ``_jpype.fault`` to trigger an error. The argument to the fault command must be
