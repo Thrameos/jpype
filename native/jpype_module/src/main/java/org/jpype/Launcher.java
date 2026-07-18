@@ -394,11 +394,18 @@ class Launcher
         }
       }
 
-      // Final sanity check: does the cached library actually exist?
+      // Final sanity check: do the cached libraries actually exist? Checking
+      // only python.lib was not enough -- jpype.lib can go stale on its own
+      // (e.g. `pip install --upgrade JPype1` in the same venv moves the
+      // native module to a new wheel-cache path) while python.lib still
+      // exists, leaving a cache hit that later fails with a much less
+      // informative UnsatisfiedLinkError out of installNatives().
       if (found)
       {
-        String lib = probed.getProperty(PYTHON_LIB);
-        return lib != null && Files.exists(Paths.get(lib));
+        String pythonLib = probed.getProperty(PYTHON_LIB);
+        String jpypeLib = probed.getProperty(JPYPE_LIB);
+        return pythonLib != null && Files.exists(Paths.get(pythonLib))
+                && jpypeLib != null && Files.exists(Paths.get(jpypeLib));
       }
     } catch (IOException ex)
     {

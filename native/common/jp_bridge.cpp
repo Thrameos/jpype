@@ -227,39 +227,6 @@ static void dumpPyConfig(const PyConfig* config)
 }
 
 
-static bool appendModulePathsToSysPath(JNIEnv* env, jobjectArray modulePath)
-{
-	if (modulePath == nullptr)
-		return true;
-
-	// 1. Fetch sys.path safely. If either fails, call() throws and exits the block.
-	JPPyObject sys = JPPyObject::call(PyImport_ImportModule("sys"));
-	JPPyObject path = JPPyObject::call(PyObject_GetAttrString(sys.get(), "path"));
-	
-	if (!PyList_Check(path.get()))
-		return false;
-
-	jsize count = env->GetArrayLength(modulePath);
-	for (jsize i = 0; i < count; ++i)
-	{
-		jstring jpath = (jstring) env->GetObjectArrayElement(modulePath, i);
-		if (jpath == nullptr) continue;
-		wchar_t* widePath = toWideString(env, jpath);
-		if (widePath == nullptr)
-		{
-			env->DeleteLocalRef(jpath);
-			return false;
-		}
-		PyObject* pyPath = PyUnicode_FromWideChar(widePath, -1);
-		PyMem_RawFree(widePath);
-		JPPyObject hold = JPPyObject::call(pyPath);
-		env->DeleteLocalRef(jpath);
-		if (PyList_Append(path.get(), pyPath) < 0)
-			return false;
-	}
-	return true;
-}
-
 JPContext* launch(JNIEnv* env, jobject interpreter)
 {
 	JPContext* context;
@@ -412,19 +379,11 @@ success_config:
 #endif
 		gstate = PyGILState_Ensure();
 
-		if (!appendModulePathsToSysPath(env, modulePath))
-		{
-			fail(env, "failed to append module paths to sys.path");
-			// Same GIL-leak hazard as the success path below: PyGILState_Ensure()
-			// above found the GIL already locked (from Py_InitializeFromConfig),
-			// so we must explicitly drop it before returning to Java, or this
-			// thread holds it forever and every other thread's first
-			// PyGILState_Ensure() deadlocks - including a later shutdown call
-			// on another thread.
-			PyEval_SaveThread();
-			return nullptr;
-		}
-
+		// Module paths are already in sys.path via config.module_search_paths
+		// (step 5 above, before Py_InitializeFromConfig) - no separate
+		// post-init append here. There used to be one; it duplicated every
+		// entry in sys.path, since Py_InitializeFromConfig already applies
+		// config.module_search_paths to sys.path during initialization.
 		JPContext* context = launch(env, interpreter);
 		// Py_InitializeFromConfig() leaves the calling thread already holding
 		// the GIL, so the PyGILState_Ensure() above found it already locked
@@ -449,9 +408,8 @@ success_config:
 		// the GIL to inspect the Python exception state, so release it only
 		// *after* that call, not before (releasing first crashes inside
 		// PyErr_Occurred() - confirmed the hard way). Same leak hazard as the
-		// success path and the appendModulePathsToSysPath failure above:
-		// without this, this thread holds the GIL forever and a later
-		// shutdown call on another thread deadlocks.
+		// success path above: without this, this thread holds the GIL
+		// forever and a later shutdown call on another thread deadlocks.
 		convertException(env, ex);
 		PyEval_SaveThread();
 	}	catch (...)

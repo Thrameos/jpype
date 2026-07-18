@@ -1,6 +1,44 @@
 # Java→Python launch: parameter resolution and caching
 
-## Status (2026-07-17): Finding 1 fixed; documented in doc/jvm_java.rst
+## Status (2026-07-17): DONE, retired
+
+All three findings are now closed:
+
+- **Finding 1** (dead `prefix`/`exec_prefix`): fixed, removed. See below.
+- **Finding 3** (module paths appended to `sys.path` twice): fixed.
+  `appendModulePathsToSysPath()` (`native/common/jp_bridge.cpp`) -- the
+  post-init duplicate append -- is deleted along with its call site. Java's
+  module paths are now applied exactly once, via
+  `config.module_search_paths` before `Py_InitializeFromConfig`, which was
+  already the more correct of the two sites (visible to `PyConfig_Read`'s
+  own path calculation, and the sole source Python's normal bootstrap
+  uses). Verified with a real interpreter launch
+  (`java.lang.System.load` + `MainInterpreter.start()` against the rebuilt
+  native lib): `len(sys.path) == len(set(sys.path))` -- 0 duplicates,
+  where the pre-fix run showed 7. Full native suite re-verified at
+  662/662 after the change (`ninja -C build/cp310-cp310-linux_x86_64`
+  rebuild, cache invalidated, fresh `.so` copied into
+  `site-packages`).
+- **Cache-staleness gap**: fixed. `Launcher.loadFromCache()`
+  (`native/jpype_module/src/main/java/org/jpype/Launcher.java`) now also
+  requires `jpype.lib` to exist on disk, not just `python.lib` -- a stale
+  `jpype.lib` path (e.g. left behind by `pip install --upgrade JPype1`
+  moving the native module to a new wheel-cache path) now forces a fresh
+  probe instead of a silent false cache hit. Verified by corrupting a real
+  cache file's `jpype.lib` entry to a nonexistent path and confirming the
+  next `prepare()` call re-probed (`executeProbe` log line) instead of
+  reporting `Cache hit`. `jpype.version` was left unvalidated here on
+  purpose -- `MainInterpreter.start()` already checks it against
+  `NativeContext.VERSION` and throws `LinkageError` on mismatch, so
+  duplicating that check inside the cache-load path would be redundant.
+
+All of this document's non-finding content (the pipeline diagram,
+parameter table, executable-resolution precedence, probe/cache mechanics,
+subinterpreter disjoint-config-surface note) was already folded into
+`doc/jvm_java.rst`'s "Launch configuration" section in the prior pass;
+nothing further needed moving there.
+
+## Status (2026-07-17, earlier): Finding 1 fixed; documented in doc/jvm_java.rst
 
 This is a reference/audit document, not a feature plan. It captures how
 `org.jpype.MainInterpreter` currently resolves the parameters used to

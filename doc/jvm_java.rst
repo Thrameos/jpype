@@ -129,14 +129,14 @@ launches against the same executable path hit the cache and skip the
 subprocess entirely.
 
 This cache is **not** validated against the Python installation itself --
-only against whether the cached ``python.lib`` path still exists on disk.
-Upgrading a package in the same venv, or deleting and recreating a venv at
-the same path with a different Python version, can leave a stale cache
-entry that isn't detected until ``System.load()`` fails with
-``UnsatisfiedLinkError`` later in startup. If you hit an unexplained
-native-library load failure after changing a Python environment, set
-``jpype.nocache=true`` (the only cache-bypass switch) and retry before
-digging further.
+a cache hit only checks that the cached ``python.lib`` and ``jpype.lib``
+paths still exist on disk, not that they're still correct for the current
+environment. Deleting and recreating a venv at the same path with a
+different Python version can still leave a stale cache entry that isn't
+detected until ``System.load()`` fails with ``UnsatisfiedLinkError`` later
+in startup. If you hit an unexplained native-library load failure after
+changing a Python environment, set ``jpype.nocache=true`` (the only
+cache-bypass switch) and retry before digging further.
 
 If the probe fails and ``jpype.install=true``, ``start()`` attempts a
 self-heal via ``pip install`` (preferring a local wheel under
