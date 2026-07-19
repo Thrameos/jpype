@@ -6610,6 +6610,21 @@ module has enabled it, using
 For example, absl installs faulthandlers in ``app.run``, thus the first call to
 main routine would need to disable faulthandlers to avoid potential crashes.
 
+The reverse direction is equally dangerous.  ``faulthandler.disable()``
+restores the signal handlers that were saved when ``faulthandler.enable()``
+was called.  If faulthandler was enabled *before* the JVM started and disabled
+*after*, the pre-JVM handlers are reinstalled over the JVM's own, leaving the
+JVM without the SIGSEGV handler it requires to service safepoint polls and
+implicit null checks in compiled code.  The process then dies with a raw
+segmentation fault the next time a safepoint arms — typically during JVM
+shutdown, well after the code that caused it has run.  pytest's built-in
+``faulthandler`` plugin performs exactly this enable-early/disable-late
+sequence, so test suites that start a JVM should run pytest with
+``-p no:faulthandler`` (JPype's own test suite sets this in ``addopts``).
+As a safety net, JPype snapshots the JVM's fault handlers at ``startJVM`` and
+reinstates them at ``shutdownJVM`` if they have been replaced, emitting a
+warning on stderr when it does so.
+
 
 
 .. _miscellaneous_topics_unsupported_java_versions:

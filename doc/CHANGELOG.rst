@@ -7,6 +7,12 @@ Latest Changes:
 
 - **1.7.2.dev0**
 
+  - Fixed a random segmentation fault at JVM shutdown when Python tooling
+    (such as pytest's built-in faulthandler plugin) restored pre-JVM signal
+    handlers over HotSpot's, leaving safepoint polls in compiled code
+    unserviced.  JPype now snapshots the JVM's fault handlers at startup and
+    reinstates them before shutdown if they were replaced.
+
   - Fixed a rare crash where Python's cyclic garbage collector firing
     while a Python exception was mid-unwind through the reverse-bridge
     C++ layer could corrupt the in-flight exception. #1415

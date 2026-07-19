@@ -31,10 +31,61 @@
 #include <dlfcn.h>
 #endif // HPUX
 #include <errno.h>
+#include <signal.h>
+#include <stdio.h>
 #endif
 
 
 JPResource::~JPResource() = default;
+
+#ifndef WIN32
+// HotSpot depends on its own SIGSEGV/SIGBUS/SIGILL/SIGFPE handlers to service
+// safepoint polls and implicit null checks in compiled code.  Python tooling
+// that saves and restores signal handlers around the JVM's lifetime (e.g.
+// faulthandler via pytest's default plugin) reinstalls the pre-JVM handlers,
+// after which the first armed safepoint kills the process with a raw SIGSEGV.
+// Snapshot the handlers the JVM installs and reinstate them before driving
+// shutdown, which is when safepoints are guaranteed to arm.
+static const int jvmSignals[] = {SIGSEGV, SIGBUS, SIGILL, SIGFPE};
+static const size_t jvmSignalCount = sizeof (jvmSignals) / sizeof (jvmSignals[0]);
+static struct sigaction jvmSignalSnapshot[jvmSignalCount];
+static bool jvmSignalsSaved = false;
+
+static void saveJVMSignals()
+{
+	jvmSignalsSaved = true;
+	for (size_t i = 0; i < jvmSignalCount; i++)
+		if (sigaction(jvmSignals[i], nullptr, &jvmSignalSnapshot[i]) != 0)
+			jvmSignalsSaved = false;
+}
+
+static void restoreJVMSignals()
+{
+	if (!jvmSignalsSaved)
+		return;
+	bool changed = false;
+	for (size_t i = 0; i < jvmSignalCount; i++)
+	{
+		struct sigaction current;
+		if (sigaction(jvmSignals[i], nullptr, &current) != 0)
+			continue;
+		bool sameHandler;
+		if ((current.sa_flags & SA_SIGINFO) != (jvmSignalSnapshot[i].sa_flags & SA_SIGINFO))
+			sameHandler = false;
+		else if ((current.sa_flags & SA_SIGINFO) != 0)
+			sameHandler = current.sa_sigaction == jvmSignalSnapshot[i].sa_sigaction;
+		else
+			sameHandler = current.sa_handler == jvmSignalSnapshot[i].sa_handler;
+		if (sameHandler)
+			continue;
+		changed = true;
+		sigaction(jvmSignals[i], &jvmSignalSnapshot[i], nullptr);
+	}
+	if (changed)
+		fprintf(stderr, "JPype: the JVM's signal handlers were replaced while it was"
+				" running (faulthandler?); restoring them for JVM shutdown.\n");
+}
+#endif
 
 
 #define USE_JNI_VERSION JNI_VERSION_1_4
@@ -174,6 +225,10 @@ void JPContext::startJVM(const string& vmPath, const StringVector& args,
 
 	// Mark running for assert
 	m_Running = true;
+
+#ifndef WIN32
+	saveJVMSignals();
+#endif
 
 	jint jni_version = env->GetVersion();
 	if (jni_version < 0x00090000)
@@ -386,6 +441,12 @@ void JPContext::shutdownJVM(bool destroyJVM, bool freeJVM)
 		JP_RAISE(PyExc_RuntimeError, "Attempt to shutdown without a live JVM");
 	//	if (m_Embedded)
 	//		JP_RAISE(PyExc_RuntimeError, "Cannot shutdown from embedded Python");
+
+#ifndef WIN32
+	// Shutdown arms safepoints while hook threads run compiled code; make
+	// sure the JVM's signal handlers are still in place before starting.
+	restoreJVMSignals();
+#endif
 
 	// Wait for all non-demon threads to terminate
 	if (destroyJVM)
