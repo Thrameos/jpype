@@ -7,6 +7,10 @@ Latest Changes:
 
 - **1.7.2.dev0**
 
+  - Fixed a rare crash where Python's cyclic garbage collector firing
+    while a Python exception was mid-unwind through the reverse-bridge
+    C++ layer could corrupt the in-flight exception. #1415
+
   - Fixed memory leak with int and float conversions. #1379
 
   - Fixed instablity in threading for method dispatch. #1366

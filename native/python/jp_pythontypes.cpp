@@ -390,6 +390,17 @@ void JPPyErr::restore(JPPyObject& exceptionClass, JPPyObject& exceptionValue, JP
 	PyErr_Restore(exceptionClass.keepNull(), exceptionValue.keepNull(), exceptionTrace.keepNull());
 }
 
+void JPPyErr::restore(JPPyObject& exceptionValue)
+{
+	// Only valid for an already-normalized instance: its class and
+	// traceback are then recoverable from the instance itself, so there
+	// is no need to have held separate references to them.
+	PyObject *value = exceptionValue.keepNull();
+	PyObject *type = (PyObject*) Py_TYPE(value);
+	Py_INCREF(type);
+	PyErr_Restore(type, value, PyException_GetTraceback(value));
+}
+
 JPPyCallAcquire::JPPyCallAcquire()
 {
 	m_State = (long) PyGILState_Ensure();
