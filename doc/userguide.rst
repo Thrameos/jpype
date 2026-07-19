@@ -6629,6 +6629,21 @@ does so), and once the JVM has been destroyed it restores the pre-JVM
 handlers — so a faulthandler enabled before ``startJVM`` is functional again
 after shutdown, rather than leaving faults routed into a destroyed JVM.
 
+This safety net covers the specific enable-before/disable-after sequence
+described above, plus any handler replacement still in place at
+``shutdownJVM``.  It does **not** cover every possible case: if code installs
+a new SIGSEGV/SIGBUS/SIGILL/SIGFPE handler *after* ``startJVM`` and that
+handler is still active, unremoved, at the moment a safepoint or JIT
+implicit-fault poll fires (i.e. before the next ``shutdownJVM`` call has a
+chance to detect and restore it), the JVM's fault will be routed into that
+handler instead of HotSpot's.  JPype cannot intercept arbitrary third-party
+calls to ``signal.signal()`` or ``sigaction()`` to prevent this — there is no
+portable hook that fires on every signal-handler change.  **The rule remains:
+do not replace SIGSEGV/SIGBUS/SIGILL/SIGFPE handlers while a JVM is
+running.** Disable or restore any such handler before the JVM would next
+need its own (in particular before ``shutdownJVM``), rather than relying on
+JPype to detect and repair every possible handler replacement window.
+
 
 
 .. _miscellaneous_topics_unsupported_java_versions:
