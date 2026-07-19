@@ -274,7 +274,11 @@ void JPypeException::convertPythonToJava()
  * safer than continuing to run on corrupted state, but from a user's
  * perspective this looks exactly like a spontaneous segfault, so we say
  * plainly what happened and how to report it, before the process dies.
+ *
+ * Coverage is excluded: exercising this path requires corrupting the
+ * interpreter state and killing the test process.
  */
+// GCOVR_EXCL_START
 static void reportFatalFailFast(const char* detail)
 {
 	fprintf(stderr,
@@ -299,6 +303,7 @@ static void reportFatalFailFast(const char* detail)
 			detail);
 	fflush(stderr);
 }
+// GCOVR_EXCL_STOP
 
 void JPypeException::toPython()
 {

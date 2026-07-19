@@ -53,30 +53,35 @@ static bool jvmSignalsSaved = false;
 
 static void saveJVMSignals()
 {
-	jvmSignalsSaved = true;
+	// Querying a valid signal cannot fail, so no error handling here.
 	for (size_t i = 0; i < jvmSignalCount; i++)
-		if (sigaction(jvmSignals[i], nullptr, &jvmSignalSnapshot[i]) != 0)
-			jvmSignalsSaved = false;
+		sigaction(jvmSignals[i], nullptr, &jvmSignalSnapshot[i]);
+	jvmSignalsSaved = true;
+}
+
+// sa_handler and sa_sigaction may share storage, so a handler must be read
+// from the field selected by SA_SIGINFO.
+static void* activeHandler(const struct sigaction& sa)
+{
+	if ((sa.sa_flags & SA_SIGINFO) != 0)
+		return (void*) sa.sa_sigaction;
+	return (void*) sa.sa_handler;
 }
 
 static void restoreJVMSignals()
 {
+	// Only reachable without a snapshot in embedded mode, where startJVM
+	// never ran; restoring a zeroed snapshot would install SIG_DFL and
+	// cause the very crash this guards against.
 	if (!jvmSignalsSaved)
-		return;
+		return;  // GCOVR_EXCL_LINE
 	bool changed = false;
 	for (size_t i = 0; i < jvmSignalCount; i++)
 	{
 		struct sigaction current;
 		if (sigaction(jvmSignals[i], nullptr, &current) != 0)
-			continue;
-		bool sameHandler;
-		if ((current.sa_flags & SA_SIGINFO) != (jvmSignalSnapshot[i].sa_flags & SA_SIGINFO))
-			sameHandler = false;
-		else if ((current.sa_flags & SA_SIGINFO) != 0)
-			sameHandler = current.sa_sigaction == jvmSignalSnapshot[i].sa_sigaction;
-		else
-			sameHandler = current.sa_handler == jvmSignalSnapshot[i].sa_handler;
-		if (sameHandler)
+			continue;  // GCOVR_EXCL_LINE
+		if (activeHandler(current) == activeHandler(jvmSignalSnapshot[i]))
 			continue;
 		changed = true;
 		sigaction(jvmSignals[i], &jvmSignalSnapshot[i], nullptr);
