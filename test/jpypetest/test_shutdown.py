@@ -63,6 +63,30 @@ class ShutdownSignalWarningTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(b"signal handlers were replaced", result.stderr)
 
+    def testPreJVMHandlerRestored(self):
+        # The JVM's lifetime must be handler-transparent: a handler installed
+        # before startJVM works again after shutdownJVM.  The signal is sent
+        # with os.kill so it is delivered asynchronously (no fault context);
+        # without the post-destroy restore it would land in the dead JVM's
+        # handler instead of Python's.
+        if sys.platform == "win32":
+            raise unittest.SkipTest("POSIX signal handling only")
+        script = (
+            "import jpype, os, signal\n"
+            "hits = []\n"
+            "signal.signal(signal.SIGSEGV, lambda s, f: hits.append(s))\n"
+            "jpype.startJVM(convertStrings=False)\n"
+            "jpype.shutdownJVM()\n"
+            "os.kill(os.getpid(), signal.SIGSEGV)\n"
+            "assert hits == [signal.SIGSEGV], hits\n"
+            "print('PRE-JVM-RESTORED')\n"
+        )
+        result = subprocess.run([sys.executable, "-c", script],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                timeout=120)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(b"PRE-JVM-RESTORED", result.stdout)
+
 
 @subrun.TestCase
 class ShutdownTest(unittest.TestCase):

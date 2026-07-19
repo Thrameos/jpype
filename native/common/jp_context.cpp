@@ -48,15 +48,16 @@ JPResource::~JPResource() = default;
 // shutdown, which is when safepoints are guaranteed to arm.
 static const int jvmSignals[] = {SIGSEGV, SIGBUS, SIGILL, SIGFPE};
 static const size_t jvmSignalCount = sizeof (jvmSignals) / sizeof (jvmSignals[0]);
+static struct sigaction preJVMSignalSnapshot[jvmSignalCount];
 static struct sigaction jvmSignalSnapshot[jvmSignalCount];
+static bool preJVMSignalsSaved = false;
 static bool jvmSignalsSaved = false;
 
-static void saveJVMSignals()
+static void snapshotSignals(struct sigaction* dest)
 {
 	// Querying a valid signal cannot fail, so no error handling here.
 	for (size_t i = 0; i < jvmSignalCount; i++)
-		sigaction(jvmSignals[i], nullptr, &jvmSignalSnapshot[i]);
-	jvmSignalsSaved = true;
+		sigaction(jvmSignals[i], nullptr, &dest[i]);
 }
 
 // sa_handler and sa_sigaction may share storage, so a handler must be read
@@ -89,6 +90,19 @@ static void restoreJVMSignals()
 	if (changed)
 		fprintf(stderr, "JPype: the JVM's signal handlers were replaced while it was"
 				" running (faulthandler?); restoring them for JVM shutdown.\n");
+}
+
+// Once the JVM is destroyed its handlers point into a dead VM, so return the
+// process to the handlers it had before startJVM (faulthandler's, or the
+// defaults).  The JVM's lifetime is thereby handler-transparent.  Safe
+// because VM_Exit parks all remaining daemon threads at the final safepoint;
+// nothing executes Java code after DestroyJavaVM returns.
+static void restorePreJVMSignals()
+{
+	if (!preJVMSignalsSaved)
+		return;  // GCOVR_EXCL_LINE
+	for (size_t i = 0; i < jvmSignalCount; i++)
+		sigaction(jvmSignals[i], &preJVMSignalSnapshot[i], nullptr);
 }
 #endif
 
@@ -212,6 +226,10 @@ void JPContext::startJVM(const string& vmPath, const StringVector& args,
 	// Launch the JVM
 	JNIEnv* env = nullptr;
 	JP_TRACE("Create JVM");
+#ifndef WIN32
+	snapshotSignals(preJVMSignalSnapshot);
+	preJVMSignalsSaved = true;
+#endif
 	try
 	{
 		CreateJVM_Method(&m_JavaVM, (void**) &env, (void*) jniArgs);
@@ -232,7 +250,8 @@ void JPContext::startJVM(const string& vmPath, const StringVector& args,
 	m_Running = true;
 
 #ifndef WIN32
-	saveJVMSignals();
+	snapshotSignals(jvmSignalSnapshot);
+	jvmSignalsSaved = true;
 #endif
 
 	jint jni_version = env->GetVersion();
@@ -457,8 +476,13 @@ void JPContext::shutdownJVM(bool destroyJVM, bool freeJVM)
 	if (destroyJVM)
 	{
 		JP_TRACE("Destroy JVM");
-		JPPyCallRelease call;
-		m_JavaVM->DestroyJavaVM();
+		{
+			JPPyCallRelease call;
+			m_JavaVM->DestroyJavaVM();
+		}
+#ifndef WIN32
+		restorePreJVMSignals();
+#endif
 	}
 
 	// unload the jvm library

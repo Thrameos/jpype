@@ -10,8 +10,10 @@ Latest Changes:
   - Fixed a random segmentation fault at JVM shutdown when Python tooling
     (such as pytest's built-in faulthandler plugin) restored pre-JVM signal
     handlers over HotSpot's, leaving safepoint polls in compiled code
-    unserviced.  JPype now snapshots the JVM's fault handlers at startup and
-    reinstates them before shutdown if they were replaced.
+    unserviced.  JPype now snapshots the JVM's fault handlers at startup,
+    reinstates them before shutdown if they were replaced, and restores the
+    pre-JVM handlers once the JVM is destroyed, making the JVM's lifetime
+    signal-handler transparent on POSIX systems.
 
   - Fixed a rare crash where Python's cyclic garbage collector firing
     while a Python exception was mid-unwind through the reverse-bridge

@@ -6621,9 +6621,13 @@ shutdown, well after the code that caused it has run.  pytest's built-in
 ``faulthandler`` plugin performs exactly this enable-early/disable-late
 sequence, so test suites that start a JVM should run pytest with
 ``-p no:faulthandler`` (JPype's own test suite sets this in ``addopts``).
-As a safety net, JPype snapshots the JVM's fault handlers at ``startJVM`` and
-reinstates them at ``shutdownJVM`` if they have been replaced, emitting a
-warning on stderr when it does so.
+As a safety net, JPype makes the JVM's lifetime handler-transparent on POSIX
+systems: it snapshots the fault handlers both immediately before and
+immediately after the JVM starts; at ``shutdownJVM`` it reinstates the JVM's
+own handlers if they have been replaced (emitting a warning on stderr when it
+does so), and once the JVM has been destroyed it restores the pre-JVM
+handlers — so a faulthandler enabled before ``startJVM`` is functional again
+after shutdown, rather than leaving faults routed into a destroyed JVM.
 
 
 
