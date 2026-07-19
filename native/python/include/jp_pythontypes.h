@@ -254,7 +254,6 @@ public:
 	 */
 	static string asStringUTF8(PyObject* obj);
 
-	static JPPyObject fromCharUTF16(jchar c);
 	static bool checkCharUTF16(PyObject* obj);
 	static jchar asCharUTF16(PyObject* obj);
 

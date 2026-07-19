@@ -59,15 +59,13 @@ static void bindImmortals(JPJavaFrame& frame)
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-static int statm_fd;
-static int page_size;
 
 #else
 #define USE_NONE
 #endif
 #define DELTA_LIMIT 20*1024*1024l
 
-size_t getWorkingSize()
+size_t JPGarbageCollection::getWorkingSize()
 {
 	size_t current = 0;
 #if defined(USE_PROCESS_INFO)
@@ -145,6 +143,8 @@ JPGarbageCollection::JPGarbageCollection(JPContext* context)
 	java_count = 0;
 	python_count = 0;
 	python_triggered = 0;
+	statm_fd = -1;
+	page_size = 0;
 }
 
 void JPGarbageCollection::init(JPJavaFrame& frame)
@@ -166,14 +166,6 @@ void JPGarbageCollection::init(JPJavaFrame& frame)
 
 	// Get the Java System gc so we can trigger
 	bindImmortals(frame);
-
-	jclass ctxt = frame.getContext()->m_ContextClass;
-	_ContextClass = ctxt;
-	_totalMemoryID = frame.GetStaticMethodID(ctxt, "getTotalMemory", "()J");
-	_freeMemoryID = frame.GetStaticMethodID(ctxt, "getFreeMemory", "()J");
-	_maxMemoryID = frame.GetStaticMethodID(ctxt, "getMaxMemory", "()J");
-	_usedMemoryID = frame.GetStaticMethodID(ctxt, "getUsedMemory", "()J");
-	_heapMemoryID = frame.GetStaticMethodID(ctxt, "getHeapMemory", "()J");
 
 	running = true;
 	high_water = getWorkingSize();
@@ -262,20 +254,6 @@ void JPGarbageCollection::onEnd()
 			run_gc = 2;
 			limit = high_water + (high_water>>3) + 8 * (current - last);
 		}
-
-#if 0
-		{
-			JPJavaFrame frame = JPJavaFrame::outer();
-			jlong totalMemory = frame.CallStaticLongMethodA(_ContextClass, _totalMemoryID, nullptr);
-			jlong freeMemory = frame.CallStaticLongMethodA(_ContextClass, _freeMemoryID, nullptr);
-			jlong maxMemory = frame.CallStaticLongMethodA(_ContextClass, _maxMemoryID, nullptr);
-			jlong usedMemory = frame.CallStaticLongMethodA(_ContextClass, _usedMemoryID, nullptr);
-			jlong heapMemory = frame.CallStaticLongMethodA(_ContextClass, _heapMemoryID, nullptr);
-			printf("consider gc run=%d (current=%ld, low=%ld, high=%ld, limit=%ld) %ld\n", run_gc,
-				current, low_water, high_water, limit, limit - pred);
-			printf(" java total=%ld free=%ld max=%ld used=%ld heap=%ld\n", totalMemory, freeMemory, maxMemory, usedMemory, heapMemory);
-		}
-#endif
 
 		if (run_gc > 0)
 		{

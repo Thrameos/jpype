@@ -190,7 +190,7 @@ public:
 	virtual void        setStaticField(JPJavaFrame& frame, jclass cls, jfieldID fid, PyObject* val);
 
 	virtual JPPyObject  getField(JPJavaFrame& frame, jobject obj, jfieldID fid);
-	virtual void        setField(JPJavaFrame& frame, jobject obj, jfieldID fid, PyObject* val);
+	virtual void        setField(JPJavaFrame& frame, jobject c, jfieldID fid, PyObject* obj);
 
 	JPClass*            newArrayType(JPJavaFrame &frame, long d);
 	virtual jarray      newArrayOf(JPJavaFrame& frame, jsize size);

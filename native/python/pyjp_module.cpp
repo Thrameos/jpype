@@ -64,11 +64,6 @@ extern "C"
 
 
 static int PyJPModule_clear(PyObject *module);
-static inline PyJPModuleState* PyJPState_GET(PyObject* module)
-{
-	return (PyJPModuleState*) PyModule_GetState(module);
-}
-
 static inline PyJPModuleState* PyJPModule_getState(PyObject* module)
 {
 	return reinterpret_cast<PyJPModuleState*>(PyModule_GetState(module));

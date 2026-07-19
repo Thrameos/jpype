@@ -26,6 +26,12 @@ public:
 	JPArrayView(JPJavaFrame& frame, JPArray* array);
 	JPArrayView(JPJavaFrame& frame, JPArray* array, jobject collection);
 	~JPArrayView();
+	// m_Memory is a raw owning allocation; copying would double-free it.
+	// No code path currently copies a JPArrayView, so deleting rather than
+	// implementing is the safe choice - implement properly if a real need
+	// for copying ever comes up.
+	JPArrayView(const JPArrayView&) = delete;
+	JPArrayView& operator=(const JPArrayView&) = delete;
 	void reference();
 	bool unreference(JPJavaFrame& frame);
 public:

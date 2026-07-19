@@ -28,11 +28,7 @@ JPBufferType::JPBufferType(JPJavaFrame& frame,
 : JPClass(frame, cls, name, superClass, interfaces, modifiers)
 {
 	// Use name to get the type
-	if (name == "java.nio.Buffer")
-	{
-		m_Type = "b";
-		m_Size = 1;
-	} else if (name == "java.nio.ByteBuffer")
+	if (name == "java.nio.Buffer" || name == "java.nio.ByteBuffer")
 	{
 		m_Type = "b";
 		m_Size = 1;

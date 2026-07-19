@@ -645,8 +645,10 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 		"wrap",
 		"(Ljava/lang/Object;)Ljava/lang/Object;");
 
-	// FIXME this depends on resources that are not initialized until jpype module is initialized, so we need to delay this until then.  We should probably move the GC initialization to the module init code instead of the context init code.
-	//m_GC->init(frame);
+	// GC hookup (m_GC->init) depends on PyJPModuleState::gc_callbacks/collect,
+	// which aren't populated until PyJPModule_loadResources() runs - that
+	// happens later, back in jp_bridge.cpp's launch(), so the call lives
+	// there instead of here (see plan/GCReactivation.md).
 
 	//_java_nio_ByteBuffer = (jclass) frame.NewGlobalRef(frame.findClassByName("java.nio.ByteBuffer"));
 

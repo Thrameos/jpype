@@ -213,7 +213,6 @@ private:
 
 public:
 
-	bool ExceptionCheck();
 	void ExceptionDescribe();
 	void ExceptionClear();
 	jthrowable ExceptionOccurred();

@@ -185,27 +185,6 @@ JPPyObject JPPyObject::getNone()
  * String
  ***************************************************************************/
 
-JPPyObject JPPyString::fromCharUTF16(jchar c)
-{
-#if defined(PYPY_VERSION)
-	wchar_t buf[1];
-	buf[0] = c;
-	return JPPyObject::call(PyUnicode_FromWideChar(buf, 1));
-#else
-	if (c < 128)
-	{
-		char c1 = (char) c;
-		return JPPyObject::call(PyUnicode_FromStringAndSize(&c1, 1));
-	}
-	JPPyObject buf = JPPyObject::call(PyUnicode_New(1, 65535));
-	Py_UCS4 c2 = c;
-	PyUnicode_WriteChar(buf.get(), 0, c2);
-	JP_PY_CHECK();
-	PyUnicode_READY(buf.get());
-	return buf;
-#endif
-}
-
 bool JPPyString::checkCharUTF16(PyObject* pyobj)
 {
 	JP_TRACE_IN("JPPyString::checkCharUTF16");

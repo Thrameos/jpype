@@ -138,12 +138,6 @@ jobject JPJavaFrame::retrieveGlobal(jref ref)
 
 /*****************************************************************************/
 // Exceptions
-// TODO: why is this never used? Should be deleted if obsolete.
-bool JPJavaFrame::ExceptionCheck()
-{
-	return m_Env->ExceptionCheck() != 0;
-}
-
 void JPJavaFrame::ExceptionDescribe()
 {
 	m_Env->ExceptionDescribe();
