@@ -186,6 +186,7 @@ static inline JPPyObject JPPyTuple_Pack(T... args) {
 #include "jp_javaframe.h"
 #include "jp_context.h"
 #include "jp_exception.h"
+#include "jp_error.h"
 #include "jp_tracer.h"
 #include "jp_typemanager.h"
 #include "jp_encoding.h"
