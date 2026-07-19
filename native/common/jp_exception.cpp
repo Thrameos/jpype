@@ -244,6 +244,42 @@ void JPypeException::convertPythonToJava()
 	JP_TRACE_OUT; // GCOVR_EXCL_LINE
 }
 
+/**
+ * Print a user-facing crash banner for the deliberate fail-fast crashes
+ * below (JPypeException::toPython/toJava's catch blocks).
+ *
+ * These crashes fire only when JPype's own exception-conversion code -
+ * which is not allowed to fail - fails anyway, leaving interpreter/JNI
+ * error state too corrupted to unwind safely. Terminating immediately is
+ * safer than continuing to run on corrupted state, but from a user's
+ * perspective this looks exactly like a spontaneous segfault, so we say
+ * plainly what happened and how to report it, before the process dies.
+ */
+static void reportFatalFailFast(const char* detail)
+{
+	fprintf(stderr,
+			"================================================================================\n"
+			"JPype has hit an internal error it cannot safely recover from and must stop the\n"
+			"JVM immediately.\n"
+			"\n"
+			"This is not something you did wrong in your own code - it means JPype's own\n"
+			"exception-handling machinery hit a case it doesn't know how to handle. Please\n"
+			"help fix it by reporting this at:\n"
+			"\n"
+			"    https://github.com/jpype-project/jpype/issues\n"
+			"\n"
+			"along with the smallest script you can find that reproduces it, and the detail\n"
+			"below:\n"
+			"\n"
+			"    %s\n"
+			"\n"
+			"JPype is intentionally crashing now rather than continuing to run with\n"
+			"corrupted internal state.\n"
+			"================================================================================\n",
+			detail);
+	fflush(stderr);
+}
+
 void JPypeException::toPython()
 {
 	const char* mesg = nullptr;
@@ -365,12 +401,8 @@ void JPypeException::toPython()
 		JPTracer::trace("Fatal error in exception handling");
 
 		// You shall not pass!
-		fprintf(stderr, "[JPype] FATAL: exception handling failed while converting a Java "
-				"exception back to Python (toPython(), catch(...)). This crash is an "
-				"INTENTIONAL fail-fast, not a spontaneous segfault: interpreter/JNI error "
-				"state can no longer be trusted enough to unwind safely. See the design note "
-				"in native/common/jp_exception.cpp (JPypeException::toPython).\n");
-		fflush(stderr);
+		reportFatalFailFast("An unexpected error occurred while converting a Java exception "
+				"back to Python (JPypeException::toPython).");
 		int *i = nullptr;
 		*i = 0;
 	}
@@ -429,17 +461,14 @@ void JPypeException::toJava()
 		JPTracer::trace(info.getFile(), info.getFunction(), info.getLine());
 
 		// Take one for the team.
-		fprintf(stderr, "[JPype] FATAL: a second exception (type=%d, what()=\"%s\", at %s:%s:%d) "
-				"was thrown while converting a Python exception to Java (toJava(), "
-				"catch(JPypeException&)). This crash is an INTENTIONAL fail-fast, not a "
-				"spontaneous segfault: exception conversion is not itself allowed to fail, so "
-				"once it does, interpreter state can no longer be trusted enough to unwind "
-				"safely. Find and fix whatever threw the second exception (see "
-				"plan/ExecCrashDebug.md for a worked example) rather than treating this crash "
-				"itself as the bug. See the design note in native/common/jp_exception.cpp "
-				"(JPypeException::toJava).\n",
-				ex.m_Type, ex.what(), info.getFile(), info.getFunction(), info.getLine());
-		fflush(stderr);
+		{
+			std::stringstream detail;
+			detail << "A second error (\"" << ex.what() << "\") occurred while JPype was "
+					"converting a Python exception into its Java equivalent, at "
+					<< info.getFile() << ":" << info.getFunction() << ":" << info.getLine()
+					<< " (JPypeException::toJava).";
+			reportFatalFailFast(detail.str().c_str());
+		}
 		int *i = nullptr;
 		*i = 0;
 		// GCOVR_EXCL_STOP
@@ -450,11 +479,8 @@ void JPypeException::toJava()
 		JPTracer::trace("Fatal error in exception handling");
 
 		// It is pointless, I can't go on.
-		fprintf(stderr, "[JPype] FATAL: a non-JPypeException exception escaped while converting "
-				"a Python exception to Java (toJava(), catch(...)). This crash is an "
-				"INTENTIONAL fail-fast, not a spontaneous segfault - see the design note in "
-				"native/common/jp_exception.cpp (JPypeException::toJava).\n");
-		fflush(stderr);
+		reportFatalFailFast("An unexpected, non-Python error occurred while JPype was "
+				"converting a Python exception into its Java equivalent (JPypeException::toJava).");
 		int *i = nullptr;
 		*i = 0;
 		// GCOVR_EXCL_STOP
