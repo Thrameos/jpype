@@ -85,7 +85,7 @@ public class Html
         String[] parts = line.split("\\s+");
         ENTITIES.put(parts[0], Integer.parseInt(parts[1]));
       }
-    } catch (IOException ex)
+    } catch (IOException | NumberFormatException ex)
     {
       throw new RuntimeException(ex);
     }
