@@ -75,6 +75,7 @@ if __name__ == '__main__':
             time.sleep(1)
 #        print(_jpype.gcStats())
         del interface, interface_container
+        # Manual debug toggles below - uncomment when tuning by hand.  # lgtm[py/commented-out-code]
 #        if DestructionTracker.del_calls != 0:
 #            print(f'{i} We have deleted something: {DestructionTracker.del_calls}')
 #        else:
