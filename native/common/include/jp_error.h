@@ -16,17 +16,12 @@
 #ifndef _JP_ERROR_H_
 #define _JP_ERROR_H_
 
-/* Stage 1 of the exception-model split (see plan/ExceptionRefactor.md).
- *
- * These classes are the target replacement for JPypeException's single
- * type-tag-plus-union design: one concrete C++ type per exception origin,
- * so each type only carries (and only knows how to convert) the payload
- * that is actually valid for it, instead of relying on convention/comments
- * to track which union member and m_Type value go together.
- *
- * Not wired into any construction/catch site yet - introduced here purely
- * to compile alongside the existing JPypeException while the migration is
- * staged. See plan/ExceptionRefactor.md for the staged migration order.
+/* The result of the exception-model split (see plan/ExceptionRefactor.md):
+ * one concrete C++ type per exception origin, replacing the single
+ * type-tag-plus-union design JPypeException used to have, so each type only
+ * carries (and only knows how to convert) the payload that is actually valid
+ * for it, instead of relying on convention/comments to track which union
+ * member and tag value go together.
  */
 
 /**
@@ -107,10 +102,13 @@ private:
 /**
  * A Python-originated exception. The exception is fetched and normalized
  * at the moment of the throw (not left live on the thread state for the
- * duration of the C++ unwind - see the equivalent note on JPypeException's
- * m_PyExcValue for why), so this type's own invariant is: if constructed,
- * an already-normalized instance is held. Converts to Python by restoring
- * it directly; converts to Java via the existing convertPythonToJava path.
+ * duration of the C++ unwind - a pending exception left on the thread state
+ * is visible to, and can be disturbed by, an incidental GC pass triggered
+ * anywhere during that unwind, so fetching claims sole ownership before
+ * anything else can touch it), so this type's own invariant is: if
+ * constructed, an already-normalized instance is held. Converts to Python
+ * by restoring it directly; converts to Java via the existing
+ * convertPythonToJava path.
  */
 class JPPythonError : public JPBaseError
 {

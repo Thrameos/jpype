@@ -137,7 +137,7 @@ bool JPContext::isRunning()
 }
 
 /**
-	throw a JPypeException if the JVM is not started
+	throw a JPInternalError if the JVM is not started
  */
 void assertJVMRunning(JPContext* context, const JPStackInfo& info)
 {

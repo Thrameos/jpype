@@ -47,7 +47,7 @@
 #if (_MSVC_LAND >= 201402)
 #define NO_EXCEPT_FALSE noexcept(false)
 #else
-#define NO_EXCEPT_FALSE throw(JPypeException)
+#define NO_EXCEPT_FALSE throw(JPBaseError)
 #endif
 
 #else
@@ -56,7 +56,7 @@
 #if (__cplusplus >= 201103L)
 #define NO_EXCEPT_FALSE noexcept(false)
 #else
-#define NO_EXCEPT_FALSE throw(JPypeException)
+#define NO_EXCEPT_FALSE throw(JPBaseError)
 #endif
 
 #endif
