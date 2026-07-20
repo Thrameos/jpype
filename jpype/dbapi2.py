@@ -44,7 +44,7 @@ class JDBCTypeProtocol(typing.Protocol):
     def set(self, ps, column, value):...  # lgtm[py/ineffectual-statement]
 
 _SQLException = None
-_SQLTimeoutException = None
+_SQLTimeoutException = None  # not currently used, kept paired with _SQLException above  # lgtm[py/unused-global-variable]
 _registry: typing.Dict[str, JDBCTypeProtocol] = {}
 _types: typing.List[JDBCTypeProtocol] = []
 
@@ -1409,13 +1409,12 @@ def Binary(data):
 
 
 #  SQL NULL values are represented by the Python None singleton on input and output.
-_accepted = {"exact", "implicit"}
 
 
 def _populateTypes():
     global _SQLException, _SQLTimeoutException
     _SQLException = _jpype.JClass("java.sql.SQLException")
-    _SQLTimeoutException = _jpype.JClass("java.sql.SQLTimeoutException")
+    _SQLTimeoutException = _jpype.JClass("java.sql.SQLTimeoutException")  # lgtm[py/unused-global-variable]
     cs = _jpype.JClass("java.sql.CallableStatement")
     ps = _jpype.JClass("java.sql.PreparedStatement")
     rs = _jpype.JClass("java.sql.ResultSet")

@@ -216,7 +216,7 @@ public class AttrGrammar implements Parser.Grammar
     public void execute(Parser parser)
     {
       Entity e2 = (Entity) parser.stack.removeLast();
-      Entity e1 = (Entity) parser.stack.removeLast();
+      parser.stack.removeLast();  // consumes the '=' token, value unused
       Entity e0 = (Entity) parser.stack.removeLast();
       AttrParser aparser = (AttrParser) parser;
       Attr attr = aparser.doc.createAttribute((String) e0.value);

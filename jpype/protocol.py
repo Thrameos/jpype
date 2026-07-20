@@ -24,21 +24,21 @@ from . import _jclass
 from . import _jcustomizer
 
 # Copies of all private base types for reference
-_JClass = _jpype._JClass
-_JObject = _jpype._JObject
-_JException = _jpype._JException
-_JNumberLong = _jpype._JNumberLong
-_JNumberFloat = _jpype._JNumberFloat
-_JComparable = _jpype._JComparable
-_JChar = _jpype._JChar
-_JBoolean = _jpype._JBoolean
-_JArray = _jpype._JArray
-_JBuffer = _jpype._JBuffer
+_JClass = _jpype._JClass  # lgtm[py/unused-global-variable]
+_JObject = _jpype._JObject  # lgtm[py/unused-global-variable]
+_JException = _jpype._JException  # lgtm[py/unused-global-variable]
+_JNumberLong = _jpype._JNumberLong  # lgtm[py/unused-global-variable]
+_JNumberFloat = _jpype._JNumberFloat  # lgtm[py/unused-global-variable]
+_JComparable = _jpype._JComparable  # lgtm[py/unused-global-variable]
+_JChar = _jpype._JChar  # lgtm[py/unused-global-variable]
+_JBoolean = _jpype._JBoolean  # lgtm[py/unused-global-variable]
+_JArray = _jpype._JArray  # lgtm[py/unused-global-variable]
+_JBuffer = _jpype._JBuffer  # lgtm[py/unused-global-variable]
 
 if sys.version_info < (3, 8):  # pragma: no cover
     from typing_extensions import Protocol, runtime_checkable
-    from typing import Sequence, Mapping, Set  # lgtm [py/unused-import]
-    from typing import SupportsFloat, Callable  # lgtm [py/unused-import]
+    from typing import Sequence, Mapping, Set  # lgtm[py/unused-import]
+    from typing import SupportsFloat, Callable  # lgtm[py/unused-import]
 
     @runtime_checkable
     class SupportsIndex(Protocol):
@@ -48,9 +48,8 @@ if sys.version_info < (3, 8):  # pragma: no cover
 else:
     # 3.8 onward
     from typing import Protocol, runtime_checkable
-    from typing import SupportsIndex, SupportsFloat  # lgtm [py/unused-import]
-    # lgtm [py/unused-import]
-    from typing import Sequence, Mapping, Set, Callable
+    from typing import SupportsIndex, SupportsFloat  # lgtm[py/unused-import]
+    from typing import Sequence, Mapping, Set, Callable  # lgtm[py/unused-import]
 
 # Types we need
 

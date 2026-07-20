@@ -8,12 +8,11 @@
 # verify function (<1k, 10k, >1Mb) as different behaviors occur at different
 # usage points.
 
-from os import path
 import _jpype
 import jpype
 from jpype.types import *
 import numpy as np
-import gc
+import gc  # kept for the commented-out gc.callbacks debug hook below  # lgtm[py/unused-import]
 import time
 
 # print(gc.callbacks)
@@ -52,7 +51,7 @@ if __name__ == '__main__':
 
     print()
     kB = (1024 / 8)
-    MB = (1024**2 / 8)
+    MB = (1024**2 / 8)  # swap in for kB above to test the >1Mb block size  # lgtm[py/unused-global-variable]
 
     fixture = JClass("jpype.common.Fixture")()
     for i in range(trials):
@@ -60,7 +59,8 @@ if __name__ == '__main__':
 
         interface = jpype.JProxy("java.io.Serializable",
                                  dict={'callback': DestructionTracker(i, x).callback})
-        interface_container = fixture.callObject(interface)
+        # Held (not "read") to keep it alive until the explicit del below.
+        interface_container = fixture.callObject(interface)  # lgtm[py/unused-global-variable]
 
         if (i % 1000) == 0:
             stats = _jpype.gcStats()

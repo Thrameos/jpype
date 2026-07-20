@@ -1,4 +1,3 @@
-import jpype
 from typing import Union
 
 

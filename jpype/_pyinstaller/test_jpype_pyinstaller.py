@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from subprocess import run
 
-import jpype
+import jpype  # sanity check jpype imports before the slow PyInstaller build  # lgtm[py/unused-import]
 import PyInstaller.__main__
 
 

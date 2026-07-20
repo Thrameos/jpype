@@ -413,9 +413,9 @@ public class HtmlGrammar implements Parser.Grammar
     public void execute(Parser parser)
     {
       LinkedList<Entity> stack = parser.stack;
-      Entity e2 = stack.removeLast();
+      stack.removeLast();  // consumes '>', value unused
       Entity e1 = stack.removeLast();
-      Entity e0 = stack.removeLast();
+      stack.removeLast();  // consumes '<' + '/', value unused
       String content = e1.value.toString();
       getGrammar(parser).flushText(parser);
       getHandler(parser).endElement(content);
@@ -435,9 +435,9 @@ public class HtmlGrammar implements Parser.Grammar
     public void execute(Parser parser)
     {
       LinkedList<Entity> stack = parser.stack;
-      Entity e2 = stack.removeLast();
+      stack.removeLast();  // consumes '>', value unused
       Entity e1 = stack.removeLast();
-      Entity e0 = stack.removeLast();
+      stack.removeLast();  // consumes the directive marker, value unused
       String content = e1.value.toString();
       getGrammar(parser).flushText(parser);
       getHandler(parser).directive(content);
