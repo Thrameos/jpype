@@ -62,7 +62,10 @@ class _JStringProto:
         return self.contains(other)  # type: ignore[attr-defined]
 
     def __hash__(self):
-        if self == None:  # lgtm [py/test-equals-none]
+        # Deliberately == not is: this checks whether the wrapped Java
+        # string is null, not Python identity (self can never literally be
+        # the Python None singleton here).
+        if self == None:  # lgtm[py/test-equals-none]
             return hash(None)
         return self.__str__().__hash__()
 
