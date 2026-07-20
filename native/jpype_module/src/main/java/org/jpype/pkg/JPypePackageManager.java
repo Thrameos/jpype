@@ -20,7 +20,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystemNotFoundException;
 import java.nio.file.FileSystems;
@@ -474,7 +473,7 @@ public class JPypePackageManager
       // a space and ensure correct round-trip encoding.
       uri = new URI(
               uri.getScheme(),
-              URLDecoder.decode(uri.getSchemeSpecificPart().replace("+", "%2b"), StandardCharsets.UTF_8),
+              URLDecoder.decode(uri.getSchemeSpecificPart().replace("+", "%2b"), "UTF-8"),
               uri.getFragment()
       );
 

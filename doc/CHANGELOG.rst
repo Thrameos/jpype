@@ -7,6 +7,10 @@ Latest Changes:
 
 - **1.7.2.dev0**
 
+  - Fixed classpath directories/jars containing a "+" character having it
+    silently converted to a space on import, corrupting the resolved
+    resource path. #1413
+
   - Fixed a random segmentation fault at JVM shutdown when Python tooling
     (such as pytest's built-in faulthandler plugin) restored pre-JVM signal
     handlers over HotSpot's, leaving safepoint polls in compiled code
