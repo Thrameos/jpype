@@ -117,10 +117,15 @@ bool isJavaThrowable(PyObject* exceptionClass)
 	return cls->isThrowable();
 }
 
-void JPypeException::convertJavaToPython()
+/** Shared conversion logic for a Java-originated exception, used by both the
+ * legacy JPypeException and JPJavaError - factored out so both stay backed
+ * by the exact same tested code path during the staged migration (see
+ * plan/ExceptionRefactor.md).
+ */
+void convertJavaToPython(jthrowable th)
 {
 	// Welcome to paranoia land, where they really are out to get you!
-	JP_TRACE_IN("JPypeException::convertJavaToPython");
+	JP_TRACE_IN("convertJavaToPython");
 	// GCOVR_EXCL_START
 	JPContext* context = JPContext_global;
 	if (context == nullptr)
@@ -132,7 +137,6 @@ void JPypeException::convertJavaToPython()
 
 	// Okay we can get to a frame to talk to the object
 	JPJavaFrame frame = JPJavaFrame::external(context->getEnv());
-	jthrowable th = m_Throwable.get();
 	jvalue v;
 	v.l = th;
 	// GCOVR_EXCL_START
@@ -211,9 +215,8 @@ void JPypeException::convertJavaToPython()
 		if (trace.get() != nullptr)
 			PyException_SetTraceback(cause.get(), trace.get());
 		PyException_SetCause(pyvalue.get(), cause.keep());
-	}	catch (JPypeException& ex)
+	}	catch (...)
 	{
-		(void) ex;
 		JP_TRACE("FAILURE IN CAUSE");
 		// Any failures in this optional action should be ignored.
 		// worst case we don't print as much diagnostics.
@@ -224,9 +227,19 @@ void JPypeException::convertJavaToPython()
 	JP_TRACE_OUT; // GCOVR_EXCL_LINE
 }
 
-void JPypeException::convertPythonToJava()
+void JPypeException::convertJavaToPython()
 {
-	JP_TRACE_IN("JPypeException::convertPythonToJava");
+	::convertJavaToPython(m_Throwable.get());
+}
+
+/** Shared conversion logic for a Python-originated exception (already set
+ * on the thread state at call time). Factored out for the same reason as
+ * convertJavaToPython() above; mesg is only used for the extremely early
+ * startup fallback where no JPContext exists yet to build a real exception.
+ */
+void convertPythonToJava(const char* mesg)
+{
+	JP_TRACE_IN("convertPythonToJava");
 	JPJavaFrame frame = JPJavaFrame::outer();
 	JPContext *context = frame.getContext();
 	jthrowable th;
@@ -246,7 +259,7 @@ void JPypeException::convertPythonToJava()
 
 	if (context->m_Context_CreateExceptionID == nullptr)
 	{
-		frame.ThrowNew(frame.FindClass("java/lang/RuntimeException"), std::runtime_error::what());
+		frame.ThrowNew(frame.FindClass("java/lang/RuntimeException"), mesg);
 		return;
 	}
 
@@ -262,6 +275,11 @@ void JPypeException::convertPythonToJava()
 	eframe.clear();
 	frame.Throw(th);
 	JP_TRACE_OUT; // GCOVR_EXCL_LINE
+}
+
+void JPypeException::convertPythonToJava()
+{
+	::convertPythonToJava(what());
 }
 
 /**
@@ -524,6 +542,205 @@ void JPypeException::toJava()
 		// It is pointless, I can't go on.
 		reportFatalFailFast("An unexpected, non-Python error occurred while JPype was "
 				"converting a Python exception into its Java equivalent (JPypeException::toJava).");
+		int *i = nullptr;
+		*i = 0;
+		// GCOVR_EXCL_STOP
+	}
+	JP_TRACE_OUT; // GCOVR_EXCL_LINE
+}
+
+/** Shared "attach our C++ stack trace as the cause" tail behavior, common to
+ * every JPBaseError::toPython() except JPJavaError's (which already attaches
+ * its own Java-side cause inside convertJavaToPython()). Mirrors the tail of
+ * the legacy JPypeException::toPython() above.
+ */
+static void attachCppCause(const JPStackTrace& trace)
+{
+	if (!_jp_cpp_exceptions)
+		return;
+	JPPyErrFrame eframe;
+	eframe.normalize();
+	JPPyObject args = JPPyObject::call(Py_BuildValue("(s)", "C++ Exception"));
+	JPPyObject tb = JPPyObject::call(PyTrace_FromJPStackTrace(const_cast<JPStackTrace&>(trace)));
+	JPPyObject cause = JPPyObject::accept(PyObject_Call(PyExc_Exception, args.get(), nullptr));
+	// eframe.m_ExceptionValue can be null here - e.g. if the Python error
+	// state was already cleared by the time this runs (see
+	// JPPyErrFrame::normalize()'s own null-guard for the same class of
+	// issue) - PyException_SetCause requires a real exception instance as
+	// self and segfaults on null.
+	if (!cause.isNull() && eframe.m_ExceptionValue.get() != nullptr)
+	{
+		PyException_SetTraceback(cause.get(), tb.get());
+		PyException_SetCause(eframe.m_ExceptionValue.get(), cause.keep());
+	}
+}
+
+void JPJavaError::toPython()
+{
+	JP_TRACE_IN("JPJavaError::toPython");
+	try
+	{
+		if (PyErr_CheckSignals() != 0)
+			return;
+		if (PyErr_Occurred())
+			return;
+		convertJavaToPython(getThrowable());
+	} catch (...) // GCOVR_EXCL_LINE
+	{
+		// GCOVR_EXCL_START
+		JPTracer::trace("Fatal error in exception handling");
+		reportFatalFailFast("An unexpected error occurred while converting a Java exception "
+				"back to Python (JPJavaError::toPython).");
+		int *i = nullptr;
+		*i = 0;
+		// GCOVR_EXCL_STOP
+	}
+	JP_TRACE_OUT; // GCOVR_EXCL_LINE
+}
+
+void JPJavaError::toJava()
+{
+	JP_TRACE_IN("JPJavaError::toJava");
+	if (getThrowable() != nullptr)
+	{
+		JPContext* context = JPContext_global;
+		JPJavaFrame frame = JPJavaFrame::external(context->getEnv());
+		JP_TRACE("Java rethrow");
+		frame.Throw(getThrowable());
+	}
+	JP_TRACE_OUT; // GCOVR_EXCL_LINE
+}
+
+void JPPythonError::toPython()
+{
+	JP_TRACE_IN("JPPythonError::toPython");
+	try
+	{
+		if (PyErr_CheckSignals() != 0)
+			return;
+		if (PyErr_Occurred())
+			return;
+		// Restore the exception fetched and normalized at throw time (see
+		// JPPythonError's ctor / the equivalent note on JPypeException's
+		// m_PyExcValue) - it was deliberately held off the thread state for
+		// the whole unwind so no incidental GC pass could disturb it.
+		JPPyErr::restore(m_PyExcValue);
+		attachCppCause(trace());
+	} catch (...) // GCOVR_EXCL_LINE
+	{
+		// GCOVR_EXCL_START
+		JPTracer::trace("Fatal error in exception handling");
+		reportFatalFailFast("An unexpected error occurred while restoring a Python exception "
+				"(JPPythonError::toPython).");
+		int *i = nullptr;
+		*i = 0;
+		// GCOVR_EXCL_STOP
+	}
+	JP_TRACE_OUT; // GCOVR_EXCL_LINE
+}
+
+void JPPythonError::toJava()
+{
+	JP_TRACE_IN("JPPythonError::toJava");
+	try
+	{
+		JPPyCallAcquire callback;
+		// convertPythonToJava() expects to find the exception live on the
+		// thread state - restore what was fetched off it at throw time.
+		JPPyErr::restore(m_PyExcValue);
+		convertPythonToJava(what());
+	} catch (...) // GCOVR_EXCL_LINE
+	{
+		// GCOVR_EXCL_START
+		JPTracer::trace("Fatal error in exception handling");
+		reportFatalFailFast("An unexpected error occurred while JPype was converting a Python "
+				"exception into its Java equivalent (JPPythonError::toJava).");
+		int *i = nullptr;
+		*i = 0;
+		// GCOVR_EXCL_STOP
+	}
+	JP_TRACE_OUT; // GCOVR_EXCL_LINE
+}
+
+void JPInternalError::toPython()
+{
+	JP_TRACE_IN("JPInternalError::toPython");
+	try
+	{
+		if (PyErr_CheckSignals() != 0)
+			return;
+		if (PyErr_Occurred())
+			return;
+
+		const char* mesg = what();
+		if (isOSError())
+		{
+			// This section is only reachable during startup of the JVM.
+			// GCOVR_EXCL_START
+			std::stringstream ss;
+			ss << "JVM DLL not found: " << mesg;
+#ifdef WIN32
+			PyObject* val = Py_BuildValue("(izzi)", 2, ss.str().c_str(), NULL, getOSErrorCode());
+#else
+			PyObject* val = Py_BuildValue("(iz)", getOSErrorCode(), ss.str().c_str());
+#endif
+			if (val != nullptr)
+			{
+				PyObject* exc = PyObject_Call(PyExc_OSError, val, nullptr);
+				Py_DECREF(val);
+				if (exc != nullptr)
+				{
+					PyErr_SetObject(PyExc_OSError, exc);
+					Py_DECREF(exc);
+				}
+			}
+			// GCOVR_EXCL_STOP
+		} else
+		{
+			PyErr_SetString((PyObject*) getPyExcType(), mesg);
+		}
+
+		attachCppCause(trace());
+	} catch (...) // GCOVR_EXCL_LINE
+	{
+		// GCOVR_EXCL_START
+		JPTracer::trace("Fatal error in exception handling");
+		reportFatalFailFast("An unexpected error occurred while issuing a JPype-internal "
+				"exception (JPInternalError::toPython).");
+		int *i = nullptr;
+		*i = 0;
+		// GCOVR_EXCL_STOP
+	}
+	JP_TRACE_OUT; // GCOVR_EXCL_LINE
+}
+
+void JPInternalError::toJava()
+{
+	JP_TRACE_IN("JPInternalError::toJava");
+	try
+	{
+		JPContext* context = JPContext_global;
+		JPJavaFrame frame = JPJavaFrame::external(context->getEnv());
+		const char* mesg = what();
+		if (!isOSError())
+		{
+			JPPyCallAcquire callback;
+			PyErr_SetString((PyObject*) getPyExcType(), mesg);
+			convertPythonToJava(mesg);
+			return;
+		}
+		// GCOVR_EXCL_START
+		// OS errors are startup-only and never reach toJava() in practice
+		// (no JVM/JNI frame exists yet at that point) - issued as a
+		// RuntimeException for parity with the legacy fallback branch.
+		frame.ThrowNew(context->m_RuntimeException.get(), mesg);
+		// GCOVR_EXCL_STOP
+	} catch (...) // GCOVR_EXCL_LINE
+	{
+		// GCOVR_EXCL_START
+		JPTracer::trace("Fatal error in exception handling");
+		reportFatalFailFast("An unexpected error occurred while JPype was converting an "
+				"internal exception into its Java equivalent (JPInternalError::toJava).");
 		int *i = nullptr;
 		*i = 0;
 		// GCOVR_EXCL_STOP

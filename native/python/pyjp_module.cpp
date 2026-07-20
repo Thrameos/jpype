@@ -888,6 +888,11 @@ void PyJPModule_rethrow(const JPStackInfo& info)
 	try
 	{
 		throw;
+	} catch (JPBaseError& ex)
+	{
+		ex.from(info); // this likely wont be necessary, but for now we will add the entry point.
+		ex.toPython();
+		return;
 	} catch (JPypeException& ex)
 	{
 		ex.from(info); // this likely wont be necessary, but for now we will add the entry point.

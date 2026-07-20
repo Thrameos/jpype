@@ -45,6 +45,9 @@ void JPTypeFactory_rethrow(JPJavaFrame& frame)
 	try
 	{
 		throw;
+	} catch (JPBaseError& ex)
+	{
+		ex.toJava();
 	} catch (JPypeException& ex)
 	{
 		ex.toJava();

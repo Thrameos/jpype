@@ -56,6 +56,16 @@ public:
 		return m_Trace;
 	}
 
+	/** Transfer handling of this exception to Python: set the appropriate
+	 * Python exception state (PyErr_Occurred() true on return).
+	 */
+	virtual void toPython() = 0;
+
+	/** Transfer handling of this exception to Java: throw the appropriate
+	 * Java exception on the current JNI frame.
+	 */
+	virtual void toJava() = 0;
+
 private:
 	JPStackTrace m_Trace;
 };
@@ -77,6 +87,9 @@ public:
 	{
 		return m_Throwable.get();
 	}
+
+	void toPython() override;
+	void toJava() override;
 
 private:
 	JPThrowableRef m_Throwable;
@@ -102,6 +115,9 @@ public:
 	{
 		return m_PyExcValue;
 	}
+
+	void toPython() override;
+	void toJava() override;
 
 private:
 	JPPyObject m_PyExcValue;
@@ -145,6 +161,9 @@ public:
 	{
 		return m_OSErrorCode;
 	}
+
+	void toPython() override;
+	void toJava() override;
 
 private:
 	void* m_PyExcType;

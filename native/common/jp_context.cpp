@@ -150,12 +150,12 @@ void assertJVMRunning(JPContext* context, const JPStackInfo& info)
 
 	if (context == nullptr)
 	{
-		throw JPypeException(JPError::_python_exc, _JVMNotRunning, "Java Context is null", info);
+		throw JPInternalError(_JVMNotRunning, "Java Context is null", info);
 	}
 
 	if (!context->isRunning())
 	{
-		throw JPypeException(JPError::_python_exc, _JVMNotRunning, "Java Virtual Machine is not running", info);
+		throw JPInternalError(_JVMNotRunning, "Java Virtual Machine is not running", info);
 	}
 }
 

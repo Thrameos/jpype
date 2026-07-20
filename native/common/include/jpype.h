@@ -168,7 +168,7 @@ public:
 #define JP_RAISE_PYTHON()                   { throw JPypeException(JPError::_python_error, nullptr, JP_STACKINFO()); }
 #define JP_RAISE_OS_ERROR_UNIX(err, msg)    { throw JPypeException(JPError::_os_error_unix,  msg, err, JP_STACKINFO()); }
 #define JP_RAISE_OS_ERROR_WINDOWS(err, msg) { throw JPypeException(JPError::_os_error_windows,  msg, err, JP_STACKINFO()); }
-#define JP_RAISE(type, msg)                 { throw JPypeException(JPError::_python_exc, type, msg, JP_STACKINFO()); }
+#define JP_RAISE(type, msg)                 { throw JPInternalError(type, msg, JP_STACKINFO()); }
 
 #ifndef PyObject_HEAD
 struct _object;
