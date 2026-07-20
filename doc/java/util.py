@@ -11,7 +11,7 @@ class Iterable:
 
     def __iter__(self):
         """ Iterate over the members on this collect. """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
 
 class Collection:
@@ -27,11 +27,11 @@ class Collection:
         collection.
 
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def __delitem__(self, item):
         """ Collections do not support remove by index. """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def __contains__(self, item) -> bool:
         """ Check if this collection contains this item.
@@ -47,7 +47,7 @@ class Collection:
         Returns:
            bool: True if the item is in the collection.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
 
 class List(Collection):
@@ -65,7 +65,7 @@ class List(Collection):
         alter the original list.  Slice stepping is not supported for Java
         lists.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def __setitem__(self, index: Union[int, slice], value):
         """ Set an item on the list.
@@ -74,7 +74,7 @@ class List(Collection):
         ``list[i0:i1] = values`` to replace a section of a list with
         another list of values.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def __delitem__(self, idx: Union[int, slice]):
         """ Delete an item by index.
@@ -82,14 +82,14 @@ class List(Collection):
         Use ``del list[idx]`` to remove ont itme from the list or
         ``del list[i0:i1]`` to remove a section of the list.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def __reversed__(self):
         """ Obtain an iterator that walks the list in reverse order.
 
         Use ``reversed(list)`` to traverse a list backwards.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def index(self, obj) -> int:
         """ Find the index that an item appears.
@@ -104,7 +104,7 @@ class List(Collection):
         Raises:
            ValueError: If the item is not on the list.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def count(self, obj):
         """ Count the number of times an object appears in a list.
@@ -116,7 +116,7 @@ class List(Collection):
         Returns:
             int: The number of times this object appears.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def insert(self, idx: int, obj):
         """ Insert an object at a specific position.
@@ -128,7 +128,7 @@ class List(Collection):
         Raises:
             TypeError: If the object cannot be converted to Java.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def append(self, obj):
         """ Append an object to the list.
@@ -139,7 +139,7 @@ class List(Collection):
         Raises:
             TypeError: If the object cannot be converted to Java.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def reverse(self):
         """ Reverse the order of the list in place.
@@ -156,7 +156,7 @@ class List(Collection):
         Raises:
            TypeError: If the list to be added cannot be converted to Java.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def pop(self, idx=-1):
         """ Remove an item from the list.
@@ -168,7 +168,7 @@ class List(Collection):
         Returns:
            The item or raises if index is outside of the list.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def __iadd__(self, obj):
         """ Add an items to the end of the list.
@@ -176,7 +176,7 @@ class List(Collection):
         Use ``list += obj`` to append one item.  This is simply an alias
         for add.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def __add__(self, obj):
         """ Combine two lists.
@@ -184,7 +184,7 @@ class List(Collection):
         Use ``list + seq`` to create a new list with additional members.
         This is only supported if the list can be cloned.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def remove(self, obj):
         """ Remove an item from the list by finding the first
@@ -200,7 +200,7 @@ class List(Collection):
         Raises:
             ValueError: If the item is not present on the list.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
 
 class Map:
@@ -215,12 +215,12 @@ class Map:
 
         Use ``len(map)`` to get the number of items in the map.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def __iter__(self):
         """ Iterate the keys of the map.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def __delitem__(self, i):
         """ Remove an item by its key.
@@ -228,7 +228,7 @@ class Map:
         Raises:
            TypeError: If the key cannot be converted to Java.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def __getitem__(self, ndx):
         """ Get a value by its key.
@@ -239,7 +239,7 @@ class Map:
            KeyError: If the key is not found in the map or the key
              cannot be converted to Java.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def __setitem__(self, key, value):
         """ Set a value associated with a key..
@@ -249,7 +249,7 @@ class Map:
         Raises:
            TypeError: If the key or value cannot be converted to Java.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def items(self):
         """ Get a list of entries in the map.
@@ -257,7 +257,7 @@ class Map:
         The map entries are customized to appear as tuples with two 
         items.  Maps can traversed as key value pairs using ``map.items()``
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def keys(self) -> list:
         """ Get a list of keys for this map.
@@ -267,7 +267,7 @@ class Map:
         Returns:
            list: A Python list holding all of the items.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
     def __contains__(self, item):
         """ Check if a key is in the map.
@@ -279,7 +279,7 @@ class Map:
         Returns:
           True is the key is found.
         """
-        ...
+        ...  # lgtm[py/ineffectual-statement]
 
 
 class Set(object):
@@ -287,7 +287,7 @@ class Set(object):
 
     Java sets only provide the ability to delete items.
     """
-    ...
+    ...  # lgtm[py/ineffectual-statement]
 
 
 class Iterator:
@@ -296,7 +296,7 @@ class Iterator:
     Java iterators act just like Python iterators for the 
     purposed of list comprehensions and foreach loops.
     """
-    ...
+    ...  # lgtm[py/ineffectual-statement]
 
 
 class Enumeration:
@@ -305,4 +305,4 @@ class Enumeration:
     Enumerations are used rarely in Java, but can be iterated like a Java
     iterable using Python.
     """
-    ...
+    ...  # lgtm[py/ineffectual-statement]

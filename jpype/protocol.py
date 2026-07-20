@@ -42,7 +42,7 @@ if sys.version_info < (3, 8):  # pragma: no cover
 
     @runtime_checkable
     class SupportsIndex(Protocol):
-        def __index__(self) -> int: ...
+        def __index__(self) -> int: ...  # lgtm[py/ineffectual-statement]
 
 
 else:
@@ -57,7 +57,7 @@ else:
 
 @runtime_checkable
 class SupportsPath(Protocol):
-    def __fspath__(self) -> str: ...
+    def __fspath__(self) -> str: ...  # lgtm[py/ineffectual-statement]
 
 
 @_jcustomizer.JConversion("java.nio.file.Path", instanceof=SupportsPath)

@@ -40,8 +40,8 @@ paramstyle = 'qmark'
 
 
 class JDBCTypeProtocol(typing.Protocol):
-    def get(self, rs, column, st):...
-    def set(self, ps, column, value):...
+    def get(self, rs, column, st):...  # lgtm[py/ineffectual-statement]
+    def set(self, ps, column, value):...  # lgtm[py/ineffectual-statement]
 
 _SQLException = None
 _SQLTimeoutException = None

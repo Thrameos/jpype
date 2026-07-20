@@ -77,8 +77,8 @@ def _keywordWrap(name):
 
 
 class JImportCustomizerProtocol(Protocol):
-    def canCustomize(self, name: str) -> bool: ...
-    def getSpec(self, name: str): ...
+    def canCustomize(self, name: str) -> bool: ...  # lgtm[py/ineffectual-statement]
+    def getSpec(self, name: str): ...  # lgtm[py/ineffectual-statement]
 
 
 # %% Customizer

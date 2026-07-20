@@ -32,4 +32,4 @@ class AutoCloseable:
         # Input stream closes at the end of the block.
 
     """
-    ...
+    ...  # lgtm[py/ineffectual-statement]
