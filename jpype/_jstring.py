@@ -39,7 +39,8 @@ class JString(_jpype._JObject, internal=True):  # type: ignore[call-arg]
 
 
 @_jcustomizer.JImplementationFor("java.lang.String")
-class _JStringProto:  # lgtm[py/equals-hash-mismatch]
+# codeql[py/equals-hash-mismatch]
+class _JStringProto:
     # No __eq__ here deliberately: JImplementationFor mixes this class's
     # __hash__ into the real wrapped-String type alongside _jpype._JObject,
     # which supplies a content-based (java.lang.String.equals) __eq__ -
@@ -71,7 +72,8 @@ class _JStringProto:  # lgtm[py/equals-hash-mismatch]
         # Deliberately == not is: this checks whether the wrapped Java
         # string is null, not Python identity (self can never literally be
         # the Python None singleton here).
-        if self == None:  # lgtm[py/test-equals-none]
+        # codeql[py/test-equals-none]
+        if self == None:
             return hash(None)
         return self.__str__().__hash__()
 

@@ -42,7 +42,8 @@ public class AttrGrammar implements Parser.Grammar
   }
 
 //<editor-fold desc="tokens">
-  enum Token implements Parser.Token  // lgtm[java/class-name-matches-super-class]
+  // codeql[java/class-name-matches-super-class]
+  enum Token implements Parser.Token
   {
     TEXT,
     QUOTE("\""),
@@ -117,7 +118,8 @@ public class AttrGrammar implements Parser.Grammar
 //</editor-fold>
 //<editor-fold desc="state">
 
-  enum State implements Parser.State  // lgtm[java/class-name-matches-super-class]
+  // codeql[java/class-name-matches-super-class]
+  enum State implements Parser.State
   {
     FREE(freeTokens, freeRules),
     IN_QUOTE(qtTokens, qtRules),

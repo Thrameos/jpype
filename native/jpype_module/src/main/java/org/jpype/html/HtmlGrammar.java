@@ -83,7 +83,8 @@ public class HtmlGrammar implements Parser.Grammar
   }
 
 //<editor-fold desc="state">
-  enum State implements Parser.State  // lgtm[java/class-name-matches-super-class]
+  // codeql[java/class-name-matches-super-class]
+  enum State implements Parser.State
   {
     FREE(freeTokens, freeRules),
     ELEMENT(elementTokens, elementRules),
@@ -115,7 +116,8 @@ public class HtmlGrammar implements Parser.Grammar
 
 //</editor-fold>
 //<editor-fold desc="tokens" defaultstate="collapsed">
-  enum Token implements Parser.Token  // lgtm[java/class-name-matches-super-class]
+  // codeql[java/class-name-matches-super-class]
+  enum Token implements Parser.Token
   {
     TEXT,
     BANG("!"),

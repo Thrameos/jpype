@@ -40,11 +40,15 @@ paramstyle = 'qmark'
 
 
 class JDBCTypeProtocol(typing.Protocol):
-    def get(self, rs, column, st):...  # lgtm[py/ineffectual-statement]
-    def set(self, ps, column, value):...  # lgtm[py/ineffectual-statement]
+    # codeql[py/ineffectual-statement]
+    def get(self, rs, column, st):...
+    # codeql[py/ineffectual-statement]
+    def set(self, ps, column, value):...
 
 _SQLException = None
-_SQLTimeoutException = None  # not currently used, kept paired with _SQLException above  # lgtm[py/unused-global-variable]
+# not currently used, kept paired with _SQLException above
+# codeql[py/unused-global-variable]
+_SQLTimeoutException = None
 _registry: typing.Dict[str, JDBCTypeProtocol] = {}
 _types: typing.List[JDBCTypeProtocol] = []
 
@@ -1414,7 +1418,8 @@ def Binary(data):
 def _populateTypes():
     global _SQLException, _SQLTimeoutException
     _SQLException = _jpype.JClass("java.sql.SQLException")
-    _SQLTimeoutException = _jpype.JClass("java.sql.SQLTimeoutException")  # lgtm[py/unused-global-variable]
+    # codeql[py/unused-global-variable]
+    _SQLTimeoutException = _jpype.JClass("java.sql.SQLTimeoutException")
     cs = _jpype.JClass("java.sql.CallableStatement")
     ps = _jpype.JClass("java.sql.PreparedStatement")
     rs = _jpype.JClass("java.sql.ResultSet")

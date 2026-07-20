@@ -48,7 +48,8 @@ JPypeException::JPypeException(int type, void* error, const JPStackInfo& stackIn
 		// for why). JPPyErrFrame::fetch() already removes it from the thread
 		// state; clear() below just stops its destructor from putting it
 		// straight back before we are ready for that in toPython()/toJava().
-		JPPyErrFrame eframe;  // lgtm[cpp/commented-out-code] - false positive, prose mentioning a method name
+		// codeql[cpp/commented-out-code] - false positive, prose mentioning a method name
+		JPPyErrFrame eframe;
 		eframe.normalize();
 		m_PyExcValue = eframe.m_ExceptionValue;
 		eframe.clear();
@@ -383,7 +384,8 @@ void JPypeException::toPython()
 		{
 			// This should not be possible unless we failed to cover one of the
 			// exception type codes.
-			JP_TRACE("Unknown error");  // lgtm[cpp/commented-out-code] - false positive, plain prose
+			// codeql[cpp/commented-out-code] - false positive, plain prose
+			JP_TRACE("Unknown error");
 			PyErr_SetString(PyExc_RuntimeError, mesg); // GCOVR_EXCL_LINE
 		}
 

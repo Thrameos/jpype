@@ -260,7 +260,8 @@ class LinuxJVMFinder(JVMFinder):
         # Deliberately replaces JVMFinder's default _methods with this
         # platform's own search order (see also DarwinJVMFinder and
         # WindowsJVMFinder below) - not an accidental clobber.
-        self._methods = (self._get_from_java_home,  # lgtm[py/overwritten-inherited-attribute]
+        # codeql[py/overwritten-inherited-attribute]
+        self._methods = (self._get_from_java_home,
                          self._get_from_bin,
                          self._get_from_known_locations)
 
@@ -299,7 +300,8 @@ class DarwinJVMFinder(LinuxJVMFinder):
         super().__init__()
 
         # Extends (not clobbers) LinuxJVMFinder's _methods list.
-        self._methods = list(self._methods)  # lgtm[py/overwritten-inherited-attribute]
+        # codeql[py/overwritten-inherited-attribute]
+        self._methods = list(self._methods)
         self._methods.append(self._javahome_binary)
 
     def _javahome_binary(self):
@@ -365,7 +367,8 @@ class WindowsJVMFinder(JVMFinder):
 
         # Deliberately replaces JVMFinder's default _methods with this
         # platform's own search order (see also LinuxJVMFinder above).
-        self._methods = (self._get_from_java_home, self._get_from_registry)  # lgtm[py/overwritten-inherited-attribute]
+        # codeql[py/overwritten-inherited-attribute]
+        self._methods = (self._get_from_java_home, self._get_from_registry)
 
     def check(self, jvm):
         _checkJVMArch(jvm)

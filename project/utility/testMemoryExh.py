@@ -12,7 +12,9 @@ import _jpype
 import jpype
 from jpype.types import *
 import numpy as np
-import gc  # kept for the commented-out gc.callbacks debug hook below  # lgtm[py/unused-import]
+# kept for the commented-out gc.callbacks debug hook below
+# codeql[py/unused-import]
+import gc
 import time
 
 # print(gc.callbacks)
@@ -51,7 +53,9 @@ if __name__ == '__main__':
 
     print()
     kB = (1024 / 8)
-    MB = (1024**2 / 8)  # swap in for kB above to test the >1Mb block size  # lgtm[py/unused-global-variable]
+    # swap in for kB above to test the >1Mb block size
+    # codeql[py/unused-global-variable]
+    MB = (1024**2 / 8)
 
     fixture = JClass("jpype.common.Fixture")()
     for i in range(trials):
@@ -60,7 +64,8 @@ if __name__ == '__main__':
         interface = jpype.JProxy("java.io.Serializable",
                                  dict={'callback': DestructionTracker(i, x).callback})
         # Held (not "read") to keep it alive until the explicit del below.
-        interface_container = fixture.callObject(interface)  # lgtm[py/unused-global-variable]
+        # codeql[py/unused-global-variable]
+        interface_container = fixture.callObject(interface)
 
         if (i % 1000) == 0:
             stats = _jpype.gcStats()
@@ -75,7 +80,8 @@ if __name__ == '__main__':
             time.sleep(1)
 #        print(_jpype.gcStats())
         del interface, interface_container
-        # Manual debug toggles below - uncomment when tuning by hand.  # lgtm[py/commented-out-code]
+        # Manual debug toggles below - uncomment when tuning by hand.
+        # codeql[py/commented-out-code]
 #        if DestructionTracker.del_calls != 0:
 #            print(f'{i} We have deleted something: {DestructionTracker.del_calls}')
 #        else:

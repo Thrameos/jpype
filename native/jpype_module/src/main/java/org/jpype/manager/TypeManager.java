@@ -245,7 +245,8 @@ public class TypeManager
         // this exact line has been caught between two static checkers
         // before - one flags the unused variable, the other flags a call
         // whose result isn't captured. Suppressed, not fixed, deliberately.
-        Class<?> cls = Class.forName(sb.toString());  // lgtm[java/local-variable-is-never-read]
+        // codeql[java/local-variable-is-never-read]
+        Class<?> cls = Class.forName(sb.toString());
         for (int j = i + 1; j < parts.length; ++j)
         {
           sb.append("$");
