@@ -100,5 +100,5 @@ cmake_install.cmake
 _jpype.so
 org.jpype.jar
 .build_history
-pr/
-issues/
+project/pr/
+project/issues/
