@@ -66,6 +66,15 @@ public:
 	 */
 	virtual void toJava() = 0;
 
+	/** Put a captured Python exception back on the thread state, for
+	 * callers that need it live (e.g. to chain it as a cause) before they
+	 * finish handling this error themselves, rather than going through
+	 * toPython()/toJava(). No-op except on JPPythonError.
+	 */
+	virtual void restorePythonError()
+	{
+	}
+
 private:
 	JPStackTrace m_Trace;
 };
@@ -111,6 +120,20 @@ public:
 	{
 	}
 
+	/** Fetch and normalize the currently-pending Python exception off the
+	 * thread state right now, at the moment of the throw, rather than
+	 * leaving it live on the thread state for the whole C++ unwind - see
+	 * the class-level note above for why. Used by JP_RAISE_PYTHON().
+	 */
+	static JPPythonError fetch(const JPStackInfo& stackInfo)
+	{
+		JPPyErrFrame eframe;
+		eframe.normalize();
+		JPPyObject excValue = eframe.m_ExceptionValue;
+		eframe.clear();
+		return JPPythonError(std::move(excValue), stackInfo);
+	}
+
 	JPPyObject& value()
 	{
 		return m_PyExcValue;
@@ -118,6 +141,12 @@ public:
 
 	void toPython() override;
 	void toJava() override;
+
+	void restorePythonError() override
+	{
+		if (m_PyExcValue.get() != nullptr)
+			JPPyErr::restore(m_PyExcValue);
+	}
 
 private:
 	JPPyObject m_PyExcValue;

@@ -155,6 +155,23 @@ static PyObject *PyJPPackage_getattro(PyObject *self, PyObject *attr)
 	try
 	{
 		obj = frame.getPackageObject(pkg, attrName);
+	}		catch (JPBaseError& ex)
+	{
+		JPPyObject h = JPPyObject::accept(PyObject_GetAttrString(self, "_handler"));
+		// If something fails, we need to go to a handler
+		if (!h.isNull())
+		{
+			ex.toPython();
+			JPPyErrFrame err;
+			err.normalize();
+			err.clear();
+			JPPyObject tuple0 = JPPyTuple_Pack(self, attr, err.m_ExceptionValue.get());
+			PyObject *rc = PyObject_Call(h.get(), tuple0.get(), nullptr);
+			if (rc == nullptr)
+				return nullptr;
+			Py_DECREF(rc); // GCOVR_EXCL_LINE
+		}
+		throw; // GCOVR_EXCL_LINE
 	}		catch (JPypeException& ex)
 	{
 		JPPyObject h = JPPyObject::accept(PyObject_GetAttrString(self, "_handler"));

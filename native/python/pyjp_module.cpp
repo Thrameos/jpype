@@ -132,13 +132,20 @@ void PyJPModule_loadResources(PyObject* module)
 
 		_JObjectKey = PyCapsule_New(module, "constructor key", nullptr);
 
-	}	catch (JPypeException& ex)  // GCOVR_EXCL_LINE
+	}	catch (JPBaseError& ex)  // GCOVR_EXCL_LINE
 	{
 		// GCOVR_EXCL_START
 		// PyJP_SetStringWithCause needs the original exception live on the
 		// thread state to chain it as a cause - restorePythonError() puts
 		// back what our throw-time-fetch fix (see jp_exception.cpp) deliberately
 		// held privately instead of leaving pending for the whole unwind.
+		ex.restorePythonError();
+		PyJP_SetStringWithCause(PyExc_RuntimeError, "JPype resource is missing");
+		JP_RAISE_PYTHON();
+		// GCOVR_EXCL_STOP
+	}	catch (JPypeException& ex)  // GCOVR_EXCL_LINE
+	{
+		// GCOVR_EXCL_START
 		ex.restorePythonError();
 		PyJP_SetStringWithCause(PyExc_RuntimeError, "JPype resource is missing");
 		JP_RAISE_PYTHON();
