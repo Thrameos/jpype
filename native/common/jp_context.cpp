@@ -179,15 +179,8 @@ void JPContext::startJVM(const string& vmPath, const StringVector& args,
 	m_ConvertStrings = convertStrings;
 
 	// Get the entry points in the shared library
-	try
-	{
-		JP_TRACE("Load entry points");
-		loadEntryPoints(vmPath);
-	} catch (JPypeException& ex)
-	{
-		(void) ex;
-		throw;
-	}
+	JP_TRACE("Load entry points");
+	loadEntryPoints(vmPath);
 
 	// Determine the memory requirements
 #define PAD(x) ((x+31)&~31)

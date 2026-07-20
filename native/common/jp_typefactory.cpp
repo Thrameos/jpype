@@ -48,9 +48,6 @@ void JPTypeFactory_rethrow(JPJavaFrame& frame)
 	} catch (JPBaseError& ex)
 	{
 		ex.toJava();
-	} catch (JPypeException& ex)
-	{
-		ex.toJava();
 	} catch (...)  // GCOVR_EXCL_LINE
 	{
 		// GCOVR_EXCL_START

@@ -146,10 +146,6 @@ extern "C" JNIEXPORT jobject JNICALL Java_org_jpype_proxy_JPypeProxy_hostInvoke(
 		{
 			JP_TRACE("JPBaseError raised");
 			ex.toJava();
-		} catch (JPypeException& ex)
-		{
-			JP_TRACE("JPypeException raised");
-			ex.toJava();
 		} catch (...)  // GCOVR_EXCL_LINE
 		{
 			JP_TRACE("Other Exception raised");

@@ -143,13 +143,6 @@ void PyJPModule_loadResources(PyObject* module)
 		PyJP_SetStringWithCause(PyExc_RuntimeError, "JPype resource is missing");
 		JP_RAISE_PYTHON();
 		// GCOVR_EXCL_STOP
-	}	catch (JPypeException& ex)  // GCOVR_EXCL_LINE
-	{
-		// GCOVR_EXCL_START
-		ex.restorePythonError();
-		PyJP_SetStringWithCause(PyExc_RuntimeError, "JPype resource is missing");
-		JP_RAISE_PYTHON();
-		// GCOVR_EXCL_STOP
 	}
 }
 
@@ -896,11 +889,6 @@ void PyJPModule_rethrow(const JPStackInfo& info)
 	{
 		throw;
 	} catch (JPBaseError& ex)
-	{
-		ex.from(info); // this likely wont be necessary, but for now we will add the entry point.
-		ex.toPython();
-		return;
-	} catch (JPypeException& ex)
 	{
 		ex.from(info); // this likely wont be necessary, but for now we will add the entry point.
 		ex.toPython();

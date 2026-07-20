@@ -73,7 +73,7 @@ _os_error_windows,
 #define ASSERT_NOT_NULL(X) {if ((X)==NULL) { JP_RAISE(PyExc_RuntimeError,  "Null Pointer Exception");} }
 
 // Macro to add stack trace info when multiple paths lead to the same trouble spot
-#define JP_CATCH catch (JPypeException& ex) { ex.from(JP_STACKINFO()); throw; }
+#define JP_CATCH catch (JPBaseError& ex) { ex.from(JP_STACKINFO()); throw; }
 
 /** Structure to pass around the location within a C++ source file.
  */
