@@ -34,10 +34,14 @@ just different inputs to the same one:
     included on its own so the buffer-only cost is visible separately
     from the list-walk cost that precedes it there.
 
-Two categories in the pull section (unchanged from before phase 3.3):
+Three categories in the pull section:
   - pull, "array->list": a fully-materialized nested Python list of
-    plain ints, built by recursing over the returned jpype array
-    (there's no bulk path for this -- see below).
+    plain ints, built by recursing over the returned jpype array one
+    dimension at a time via plain Python iteration/`list()`.
+  - pull, "array->list via tolist()": same output, but through
+    JArray.tolist() (plan/ArrayTransferPhase3.md phase 3.2/3.6) -- one
+    JNI critical section per leaf array instead of one JNI call per
+    element, compare directly against the row above.
   - pull, "array->buffer": np.asarray(...) on the same return value --
     JPArray_getBuffer's collectRectangular, a bulk rectangular read.
 
@@ -137,6 +141,17 @@ for dims in DIMS:
     makefn = MAKE_BY_DIMS[dims]
     run(f"array->list int{'[]' * dims}(10^{dims})",
         lambda makefn=makefn, dims=dims: to_nested_list(makefn(10), dims), size)
+
+print("=== JPype: array->list via tolist(), multi-dimensional, pull (Java -> Python) ===")
+# tolist() (plan/ArrayTransferPhase3.md, phase 3.2/3.6): bulk read into a
+# temp buffer plus a tight boxing loop, recursing one level per dimension
+# -- same output as the row above (genuinely nested plain-int lists),
+# compare directly against it.
+for dims in DIMS:
+    size = 10 ** dims
+    makefn = MAKE_BY_DIMS[dims]
+    run(f"array->list.tolist() int{'[]' * dims}(10^{dims})",
+        lambda makefn=makefn: makefn(10).tolist(), size)
 
 print("=== JPype: array->buffer, multi-dimensional, pull (Java -> Python) ===")
 for dims in DIMS:

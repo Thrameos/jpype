@@ -576,3 +576,144 @@ three separate times (once with a debug print inside the callback, once
 isolated to just the null-argument call, once to confirm the non-null
 call doesn't crash) before being written up as a real bug rather than a
 one-off fluke.
+
+## Phase 3: bulk in-place array transfer (pullTo/pushFrom/tolist), 2026-08-08
+
+Follow-on to the array work above, covering `plan/ArrayTransferPhase3.md`
+phases 3.1-3.7 (predecessor: #1457 "Caching multidim push", #1443 "Array
+copyInto"). Three new `JArray` methods, plus an internal redesign of the
+existing multi-dimensional buffer push/pull path:
+
+- **`pullTo(dest)`** -- bulk-copy a primitive array's elements out into a
+  caller-supplied writable buffer (e.g. a preallocated numpy array).
+  1-D primitive arrays only; `dest` need only match total element count,
+  not shape.
+- **`pushFrom(src)`** -- the mirror: bulk-fill an already-allocated
+  1-D primitive array from a caller-supplied readable buffer. Also
+  extended (phase 3.7) to cover non-native-byte-order and `float16`
+  sources in the same single-JNI-crossing bulk path, instead of falling
+  back to a scalar `converter()`/`pack()` loop.
+- **`tolist()`** -- bulk-convert a Java array into a genuine Python list;
+  multi-dimensional primitive arrays produce genuinely nested lists. One
+  JNI critical section per leaf array instead of one JNI call (plus one
+  `JPPyObject` allocation) per element via `list(arr)`.
+- **Multi-dimensional buffer push/pull redesign (phase 3.6)** -- both
+  directions of `numpy <-> int[][]...[]` (etc.) conversion now hand the
+  whole buffer to Java in a single JNI call
+  (`Support.fillMultiArrayFromBuffer`/`collectMultiArrayToBuffer`) and
+  let Java do the reshape/copy in bulk, instead of one JNI call per leaf
+  sub-array. This is the same underlying code path `array_multidim.py`'s
+  `buffer->array`/`array->buffer` rows already measured before phase 3 --
+  re-run below to quantify the redesign's own effect.
+
+All numbers below: ns/call, best-of-5, this branch
+(`array-transfer-phase3`), jpype only -- jpy/jep/pyjnius are unaffected
+by this phase (none of them have an equivalent explicit bulk-transfer API
+or the internal buffer-handoff mechanism being changed), so re-running
+their venvs wouldn't add information here; see the sections above for the
+standing four-library comparison.
+
+### `pullTo`/`pushFrom` vs. the only route available before they existed
+
+`project/benchmark/jpype/arraytransfer.py`, Models 1/1b -- bulk transfer
+between a `double[]` and an existing numpy array, vs. an element-by-element
+loop through the generic array wrapper (the only way to do this before
+phase 3.6):
+
+| size | pullTo | naive per-element pull | pushFrom | naive per-element push |
+|---:|---:|---:|---:|---:|
+| 1,000 | 516 | 335,009 | 689 | 303,784 |
+| 100,000 | 21,284 | 33,292,511 | 24,251 | 30,894,733 |
+| 1,000,000 | 410,503 | *(not run -- minutes long)* | 560,609 | *(not run -- minutes long)* |
+
+### `pushFrom` converting fast path (phase 3.7)
+
+`arraytransfer.py`, Model 1c -- a byte-swapped or `float16` numpy source
+now takes the same bulk path as a matching-dtype source (first column,
+repeated from above for comparison), instead of falling back to a scalar
+per-element convert loop:
+
+| size | pushFrom (matching dtype) | pushFrom (byte-swapped) | pushFrom (float16) |
+|---:|---:|---:|---:|
+| 1,000 | 689 | 5,518 | 6,462 |
+| 100,000 | 24,251 | 499,289 | 591,228 |
+| 1,000,000 | 560,609 | 5,042,068 | 5,947,998 |
+
+Still slower than the matching-dtype path (real per-element conversion
+work, not just a memcpy), but a single JNI crossing instead of one pinned
+critical section per row -- no separate benchmark exists for the pre-3.7
+fallback path since it was never reachable from Python at any speed
+before `pushFrom` itself existed.
+
+### `tolist()` vs. `list(arr)`
+
+`array_flat.py`/`array_multidim.py` -- same output (a genuine, in
+multi-dim's case nested, Python list of plain ints), `array->buffer`
+repeated alongside for scale:
+
+**Flat (1D), `int[]`:**
+
+| size | array->list (`list()`) | array->list (`.tolist()`) | array->buffer |
+|---:|---:|---:|---:|
+| 100 | 34,535 | 11,994 | 1,803 |
+| 1,000 | 421,476 | 166,713 | 2,327 |
+| 10,000 | 4,548,192 | 1,342,819 | 6,917 |
+| 100,000 | 50,407,005 | 16,510,257 | 49,988 |
+
+**Multi-dimensional (2D-5D), `int[]...[]`:**
+
+| dims | array->list (`list()`) | array->list (`.tolist()`) | array->buffer |
+|---:|---:|---:|---:|
+| 2 | 50,962 | 22,017 | 3,459 |
+| 3 | 583,703 | 288,185 | 10,014 |
+| 4 | 6,670,408 | 2,565,040 | 62,092 |
+| 5 | 74,161,099 | 32,594,923 | 648,014 |
+
+`tolist()` is consistently 2-3x faster than `list(arr)` at every size and
+depth -- it removes the per-element JNI crossing, but still pays a real
+`PyLong_FromLong`/`PyList_SET_ITEM` boxing cost per element (GIL-bound,
+per `plan/ArrayTransferPhase3.md`'s "GIL boundary" note), so it doesn't
+close the gap to `array->buffer`'s true bulk read. That gap is inherent
+to producing boxed Python objects at all, not a shortfall of this
+implementation.
+
+### Multi-dimensional buffer push/pull: before/after the phase 3.6 redesign
+
+Same benchmark (`array_multidim.py`'s `buffer->array`/`array->buffer`
+rows, `int[]...[]`, 10\*\*dims elements), re-run on this branch and
+compared against the "master vs. this branch" numbers recorded earlier in
+this file (pre-phase-3, single-JNI-per-leaf-row):
+
+**push, buffer->array:**
+
+| dims | before (per-leaf-row JNI) | after (single JNI call) | change |
+|---:|---:|---:|---:|
+| 2 | 2,911 | 2,204 | -24% |
+| 3 | 15,893 | 7,199 | -55% |
+| 4 | 151,518 | 69,180 | -54% |
+| 5 | 1,432,057 | 567,554 | -60% |
+
+**pull, array->buffer:**
+
+| dims | before (per-leaf-row JNI) | after (single JNI call) | change |
+|---:|---:|---:|---:|
+| 2 | 3,482 | 3,459 | -1% |
+| 3 | 12,502 | 10,014 | -20% |
+| 4 | 93,607 | 62,092 | -34% |
+| 5 | 965,669 | 648,014 | -33% |
+
+The gap widens with depth in both directions, as expected -- the number
+of leaf sub-arrays (and so the number of per-leaf JNI calls the old path
+paid) grows with depth even at a fixed total element count, while the
+redesigned path stays a single JNI call regardless of depth. At 2D the
+old path only had 10 leaf rows to begin with, so there's little room for
+a single-call redesign to win much; by 5D it's 10,000 leaf rows collapsed
+into one call.
+
+### Verification
+
+Re-run in the same disposable-venv/from-clean-CMake-state setup as the
+rest of this file (see this repo's CLAUDE.md); every script listed above
+executed to completion immediately before its numbers were recorded here.
+Full `test/jpypetest` suite: 1533 passed, 173 skipped, 0 failures (same
+baseline as before this phase, no regressions).

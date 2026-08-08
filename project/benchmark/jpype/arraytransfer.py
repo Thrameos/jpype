@@ -1,6 +1,9 @@
 """Bulk array-transfer primitives added in the phase-3 array transfer
-effort (plan/ArrayTransferPhase3.md): JArray.pullTo(), direct-buffer
-sharing, zero-copy slicing, and 2D bulk transfer via collectRectangular.
+effort (plan/ArrayTransferPhase3.md): JArray.pullTo()/pushFrom() (both
+1-D primitive arrays only -- dest/src need only match total element
+count, not shape), pushFrom's byte-swapped/float16 converting fast path
+(phase 3.7), direct-buffer sharing, zero-copy slicing, and 2D bulk
+transfer via collectRectangular.
 
 Adapted from `reverse`'s benchmark/arraybench/ (bench_array.py's four
 models), which drove these from Java through reverse's Java-to-Python
@@ -67,6 +70,52 @@ for size in SIZES:
                 total += v
             return total
         run(f"naive per-element double[{size}]", naive_sum, size)
+
+# ---- Model 1b: pushFrom (bulk-copy fast path) vs naive per-element fill ----
+
+print("=== JPype: pushFrom bulk-copy vs naive per-element push ===")
+for size in SIZES:
+    values = np.random.random(size)
+    dest = JArray(JDouble)(size)
+
+    def push_into(dest=dest, values=values):
+        dest.pushFrom(values)
+        return dest[0]
+    run(f"pushFrom double[{size}]", push_into, size)
+
+    # Naive comparator: the only route available before pushFrom existed
+    # -- element-by-element assignment through the generic array wrapper.
+    # Capped at 100_000, same reasoning as Model 1's naive comparator.
+    if size <= 100_000:
+        def naive_fill(dest=dest, values=values):
+            for i in range(size):
+                dest[i] = values[i]
+            return dest[0]
+        run(f"naive per-element double[{size}]", naive_fill, size)
+
+# ---- Model 1c: pushFrom converting fast path (phase 3.7) ----
+# Non-native-byte-order and float16 sources used to fall all the way back
+# to a scalar converter()/pack() loop, one GetPrimitiveArrayCritical pair
+# per call, same as the dtype-matching path had before pushFrom existed.
+# Phase 3.7 extended the bulk fast path to cover both in a single JNI
+# crossing -- compare directly against the matching-dtype row above.
+
+print("=== JPype: pushFrom converting fast path (byte-swapped / float16) ===")
+for size in SIZES:
+    dest = JArray(JDouble)(size)
+    byteswapped = np.random.random(size).astype('>f8')
+
+    def push_byteswapped(dest=dest, byteswapped=byteswapped):
+        dest.pushFrom(byteswapped)
+        return dest[0]
+    run(f"pushFrom byteswapped double[{size}]", push_byteswapped, size)
+
+    float16_src = np.random.random(size).astype(np.float16)
+
+    def push_float16(dest=dest, float16_src=float16_src):
+        dest.pushFrom(float16_src)
+        return dest[0]
+    run(f"pushFrom float16 double[{size}]", push_float16, size)
 
 # ---- Model 2: direct-buffer-shared (steady-state zero-copy) ----
 
