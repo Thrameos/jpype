@@ -16,6 +16,8 @@
 package jpype.benchmark;
 
 import java.util.List;
+import java.nio.IntBuffer;
+import java.util.stream.IntStream;
 
 // Cross-library benchmark harness for deeper conversion-chain paths than
 // project/benchmark/bench_*.py's simple Math.max/Integer/String cases:
@@ -301,6 +303,194 @@ public class DeepBench
             for (int m = 0; m < n; m++)
               a[i][j][k][l][m] = (((i * n + j) * n + k) * n + l) * n + m;
     return a;
+  }
+
+  // ---- phase 3.3b/3.4 experiment (plan/ArrayTransferPhase3.md): does a
+  // direct-buffer source + pure-Java reshape (no GetPrimitiveArrayCritical
+  // at all -- IntBuffer reads and fresh-array writes are both plain,
+  // GC-safe Java operations, so the leaf-array fill can be safely
+  // parallelized with an ordinary IntStream) beat the current single JNI
+  // critical section per leaf array that JPConversionMultiArrayBuffer
+  // uses today? `buf` is expected to be a direct IntBuffer -- on the
+  // Python side, jpype.nio.convertToDirectBuffer(numpy_array) zero-copy
+  // wraps the source memory (JNI NewDirectByteBuffer over the existing
+  // buffer-protocol pointer, no host-side copy), so this method never
+  // touches JNI at all after being entered -- everything below is pure
+  // Java. Each leaf's `duplicate()` gives it an independent
+  // position/limit so concurrent reads from different leaves need no
+  // synchronization.
+
+  public static int[][] fillBuffer2D(IntBuffer buf, int n)
+  {
+    int[][] out = new int[n][n];
+    for (int i = 0; i < n; i++)
+    {
+      IntBuffer dup = buf.duplicate();
+      dup.position(i * n);
+      dup.get(out[i], 0, n);
+    }
+    return out;
+  }
+
+  public static int[][] fillBuffer2DParallel(IntBuffer buf, int n)
+  {
+    int[][] out = new int[n][n];
+    IntStream.range(0, n).parallel().forEach(i ->
+    {
+      IntBuffer dup = buf.duplicate();
+      dup.position(i * n);
+      dup.get(out[i], 0, n);
+    });
+    return out;
+  }
+
+  public static int[][][] fillBuffer3D(IntBuffer buf, int n)
+  {
+    int[][][] out = new int[n][n][n];
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+      {
+        IntBuffer dup = buf.duplicate();
+        dup.position((i * n + j) * n);
+        dup.get(out[i][j], 0, n);
+      }
+    return out;
+  }
+
+  public static int[][][] fillBuffer3DParallel(IntBuffer buf, int n)
+  {
+    int[][][] out = new int[n][n][n];
+    IntStream.range(0, n * n).parallel().forEach(idx ->
+    {
+      int i = idx / n, j = idx % n;
+      IntBuffer dup = buf.duplicate();
+      dup.position(idx * n);
+      dup.get(out[i][j], 0, n);
+    });
+    return out;
+  }
+
+  public static int[][][][] fillBuffer4D(IntBuffer buf, int n)
+  {
+    int[][][][] out = new int[n][n][n][n];
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+        for (int k = 0; k < n; k++)
+        {
+          IntBuffer dup = buf.duplicate();
+          dup.position(((i * n + j) * n + k) * n);
+          dup.get(out[i][j][k], 0, n);
+        }
+    return out;
+  }
+
+  public static int[][][][] fillBuffer4DParallel(IntBuffer buf, int n)
+  {
+    int[][][][] out = new int[n][n][n][n];
+    IntStream.range(0, n * n * n).parallel().forEach(idx ->
+    {
+      int i = idx / (n * n), j = (idx / n) % n, k = idx % n;
+      IntBuffer dup = buf.duplicate();
+      dup.position(idx * n);
+      dup.get(out[i][j][k], 0, n);
+    });
+    return out;
+  }
+
+  public static int[][][][][] fillBuffer5D(IntBuffer buf, int n)
+  {
+    int[][][][][] out = new int[n][n][n][n][n];
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+        for (int k = 0; k < n; k++)
+          for (int l = 0; l < n; l++)
+          {
+            IntBuffer dup = buf.duplicate();
+            dup.position((((i * n + j) * n + k) * n + l) * n);
+            dup.get(out[i][j][k][l], 0, n);
+          }
+    return out;
+  }
+
+  public static int[][][][][] fillBuffer5DParallel(IntBuffer buf, int n)
+  {
+    int[][][][][] out = new int[n][n][n][n][n];
+    IntStream.range(0, n * n * n * n).parallel().forEach(idx ->
+    {
+      int i = idx / (n * n * n), j = (idx / (n * n)) % n,
+          k = (idx / n) % n, l = idx % n;
+      IntBuffer dup = buf.duplicate();
+      dup.position(idx * n);
+      dup.get(out[i][j][k][l], 0, n);
+    });
+    return out;
+  }
+
+  // Chunked variant of fillBuffer3DParallel: one parallel task per leaf
+  // array dispatches Runtime.availableProcessors()-many-times more tasks
+  // than there are cores, each doing almost no work (a few hundred bytes)
+  // -- dispatch overhead per task dominates regardless of total leaf
+  // count. This instead splits the leaves into exactly
+  // availableProcessors() contiguous chunks, each handled by one task
+  // doing a plain serial loop internally -- amortizes dispatch cost over
+  // a chunk's worth of leaves instead of paying it per leaf.
+  public static int[][][] fillBuffer3DChunked(IntBuffer buf, int n)
+  {
+    int[][][] out = new int[n][n][n];
+    int leaves = n * n;
+    int chunks = Math.min(leaves, Runtime.getRuntime().availableProcessors());
+    IntStream.range(0, chunks).parallel().forEach(c ->
+    {
+      int lo = (int) ((long) leaves * c / chunks);
+      int hi = (int) ((long) leaves * (c + 1) / chunks);
+      IntBuffer dup = buf.duplicate();
+      for (int idx = lo; idx < hi; idx++)
+      {
+        dup.position(idx * n);
+        dup.get(out[idx / n][idx % n], 0, n);
+      }
+    });
+    return out;
+  }
+
+  // Same idea, but for a list-sourced push: `flat` is an ordinary Java
+  // heap int[] (built cheaply by the existing tight 1D list conversion --
+  // JPIntType::setArrayRange, one JNI pin for the whole flat array, no
+  // per-row JNI calls). Reading a Java array from Java code needs no
+  // critical section either -- System.arraycopy is the heap-array
+  // equivalent of the IntBuffer.get bulk read above.
+
+  public static int[][] fillFlat2D(int[] flat, int n)
+  {
+    int[][] out = new int[n][n];
+    for (int i = 0; i < n; i++)
+      System.arraycopy(flat, i * n, out[i], 0, n);
+    return out;
+  }
+
+  public static int[][] fillFlat2DParallel(int[] flat, int n)
+  {
+    int[][] out = new int[n][n];
+    IntStream.range(0, n).parallel().forEach(i ->
+        System.arraycopy(flat, i * n, out[i], 0, n));
+    return out;
+  }
+
+  public static int[][][] fillFlat3D(int[] flat, int n)
+  {
+    int[][][] out = new int[n][n][n];
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+        System.arraycopy(flat, (i * n + j) * n, out[i][j], 0, n);
+    return out;
+  }
+
+  public static int[][][] fillFlat3DParallel(int[] flat, int n)
+  {
+    int[][][] out = new int[n][n][n];
+    IntStream.range(0, n * n).parallel().forEach(idx ->
+        System.arraycopy(flat, idx * n, out[idx / n][idx % n], 0, n));
+    return out;
   }
 
   // "object" category: argument matching + return-value wrapping for a
