@@ -453,6 +453,110 @@ public class DeepBench
     return out;
   }
 
+  // ---- phase 3.4 experiment: symmetric pull-side test. Today's
+  // array->buffer pull (collectRectangular + JPArrayView) already avoids
+  // GetPrimitiveArrayCritical -- JPPrimitiveType::copyElements uses
+  // Get<Type>ArrayRegion, a plain bulk-copy JNI call, not a pin -- but it
+  // still pays one JNI call (plus one reflective Array.get to locate it)
+  // per *leaf array*. This tests whether collapsing that to a single JNI
+  // entry, with the entire nested-array walk and bulk write done in pure
+  // Java against a C-supplied direct buffer, wins the same way the push
+  // side did in 3.3b. `dest` is expected to be a direct IntBuffer over
+  // the destination's own memory (Python side:
+  // jpype.nio.convertToDirectBuffer(numpy_array), writable since the
+  // numpy array is writable -- no copy back needed after this returns,
+  // the numpy array's memory *is* what got written).
+
+  public static void collectBuffer2D(int[][] src, IntBuffer dest, int n)
+  {
+    for (int i = 0; i < n; i++)
+    {
+      IntBuffer dup = dest.duplicate();
+      dup.position(i * n);
+      dup.put(src[i], 0, n);
+    }
+  }
+
+  public static void collectBuffer2DParallel(int[][] src, IntBuffer dest, int n)
+  {
+    IntStream.range(0, n).parallel().forEach(i ->
+    {
+      IntBuffer dup = dest.duplicate();
+      dup.position(i * n);
+      dup.put(src[i], 0, n);
+    });
+  }
+
+  public static void collectBuffer3D(int[][][] src, IntBuffer dest, int n)
+  {
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+      {
+        IntBuffer dup = dest.duplicate();
+        dup.position((i * n + j) * n);
+        dup.put(src[i][j], 0, n);
+      }
+  }
+
+  public static void collectBuffer3DParallel(int[][][] src, IntBuffer dest, int n)
+  {
+    IntStream.range(0, n * n).parallel().forEach(idx ->
+    {
+      int i = idx / n, j = idx % n;
+      IntBuffer dup = dest.duplicate();
+      dup.position(idx * n);
+      dup.put(src[i][j], 0, n);
+    });
+  }
+
+  public static void collectBuffer4D(int[][][][] src, IntBuffer dest, int n)
+  {
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+        for (int k = 0; k < n; k++)
+        {
+          IntBuffer dup = dest.duplicate();
+          dup.position(((i * n + j) * n + k) * n);
+          dup.put(src[i][j][k], 0, n);
+        }
+  }
+
+  public static void collectBuffer4DParallel(int[][][][] src, IntBuffer dest, int n)
+  {
+    IntStream.range(0, n * n * n).parallel().forEach(idx ->
+    {
+      int i = idx / (n * n), j = (idx / n) % n, k = idx % n;
+      IntBuffer dup = dest.duplicate();
+      dup.position(idx * n);
+      dup.put(src[i][j][k], 0, n);
+    });
+  }
+
+  public static void collectBuffer5D(int[][][][][] src, IntBuffer dest, int n)
+  {
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+        for (int k = 0; k < n; k++)
+          for (int l = 0; l < n; l++)
+          {
+            IntBuffer dup = dest.duplicate();
+            dup.position((((i * n + j) * n + k) * n + l) * n);
+            dup.put(src[i][j][k][l], 0, n);
+          }
+  }
+
+  public static void collectBuffer5DParallel(int[][][][][] src, IntBuffer dest, int n)
+  {
+    IntStream.range(0, n * n * n * n).parallel().forEach(idx ->
+    {
+      int i = idx / (n * n * n), j = (idx / (n * n)) % n,
+          k = (idx / n) % n, l = idx % n;
+      IntBuffer dup = dest.duplicate();
+      dup.position(idx * n);
+      dup.put(src[i][j][k][l], 0, n);
+    });
+  }
+
   // Same idea, but for a list-sourced push: `flat` is an ordinary Java
   // heap int[] (built cheaply by the existing tight 1D list conversion --
   // JPIntType::setArrayRange, one JNI pin for the whole flat array, no
