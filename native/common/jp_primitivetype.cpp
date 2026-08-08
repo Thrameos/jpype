@@ -41,3 +41,41 @@ PyObject *JPPrimitiveType::convertLong(PyTypeObject* wrapper, PyLongObject* tmp)
 	return PyJPNumber_longFromLongLong(wrapper, value);
 }
 
+JPPyObject JPPrimitiveType::getArrayRange(JPJavaFrame& frame, jarray a,
+		jsize start, jsize step, jsize len)
+{
+	JPPyObject list = JPPyObject::call(PyList_New(len));
+	if (len == 0)
+		return list;
+
+	Py_ssize_t itemsize = getItemSize();
+	char typeCode = getTypeCode();
+
+	jboolean isCopy;
+	void *mem = frame.getEnv()->GetPrimitiveArrayCritical(a, &isCopy);
+	JP_TRACE_JAVA("GetPrimitiveArrayCritical", mem);
+	const char *base = (const char*) mem;
+
+	for (jsize i = 0; i < len; ++i)
+	{
+		const char *src = base + (start + (jlong) i * step) * itemsize;
+		jvalue v;
+		switch (typeCode)
+		{
+			case 'Z': v.z = *(const jboolean*) src; break;
+			case 'B': v.b = *(const jbyte*) src; break;
+			case 'C': v.c = *(const jchar*) src; break;
+			case 'S': v.s = *(const jshort*) src; break;
+			case 'I': v.i = *(const jint*) src; break;
+			case 'J': v.j = *(const jlong*) src; break;
+			case 'F': v.f = *(const jfloat*) src; break;
+			default: v.d = *(const jdouble*) src; break; // 'D'
+		}
+		PyList_SET_ITEM(list.get(), i, convertToPythonObject(frame, v, false).keep());
+	}
+
+	JP_TRACE_JAVA("ReleasePrimitiveArrayCritical", mem);
+	frame.getEnv()->ReleasePrimitiveArrayCritical(a, mem, JNI_ABORT);
+	return list;
+}
+

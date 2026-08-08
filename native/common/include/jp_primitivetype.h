@@ -57,6 +57,21 @@ public:
 
 	// Helper for Long types
 	PyObject *convertLong(PyTypeObject* wrapper, PyLongObject* tmp);
+
+	/**
+	 * Bulk-read a (possibly strided) range of a primitive array's elements
+	 * into a new Python list in one JNI critical section, instead of one
+	 * JNI call (getArrayItem) per element -- closes the `array->list` pull
+	 * gap (plan/ArrayToListBulk.md). Boxing itself (one PyObject per
+	 * element) still happens per element, same as getArrayItem -- that
+	 * part is unavoidable for a real Python list -- but it reuses
+	 * convertToPythonObject so behavior (including any registered host
+	 * customization) matches getArrayItem exactly, just without the
+	 * redundant JNI round trips. Works uniformly for every primitive type
+	 * via getTypeCode()/getItemSize(), so it lives here rather than as a
+	 * per-type override.
+	 */
+	JPPyObject getArrayRange(JPJavaFrame& frame, jarray a, jsize start, jsize step, jsize len);
 } ;
 
 #endif

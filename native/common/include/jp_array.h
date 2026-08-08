@@ -82,6 +82,21 @@ public:
 	 */
 	void       copyInto(PyObject* dest);
 
+	/**
+	 * Bulk-convert this array into a genuine Python list (JArray.tolist()).
+	 *
+	 * For a primitive array, reads the whole range in a single JNI
+	 * critical section (JPPrimitiveType::getArrayRange) instead of one JNI
+	 * call per element. For an Object[]/nested-array component type, boxes
+	 * each element individually (each element can be a distinct runtime
+	 * type, so there is no bulk read to do) but recurses into any nested
+	 * Java array so a multi-dim primitive array produces genuinely nested
+	 * Python lists rather than a list of JArray wrapper objects.
+	 *
+	 * @return a new Python list.
+	 */
+	JPPyObject toList();
+
 	bool       isSlice() const
 	{
 		return m_Slice;

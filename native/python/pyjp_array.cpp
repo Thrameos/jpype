@@ -432,6 +432,24 @@ static const char *copyInto_doc =
 		"item size as this array -- its shape need not match. Only valid\n"
 		"for arrays of primitives.\n";
 
+static PyObject *PyJPArray_toList(PyJPArray *self, PyObject *Py_UNUSED(ignored))
+{
+	JP_PY_TRY("PyJPArray_toList");
+	if (self->m_Array == nullptr)
+		JP_RAISE(PyExc_ValueError, "Null array");
+	return self->m_Array->toList().keep();
+	JP_PY_CATCH(nullptr);
+}
+
+static const char *toList_doc =
+		"Convert this array into a genuine Python list.\n"
+		"\n"
+		"For an array of primitives this is a bulk conversion (one JNI\n"
+		"critical section for the whole array rather than one JNI call per\n"
+		"element via ``list(arr)``); multi-dimensional primitive arrays\n"
+		"produce genuinely nested lists. For an array of objects, elements\n"
+		"are boxed individually, same as ``list(arr)``.\n";
+
 static const char *length_doc =
 		"Get the length of a Java array\n"
 		"\n"
@@ -441,6 +459,7 @@ static const char *length_doc =
 static PyMethodDef arrayMethods[] = {
 	{"__getitem__", (PyCFunction) (&PyJPArray_getItem), METH_O | METH_COEXIST, ""},
 	{"copyInto", (PyCFunction) (&PyJPArray_copyInto), METH_O, (copyInto_doc)},
+	{"tolist", (PyCFunction) (&PyJPArray_toList), METH_NOARGS, (toList_doc)},
 	{nullptr},
 };
 

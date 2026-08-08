@@ -70,6 +70,14 @@ for size in SIZES:
     run(f"array->list int[{size}]",
         lambda size=size: list(DeepBench.makeIntArray(size)), size)
 
+print("=== JPype: array->list via tolist(), flat, pull (Java -> Python) ===")
+# tolist() (plan/ArrayToListBulk.md, phase 3.2): one JNI critical section
+# for the whole array instead of one JNI call per element via list()'s
+# _JavaArrayIter -- same output, compare directly against the row above.
+for size in SIZES:
+    run(f"array->list.tolist() int[{size}]",
+        lambda size=size: DeepBench.makeIntArray(size).tolist(), size)
+
 print("=== JPype: array->buffer, flat, pull (Java -> Python) ===")
 for size in SIZES:
     run(f"array->buffer int[{size}]",
