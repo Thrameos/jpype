@@ -345,7 +345,7 @@ const char* JPIntType::getBufferFormat()
 
 Py_ssize_t JPIntType::getItemSize()
 {
-	return sizeof (jfloat);
+	return sizeof (jint);
 }
 
 void JPIntType::copyElements(JPJavaFrame &frame, jarray a, jsize start, jsize len,

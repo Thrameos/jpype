@@ -222,14 +222,18 @@ private:
 	JPClassRef m_Array;
 	JPObjectRef m_Reflector;
 
+	// org.jpype.internal.Support -- static helpers, resolved separately
+	// from the instance methods below (see loadEntryPoints)
+	JPClassRef m_SupportClass;
+	jmethodID m_Support_collectRectangularID{};
+	jmethodID m_Support_assembleID{};
+
 	// Java Functions
 	jmethodID m_Object_ToStringID{};
 	jmethodID m_Object_EqualsID{};
 	jmethodID m_Object_HashCodeID{};
 	jmethodID m_CallMethodID{};
 	jmethodID m_Class_GetNameID{};
-	jmethodID m_Context_collectRectangularID{};
-	jmethodID m_Context_assembleID{};
 	jmethodID m_String_ToCharArrayID{};
 	jmethodID m_Context_CreateExceptionID{};
 	jmethodID m_Context_GetExcClassID{};

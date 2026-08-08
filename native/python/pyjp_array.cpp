@@ -414,6 +414,24 @@ int PyJPArrayPrimitive_getBuffer(PyJPArray *self, Py_buffer *view, int flags)
 	JP_PY_CATCH(-1);
 }
 
+static PyObject *PyJPArray_copyInto(PyJPArray *self, PyObject *dest)
+{
+	JP_PY_TRY("PyJPArray_copyInto");
+	if (self->m_Array == nullptr)
+		JP_RAISE(PyExc_ValueError, "Null array");
+	self->m_Array->copyInto(dest);
+	Py_RETURN_NONE;
+	JP_PY_CATCH(nullptr);
+}
+
+static const char *copyInto_doc =
+		"Bulk-copy this array's elements into a writable buffer.\n"
+		"\n"
+		"``dest`` must be a writable buffer-protocol object (e.g. a\n"
+		"preallocated numpy array) with the same total element count and\n"
+		"item size as this array -- its shape need not match. Only valid\n"
+		"for arrays of primitives.\n";
+
 static const char *length_doc =
 		"Get the length of a Java array\n"
 		"\n"
@@ -422,6 +440,7 @@ static const char *length_doc =
 
 static PyMethodDef arrayMethods[] = {
 	{"__getitem__", (PyCFunction) (&PyJPArray_getItem), METH_O | METH_COEXIST, ""},
+	{"copyInto", (PyCFunction) (&PyJPArray_copyInto), METH_O, (copyInto_doc)},
 	{nullptr},
 };
 

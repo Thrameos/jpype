@@ -384,11 +384,17 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 	m_Reflector = JPObjectRef(frame, frame.GetObjectField(m_JavaContext.get(), reflectorField));
 	m_CallMethodID = frame.GetMethodID(reflectorClass, "callMethod",
 			"(Ljava/lang/reflect/Method;Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
-	m_Context_collectRectangularID = frame.GetMethodID(contextClass,
+
+	// org.jpype.internal.Support -- static multi-dim array transfer
+	// helpers, looked up as static methods rather than round-tripping
+	// through the context instance.
+	jclass supportLocal = m_ClassLoader->findClass(frame, "org.jpype.internal.Support");
+	m_SupportClass = JPClassRef(frame, supportLocal);
+	jclass supportClass = m_SupportClass.get();
+	m_Support_collectRectangularID = frame.GetStaticMethodID(supportClass,
 			"collectRectangular",
 			"(Ljava/lang/Object;)[Ljava/lang/Object;");
-
-	m_Context_assembleID = frame.GetMethodID(contextClass,
+	m_Support_assembleID = frame.GetStaticMethodID(supportClass,
 			"assemble",
 			"([ILjava/lang/Object;)Ljava/lang/Object;");
 

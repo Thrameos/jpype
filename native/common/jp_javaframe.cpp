@@ -1151,28 +1151,28 @@ jint JPJavaFrame::hashCode(jobject o)
 jobject JPJavaFrame::collectRectangular(jarray obj)
 {
 	JPContext* context = getContext();
-	if (context->m_Context_collectRectangularID == nullptr)
+	if (context->m_Support_collectRectangularID == nullptr)
 		return nullptr;
 	jvalue v;
 	v.l = (jobject) obj;
 	JAVA_RETURN(jobject, "JPJavaFrame::collectRectangular",
-			CallObjectMethodA(
-			context->m_JavaContext.get(),
-			context->m_Context_collectRectangularID, &v));
+			CallStaticObjectMethodA(
+			context->m_SupportClass.get(),
+			context->m_Support_collectRectangularID, &v));
 }
 
 jobject JPJavaFrame::assemble(jobject dims, jobject parts)
 {
 	JPContext* context = getContext();
-	if (context->m_Context_collectRectangularID == nullptr)
+	if (context->m_Support_assembleID == nullptr)
 		return nullptr;
 	jvalue v[2];
 	v[0].l = (jobject) dims;
 	v[1].l = (jobject) parts;
 	JAVA_RETURN(jobject, "JPJavaFrame::assemble",
-			CallObjectMethodA(
-			context->m_JavaContext.get(),
-			context->m_Context_assembleID, v));
+			CallStaticObjectMethodA(
+			context->m_SupportClass.get(),
+			context->m_Support_assembleID, v));
 }
 
 jobject JPJavaFrame::newArrayInstance(jclass c, jintArray dims)

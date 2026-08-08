@@ -71,6 +71,17 @@ public:
 	 */
 	jarray     clone(JPJavaFrame& frame, PyObject* obj);
 
+	/**
+	 * Bulk-copy this array's elements into a caller-supplied writable
+	 * Python buffer (JArray.copyInto). Primitive arrays only -- requires a
+	 * matching element count and item size, but not a matching shape
+	 * (dest may be any number of dimensions, so long as the total element
+	 * count lines up).
+	 *
+	 * @param dest a writable buffer-protocol object.
+	 */
+	void       copyInto(PyObject* dest);
+
 	bool       isSlice() const
 	{
 		return m_Slice;

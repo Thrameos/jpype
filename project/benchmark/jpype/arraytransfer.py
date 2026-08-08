@@ -1,0 +1,134 @@
+"""Bulk array-transfer primitives added in the phase-3 array transfer
+effort (plan/ArrayTransferPhase3.md): JArray.copyInto(), direct-buffer
+sharing, zero-copy slicing, and 2D bulk transfer via collectRectangular.
+
+Adapted from `reverse`'s benchmark/arraybench/ (bench_array.py's four
+models), which drove these from Java through reverse's Java-to-Python
+bridge (MainInterpreter/Script) -- that bridge doesn't exist on this
+branch, so this version drives the same models from Python directly with
+this directory's own timeit/format_row convention instead. Same
+comparisons, different driver.
+
+Usage:
+    /path/to/venv/bin/python project/benchmark/jpype/arraytransfer.py
+"""
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from _common import timeit, format_row
+
+import numpy as np
+import jpype
+from jpype import JArray, JDouble
+
+jpype.startJVM(classpath=['test/classes', 'test/harness'])
+
+SIZES = [1_000, 100_000, 1_000_000]
+
+
+def calls_for(total_elements):
+    """Same scaling rule as array_flat.py -- keeps total elements moved
+    per benchmark roughly bounded so 1,000,000-element rows don't take
+    minutes, especially for the pure-Python-loop comparators below."""
+    n = max(5, 2_000_000 // total_elements)
+    warmup = max(2, n // 10)
+    return n, warmup
+
+
+def run(name, fn, total_elements):
+    n, warmup = calls_for(total_elements)
+    best, median = timeit(fn, n=n, warmup=warmup)
+    print(format_row(name, best, median))
+
+
+# ---- Model 1: copyInto (bulk-copy fast path) vs naive per-element walk ----
+
+print("=== JPype: copyInto bulk-copy vs naive per-element pull ===")
+for size in SIZES:
+    values = np.random.random(size)
+    ja = JArray(JDouble)(values.tolist())
+    dest = np.empty(size, dtype=np.float64)
+
+    def copy_into(ja=ja, dest=dest):
+        ja.copyInto(dest)
+        return dest[0]
+    run(f"copyInto double[{size}]", copy_into, size)
+
+    # Naive comparator: the only route available before copyInto existed
+    # -- element-by-element access through the generic array wrapper.
+    # Capped at 100_000: at 1,000,000 elements this is minutes long on
+    # its own and isn't the interesting comparison (copyInto's whole
+    # point is to avoid this loop).
+    if size <= 100_000:
+        def naive_sum(ja=ja):
+            total = 0.0
+            for v in ja:
+                total += v
+            return total
+        run(f"naive per-element double[{size}]", naive_sum, size)
+
+# ---- Model 2: direct-buffer-shared (steady-state zero-copy) ----
+
+print("=== JPype: direct java.nio.DoubleBuffer -> numpy, steady-state ===")
+ByteBuffer = jpype.JClass('java.nio.ByteBuffer')
+for size in SIZES:
+    bb = ByteBuffer.allocateDirect(size * 8)
+    buf = bb.asDoubleBuffer()
+    for i in range(size):
+        buf.put(i, float(i))
+    # Wrap once outside the timed loop -- the fair comparison is the cost
+    # of *sharing* the memory on each access, not wrapper construction.
+    arr = np.asarray(buf)
+
+    def sum_direct_buffer_shared(arr=arr):
+        return float(arr.sum())
+    run(f"direct-buffer-shared double[{size}]", sum_direct_buffer_shared, size)
+
+# ---- Model 3: slicing (zero-copy view vs copyInto on a Java-array slice) ----
+
+print("=== JPype: slicing, Python view vs Java-array-slice copyInto ===")
+for size, step in zip(SIZES, [2, 2, 2]):
+    src = np.random.random(size)
+
+    def sum_slice(src=src, step=step):
+        return float(src[::step].sum())
+    run(f"slice_python double[{size}]", sum_slice, size)
+
+    values = np.random.random(size)
+    ja = JArray(JDouble)(values.tolist())
+
+    def sum_java_array_slice(ja=ja, step=step):
+        sliced = ja[::step]
+        dest = np.empty(len(sliced), dtype=np.float64)
+        sliced.copyInto(dest)
+        return float(dest.sum())
+    run(f"slice_javaArray double[{size}]", sum_java_array_slice, size)
+
+# ---- Model 4: multidimensional bulk transfer (real double[][]) ----
+
+print("=== JPype: 2D bulk transfer, np.asarray(collectRectangular) vs Python loop ===")
+MAT_SHAPES = [(10, 10), (300, 300), (1000, 1000)]
+for rows, cols in MAT_SHAPES:
+    total = rows * cols
+    mat = JArray(JDouble, 2)(rows)
+    for r in range(rows):
+        mat[r] = JArray(JDouble)([float(r * cols + c) for c in range(cols)])
+
+    def sum_2d_bulk(mat=mat):
+        return float(np.asarray(mat).sum())
+    run(f"multidim_bulk {rows}x{cols}", sum_2d_bulk, total)
+
+    # Python-level per-row loop -- the only route for a bridge with no
+    # multidim accelerator (mirrors jpy's/jep's approach). Capped: the
+    # 1000x1000 case is the whole point of the bulk path existing, not
+    # a case we need the slow comparator's exact number for.
+    if total <= 90_000:
+        def sum_2d_looped(mat=mat):
+            total_ = 0.0
+            for row in mat:
+                total_ += sum(row)
+            return total_
+        run(f"multidim_looped {rows}x{cols}", sum_2d_looped, total)
+
+jpype.shutdownJVM()
