@@ -31,9 +31,10 @@ import java.util.stream.IntStream;
 
 /**
  * Static helpers for multi-dimensional primitive array transfer, called
- * exclusively from C++ (see JPJavaFrame::collectRectangular/assemble).
- * Split out of JPypeContext so this can be looked up and invoked as plain
- * static methods (GetStaticMethodID) instead of round-tripping through the
+ * exclusively from C++ (see JPJavaFrame::collectRectangular/assemble/
+ * fillMultiArrayFromBuffer/collectMultiArrayToBuffer). Split out of
+ * JPypeContext so this can be looked up and invoked as plain static
+ * methods (GetStaticMethodID) instead of round-tripping through the
  * context instance.
  */
 class Support

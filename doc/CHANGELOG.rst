@@ -7,6 +7,19 @@ Latest Changes:
 
 - **1.7.2.dev0**
 
+  - Added ``JArray.pullTo(dest)`` and ``JArray.pushFrom(src)`` for bulk
+    in-place transfer between a primitive Java array and an existing
+    caller-supplied Python buffer (e.g. a preallocated numpy array), and
+    ``JArray.tolist()`` for bulk conversion of a Java array into a genuine
+    Python list. Also substantially sped up array transfer generally: both
+    directions of multi-dimensional primitive array <-> numpy conversion
+    (construction, argument passing, and ``np.asarray()``) now hand the
+    whole buffer to Java in a single JNI call and let Java do the
+    reshape/copy in bulk, instead of pinning or visiting one JNI call per
+    leaf sub-array; this also extends to non-native byte order and
+    ``float16`` sources, which previously fell back to a much slower
+    element-by-element path. #1457, #1443
+
   - Reworked the internal object layout for Java-backed Python objects to use
     fixed, type-baked offsets instead of a runtime allocator that re-derived
     each object's layout from version-sensitive CPython internals on every
