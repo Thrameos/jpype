@@ -7,16 +7,34 @@ depths, using the shared jpype.benchmark.DeepBench test class. See
 ../array_flat.py (this file's counterpart, sweeping size instead of
 nesting depth) and ../README.md.
 
-Two categories per direction, not one "arrays" bucket -- see
-../array_flat.py for why list vs. buffer input are genuinely different
-native code paths, not just different inputs to the same one:
+Three categories in the push section, not two -- see ../array_flat.py for
+why list vs. buffer input are genuinely different native code paths, not
+just different inputs to the same one:
   - push, "list->array": DeepBench.sum{2,3,4,5}DIntArray(nested_list) --
     JPConversionSequence recursing once per nesting level, materializing
-    a fresh Python-level sub-sequence access at every row.
+    a fresh Python-level sub-sequence access at every row. The current,
+    only path for a plain nested list today.
+  - push, "list->array via np.array()": same nested_list input, but
+    converted to a numpy array in Python first
+    (plan/ArrayTransferPhase3.md phase 3.3 -- validating the "build one
+    buffer, then bulk-push it" hypothesis before writing any new
+    conversion code) and pushed through the existing buffer->array row's
+    fast path. Total cost = walking the nested list once to build the
+    buffer (np.array's own job) + one bulk copy, vs. JPConversionSequence
+    walking it once *and* paying a JNI array-build call per row as it
+    goes. np.array() itself is not the proposed implementation (a real
+    fix would build the buffer in C++, not delegate to numpy) -- it's a
+    stand-in that's fast/correct enough to tell whether the general
+    shape of the idea is worth pursuing at all.
   - push, "buffer->array": DeepBench.sum{2,3,4,5}DIntArray(numpy_array)
     -- JPConversionMultiArrayBuffer, which fires when the buffer's ndim
     matches the target's nesting depth exactly: one bulk copy for the
-    whole array, no per-row Python-level access at all.
+    whole array, no per-row Python-level access at all. Also the second
+    half of the "via np.array()" row above once the array is built --
+    included on its own so the buffer-only cost is visible separately
+    from the list-walk cost that precedes it there.
+
+Two categories in the pull section (unchanged from before phase 3.3):
   - pull, "array->list": a fully-materialized nested Python list of
     plain ints, built by recursing over the returned jpype array
     (there's no bulk path for this -- see below).
@@ -89,6 +107,21 @@ for dims in DIMS:
     sumfn = SUM_BY_DIMS[dims]
     run(f"list->array int{'[]' * dims}(10^{dims}), fresh",
         lambda lst=lst, sumfn=sumfn: sumfn(lst), size)
+
+print("=== JPype: list->array via np.array(), multi-dimensional, push (Python -> Java) ===")
+# Validates phase 3.3's hypothesis: build one buffer from the nested list,
+# then push it through the existing fast buffer->array path, instead of
+# JPConversionSequence's per-row recursion. Timed end-to-end (list-walk +
+# push) since that's the total cost a real implementation would replace.
+for dims in DIMS:
+    size = 10 ** dims
+    lst = nested_list(dims, 10)
+    sumfn = SUM_BY_DIMS[dims]
+
+    def via_numpy(lst=lst, sumfn=sumfn):
+        return sumfn(np.array(lst, dtype=np.int32))
+    run(f"list->array(np.array()) int{'[]' * dims}(10^{dims}), fresh",
+        via_numpy, size)
 
 print("=== JPype: buffer->array, multi-dimensional, push (Python -> Java) ===")
 for dims in DIMS:
