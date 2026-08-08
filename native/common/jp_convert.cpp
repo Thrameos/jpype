@@ -515,3 +515,9 @@ jconverter getConverter(const char* from, int itemsize, const char* to)
 	PyErr_Format(PyExc_ValueError, "Unable to handle buffer type '%s'", from);
 	JP_RAISE_PYTHON();
 }
+
+bool isRawCompatible(jconverter converter, JPPrimitiveType* pcls, const char* code)
+{
+	jconverter identity = getConverter(pcls->getBufferFormat(), (int) pcls->getItemSize(), code);
+	return converter == identity;
+}

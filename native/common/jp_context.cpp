@@ -397,6 +397,12 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 	m_Support_assembleID = frame.GetStaticMethodID(supportClass,
 			"assemble",
 			"([ILjava/lang/Object;)Ljava/lang/Object;");
+	m_Support_fillFromBufferID = frame.GetStaticMethodID(supportClass,
+			"fillFromBuffer",
+			"(CLjava/nio/ByteBuffer;[I)Ljava/lang/Object;");
+	m_Support_collectToBufferID = frame.GetStaticMethodID(supportClass,
+			"collectToBuffer",
+			"(C[Ljava/lang/Object;Ljava/nio/ByteBuffer;)V");
 
 	m_Context_CreateExceptionID = frame.GetMethodID(contextClass, "createException",
 			"(JJ)Ljava/lang/Exception;");

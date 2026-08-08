@@ -167,6 +167,19 @@ public:
 	jobject collectRectangular(jarray obj);
 	jobject assemble(jobject dims, jobject parts);
 
+	// Phase 3.6 buffer-handoff push/pull (plan/ArrayTransferPhase3.md) --
+	// single JNI entry into org.jpype.internal.Support, everything after
+	// that is plain Java (no per-leaf-array JNI calls), including the
+	// serial-vs-parallel decision -- Java already knows the total element
+	// count once the shape is in hand and has no less insight into
+	// IntStream/ForkJoinPool dispatch cost than C++ would, so that
+	// decision isn't threaded across the JNI boundary at all. `typeCode`
+	// is the JNI primitive type signature character (see
+	// JPPrimitiveType::getTypeCode()); `buf` must be a direct
+	// java.nio.ByteBuffer.
+	jobject fillMultiArrayFromBuffer(char typeCode, jobject buf, jintArray shape);
+	void collectMultiArrayToBuffer(char typeCode, jobject collected, jobject buf);
+
 	jobject newArrayInstance(jclass c, jintArray dims);
 	jthrowable getCause(jthrowable th);
 	jstring getMessage(jthrowable th);

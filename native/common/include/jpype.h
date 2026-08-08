@@ -135,6 +135,27 @@ class JPBoxedType;
 class JPPrimitiveType;
 class JPStringType;
 
+/**
+ * Is `converter` (already resolved via getConverter() for some source
+ * buffer format/itemsize and pcls's own type code) a byte-for-byte
+ * reinterpret rather than a real conversion -- i.e. would handing pcls's
+ * array elements' raw bytes straight to Java (no per-element converter
+ * call) be safe?
+ *
+ * Implemented by comparing `converter` against the converter
+ * getConverter() resolves for pcls's own canonical buffer format/item
+ * size -- both are fixed template instantiations (see jp_convert.cpp),
+ * so pointer equality is a robust, conservative test: any real
+ * difference in source width, numeric kind, or byte order resolves to a
+ * different function and correctly reports false. Used to decide whether
+ * a multi-dim buffer push (JPConversionMultiArrayBuffer) can take the
+ * fast direct-buffer-handoff path (plan/ArrayTransferPhase3.md phase
+ * 3.6) or must fall back to the general element-by-element converter
+ * path. `code` must be the same target-code string already passed to the
+ * getConverter() call that produced `converter`.
+ */
+extern bool isRawCompatible(jconverter converter, JPPrimitiveType* pcls, const char* code);
+
 // Members
 class JPMethod;
 class JPMethodDispatch;

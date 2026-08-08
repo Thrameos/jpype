@@ -1175,6 +1175,36 @@ jobject JPJavaFrame::assemble(jobject dims, jobject parts)
 			context->m_Support_assembleID, v));
 }
 
+jobject JPJavaFrame::fillMultiArrayFromBuffer(char typeCode, jobject buf, jintArray shape)
+{
+	JPContext* context = getContext();
+	if (context->m_Support_fillFromBufferID == nullptr)
+		return nullptr;
+	jvalue v[3];
+	v[0].c = (jchar) typeCode;
+	v[1].l = buf;
+	v[2].l = (jobject) shape;
+	JAVA_RETURN(jobject, "JPJavaFrame::fillMultiArrayFromBuffer",
+			CallStaticObjectMethodA(
+			context->m_SupportClass.get(),
+			context->m_Support_fillFromBufferID, v));
+}
+
+void JPJavaFrame::collectMultiArrayToBuffer(char typeCode, jobject collected, jobject buf)
+{
+	JPContext* context = getContext();
+	if (context->m_Support_collectToBufferID == nullptr)
+		return;
+	jvalue v[3];
+	v[0].c = (jchar) typeCode;
+	v[1].l = collected;
+	v[2].l = buf;
+	JAVA_CHECK("JPJavaFrame::collectMultiArrayToBuffer",
+			CallStaticVoidMethodA(
+			context->m_SupportClass.get(),
+			context->m_Support_collectToBufferID, v));
+}
+
 jobject JPJavaFrame::newArrayInstance(jclass c, jintArray dims)
 {
 	JPContext* context = getContext();

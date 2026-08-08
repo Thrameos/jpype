@@ -227,7 +227,6 @@ JPArrayView::JPArrayView(JPArray* array, jobject collection)
 	JPJavaFrame frame = JPJavaFrame::outer();
 	m_Array = array;
 
-	jint len = frame.GetArrayLength((jarray) collection);
 	jobject item0 = frame.GetObjectArrayElement((jobjectArray) collection, 0);
 	jobject item1 = frame.GetObjectArrayElement((jobjectArray) collection, 1);
 
@@ -266,16 +265,15 @@ JPArrayView::JPArrayView(JPArray* array, jobject collection)
 	m_Memory = new char[sz];
 	m_Owned = true;
 
-	// All remaining elements are primitive arrays to be unpacked
-	int offset = 0;
-	Py_ssize_t last = m_Shape[dims - 1];
-	for (Py_ssize_t i = 0; i < len - 2; i++)
-	{
-		auto a1 = (jarray) frame.GetObjectArrayElement((jobjectArray) collection, (jsize) i + 2);
-		componentType->copyElements(frame, a1, 0, (jsize) last, m_Memory, offset);
-		offset += (int) (itemsize * last);
-		frame.DeleteLocalRef(a1);
-	}
+	// Phase 3.6 (plan/ArrayTransferPhase3.md): a single JNI entry into
+	// Support.collectToBuffer instead of one reflective
+	// GetObjectArrayElement plus one Get<Type>ArrayRegion (via
+	// copyElements) per leaf array -- the whole remaining-elements walk
+	// and bulk write into m_Memory happens in pure Java (including the
+	// serial-vs-parallel decision -- see Support.leafRange), wrapped as a
+	// direct buffer so no further JNI calls are needed at all.
+	jobject directBuf = frame.NewDirectByteBuffer(m_Memory, sz);
+	frame.collectMultiArrayToBuffer(componentType->getTypeCode(), collection, directBuf);
 
 	// Copy values into Python buffer for consumption
 	m_Buffer.obj = nullptr;

@@ -227,6 +227,8 @@ private:
 	JPClassRef m_SupportClass;
 	jmethodID m_Support_collectRectangularID{};
 	jmethodID m_Support_assembleID{};
+	jmethodID m_Support_fillFromBufferID{};
+	jmethodID m_Support_collectToBufferID{};
 
 	// Java Functions
 	jmethodID m_Object_ToStringID{};

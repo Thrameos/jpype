@@ -1,0 +1,142 @@
+# *****************************************************************************
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+#
+#   See NOTICE file for details.
+#
+# *****************************************************************************
+
+"""
+Correctness tests for the phase 3.6 buffer-handoff push/pull redesign
+(plan/ArrayTransferPhase3.md): JPConversionMultiArrayBuffer's fast path
+(numpy multi-dim -> Java array, direct-buffer handoff + pure-Java
+reshape) and JPArrayView's fast fill (Java multi-dim array -> numpy,
+same idea reversed). test_buffer.py already covers per-type pull
+(np.asarray) and construction-time push at 1D-3D for every primitive
+type; this file targets what's specific to the redesign and not already
+exercised there: argument-conversion push (JPConversionMultiArrayBuffer
+fires for a declared array-typed *method parameter*, not the JArray(...)
+constructor path) at depths up to 5, the dtype-mismatch fallback
+(general converter path, not the new fast path), and large arrays that
+cross the internal parallel-vs-serial threshold on both sides.
+"""
+
+import jpype
+from jpype import JArray, JInt, JDouble
+import common
+
+try:
+    import numpy as np
+    has_numpy = True
+except ImportError:
+    has_numpy = False
+
+
+class ArrayMultiDimBufferTestCase(common.JPypeTestCase):
+    def setUp(self):
+        common.JPypeTestCase.setUp(self)
+        if not has_numpy:
+            self.skipTest("NumPy not available")
+        self.DeepBench = jpype.JClass('jpype.benchmark.DeepBench')
+
+    # ---- push: matching dtype (fast path) ----
+
+    def testPush2D(self):
+        arr = np.arange(16, dtype=np.int32).reshape(4, 4)
+        self.assertEqual(self.DeepBench.sum2DIntArray(arr), int(arr.sum()))
+
+    def testPush3D(self):
+        arr = np.arange(64, dtype=np.int32).reshape(4, 4, 4)
+        self.assertEqual(self.DeepBench.sum3DIntArray(arr), int(arr.sum()))
+
+    def testPush4D(self):
+        arr = np.arange(4 ** 4, dtype=np.int32).reshape(4, 4, 4, 4)
+        self.assertEqual(self.DeepBench.sum4DIntArray(arr), int(arr.sum()))
+
+    def testPush5D(self):
+        arr = np.arange(3 ** 5, dtype=np.int32).reshape(3, 3, 3, 3, 3)
+        self.assertEqual(self.DeepBench.sum5DIntArray(arr), int(arr.sum()))
+
+    def testPushValuesLandCorrectly(self):
+        # Sum alone can't catch a transposed/misindexed reshape (same
+        # total either way) -- round-trip through identityIntArray's 2D
+        # sibling isn't available, so verify via a value that depends on
+        # position: construct, pull back, compare elementwise.
+        arr = np.arange(60, dtype=np.int32).reshape(3, 4, 5)
+        ja = JArray(JInt, 3)(arr)
+        back = np.asarray(ja)
+        np.testing.assert_array_equal(back, arr)
+
+    # ---- push: dtype mismatch (general converter fallback) ----
+
+    def testPushDtypeMismatchFloat64ToInt(self):
+        arr = (np.arange(16, dtype=np.float64) + 0.9).reshape(4, 4)
+        expected = sum(int(x) for x in arr.flatten())
+        self.assertEqual(self.DeepBench.sum2DIntArray(arr), expected)
+
+    def testPushDtypeMismatchInt64ToInt(self):
+        arr = np.arange(16, dtype=np.int64).reshape(4, 4)
+        self.assertEqual(self.DeepBench.sum2DIntArray(arr), int(arr.sum()))
+
+    def testPushNonContiguous(self):
+        # A transposed view is not C-contiguous -- must not silently
+        # reinterpret the wrong bytes; falls back correctly either way.
+        base = np.arange(16, dtype=np.int32).reshape(4, 4)
+        arr = base.T
+        self.assertFalse(arr.flags['C_CONTIGUOUS'])
+        self.assertEqual(self.DeepBench.sum2DIntArray(arr), int(arr.sum()))
+
+    # ---- pull: matching dtype (fast path), depths beyond test_buffer.py's ----
+
+    def testPull2D(self):
+        ja = self.DeepBench.make2DIntArray(5)
+        arr = np.asarray(ja)
+        expected = np.array([[i * 5 + j for j in range(5)] for i in range(5)], dtype=np.int32)
+        np.testing.assert_array_equal(arr, expected)
+
+    def testPull4D(self):
+        ja = self.DeepBench.make4DIntArray(4)
+        arr = np.asarray(ja)
+        self.assertEqual(arr.shape, (4, 4, 4, 4))
+        self.assertEqual(arr[1, 2, 3, 0], ((1 * 4 + 2) * 4 + 3) * 4 + 0)
+        self.assertEqual(int(arr.sum()), int(sum(
+            ((i * 4 + j) * 4 + k) * 4 + l
+            for i in range(4) for j in range(4) for k in range(4) for l in range(4))))
+
+    # ---- large scale: crosses the internal parallel-vs-serial threshold ----
+    # (Support.PARALLEL_THRESHOLD_ELEMENTS == 1_000_000; these sizes are
+    # comfortably past it on at least one axis so the parallel path is
+    # exercised, not just serial.)
+
+    def testPushLargeParallelPath(self):
+        arr = np.arange(200 * 200 * 30, dtype=np.int32).reshape(200, 200, 30)
+        self.assertEqual(self.DeepBench.sum3DIntArray(arr), int(arr.sum()))
+
+    def testPullLargeParallelPath(self):
+        n = 110  # 110**3 ~= 1.33M elements
+        ja = self.DeepBench.make3DIntArray(n)
+        arr = np.asarray(ja)
+        self.assertEqual(arr[5, 6, 7], (5 * n + 6) * n + 7)
+        self.assertEqual(arr[n - 1, n - 1, n - 1], ((n - 1) * n + (n - 1)) * n + (n - 1))
+        expected_sum = sum(
+            (i * n + j) * n + k
+            for i in range(n) for j in range(n) for k in range(n))
+        self.assertEqual(int(arr.sum()), expected_sum)
+
+    # ---- double, to confirm the fast path isn't int-only ----
+
+    def testPushPullDoubleRoundTrip(self):
+        arr = np.random.random((6, 7)).astype(np.float64)
+        ja = JArray(JDouble, 2)(arr)
+        back = np.asarray(ja)
+        np.testing.assert_array_equal(back, arr)
