@@ -292,6 +292,13 @@ void JPCharType::copyElements(JPJavaFrame &frame, jarray a, jsize start, jsize l
 	frame.GetCharArrayRegion((jcharArray) a, start, len, b);
 }
 
+void JPCharType::setElements(JPJavaFrame &frame, jarray a, jsize start, jsize len,
+		const void* memory, int offset)
+{
+	auto* b = (jchar*) ((const char*) memory + offset);
+	frame.SetCharArrayRegion((jcharArray) a, start, len, const_cast<jchar*>(b));
+}
+
 static void pack(jchar* d, jvalue v)
 {
 	*d = v.c;

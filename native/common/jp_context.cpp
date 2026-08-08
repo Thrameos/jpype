@@ -399,7 +399,7 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 			"([ILjava/lang/Object;)Ljava/lang/Object;");
 	m_Support_fillFromBufferID = frame.GetStaticMethodID(supportClass,
 			"fillFromBuffer",
-			"(CLjava/nio/ByteBuffer;[I)Ljava/lang/Object;");
+			"(CILjava/nio/ByteBuffer;[I)Ljava/lang/Object;");
 	m_Support_collectToBufferID = frame.GetStaticMethodID(supportClass,
 			"collectToBuffer",
 			"(C[Ljava/lang/Object;Ljava/nio/ByteBuffer;)V");

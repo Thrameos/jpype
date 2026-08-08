@@ -13,6 +13,7 @@
 
    See NOTICE file for details.
  *****************************************************************************/
+#include <cctype>
 #include "jpype.h"
 #include "pyjp.h"
 #include "jp_array.h"
@@ -138,12 +139,12 @@ jarray JPArray::clone(JPJavaFrame& frame, PyObject* obj)
 	return out;
 }
 
-void JPArray::copyInto(PyObject* dest)
+void JPArray::pullTo(PyObject* dest)
 {
-	JP_TRACE_IN("JPArray::copyInto");
+	JP_TRACE_IN("JPArray::pullTo");
 	auto *compType = dynamic_cast<JPPrimitiveType*>(m_Class->getComponentType());
 	if (compType == nullptr)
-		JP_RAISE(PyExc_TypeError, "copyInto requires a primitive array");
+		JP_RAISE(PyExc_TypeError, "pullTo requires a primitive array");
 
 	JPJavaFrame frame = JPJavaFrame::outer();
 	JPPyBuffer buffer(dest, PyBUF_WRITABLE | PyBUF_STRIDES | PyBUF_FORMAT);
@@ -170,6 +171,57 @@ void JPArray::copyInto(PyObject* dest)
 		// General path: stepped source and/or non-contiguous/N-D destination.
 		copyArrayToBuffer(frame, m_Object.get(), m_Start, m_Step, m_Length,
 				compType->getItemSize(), buffer);
+	}
+	JP_TRACE_OUT;
+}
+
+void JPArray::pushFrom(PyObject* src)
+{
+	JP_TRACE_IN("JPArray::pushFrom");
+	auto *compType = dynamic_cast<JPPrimitiveType*>(m_Class->getComponentType());
+	if (compType == nullptr)
+		JP_RAISE(PyExc_TypeError, "pushFrom requires a primitive array");
+
+	JPJavaFrame frame = JPJavaFrame::outer();
+	JPPyBuffer buffer(src, PyBUF_STRIDES | PyBUF_FORMAT);
+	JP_PY_CHECK();
+	Py_buffer& view = buffer.getView();
+
+	Py_ssize_t total = 1;
+	for (int i = 0; i < view.ndim; ++i)
+		total *= view.shape[i];
+	if (total != m_Length)
+		JP_RAISE(PyExc_ValueError, "mismatched size");
+
+	char code[2] = {(char) tolower(compType->getTypeCode()), 0};
+	const char *format = view.format != nullptr ? view.format : "B";
+	jconverter converter = getConverter(format, (int) view.itemsize, code);
+	if (converter == nullptr)
+		JP_RAISE(PyExc_TypeError, "No type converter found");
+
+	// Fast path: source needs no per-element conversion at all (matching
+	// dtype, native byte order) -- a single Set<Type>ArrayRegion call
+	// straight from the source memory. Requires a unit-step destination
+	// (no sliced array) and a C-contiguous source (any number of dims, so
+	// long as the whole thing is one contiguous run). Unlike the
+	// multi-dim push path (JPConversionMultiArrayBuffer), JPArray is
+	// always a single flat Java array, so there is no per-row pinning
+	// cost to dodge for RAW_SWAPPED/RAW_HALF_* here -- the general path
+	// below already pins the whole destination array exactly once
+	// (copyBufferToArray), so only the strictly-cheapest case (no
+	// conversion at all) earns a dedicated fast path.
+	JPRawTransferMode mode = classifyRawTransfer(converter, compType, format, (int) view.itemsize, code);
+	if (mode == RAW_NATIVE && m_Step == 1 && view.suboffsets == nullptr && PyBuffer_IsContiguous(&view, 'C'))
+	{
+		compType->setElements(frame, m_Object.get(), m_Start, m_Length, view.buf, 0);
+	} else
+	{
+		// General path: real value conversion (dtype coercion, byte swap,
+		// half-precision) and/or stepped destination and/or
+		// non-contiguous/N-D source. Single JNI critical section for the
+		// whole destination array.
+		copyBufferToArray(frame, m_Object.get(), m_Start, m_Step, m_Length,
+				compType->getItemSize(), converter, buffer);
 	}
 	JP_TRACE_OUT;
 }

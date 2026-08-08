@@ -351,6 +351,13 @@ void JPBooleanType::copyElements(JPJavaFrame &frame, jarray a, jsize start, jsiz
 	frame.GetBooleanArrayRegion((jbooleanArray) a, start, len, b);
 }
 
+void JPBooleanType::setElements(JPJavaFrame &frame, jarray a, jsize start, jsize len,
+		const void* memory, int offset)
+{
+	auto* b = (jboolean*) ((const char*) memory + offset);
+	frame.SetBooleanArrayRegion((jbooleanArray) a, start, len, const_cast<jboolean*>(b));
+}
+
 static void pack(jboolean* d, jvalue v)
 {
 	*d = v.z;

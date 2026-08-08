@@ -322,6 +322,13 @@ void JPDoubleType::copyElements(JPJavaFrame &frame, jarray a, jsize start, jsize
 	frame.GetDoubleArrayRegion((jdoubleArray) a, start, len, b);
 }
 
+void JPDoubleType::setElements(JPJavaFrame &frame, jarray a, jsize start, jsize len,
+		const void* memory, int offset)
+{
+	auto* b = (jdouble*) ((const char*) memory + offset);
+	frame.SetDoubleArrayRegion((jdoubleArray) a, start, len, const_cast<jdouble*>(b));
+}
+
 static void pack(jdouble* d, jvalue v)
 {
 	*d = v.d;

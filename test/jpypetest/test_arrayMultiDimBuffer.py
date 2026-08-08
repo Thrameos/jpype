@@ -96,6 +96,32 @@ class ArrayMultiDimBufferTestCase(common.JPypeTestCase):
         self.assertFalse(arr.flags['C_CONTIGUOUS'])
         self.assertEqual(self.DeepBench.sum2DIntArray(arr), int(arr.sum()))
 
+    # ---- push: byte-swapped / float16 (RAW_SWAPPED, RAW_HALF_* bulk fast
+    # paths in JPConversionMultiArrayBuffer -- classifyRawTransfer routes
+    # these through Support.fillFromBuffer's mode-aware dispatch instead of
+    # the general per-leaf-critical-section newMultiArrayObject fallback) ----
+
+    def testPushByteSwapped2D(self):
+        native = (np.arange(16, dtype=np.int32) - 5).reshape(4, 4)
+        swapped = native.astype(native.dtype.newbyteorder())
+        self.assertNotEqual(swapped.dtype.byteorder, '=')
+        self.assertEqual(self.DeepBench.sum2DIntArray(swapped), int(native.sum()))
+
+    def testPushByteSwapped3D(self):
+        native = (np.arange(64, dtype=np.int32) - 5).reshape(4, 4, 4)
+        swapped = native.astype(native.dtype.newbyteorder())
+        self.assertEqual(self.DeepBench.sum3DIntArray(swapped), int(native.sum()))
+
+    def testPushFloat16To2DInt(self):
+        arr = (np.arange(16, dtype=np.float32) - 8).reshape(4, 4).astype(np.float16)
+        expected = int(arr.astype(np.int32).sum())
+        self.assertEqual(self.DeepBench.sum2DIntArray(arr), expected)
+
+    def testPushFloat16To3DInt(self):
+        arr = (np.arange(64, dtype=np.float32) - 32).reshape(4, 4, 4).astype(np.float16)
+        expected = int(arr.astype(np.int32).sum())
+        self.assertEqual(self.DeepBench.sum3DIntArray(arr), expected)
+
     # ---- pull: matching dtype (fast path), depths beyond test_buffer.py's ----
 
     def testPull2D(self):

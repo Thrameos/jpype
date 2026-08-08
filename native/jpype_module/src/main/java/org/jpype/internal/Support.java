@@ -210,23 +210,76 @@ class Support
     return total >= PARALLEL_THRESHOLD_ELEMENTS ? range.parallel() : range;
   }
 
+  // Mirrors JPRawTransferMode in native/common/include/jpype.h -- kept in
+  // sync by hand, there being no shared header between the two languages.
+  // RAW_NONE (0) never reaches here: the C++ caller only takes this path
+  // (rather than the general element-by-element converter path) when it
+  // resolved something other than NONE.
+  private static final int RAW_NATIVE = 1;
+  private static final int RAW_SWAPPED = 2;
+  private static final int RAW_HALF_NATIVE = 3;
+  private static final int RAW_HALF_SWAPPED = 4;
+
+  private static ByteOrder swapped(ByteOrder order)
+  {
+    return order == ByteOrder.BIG_ENDIAN ? ByteOrder.LITTLE_ENDIAN : ByteOrder.BIG_ENDIAN;
+  }
+
+  /**
+   * Decode a single IEEE 754 binary16 (numpy float16 / Python 'e' format)
+   * value into its exact float32 equivalent. Standard bit-twiddling
+   * decode (subnormal/normal/inf-or-nan branches) -- there is no half
+   * type or ByteBuffer support in java.nio to lean on instead.
+   */
+  private static float halfToFloat(short bits)
+  {
+    int h = bits & 0xFFFF;
+    int sign = (h & 0x8000) << 16;
+    int exp = (h & 0x7C00) >> 10;
+    int frac = h & 0x03FF;
+    if (exp == 0)
+    {
+      if (frac == 0)
+        return Float.intBitsToFloat(sign);
+      // Subnormal half -> normalize into a normal float32.
+      int e = -1;
+      do
+      {
+        e++;
+        frac <<= 1;
+      } while ((frac & 0x0400) == 0);
+      frac &= 0x03FF;
+      int exp32 = 127 - 15 - e;
+      return Float.intBitsToFloat(sign | (exp32 << 23) | (frac << 13));
+    }
+    if (exp == 0x1F)
+      return Float.intBitsToFloat(sign | 0x7F800000 | (frac << 13));
+    return Float.intBitsToFloat(sign | ((exp - 15 + 127) << 23) | (frac << 13));
+  }
+
   /**
    * Build a rectangular multi-dimensional primitive array of the given
    * shape from a flat, C-contiguous direct buffer -- the push-side half
-   * of the buffer-handoff redesign. `src` is expected to already be the
-   * exact native encoding of `typeCode` (the C++ caller only takes this
-   * path when the source buffer's dtype needs no conversion; a dtype
-   * mismatch stays on the general element-by-element converter path).
+   * of the buffer-handoff redesign. `src`'s declared byte order is not
+   * meaningful yet (a fresh NewDirectByteBuffer always defaults to
+   * big-endian regardless of platform); `mode` says how to interpret it.
    *
-   * @param typeCode primitive type signature character.
-   * @param src a direct buffer over `shape`'s total element count,
-   * native byte order not yet guaranteed (set here).
+   * @param typeCode primitive type signature character (the *target*
+   * type -- for RAW_HALF_* this differs from the source's own type,
+   * which is always 16-bit float).
+   * @param mode one of RAW_NATIVE/RAW_SWAPPED/RAW_HALF_NATIVE/RAW_HALF_SWAPPED.
+   * @param src a direct buffer over the source's total element count.
    * @param shape the array's shape, outermost dimension first.
    * @return the assembled array (e.g. int[][] for a 2D shape).
    */
-  public static Object fillFromBuffer(char typeCode, ByteBuffer src, int[] shape)
+  public static Object fillFromBuffer(char typeCode, int mode, ByteBuffer src, int[] shape)
   {
-    src.order(ByteOrder.nativeOrder());
+    if (mode == RAW_HALF_NATIVE || mode == RAW_HALF_SWAPPED)
+    {
+      src.order(mode == RAW_HALF_NATIVE ? ByteOrder.nativeOrder() : swapped(ByteOrder.nativeOrder()));
+      return fillFromHalfBuffer(typeCode, src, shape);
+    }
+    src.order(mode == RAW_SWAPPED ? swapped(ByteOrder.nativeOrder()) : ByteOrder.nativeOrder());
     int dims = shape.length;
     int last = shape[dims - 1];
     int leaves = 1;
@@ -366,6 +419,155 @@ class Support
     // exactly like the Object[] they were originally written for -- no
     // changes needed there. Nesting itself is O(leaf count), already
     // cheap, not the part this redesign targets.
+    return assemble(shape, flat);
+  }
+
+  /**
+   * fillFromBuffer's RAW_HALF_NATIVE/RAW_HALF_SWAPPED case: `src` holds
+   * IEEE 754 binary16 (numpy float16) values rather than typeCode's own
+   * native encoding, so every element needs an actual decode (there is no
+   * bulk java.nio path for a type java.nio doesn't know about) -- still
+   * one JNI entry and no per-row critical sections, just a per-element
+   * decode+cast done in bulk Java instead of one converter() call per
+   * element back on the C++ side.
+   */
+  private static Object fillFromHalfBuffer(char typeCode, ByteBuffer src, int[] shape)
+  {
+    int dims = shape.length;
+    int last = shape[dims - 1];
+    int leaves = 1;
+    for (int i = 0; i < dims - 1; i++)
+      leaves *= shape[i];
+
+    ShortBuffer buf = src.asShortBuffer();
+    IntStream range = leafRange(leaves, last);
+
+    Object flat;
+    switch (typeCode)
+    {
+      case 'D':
+      {
+        double[][] out = new double[leaves][];
+        range.forEach(i ->
+        {
+          double[] row = new double[last];
+          ShortBuffer dup = buf.duplicate();
+          dup.position(i * last);
+          for (int j = 0; j < last; j++)
+            row[j] = halfToFloat(dup.get());
+          out[i] = row;
+        });
+        flat = out;
+        break;
+      }
+      case 'F':
+      {
+        float[][] out = new float[leaves][];
+        range.forEach(i ->
+        {
+          float[] row = new float[last];
+          ShortBuffer dup = buf.duplicate();
+          dup.position(i * last);
+          for (int j = 0; j < last; j++)
+            row[j] = halfToFloat(dup.get());
+          out[i] = row;
+        });
+        flat = out;
+        break;
+      }
+      case 'J':
+      {
+        long[][] out = new long[leaves][];
+        range.forEach(i ->
+        {
+          long[] row = new long[last];
+          ShortBuffer dup = buf.duplicate();
+          dup.position(i * last);
+          for (int j = 0; j < last; j++)
+            row[j] = (long) halfToFloat(dup.get());
+          out[i] = row;
+        });
+        flat = out;
+        break;
+      }
+      case 'I':
+      {
+        int[][] out = new int[leaves][];
+        range.forEach(i ->
+        {
+          int[] row = new int[last];
+          ShortBuffer dup = buf.duplicate();
+          dup.position(i * last);
+          for (int j = 0; j < last; j++)
+            row[j] = (int) halfToFloat(dup.get());
+          out[i] = row;
+        });
+        flat = out;
+        break;
+      }
+      case 'S':
+      {
+        short[][] out = new short[leaves][];
+        range.forEach(i ->
+        {
+          short[] row = new short[last];
+          ShortBuffer dup = buf.duplicate();
+          dup.position(i * last);
+          for (int j = 0; j < last; j++)
+            row[j] = (short) halfToFloat(dup.get());
+          out[i] = row;
+        });
+        flat = out;
+        break;
+      }
+      case 'C':
+      {
+        char[][] out = new char[leaves][];
+        range.forEach(i ->
+        {
+          char[] row = new char[last];
+          ShortBuffer dup = buf.duplicate();
+          dup.position(i * last);
+          for (int j = 0; j < last; j++)
+            row[j] = (char) halfToFloat(dup.get());
+          out[i] = row;
+        });
+        flat = out;
+        break;
+      }
+      case 'B':
+      {
+        byte[][] out = new byte[leaves][];
+        range.forEach(i ->
+        {
+          byte[] row = new byte[last];
+          ShortBuffer dup = buf.duplicate();
+          dup.position(i * last);
+          for (int j = 0; j < last; j++)
+            row[j] = (byte) halfToFloat(dup.get());
+          out[i] = row;
+        });
+        flat = out;
+        break;
+      }
+      case 'Z':
+      {
+        boolean[][] out = new boolean[leaves][];
+        range.forEach(i ->
+        {
+          boolean[] row = new boolean[last];
+          ShortBuffer dup = buf.duplicate();
+          dup.position(i * last);
+          for (int j = 0; j < last; j++)
+            row[j] = halfToFloat(dup.get()) != 0;
+          out[i] = row;
+        });
+        flat = out;
+        break;
+      }
+      default:
+        throw new IllegalArgumentException("Unknown primitive type code: " + typeCode);
+    }
     return assemble(shape, flat);
   }
 

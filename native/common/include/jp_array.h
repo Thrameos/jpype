@@ -73,14 +73,27 @@ public:
 
 	/**
 	 * Bulk-copy this array's elements into a caller-supplied writable
-	 * Python buffer (JArray.copyInto). Primitive arrays only -- requires a
+	 * Python buffer (JArray.pullTo). Primitive arrays only -- requires a
 	 * matching element count and item size, but not a matching shape
 	 * (dest may be any number of dimensions, so long as the total element
 	 * count lines up).
 	 *
 	 * @param dest a writable buffer-protocol object.
 	 */
-	void       copyInto(PyObject* dest);
+	void       pullTo(PyObject* dest);
+
+	/**
+	 * Bulk-copy a caller-supplied readable Python buffer into this array's
+	 * elements in place (JArray.pushFrom) -- the mirror of pullTo.
+	 * Primitive arrays only -- requires a matching element count, but not
+	 * a matching shape (src may be any number of dimensions, so long as
+	 * the total element count lines up); the source dtype need not match
+	 * the array's component type (a real converting fallback handles that
+	 * case).
+	 *
+	 * @param src a readable buffer-protocol object.
+	 */
+	void       pushFrom(PyObject* src);
 
 	/**
 	 * Bulk-convert this array into a genuine Python list (JArray.tolist()).

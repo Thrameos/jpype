@@ -307,6 +307,13 @@ void JPShortType::copyElements(JPJavaFrame &frame, jarray a, jsize start, jsize 
 	frame.GetShortArrayRegion((jshortArray) a, start, len, b);
 }
 
+void JPShortType::setElements(JPJavaFrame &frame, jarray a, jsize start, jsize len,
+		const void* memory, int offset)
+{
+	auto* b = (jshort*) ((const char*) memory + offset);
+	frame.SetShortArrayRegion((jshortArray) a, start, len, const_cast<jshort*>(b));
+}
+
 static void pack(jshort* d, jvalue v)
 {
 	*d = v.s;

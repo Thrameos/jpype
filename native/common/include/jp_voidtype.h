@@ -54,6 +54,9 @@ public:
 	void copyElements(JPJavaFrame &frame,
 			jarray a, jsize start, jsize len,
 			void* memory, int offset) override;
+	void setElements(JPJavaFrame &frame,
+			jarray a, jsize start, jsize len,
+			const void* memory, int offset) override;
 
 	PyObject *newMultiArray(JPJavaFrame &frame,
 			JPPyBuffer &buffer, int subs, int base, jobject dims) override;

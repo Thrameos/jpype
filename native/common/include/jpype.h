@@ -112,8 +112,9 @@ using jconverter = jvalue (*)(void *) ;
  * byte by casting the memory and then assigning to the jvalue union with
  * the requested type.
  *
- * Byte order transfers are not supported by the Python buffer API and thus
- * have not been implemented.
+ * Byte order is handled here too: a format string prefixed with '<', '>'
+ * or '!' selects a byte-swapping converter (the Reverse<> wrapper in
+ * jp_convert.cpp) when it disagrees with the platform's native order.
  *
  * @param from is a Python struct designation
  * @param itemsize is the size of the Python item
@@ -136,25 +137,44 @@ class JPPrimitiveType;
 class JPStringType;
 
 /**
- * Is `converter` (already resolved via getConverter() for some source
- * buffer format/itemsize and pcls's own type code) a byte-for-byte
- * reinterpret rather than a real conversion -- i.e. would handing pcls's
- * array elements' raw bytes straight to Java (no per-element converter
- * call) be safe?
+ * Classification of how cheaply a source buffer's bytes can be turned into
+ * pcls's array elements, from cheapest to "no bulk shortcut available":
  *
- * Implemented by comparing `converter` against the converter
- * getConverter() resolves for pcls's own canonical buffer format/item
- * size -- both are fixed template instantiations (see jp_convert.cpp),
- * so pointer equality is a robust, conservative test: any real
- * difference in source width, numeric kind, or byte order resolves to a
- * different function and correctly reports false. Used to decide whether
- * a multi-dim buffer push (JPConversionMultiArrayBuffer) can take the
- * fast direct-buffer-handoff path (plan/ArrayTransferPhase3.md phase
- * 3.6) or must fall back to the general element-by-element converter
- * path. `code` must be the same target-code string already passed to the
- * getConverter() call that produced `converter`.
+ *  - RAW_NATIVE: byte-for-byte reinterpret, no conversion of any kind --
+ *    `converter` is pointer-identical to the converter getConverter()
+ *    resolves for pcls's own canonical buffer format/item size.
+ *  - RAW_SWAPPED: same numeric kind and width as pcls's own type, but the
+ *    source declares a non-native byte order -- a plain byte-swap (no
+ *    numeric reinterpretation) turns it into RAW_NATIVE.
+ *  - RAW_HALF_NATIVE / RAW_HALF_SWAPPED: source is IEEE 754 half-precision
+ *    ('e' format, itemsize 2), native or swapped order respectively --
+ *    always a real conversion (there is no native 16-bit float type to
+ *    reinterpret into), but decoding it is simple, fixed-cost, per-element
+ *    work that a bulk Java-side pass handles far more cheaply than the
+ *    general per-row-critical-section fallback.
+ *  - RAW_NONE: no bulk shortcut applies (genuine dtype coercion, e.g.
+ *    float64 -> int32) -- must fall back to the general element-by-element
+ *    converter path.
+ *
+ * Used to decide whether a multi-dim buffer push
+ * (JPConversionMultiArrayBuffer) or a flat JArray.push can take a fast
+ * direct-buffer-handoff path (plan/ArrayTransferPhase3.md phase 3.6/3.7)
+ * instead of the general element-by-element converter path. `code` must be
+ * the same target-code string already passed to the getConverter() call
+ * that produced `converter`; `format`/`itemsize` are the source buffer's
+ * own (`Py_buffer.format`/`Py_buffer.itemsize`).
  */
-extern bool isRawCompatible(jconverter converter, JPPrimitiveType* pcls, const char* code);
+enum JPRawTransferMode
+{
+	RAW_NONE = 0,
+	RAW_NATIVE = 1,
+	RAW_SWAPPED = 2,
+	RAW_HALF_NATIVE = 3,
+	RAW_HALF_SWAPPED = 4,
+};
+
+extern JPRawTransferMode classifyRawTransfer(jconverter converter, JPPrimitiveType* pcls,
+		const char* format, int itemsize, const char* code);
 
 // Members
 class JPMethod;

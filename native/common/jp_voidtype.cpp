@@ -137,6 +137,12 @@ void JPVoidType::copyElements(JPJavaFrame &frame,
 {
 }
 
+void JPVoidType::setElements(JPJavaFrame &frame,
+		jarray a, jsize start, jsize len,
+		const void* memory, int offset)
+{
+}
+
 char JPVoidType::getTypeCode()
 {
 	return 'V';

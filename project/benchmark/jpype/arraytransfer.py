@@ -1,5 +1,5 @@
 """Bulk array-transfer primitives added in the phase-3 array transfer
-effort (plan/ArrayTransferPhase3.md): JArray.copyInto(), direct-buffer
+effort (plan/ArrayTransferPhase3.md): JArray.pullTo(), direct-buffer
 sharing, zero-copy slicing, and 2D bulk transfer via collectRectangular.
 
 Adapted from `reverse`'s benchmark/arraybench/ (bench_array.py's four
@@ -42,23 +42,23 @@ def run(name, fn, total_elements):
     print(format_row(name, best, median))
 
 
-# ---- Model 1: copyInto (bulk-copy fast path) vs naive per-element walk ----
+# ---- Model 1: pullTo (bulk-copy fast path) vs naive per-element walk ----
 
-print("=== JPype: copyInto bulk-copy vs naive per-element pull ===")
+print("=== JPype: pullTo bulk-copy vs naive per-element pull ===")
 for size in SIZES:
     values = np.random.random(size)
     ja = JArray(JDouble)(values.tolist())
     dest = np.empty(size, dtype=np.float64)
 
     def copy_into(ja=ja, dest=dest):
-        ja.copyInto(dest)
+        ja.pullTo(dest)
         return dest[0]
-    run(f"copyInto double[{size}]", copy_into, size)
+    run(f"pullTo double[{size}]", copy_into, size)
 
-    # Naive comparator: the only route available before copyInto existed
+    # Naive comparator: the only route available before pullTo existed
     # -- element-by-element access through the generic array wrapper.
     # Capped at 100_000: at 1,000,000 elements this is minutes long on
-    # its own and isn't the interesting comparison (copyInto's whole
+    # its own and isn't the interesting comparison (pullTo's whole
     # point is to avoid this loop).
     if size <= 100_000:
         def naive_sum(ja=ja):
@@ -85,9 +85,9 @@ for size in SIZES:
         return float(arr.sum())
     run(f"direct-buffer-shared double[{size}]", sum_direct_buffer_shared, size)
 
-# ---- Model 3: slicing (zero-copy view vs copyInto on a Java-array slice) ----
+# ---- Model 3: slicing (zero-copy view vs pullTo on a Java-array slice) ----
 
-print("=== JPype: slicing, Python view vs Java-array-slice copyInto ===")
+print("=== JPype: slicing, Python view vs Java-array-slice pullTo ===")
 for size, step in zip(SIZES, [2, 2, 2]):
     src = np.random.random(size)
 
@@ -101,7 +101,7 @@ for size, step in zip(SIZES, [2, 2, 2]):
     def sum_java_array_slice(ja=ja, step=step):
         sliced = ja[::step]
         dest = np.empty(len(sliced), dtype=np.float64)
-        sliced.copyInto(dest)
+        sliced.pullTo(dest)
         return float(dest.sum())
     run(f"slice_javaArray double[{size}]", sum_java_array_slice, size)
 

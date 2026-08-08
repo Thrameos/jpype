@@ -662,22 +662,23 @@ public:
 
 		jvalue res;
 
-		// Fast path (plan/ArrayTransferPhase3.md phase 3.6): when the
-		// source buffer's dtype needs no conversion at all -- the common
-		// case, e.g. a numpy int32 array pushed into an int[][] target --
-		// hand its memory to Java as a single DirectByteBuffer and let
-		// Java do the entire reshape in pure Java (no further JNI calls,
-		// so no per-leaf-array GetPrimitiveArrayCritical section). Falls
-		// back to the general per-leaf critical-section path below
-		// whenever real value conversion (dtype mismatch, byte swap) is
-		// needed -- that still requires visiting every element through
-		// `converter`, which only exists on the C++ side.
-		if (isRawCompatible(converter, pcls, code) && PyBuffer_IsContiguous(&view, 'C'))
+		// Fast path (plan/ArrayTransferPhase3.md phase 3.6/3.7): whenever
+		// the source buffer's bytes can be turned into pcls's elements by
+		// some fixed, bulk-friendly operation -- raw reinterpret, a plain
+		// byte-swap, or half-precision decode -- hand its memory to Java
+		// as a single DirectByteBuffer and let Java do the entire reshape
+		// (no further JNI calls, so no per-leaf-array
+		// GetPrimitiveArrayCritical section). Falls back to the general
+		// per-leaf critical-section path below only for genuine dtype
+		// coercion (e.g. float64 -> int32), which still requires visiting
+		// every element through `converter`.
+		JPRawTransferMode mode = classifyRawTransfer(converter, pcls, format, (int) view.itemsize, code);
+		if (mode != RAW_NONE && PyBuffer_IsContiguous(&view, 'C'))
 		{
 			Py_ssize_t total = subs * base;
 			jobject directBuf = frame.NewDirectByteBuffer(view.buf, total * view.itemsize);
 			res.l = frame.keep(frame.fillMultiArrayFromBuffer(
-					pcls->getTypeCode(), directBuf, jdims));
+					pcls->getTypeCode(), (jint) mode, directBuf, jdims));
 			return res;
 		}
 

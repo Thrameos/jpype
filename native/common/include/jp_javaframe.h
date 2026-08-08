@@ -177,7 +177,7 @@ public:
 	// is the JNI primitive type signature character (see
 	// JPPrimitiveType::getTypeCode()); `buf` must be a direct
 	// java.nio.ByteBuffer.
-	jobject fillMultiArrayFromBuffer(char typeCode, jobject buf, jintArray shape);
+	jobject fillMultiArrayFromBuffer(char typeCode, jint mode, jobject buf, jintArray shape);
 	void collectMultiArrayToBuffer(char typeCode, jobject collected, jobject buf);
 
 	jobject newArrayInstance(jclass c, jintArray dims);

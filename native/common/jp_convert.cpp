@@ -516,8 +516,56 @@ jconverter getConverter(const char* from, int itemsize, const char* to)
 	JP_RAISE_PYTHON();
 }
 
-bool isRawCompatible(jconverter converter, JPPrimitiveType* pcls, const char* code)
+JPRawTransferMode classifyRawTransfer(jconverter converter, JPPrimitiveType* pcls,
+		const char* format, int itemsize, const char* code)
 {
+	if (format == nullptr)
+		format = "B";
+
+	// Strip an explicit byte-order prefix the same way getConverter does,
+	// so re-resolving with the bare remainder always means "as if native
+	// order" regardless of what the original prefix said.
+	const char* stripped = format;
+	switch (stripped[0])
+	{
+		case '!':
+		case '>':
+		case '<':
+		case '@':
+		case '=':
+			stripped++;
+			break;
+		default:
+			break;
+	}
+
+	// Match getConverter's own itemsize==8 'l'/'L' -> 'q'/'Q' aliasing so
+	// the "as-if-native" re-resolution below picks the same base type
+	// getConverter itself would have picked for this format/itemsize.
+	char adj[2] = {stripped[0], 0};
+	if (itemsize == 8 && adj[0] == 'l')
+		adj[0] = 'q';
+	if (itemsize == 8 && adj[0] == 'L')
+		adj[0] = 'Q';
+
+	if (adj[0] == 'e')
+	{
+		// Half precision is never a raw reinterpret (no native 16-bit
+		// float type), but is still cheap, fixed-cost, bulk-friendly work
+		// -- distinguish only whether the source order matches native.
+		if (itemsize != 2)
+			return RAW_NONE;
+		jconverter nativeHalf = getConverter(adj, itemsize, code);
+		return (converter == nativeHalf) ? RAW_HALF_NATIVE : RAW_HALF_SWAPPED;
+	}
+
 	jconverter identity = getConverter(pcls->getBufferFormat(), (int) pcls->getItemSize(), code);
-	return converter == identity;
+	if (converter == identity)
+		return RAW_NATIVE;
+
+	jconverter asNative = getConverter(adj, itemsize, code);
+	if (asNative == identity)
+		return RAW_SWAPPED;
+
+	return RAW_NONE;
 }

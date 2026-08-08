@@ -45,6 +45,14 @@ public:
 			jarray a, jsize start, jsize len,
 			void* memory, int offset) = 0;
 
+	// Mirror of copyElements (Get<Type>ArrayRegion) in the opposite
+	// direction (Set<Type>ArrayRegion) -- used by JPArray::pushFrom's raw
+	// fast path to write a matching-dtype, contiguous source buffer
+	// straight into an existing Java array in a single JNI call.
+	virtual void setElements(JPJavaFrame &frame,
+			jarray a, jsize start, jsize len,
+			const void* memory, int offset) = 0;
+
 	virtual PyObject *newMultiArray(JPJavaFrame &frame,
 			JPPyBuffer& view, int subs, int base, jobject dims) = 0;
 

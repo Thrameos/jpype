@@ -284,6 +284,13 @@ void JPByteType::copyElements(JPJavaFrame &frame, jarray a, jsize start, jsize l
 	frame.GetByteArrayRegion((jbyteArray) a, start, len, b);
 }
 
+void JPByteType::setElements(JPJavaFrame &frame, jarray a, jsize start, jsize len,
+		const void* memory, int offset)
+{
+	auto* b = (jbyte*) ((const char*) memory + offset);
+	frame.SetByteArrayRegion((jbyteArray) a, start, len, const_cast<jbyte*>(b));
+}
+
 static void pack(jbyte* d, jvalue v)
 {
 	*d = v.b;

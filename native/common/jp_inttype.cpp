@@ -355,6 +355,13 @@ void JPIntType::copyElements(JPJavaFrame &frame, jarray a, jsize start, jsize le
 	frame.GetIntArrayRegion((jintArray) a, start, len, b);
 }
 
+void JPIntType::setElements(JPJavaFrame &frame, jarray a, jsize start, jsize len,
+		const void* memory, int offset)
+{
+	auto* b = (jint*) ((const char*) memory + offset);
+	frame.SetIntArrayRegion((jintArray) a, start, len, const_cast<jint*>(b));
+}
+
 static void pack(jint* d, jvalue v)
 {
 	*d = v.i;

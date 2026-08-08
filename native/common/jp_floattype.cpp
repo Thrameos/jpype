@@ -308,6 +308,13 @@ void JPFloatType::copyElements(JPJavaFrame &frame, jarray a, jsize start, jsize 
 	frame.GetFloatArrayRegion((jfloatArray) a, start, len, b);
 }
 
+void JPFloatType::setElements(JPJavaFrame &frame, jarray a, jsize start, jsize len,
+		const void* memory, int offset)
+{
+	auto* b = (jfloat*) ((const char*) memory + offset);
+	frame.SetFloatArrayRegion((jfloatArray) a, start, len, const_cast<jfloat*>(b));
+}
+
 static void pack(jfloat* d, jvalue v)
 {
 	*d = v.f;

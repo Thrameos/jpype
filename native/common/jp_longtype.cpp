@@ -310,6 +310,13 @@ void JPLongType::copyElements(JPJavaFrame &frame, jarray a, jsize start, jsize l
 	frame.GetLongArrayRegion((jlongArray) a, start, len, b);
 }
 
+void JPLongType::setElements(JPJavaFrame &frame, jarray a, jsize start, jsize len,
+		const void* memory, int offset)
+{
+	auto* b = (jlong*) ((const char*) memory + offset);
+	frame.SetLongArrayRegion((jlongArray) a, start, len, const_cast<jlong*>(b));
+}
+
 static void pack(jlong* d, jvalue v)
 {
 	*d = v.j;
