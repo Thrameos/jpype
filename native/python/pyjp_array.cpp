@@ -24,6 +24,92 @@ extern "C"
 {
 #endif
 
+// Native iterator for JArray (list(arr), for x in arr, tuple(arr), *arr,
+// comprehensions, ...). Deliberately NOT just relying on the sq_item slot
+// below plus CPython's generic PySeqIter fallback: PySeqIter detects the
+// end of iteration by calling sq_item one index past the end and
+// catching IndexError, and profiling found that raising *any* exception
+// while a JPJavaFrame is open and then popping that frame is expensive
+// here (thousands of futex calls per hit -- looks like JVM safepoint
+// synchronization triggered by the frame-pop/exception-state interaction,
+// not anything in jpype's own code) -- cheap for a real error, but much
+// too expensive to pay on every normal iteration's last step, and the
+// cost is worse than proportionally so for many small arrays (deep
+// multi-dimensional pulls) than for one large flat one. This type
+// mirrors CPython's own list/tuple iterators instead: an explicit length
+// check before ever calling into array access, returning NULL with *no*
+// exception set to signal a clean stop -- the same trick that lets
+// list/tuple iteration avoid exception-raising overhead entirely.
+struct PyJPArrayIter
+{
+	PyObject_HEAD
+	PyJPArray *m_Array; // strong ref, cleared once exhausted
+	Py_ssize_t m_Index;
+};
+
+static PyTypeObject *PyJPArrayIter_Type = nullptr;
+
+static void PyJPArrayIter_dealloc(PyJPArrayIter *self)
+{
+	Py_CLEAR(self->m_Array);
+	Py_TYPE(self)->tp_free(self);
+}
+
+static PyObject *PyJPArrayIter_iter(PyObject *self)
+{
+	Py_INCREF(self);
+	return self;
+}
+
+static PyObject *PyJPArrayIter_next(PyJPArrayIter *self)
+{
+	JP_PY_TRY("PyJPArrayIter_next");
+	if (self->m_Array == nullptr)
+		return nullptr; // already exhausted
+	JPJavaFrame frame = JPJavaFrame::outer();
+	JPArray *array = self->m_Array->m_Array;
+	if (array == nullptr || self->m_Index >= array->getLength())
+	{
+		// Clean stop, no exception -- see the design note above.
+		Py_CLEAR(self->m_Array);
+		return nullptr;
+	}
+	PyObject *result = array->getItem((jsize) self->m_Index).keep();
+	self->m_Index++;
+	return result;
+	JP_PY_CATCH(nullptr);
+}
+
+static PyType_Slot arrayIterSlots[] = {
+	{ Py_tp_dealloc, (void*) PyJPArrayIter_dealloc},
+	{ Py_tp_iter,	 (void*) PyJPArrayIter_iter},
+	{ Py_tp_iternext, (void*) PyJPArrayIter_next},
+	{0}
+};
+
+static PyType_Spec arrayIterSpec = {
+	"_jpype._JArrayIterator",
+	sizeof (PyJPArrayIter),
+	0,
+	Py_TPFLAGS_DEFAULT,
+	arrayIterSlots
+};
+
+static PyObject *PyJPArray_iter(PyJPArray *self)
+{
+	JP_PY_TRY("PyJPArray_iter");
+	if (self->m_Array == nullptr)
+		JP_RAISE(PyExc_ValueError, "Null array");
+	auto *it = (PyJPArrayIter*) PyJPArrayIter_Type->tp_alloc(PyJPArrayIter_Type, 0);
+	if (it == nullptr)
+		return nullptr; // GCOVR_EXCL_LINE
+	Py_INCREF(self);
+	it->m_Array = self;
+	it->m_Index = 0;
+	return (PyObject*) it;
+	JP_PY_CATCH(nullptr);
+}
+
 /**
  * Create a new object.
  *
@@ -164,7 +250,30 @@ static PyObject *PyJPArray_sqItem(PyJPArray *self, Py_ssize_t index)
 	JPJavaFrame frame = JPJavaFrame::outer();
 	if (self->m_Array == nullptr)
 		JP_RAISE(PyExc_ValueError, "Null array");
-	return self->m_Array->getItem((jsize) index).keep();
+
+	// Bounds-check here, rather than letting JPArray::getItem's own check
+	// raise, because CPython's built-in PySeqIter (which drives
+	// list(arr)/for x in arr/tuple(arr)/etc -- see jpype/_jarray.py, no
+	// Python-level __iter__ defined on purpose) detects end-of-iteration
+	// by calling sq_item one index past the end and expecting IndexError.
+	// That happens once per array on the hot path, not just on genuine
+	// caller error -- but once per *innermost* array in a nested
+	// structure, so for a deep multi-dim pull it fires thousands of
+	// times. getItem's own out-of-bounds path goes through JP_RAISE (a
+	// real C++ throw, caught by JP_PY_CATCH below) -- fine for a genuine
+	// error, too expensive to pay on every iteration's normal end.
+	// Confirmed by benchmark: without this check, multi-dim list() got
+	// *slower* after switching to the native iterator, not faster.
+	jsize length = self->m_Array->getLength();
+	Py_ssize_t ndx = index;
+	if (ndx < 0)
+		ndx += length;
+	if (ndx < 0 || ndx >= length)
+	{
+		PyErr_SetString(PyExc_IndexError, "array index out of bounds");
+		return nullptr;
+	}
+	return self->m_Array->getItem((jsize) ndx).keep();
 	JP_PY_CATCH(nullptr);
 }
 
@@ -507,6 +616,7 @@ static PyType_Slot arraySlots[] = {
 	{ Py_mp_subscript, (void*) &PyJPArray_getItem},
 	{ Py_sq_length,   (void*) &PyJPArray_len},
 	{ Py_sq_item,	 (void*) &PyJPArray_sqItem},
+	{ Py_tp_iter,	 (void*) &PyJPArray_iter},
 	{ Py_tp_getset,   (void*) &arrayGetSets},
 	{ Py_mp_ass_subscript, (void*) &PyJPArray_assignSubscript},
 #if PY_VERSION_HEX >= 0x03090000
@@ -588,6 +698,12 @@ void PyJPArray_initType(PyObject * module)
 	JP_PY_CHECK();
 	PyModule_AddObject(module, "_JArrayPrimitive",
 			(PyObject*) PyJPArrayPrimitive_Type);
+	JP_PY_CHECK();
+
+	// Internal only -- not added to the module namespace, mirrors how
+	// CPython doesn't expose list_iterator/tuple_iterator as builtins
+	// either. A plain heap type (no Java-wrapping machinery needed).
+	PyJPArrayIter_Type = (PyTypeObject*) PyType_FromSpec(&arrayIterSpec);
 	JP_PY_CHECK();
 }
 
