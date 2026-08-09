@@ -717,3 +717,108 @@ rest of this file (see this repo's CLAUDE.md); every script listed above
 executed to completion immediately before its numbers were recorded here.
 Full `test/jpypetest` suite: 1533 passed, 173 skipped, 0 failures (same
 baseline as before this phase, no regressions).
+
+## Phase 3.9: ragged-native list push for multi-dim primitive arrays, 2026-08-08
+
+Closes the one gap phase 3.1-3.8 deliberately left untouched: a *nested
+Python list* (as opposed to a buffer-protocol object) pushed into a
+multi-dimensional primitive array (`int[][]`, `double[][][]`, ...).
+`JPConversionRaggedSequence` (`jp_classhints.cpp`) replaces
+`JPClass::setArrayRange`'s redundant per-level verify+copy re-matching
+with one validation walk plus one encode walk, for `int`/`long`/`float`/
+`double` leaf types at depth >= 2 -- see `plan/ArrayTransferPhase3.md`'s
+Phase 3.9 section for the full design. Ragged (jagged) input was in scope
+from the start, not deferred; `array_ragged.py` (new) measures it
+directly rather than assuming a rectangular-only result generalizes.
+
+All numbers below: ns/call, best-of-5, `array-transfer-phase3`, jpype
+only, same-session before/after pairs (both measured back-to-back on this
+branch: `git checkout` to the commit immediately before phase 3.9
+(`1c7d67d3`) for "before", rebuilt from clean CMake state per this repo's
+CLAUDE.md, then `git checkout array-transfer-phase3` and rebuilt again for
+"after" -- not mixed with the differently-dated numbers recorded earlier
+in this file, to rule out session-to-session machine noise as an
+explanation for the difference).
+
+**push, list->array, rectangular** (`array_multidim.py`,
+`sum{2,3,4,5}DIntArray(nested_list)`, `int[]...[]`, 10\*\*dims elements):
+
+| dims | before | after | change |
+|---:|---:|---:|---:|
+| 2 | 15,242 | 5,473 | -64% |
+| 3 | 227,477 | 44,685 | -80% |
+| 4 | 3,037,302 | 432,827 | -86% |
+| 5 | 38,073,160 | 4,178,878 | -89% |
+
+**push, list->array, ragged** (`array_ragged.py`, new -- sibling lengths
+vary uniformly at every level, fixed seed so before/after trees are
+byte-for-byte identical; "n" is the tree's actual total element count,
+not exactly 10\*\*dims since branching varies):
+
+| dims | n | before | after | change |
+|---:|---:|---:|---:|---:|
+| 2 | 53 | 9,257 | 3,607 | -61% |
+| 3 | 1,034 | 236,382 | 47,997 | -80% |
+| 4 | 8,073 | 2,477,692 | 368,839 | -85% |
+| 5 | 114,940 | 44,211,172 | 5,267,672 | -88% |
+
+Ragged input improves by essentially the same margin as rectangular at
+every depth -- the per-node marker overhead the design doc's "Expected
+impact" section flagged as a plausible reason for ragged to win less than
+rectangular turns out not to be a meaningfully large cost in practice; the
+redundant matches/verify/copy recursion this phase removes dominates the
+total either way, ragged or not.
+
+**push, list->array vs. `list->array(np.array())`** -- how close the new
+path comes to phase 3.3's "build one buffer, then bulk-push it" reference
+point, which was always understood as an upper bound (real per-Python-
+element work still has to happen once; the new path just stops paying for
+it 2-3x over):
+
+| dims | list->array (after) | via np.array() | gap |
+|---:|---:|---:|---:|
+| 2 | 5,473 | 5,385 | +2% |
+| 3 | 44,685 | 35,306 | +27% |
+| 4 | 432,827 | 336,274 | +29% |
+| 5 | 4,178,878 | 3,273,138 | +28% |
+
+At 2D the new path is effectively at parity with the buffer-first
+reference; the remaining ~27-29% gap at deeper levels is the cost of one
+`int32` marker write per tree node plus per-element `PyLong_AsLong`/
+`PyFloat_AsDouble` extraction happening inside `convert()` itself rather
+than delegating to `np.array()`'s own (also real, just not separately
+timed here) list-walk cost.
+
+**push, list->array vs. jpy/jep** -- the comparison that originally
+motivated this phase (`plan/ArrayTransferPhase3.md`: "7-22x slower than
+jpy/jep at depth"), jpy/jep columns unchanged from the standing
+"Multi-dimensional (2D-5D...)" table earlier in this file (this phase
+doesn't touch either library):
+
+| dims | jpype (after) | jpy | jep | jpype/jpy | jpype/jep |
+|---:|---:|---:|---:|---:|---:|
+| 2 | 5,473 | 2,226 | 5,914 | 2.5x | 0.93x |
+| 3 | 44,685 | 18,304 | 54,016 | 2.4x | 0.83x |
+| 4 | 432,827 | 179,039 | 536,362 | 2.4x | 0.81x |
+| 5 | 4,178,878 | 1,832,619 | 5,343,343 | 2.3x | 0.78x |
+
+jpype's `list->array` push now beats jep's at every depth tested (jep was
+1.1-1.3x faster before this phase), and the gap to jpy closes from
+7-22x down to a flat ~2.3-2.5x regardless of depth -- the depth-dependent
+blowup (7x at 2D growing to 22x at 5D) is specifically what the redundant
+per-level re-matching this phase removes was causing; what's left is a
+roughly constant per-element cost gap, consistent with jpy's own bulk
+native-extension implementation still doing less per-element work in C
+than CPython-level `PyLong_AsLong`/`PyFloat_AsDouble` extraction can.
+
+### Verification
+
+Same disposable-venv/from-clean-CMake-state protocol as the rest of this
+file. Both `array_multidim.py` and `array_ragged.py` were run twice at
+each of the "before"/"after" commits (a spot-check against exactly the
+kind of stale-build false alarm this repo's CLAUDE.md warns about); the
+pairs agreed within normal run-to-run noise (a few percent), not the
+large systematic swing a genuine stale-artifact contamination would
+produce. Full `test/jpypetest` suite on the "after" state: 1824 passed,
+173 skipped, 0 failures (the 28 new phase 3.9 cases plus the 1796
+pre-3.9 baseline, no regressions).
