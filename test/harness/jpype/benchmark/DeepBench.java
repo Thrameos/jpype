@@ -191,6 +191,23 @@ public class DeepBench
     return a;
   }
 
+  // long/float/double counterparts of identityIntArray -- same role, for
+  // sweeping element type through the non-contiguous-buffer benchmark.
+  public static long[] identityLongArray(long[] a)
+  {
+    return a;
+  }
+
+  public static float[] identityFloatArray(float[] a)
+  {
+    return a;
+  }
+
+  public static double[] identityDoubleArray(double[] a)
+  {
+    return a;
+  }
+
   public static long sumIntList(List<Integer> a)
   {
     long s = 0;
@@ -199,13 +216,16 @@ public class DeepBench
     return s;
   }
 
-  // Overloads differing only in array leaf element type -- for
-  // plan/ArrayTransferPhase3.md phase 3.9's raggedSequenceConversion
-  // regression coverage: confirms matches() correctly qualifies/
-  // disqualifies each candidate for a ragged plain-int nested list (no
-  // buffer built for either candidate, since that only happens in
-  // convert() for the winner) and JPMethodDispatch::findOverload still
-  // picks a single, deterministic overload rather than raising Ambiguous.
+  // Overloads differing only in array leaf element type -- regression
+  // coverage for ragged-native list-push overload matching: confirms
+  // matches() correctly qualifies/disqualifies each candidate for a
+  // ragged plain-int nested list (no buffer built for either candidate,
+  // since that only happens in convert() for the winner). int[][] and
+  // long[][] are unrelated Java types with no widening relationship, so
+  // a plain-int list qualifies both at equal quality and
+  // JPMethodDispatch::findOverload correctly raises Ambiguous, the same
+  // as it would for any other pair of equally-qualified, unrelated
+  // candidates.
   public static String overloadArrayType(int[][] a)
   {
     return "int";
@@ -311,6 +331,310 @@ public class DeepBench
   public static int[][][][][] make5DIntArray(int n)
   {
     int[][][][][] a = new int[n][n][n][n][n];
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+        for (int k = 0; k < n; k++)
+          for (int l = 0; l < n; l++)
+            for (int m = 0; m < n; m++)
+              a[i][j][k][l][m] = (((i * n + j) * n + k) * n + l) * n + m;
+    return a;
+  }
+
+  // long/float/double counterparts of the sum*IntArray/make*IntArray family
+  // above -- same shapes, same role, so the array conversion benchmarks can
+  // sweep element type (4/8-byte int, 4/8-byte float) as well as size/depth.
+
+  public static long sumLongArray(long[] a)
+  {
+    long s = 0;
+    for (long x : a)
+      s += x;
+    return s;
+  }
+
+  public static long sum2DLongArray(long[][] a)
+  {
+    long s = 0;
+    for (long[] row : a)
+      for (long x : row)
+        s += x;
+    return s;
+  }
+
+  public static long sum3DLongArray(long[][][] a)
+  {
+    long s = 0;
+    for (long[][] plane : a)
+      for (long[] row : plane)
+        for (long x : row)
+          s += x;
+    return s;
+  }
+
+  public static long sum4DLongArray(long[][][][] a)
+  {
+    long s = 0;
+    for (long[][][] cube : a)
+      for (long[][] plane : cube)
+        for (long[] row : plane)
+          for (long x : row)
+            s += x;
+    return s;
+  }
+
+  public static long sum5DLongArray(long[][][][][] a)
+  {
+    long s = 0;
+    for (long[][][][] hcube : a)
+      for (long[][][] cube : hcube)
+        for (long[][] plane : cube)
+          for (long[] row : plane)
+            for (long x : row)
+              s += x;
+    return s;
+  }
+
+  public static long[] makeLongArray(int n)
+  {
+    long[] a = new long[n];
+    for (int i = 0; i < n; i++)
+      a[i] = i;
+    return a;
+  }
+
+  public static long[][] make2DLongArray(int n)
+  {
+    long[][] a = new long[n][n];
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+        a[i][j] = i * n + j;
+    return a;
+  }
+
+  public static long[][][] make3DLongArray(int n)
+  {
+    long[][][] a = new long[n][n][n];
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+        for (int k = 0; k < n; k++)
+          a[i][j][k] = (i * n + j) * n + k;
+    return a;
+  }
+
+  public static long[][][][] make4DLongArray(int n)
+  {
+    long[][][][] a = new long[n][n][n][n];
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+        for (int k = 0; k < n; k++)
+          for (int l = 0; l < n; l++)
+            a[i][j][k][l] = ((i * n + j) * n + k) * n + l;
+    return a;
+  }
+
+  public static long[][][][][] make5DLongArray(int n)
+  {
+    long[][][][][] a = new long[n][n][n][n][n];
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+        for (int k = 0; k < n; k++)
+          for (int l = 0; l < n; l++)
+            for (int m = 0; m < n; m++)
+              a[i][j][k][l][m] = (((i * n + j) * n + k) * n + l) * n + m;
+    return a;
+  }
+
+  public static double sumFloatArray(float[] a)
+  {
+    double s = 0;
+    for (float x : a)
+      s += x;
+    return s;
+  }
+
+  public static double sum2DFloatArray(float[][] a)
+  {
+    double s = 0;
+    for (float[] row : a)
+      for (float x : row)
+        s += x;
+    return s;
+  }
+
+  public static double sum3DFloatArray(float[][][] a)
+  {
+    double s = 0;
+    for (float[][] plane : a)
+      for (float[] row : plane)
+        for (float x : row)
+          s += x;
+    return s;
+  }
+
+  public static double sum4DFloatArray(float[][][][] a)
+  {
+    double s = 0;
+    for (float[][][] cube : a)
+      for (float[][] plane : cube)
+        for (float[] row : plane)
+          for (float x : row)
+            s += x;
+    return s;
+  }
+
+  public static double sum5DFloatArray(float[][][][][] a)
+  {
+    double s = 0;
+    for (float[][][][] hcube : a)
+      for (float[][][] cube : hcube)
+        for (float[][] plane : cube)
+          for (float[] row : plane)
+            for (float x : row)
+              s += x;
+    return s;
+  }
+
+  public static float[] makeFloatArray(int n)
+  {
+    float[] a = new float[n];
+    for (int i = 0; i < n; i++)
+      a[i] = i;
+    return a;
+  }
+
+  public static float[][] make2DFloatArray(int n)
+  {
+    float[][] a = new float[n][n];
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+        a[i][j] = i * n + j;
+    return a;
+  }
+
+  public static float[][][] make3DFloatArray(int n)
+  {
+    float[][][] a = new float[n][n][n];
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+        for (int k = 0; k < n; k++)
+          a[i][j][k] = (i * n + j) * n + k;
+    return a;
+  }
+
+  public static float[][][][] make4DFloatArray(int n)
+  {
+    float[][][][] a = new float[n][n][n][n];
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+        for (int k = 0; k < n; k++)
+          for (int l = 0; l < n; l++)
+            a[i][j][k][l] = ((i * n + j) * n + k) * n + l;
+    return a;
+  }
+
+  public static float[][][][][] make5DFloatArray(int n)
+  {
+    float[][][][][] a = new float[n][n][n][n][n];
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+        for (int k = 0; k < n; k++)
+          for (int l = 0; l < n; l++)
+            for (int m = 0; m < n; m++)
+              a[i][j][k][l][m] = (((i * n + j) * n + k) * n + l) * n + m;
+    return a;
+  }
+
+  public static double sumDoubleArray(double[] a)
+  {
+    double s = 0;
+    for (double x : a)
+      s += x;
+    return s;
+  }
+
+  public static double sum2DDoubleArray(double[][] a)
+  {
+    double s = 0;
+    for (double[] row : a)
+      for (double x : row)
+        s += x;
+    return s;
+  }
+
+  public static double sum3DDoubleArray(double[][][] a)
+  {
+    double s = 0;
+    for (double[][] plane : a)
+      for (double[] row : plane)
+        for (double x : row)
+          s += x;
+    return s;
+  }
+
+  public static double sum4DDoubleArray(double[][][][] a)
+  {
+    double s = 0;
+    for (double[][][] cube : a)
+      for (double[][] plane : cube)
+        for (double[] row : plane)
+          for (double x : row)
+            s += x;
+    return s;
+  }
+
+  public static double sum5DDoubleArray(double[][][][][] a)
+  {
+    double s = 0;
+    for (double[][][][] hcube : a)
+      for (double[][][] cube : hcube)
+        for (double[][] plane : cube)
+          for (double[] row : plane)
+            for (double x : row)
+              s += x;
+    return s;
+  }
+
+  public static double[] makeDoubleArray(int n)
+  {
+    double[] a = new double[n];
+    for (int i = 0; i < n; i++)
+      a[i] = i;
+    return a;
+  }
+
+  public static double[][] make2DDoubleArray(int n)
+  {
+    double[][] a = new double[n][n];
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+        a[i][j] = i * n + j;
+    return a;
+  }
+
+  public static double[][][] make3DDoubleArray(int n)
+  {
+    double[][][] a = new double[n][n][n];
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+        for (int k = 0; k < n; k++)
+          a[i][j][k] = (i * n + j) * n + k;
+    return a;
+  }
+
+  public static double[][][][] make4DDoubleArray(int n)
+  {
+    double[][][][] a = new double[n][n][n][n];
+    for (int i = 0; i < n; i++)
+      for (int j = 0; j < n; j++)
+        for (int k = 0; k < n; k++)
+          for (int l = 0; l < n; l++)
+            a[i][j][k][l] = ((i * n + j) * n + k) * n + l;
+    return a;
+  }
+
+  public static double[][][][][] make5DDoubleArray(int n)
+  {
+    double[][][][][] a = new double[n][n][n][n][n];
     for (int i = 0; i < n; i++)
       for (int j = 0; j < n; j++)
         for (int k = 0; k < n; k++)

@@ -1,28 +1,23 @@
 """Ragged (jagged) nested-list push, JPype side, 2D through 5D --
-plan/ArrayTransferPhase3.md phase 3.9's primary target, and specifically
-the case array_multidim.py's `nested_list()` never exercises (every
-sibling length there is fixed at 10, so before phase 3.9 there was no
-recorded baseline anywhere for genuinely irregular input). Companion to
-array_multidim.py; same DeepBench.sum{2,3,4,5}DIntArray push entry point,
-but built from a tree whose branching factor varies at every level (fixed
-seed, so "before" and "after" runs against the same commit produce
-identical trees and therefore a fair per-call comparison) instead of a
-uniform 10-wide rectangular one.
+specifically the case array_multidim.py's `nested_list()` never
+exercises (every sibling length there is fixed at 10, so a genuinely
+irregular tree has no baseline there). Companion to array_multidim.py;
+same DeepBench.sum{2,3,4,5}D{Type}Array push entry point, but built from a
+tree whose branching factor varies at every level (fixed seed, so
+"before" and "after" runs against the same commit produce identical
+trees and therefore a fair per-call comparison) instead of a uniform
+10-wide rectangular one. Swept across the same four primitive element
+types (int32, int64, float32, float64) as array_flat.py/array_multidim.py.
 
-Before phase 3.9, JPConversionSequence handled ragged and rectangular
-input identically (no shape inspection at all, just per-element
-recursion) -- so the pre-3.9 numbers for a ragged tree of comparable
-total size are expected to land close to array_multidim.py's own
-pre-3.9 rectangular baseline, not a separate code path. Run this script
-before and after phase 3.9 (`git checkout <commit>`, rebuild, per
-CLAUDE.md) to confirm that directly rather than assume it.
+Writes project/benchmark/jpype/array_ragged_results.csv alongside the
+printed output.
 """
 import sys
 import os
 import random
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from _common import timeit, format_row
+from _common import timeit, format_row, CsvLog
 
 import jpype
 
@@ -31,12 +26,29 @@ jpype.startJVM(classpath=['test/classes', 'test/harness'])
 DeepBench = jpype.JClass('jpype.benchmark.DeepBench')
 
 DIMS = [2, 3, 4, 5]
-SUM_BY_DIMS = {
-    2: DeepBench.sum2DIntArray,
-    3: DeepBench.sum3DIntArray,
-    4: DeepBench.sum4DIntArray,
-    5: DeepBench.sum5DIntArray,
-}
+
+TYPES = [
+    ('int', {
+        2: DeepBench.sum2DIntArray, 3: DeepBench.sum3DIntArray,
+        4: DeepBench.sum4DIntArray, 5: DeepBench.sum5DIntArray,
+    }),
+    ('long', {
+        2: DeepBench.sum2DLongArray, 3: DeepBench.sum3DLongArray,
+        4: DeepBench.sum4DLongArray, 5: DeepBench.sum5DLongArray,
+    }),
+    ('float', {
+        2: DeepBench.sum2DFloatArray, 3: DeepBench.sum3DFloatArray,
+        4: DeepBench.sum4DFloatArray, 5: DeepBench.sum5DFloatArray,
+    }),
+    ('double', {
+        2: DeepBench.sum2DDoubleArray, 3: DeepBench.sum3DDoubleArray,
+        4: DeepBench.sum4DDoubleArray, 5: DeepBench.sum5DDoubleArray,
+    }),
+]
+
+csv_log = CsvLog(
+    os.path.join(os.path.dirname(__file__), 'array_ragged_results.csv'),
+    ['category', 'direction', 'source', 'dtype', 'dims', 'size', 'n', 'best_ns', 'median_ns'])
 
 
 def nested_list_ragged(dims, avg_n, seed=0):
@@ -66,19 +78,24 @@ def calls_for(total_elements):
     return n, warmup
 
 
-def run(name, fn, total_elements):
+def run(name, fn, total_elements, dtype, dims):
     n, warmup = calls_for(total_elements)
     best, median = timeit(fn, n=n, warmup=warmup)
     print(format_row(name, best, median))
+    csv_log.write(category='array_ragged', direction='push', source='list',
+                   dtype=dtype, dims=dims, size=total_elements, n=n,
+                   best_ns=best, median_ns=median)
 
 
-print("=== JPype: ragged list->array, multi-dimensional, push (Python -> Java) ===")
-for dims in DIMS:
-    lst = nested_list_ragged(dims, 10, seed=dims)
-    size = count_elements(lst, dims)
-    sumfn = SUM_BY_DIMS[dims]
-    print(f"  (dims={dims}, actual element count={size})")
-    run(f"ragged list->array int{'[]' * dims}(~10^{dims}), fresh",
-        lambda lst=lst, sumfn=sumfn: sumfn(lst), size)
+for label, SUM_BY_DIMS in TYPES:
+    print(f"=== JPype: ragged list->array, multi-dimensional, push (Python -> Java), {label} ===")
+    for dims in DIMS:
+        lst = nested_list_ragged(dims, 10, seed=dims)
+        size = count_elements(lst, dims)
+        sumfn = SUM_BY_DIMS[dims]
+        print(f"  (dims={dims}, actual element count={size})")
+        run(f"ragged list->array {label}{'[]' * dims}(~10^{dims}), fresh",
+            lambda lst=lst, sumfn=sumfn: sumfn(lst), size, label, dims)
 
+csv_log.close()
 jpype.shutdownJVM()
