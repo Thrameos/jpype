@@ -147,6 +147,63 @@ is touched.
 **pyjnius**: rejects all numpy input unconditionally regardless of
 dtype (established earlier) -- trivially safe, trivially incapable.
 
+### Non-contiguous buffer sources: another jpy gap, confirmed by the extended benchmark suite
+
+A numpy column slice or a transposed array is a fully valid
+buffer-protocol object -- it just can't offer a C-contiguous view.
+`project/benchmark/{jpype,jpy,jep,pyjnius}/array_noncontig.py` measures
+what happens when one is pushed as a Java array argument, at both flat
+(1D) and multi-dimensional depths, across all four primitive types.
+
+**jpy fails outright on the 1D case, for every type and every size**,
+confirmed by actually running it (not just predicted from source):
+`DeepBench.sumIntArray(non_contiguous_column)` raises `RuntimeError: no
+matching Java method overloads found`. Root cause (`jpy_jtype.c`,
+`JType_ConvertPyArgToJObjectArg`): jpy's flat-array buffer-argument path
+requests the source buffer with `flags = PyBUF_SIMPLE` -- no
+`PyBUF_ND`/`PyBUF_STRIDES` -- so numpy's own `bf_getbuffer` refuses the
+request against a non-contiguous array. What actually surfaces to the
+caller, though, isn't a buffer error at all: jpy's overload matcher
+appears to treat the failed buffer request as "argument doesn't match
+any candidate," so the exception reads like an overload-resolution
+problem with the *Java method signature*, not a contiguity problem with
+the *input array*. That's a materially worse failure mode than a direct
+`BufferError` would have been -- anyone hitting this has no clue from
+the error text alone that transposing or slicing their array is the fix.
+jpy's own multi-dimensional buffer argument matching is unaffected (an
+`int[][]`-or-deeper target never enters this buffer branch at all,
+confirmed both by source and by this run -- every transposed
+multi-dimensional case pushed correctly, same cost as the contiguous
+case).
+
+jpype handles a non-contiguous source correctly at every depth (this
+session's own non-contiguous-buffer fast-path fix, see
+`project/benchmark/RESULTS.md`).
+
+**jep handles the flat (1D) case correctly, through its real numpy fast
+path** -- confirmed by running `project/benchmark/jep/array_noncontig.py`:
+a non-contiguous column slice pushes successfully at every size and
+type, landing close to jep's own contiguous `buffer->array` numbers
+(e.g. `int[100000]`: 74,850ns non-contiguous vs. jep's contiguous
+`array_flat.py` push numbers in the same range) -- jep's numpy fast path
+does not require contiguity the way jpy's flat buffer-argument path does.
+**jep has no automatic multi-dimensional numpy push at all** (established
+earlier in this doc), so the ND/transposed case has no automatic path to
+test contiguity-handling on either -- the benchmark instead measures the
+same manual per-row assembly workaround used for jep's ordinary
+multi-dimensional `buffer->array` push (see the "Features jpype has that
+jep does not" table above), fed a transposed (non-contiguous) source per
+row; this completed successfully at every depth (e.g. `double[][][][][]`
+(10^5): 21.5M ns), consistent with jep's contiguous manual-assembly
+numbers at the same depth -- expected, since each per-row leaf call is
+itself a small, independently-contiguous 1D slice by construction, not a
+genuinely non-contiguous bulk read.
+
+pyjnius has no `buffer->array` push at any size or depth, contiguous or
+not (established earlier in this doc) -- there is no non-contiguous case
+to test for the same reason there's no contiguous one; its
+`array_noncontig.py` is an intentional stub, not a benchmark.
+
 ### Other
 
 | Feature | jpype | jpy | jep | pyjnius |

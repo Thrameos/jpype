@@ -21,8 +21,11 @@ one lives:
 | `object.py` | plain `Object` identity (arg + return) | yes | yes | yes | yes |
 | `dispatch.py` | overload resolution x16, mono + polymorphic | yes | yes | yes | yes |
 | `proxy.py` | established callback binding, int + Object arg | yes | -- | yes | int arg only\*\*\* |
-| `array_flat.py` | 1D list->array/buffer->array, 100/1k/10k/100k elements | yes | yes | yes | list->array only\*\*\*\* |
-| `array_multidim.py` | 2D-5D list->array/buffer->array, fixed element count | yes | yes | yes | list->array only\*\*\*\* |
+| `array_flat.py` | 1D list->array/buffer->array, 100/1k/10k/100k elements, int/long/float/double | yes | yes | yes | list->array only\*\*\*\* |
+| `array_multidim.py` | 2D-5D list->array/buffer->array, fixed element count, int/long/float/double | yes | yes | yes | list->array only\*\*\*\* |
+| `array_ragged.py` | ragged (irregular sibling-length) nested-list push, 2D-5D, int/long/float/double | yes | yes | yes | yes |
+| `array_noncontig.py` | non-contiguous numpy buffer push (column slice / transposed), flat + 2D-5D, int/long/float/double | yes | yes | yes | stub only\*\*\*\*\* |
+| `array_shape.py` | 2D/3D shape sweep at fixed total element count, push only, int/long/float/double | yes | yes | yes | list->array only\*\*\*\*\*\* |
 | `classhints.py` | `@JConversion` hint-list cache scan | yes | -- | -- | -- |
 
 `int.py`/`double.py`/`strings.py` are trivial single-overload JDK-builtin
@@ -66,6 +69,50 @@ multi-dimensional `buffer->array` push) not exist automatically at all --
 see the comments at the top of each script for specifics and, for jep,
 the manually-assembled workaround measured there instead.
 
+`array_ragged.py`, `array_noncontig.py`, and `array_shape.py` extend the
+flat/multidim sweeps along three more axes -- irregular (non-rectangular)
+nested-list shapes, non-contiguous numpy sources, and lopsided (row-heavy
+vs. column-heavy) 2D/3D shapes at a fixed total element count,
+respectively. `jpy/array_ragged.py` and `jpy/array_noncontig.py` port
+directly (jpy accepts buffer-protocol push arguments the same way jpype
+does), but see their docstrings for jpy-specific notes: jpy's per-element
+recursion has no ragged-vs-rectangular distinction to begin with (unlike
+jpype's ragged-native fast path), and jpy's buffer-argument matching
+(`JType_ConvertPyArgToJObjectArg`, jpy_jtype.c) requests `PyBUF_SIMPLE`
+with no strides support and only engages for a flat (not nested) target
+type -- source-level evidence that the 1D non-contiguous row there may
+error rather than degrade gracefully, not yet confirmed by an actual run.
+`jpy/array_shape.py` ports directly with no caveats -- it exercises the
+same list/buffer push paths already covered by array_flat.py/
+array_multidim.py.
+
+`jep/array_ragged.py` also ports directly, for the same reason as jpy's:
+jep's per-element push recursion (`pyfastsequence_as_jobject`) doesn't
+validate sibling-length uniformity before walking a nested list, so
+there's no ragged-vs-rectangular fast-path distinction on the jep side
+to even ask a question about -- see its docstring for how that's phrased
+(measured, not assumed). `jep/array_noncontig.py`'s flat (1D) row also
+ports directly and is a genuine test of jep's real numpy fast path's
+contiguity handling; its ND (transposed) row hits the same "jep's numpy
+fast path only targets flat 1D" limitation as `array_multidim.py`'s
+`buffer->array` push (see below), so it's routed through that same
+manual per-row assembly workaround instead, fed a transposed
+(non-contiguous) source so the per-row leaf calls themselves are
+non-contiguous -- see its docstring for the full reasoning.
+`jep/array_shape.py`'s `list->array` category ports directly; its
+`buffer->array` category hits the identical multi-dim limitation and
+also reuses the manual per-row assembly workaround, generalized to
+arbitrary (not just square) shapes.
+
+`pyjnius/array_ragged.py` ports directly too, with no caveat: ragged
+shape is a push-side, plain-nested-list concept (a numpy array can't
+even represent a ragged shape), and pyjnius's list->array push takes a
+plain nested Python list the same way any other library does, ragged or
+not -- there's no rectangular-only restriction to work around.
+`pyjnius/array_noncontig.py` and `pyjnius/array_shape.py` both run into
+pyjnius's `buffer->array` push limitation already described below for
+array_flat.py/array_multidim.py -- see \*\*\*\*\* and \*\*\*\*\*\*.
+
 \*\*\*\* **pyjnius has no `buffer->array` push at all, at any size or
 depth** -- confirmed empirically, not assumed: passing a numpy array
 where a Java array argument is expected raises `JavaException('Expecting
@@ -81,6 +128,26 @@ array object to convert afterward, so `array->list` there is just the
 raw return value, and `array->buffer` is that same value plus an extra
 `np.asarray()` step (never faster, since there's no bulk Java-array-to-
 numpy path to win with either).
+
+\*\*\*\*\* **`pyjnius/array_noncontig.py` is a stub with no benchmarks
+in it, on purpose.** array_noncontig.py's whole point (for jpype/jpy) is
+whether a non-contiguous buffer source hits a bulk buffer-read path or
+falls back to a slower per-element walk -- a question that presupposes a
+`buffer->array` push path exists to fall back *from*. pyjnius doesn't
+have one at all (see \*\*\*\* above), so a non-contiguous numpy source is
+rejected by the exact same unconditional `JavaException` a contiguous
+one is -- there's no degradation to measure, just a no-path. The file
+still exists (matching the one-file-per-category layout every other
+library follows) and prints an explanation when run directly, rather
+than being silently absent.
+
+\*\*\*\*\*\* **`pyjnius/array_shape.py` has only the `list->array` push
+category, not `list->array` + `buffer->array`.** Same root cause as
+\*\*\*\* above: pyjnius has no `buffer->array` push, so there's no
+shape-dependence question to ask about a push path that doesn't exist.
+The `list->array` category itself (the same `nested_list_shaped`
+helper, same `SHAPES_2D`/`SHAPES_3D` lists, same fixed-total-varying-
+shape point) ports directly with no other caveat.
 
 `classhints.py` is JPype-only (exercises the hint-list cache
 specifically; jpy/jep have no `@JConversion`-style extensible hint
@@ -198,6 +265,15 @@ PYTHONPATH="$JEP_PKG_PARENT" java -classpath "$CP" \
     -Djava.library.path="$JEP_LIB_DIR" jep.Run \
     project/benchmark/jep/dispatch.py /tmp/bench_jep_dispatch_results.txt
 cat /tmp/bench_jep_dispatch_results.txt
+
+# array_flat.py/array_multidim.py/array_ragged.py/array_noncontig.py/
+# array_shape.py additionally take an optional second arg, a CSV output
+# path (defaults to <category>_results.csv next to the first arg):
+PYTHONPATH="$JEP_PKG_PARENT" java -classpath "$CP" \
+    -Djava.library.path="$JEP_LIB_DIR" jep.Run \
+    project/benchmark/jep/array_shape.py \
+    /tmp/bench_jep_array_shape_results.txt \
+    /tmp/bench_jep_array_shape_results.csv
 ```
 
 ## pyjnius
