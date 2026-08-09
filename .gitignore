@@ -105,3 +105,7 @@ plan/
 project/issues
 project/pr
 project/codescan
+
+# Generated benchmark output (regenerate via project/benchmark/*/*.py; see
+# project/benchmark/README.md) -- not source, not committed.
+project/benchmark/**/*_results.csv
