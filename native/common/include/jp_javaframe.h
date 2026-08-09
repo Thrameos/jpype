@@ -51,6 +51,7 @@ class JPJavaFrame
 
 private:
 	JPJavaFrame(JNIEnv* env, int size, bool outer);
+	explicit JPJavaFrame(JNIEnv* env);  // fast(): no PushLocalFrame
 
 public:
 
@@ -97,6 +98,21 @@ public:
 	static JPJavaFrame external(JNIEnv* env, int size = LOCAL_FRAME_DEFAULT)
 	{
 		return {env, size, false};
+	}
+
+	/** Create a lightweight frame that does not push a JNI local frame.
+	 *
+	 * Only valid at call sites that are provably local-reference-free for
+	 * their entire duration (no `New*`-family JNI call, no
+	 * jobject-returning JNI call, no re-entry into Python). It borrows
+	 * whatever real frame already exists further up the call stack --
+	 * using fast() does not create a new safety scope of its own. See
+	 * plan/JavaFrameFast.md for the full rationale and the
+	 * JP_ASSERT_FAST_FRAMES build that checks this contract.
+	 */
+	static JPJavaFrame fast()
+	{
+		return JPJavaFrame((JNIEnv*) nullptr);
 	}
 
 	JPJavaFrame(const JPJavaFrame& frame);

@@ -78,6 +78,10 @@ if(ENABLE_TRACING)
     add_compile_definitions(JP_TRACING_ENABLE)
 endif()
 
+if(JP_ASSERT_FAST_FRAMES)
+    target_compile_definitions(_jpype PRIVATE JP_ASSERT_FAST_FRAMES)
+endif()
+
 # Bind coverage directly to the target
 if(ENABLE_COVERAGE AND NOT WIN32)
     message(STATUS "Adding coverage instrumentation flags to _jpype")

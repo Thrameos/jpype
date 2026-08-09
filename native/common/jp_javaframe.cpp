@@ -34,6 +34,26 @@ static void jpype_frame_check(int popped)
 #define JP_FRAME_CHECK() if (false) while (false)
 #endif
 
+// Real (pushed) JNI local frame depth on this thread. Only tracked in
+// JP_ASSERT_FAST_FRAMES builds -- used to verify every JPJavaFrame::fast()
+// call site is honest: fast() itself never touches this counter, it just
+// borrows whatever real frame (outer/inner/external/copy) already exists.
+// See plan/JavaFrameFast.md.
+#ifdef JP_ASSERT_FAST_FRAMES
+static thread_local int g_frameDepth = 0;
+
+static void jpype_assert_has_frame(const char* where)
+{
+	if (g_frameDepth == 0)
+		JP_RAISE(PyExc_SystemError,
+				(string(where) + " creates a local reference but was "
+				"called with no real JNI frame on this thread").c_str());
+}
+#define JP_ASSERT_HAS_FRAME(where) jpype_assert_has_frame(where)
+#else
+#define JP_ASSERT_HAS_FRAME(where) if (false) while (false)
+#endif
+
 JPJavaFrame::JPJavaFrame(JNIEnv* p_env, int size, bool outer)
 : m_Env(p_env), m_Popped(false), m_Outer(outer)
 {
@@ -53,7 +73,22 @@ JPJavaFrame::JPJavaFrame(JNIEnv* p_env, int size, bool outer)
 
 	// Create a memory management frame to live in
 	m_Env->PushLocalFrame(size);
+#ifdef JP_ASSERT_FAST_FRAMES
+	g_frameDepth++;
+#endif
 	JP_TRACE_JAVA("JavaFrame", (jobject) - 1);
+}
+
+JPJavaFrame::JPJavaFrame(JNIEnv* p_env)
+: m_Env(p_env), m_Popped(true), m_Outer(false)
+{
+	// fast(): deliberately does not push a local frame and does not touch
+	// g_frameDepth -- it borrows whatever real frame already exists. Using
+	// m_Popped=true from construction means the destructor's normal pop
+	// path is a no-op, matching that nothing was ever pushed here.
+	if (m_Env == nullptr)
+		m_Env = JPContext_global->getEnv();
+	JP_TRACE_JAVA("JavaFrame (fast)", (jobject) - 1);
 }
 
 JPJavaFrame::JPJavaFrame(const JPJavaFrame& frame)
@@ -61,6 +96,9 @@ JPJavaFrame::JPJavaFrame(const JPJavaFrame& frame)
 {
 	// Create a memory management frame to live in
 	m_Env->PushLocalFrame(LOCAL_FRAME_DEFAULT);
+#ifdef JP_ASSERT_FAST_FRAMES
+	g_frameDepth++;
+#endif
 	JP_TRACE_JAVA("JavaFrame (copy)", (jobject) - 1);
 }
 
@@ -76,6 +114,9 @@ jobject JPJavaFrame::keep(jobject obj)
 		JP_RAISE(PyExc_SystemError, "Keep on outer frame");
 	JP_FRAME_CHECK();
 	m_Popped = true;
+#ifdef JP_ASSERT_FAST_FRAMES
+	g_frameDepth--;
+#endif
 	JP_TRACE_JAVA("Keep", obj);
 	JP_TRACE_JAVA("~JavaFrame (keep)", (jobject) - 2);
 	obj = m_Env->PopLocalFrame(obj);
@@ -90,6 +131,9 @@ JPJavaFrame::~JPJavaFrame()
 	{
 		JP_TRACE_JAVA("~JavaFrame", (jobject) - 2);
 		m_Env->PopLocalFrame(nullptr);
+#ifdef JP_ASSERT_FAST_FRAMES
+		g_frameDepth--;
+#endif
 		JP_FRAME_CHECK();
 	}
 
@@ -126,6 +170,7 @@ void JPJavaFrame::DeleteWeakGlobalRef(jweak obj)
 
 jobject JPJavaFrame::NewLocalRef(jobject obj)
 {
+	JP_ASSERT_HAS_FRAME("JPJavaFrame::NewLocalRef");
 	JP_FRAME_CHECK();
 	JP_TRACE_JAVA("New local", obj);
 	obj = m_Env->NewLocalRef(obj);
@@ -194,6 +239,7 @@ jthrowable JPJavaFrame::ExceptionOccurred()
   check(); \
   return ret;
 #define JAVA_RETURN_OBJ(X,Y,Z) \
+  JP_ASSERT_HAS_FRAME(Y); \
   PyJPModuleFault_throw(compile_hash(Y)); \
   X ret = Z; \
   check(); \
@@ -209,6 +255,7 @@ jthrowable JPJavaFrame::ExceptionOccurred()
   check(); \
   return ret;
 #define JAVA_RETURN_OBJ(X,Y,Z) \
+  JP_ASSERT_HAS_FRAME(Y); \
   JP_FRAME_CHECK(); \
   X ret = Z; \
   JP_TRACE_JAVA(Y, ret); \
@@ -236,6 +283,7 @@ void JPJavaFrame::check()
 jobject JPJavaFrame::NewObjectA(jclass a0, jmethodID a1, jvalue* a2)
 {
 	jobject res;
+	JP_ASSERT_HAS_FRAME("JPJavaFrame::NewObjectA");
 	JP_FRAME_CHECK();
 
 	// Allocate the object
@@ -913,12 +961,14 @@ jfieldID JPJavaFrame::FromReflectedField(jobject a0)
 
 jclass JPJavaFrame::FindClass(const string& a0)
 {
+	JP_ASSERT_HAS_FRAME("JPJavaFrame::FindClass");
 	JAVA_RETURN(jclass, "JPJavaFrame::FindClass",
 			m_Env->FindClass(a0.c_str()));
 }
 
 jobjectArray JPJavaFrame::NewObjectArray(jsize a0, jclass elementClass, jobject initialElement)
 {
+	JP_ASSERT_HAS_FRAME("JPJavaFrame::NewObjectArray");
 	JAVA_RETURN(jobjectArray, "JPJavaFrame::NewObjectArray",
 			m_Env->NewObjectArray(a0, elementClass, initialElement));
 }
@@ -1021,6 +1071,7 @@ jsize JPJavaFrame::GetStringUTFLength(jstring a0)
 
 jclass JPJavaFrame::DefineClass(const char* a0, jobject a1, const jbyte* a2, jsize a3)
 {
+	JP_ASSERT_HAS_FRAME("JPJavaFrame::DefineClass");
 	JAVA_RETURN(jclass, "JPJavaFrame::DefineClass",
 			m_Env->DefineClass(a0, a1, a2, a3));
 }

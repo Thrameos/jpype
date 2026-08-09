@@ -116,7 +116,6 @@ void JPArray::setItem(jsize ndx, PyObject* val)
 
 JPPyObject JPArray::getItem(jsize ndx)
 {
-	JPJavaFrame frame = JPJavaFrame::outer();
 	JPClass* compType = m_Class->getComponentType();
 
 	if (ndx < 0)
@@ -127,6 +126,15 @@ JPPyObject JPArray::getItem(jsize ndx)
 		JP_RAISE(PyExc_IndexError, "array index out of bounds");
 	}
 
+	// Primitive element reads create no local Java references (see
+	// plan/JavaFrameFast.md), so they don't need a pushed frame -- object
+	// element reads (GetObjectArrayElement) do, and keep outer().
+	if (compType->isPrimitive())
+	{
+		JPJavaFrame frame = JPJavaFrame::fast();
+		return compType->getArrayItem(frame, m_Object.get(), m_Start + ndx * m_Step);
+	}
+	JPJavaFrame frame = JPJavaFrame::outer();
 	return compType->getArrayItem(frame, m_Object.get(), m_Start + ndx * m_Step);
 }
 
