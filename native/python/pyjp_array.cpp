@@ -158,6 +158,16 @@ static PyObject* PyJPArray_length(PyJPArray *self, PyObject *closure)
 	return PyLong_FromSsize_t(PyJPArray_len(self));
 }
 
+static PyObject *PyJPArray_sqItem(PyJPArray *self, Py_ssize_t index)
+{
+	JP_PY_TRY("PyJPArray_sqItem");
+	JPJavaFrame frame = JPJavaFrame::outer();
+	if (self->m_Array == nullptr)
+		JP_RAISE(PyExc_ValueError, "Null array");
+	return self->m_Array->getItem((jsize) index).keep();
+	JP_PY_CATCH(nullptr);
+}
+
 static PyObject *PyJPArray_getItem(PyJPArray *self, PyObject *item)
 {
 	JP_PY_TRY("PyJPArray_getArrayItem");
@@ -496,6 +506,7 @@ static PyType_Slot arraySlots[] = {
 	{ Py_tp_methods,  (void*) &arrayMethods},
 	{ Py_mp_subscript, (void*) &PyJPArray_getItem},
 	{ Py_sq_length,   (void*) &PyJPArray_len},
+	{ Py_sq_item,	 (void*) &PyJPArray_sqItem},
 	{ Py_tp_getset,   (void*) &arrayGetSets},
 	{ Py_mp_ass_subscript, (void*) &PyJPArray_assignSubscript},
 #if PY_VERSION_HEX >= 0x03090000

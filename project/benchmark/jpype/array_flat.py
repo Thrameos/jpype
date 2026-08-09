@@ -97,8 +97,8 @@ for label, dtype, sumfn, makefn in TYPES:
 
     print(f"=== JPype: array->list via tolist(), flat, pull (Java -> Python), {label} ===")
     # tolist(): one JNI critical section for the whole array instead of one
-    # JNI call per element via list()'s _JavaArrayIter -- same output,
-    # compare directly against the row above.
+    # JNI call per element via list()'s native sq_item iteration -- same
+    # output, compare directly against the row above.
     for size in SIZES:
         run(f"array->list.tolist() {label}[{size}]",
             lambda size=size, makefn=makefn: makefn(size).tolist(), size,

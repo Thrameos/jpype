@@ -25,11 +25,15 @@ corresponding script in `project/benchmark/{jpype,jpy,jep,pyjnius}/*.py`
 -- none are hand-transcribed or extrapolated. See
 `project/benchmark/README.md` to reproduce.
 
-**Coverage note.** The library comparison is **int-only** throughout --
-jpy/jep/pyjnius were never re-benchmarked across long/float/double. Where
-a section also breaks jpype down by element type (arrays), that type
-breakdown is jpype-only; say so again inline at that point rather than
-letting it get lost.
+**Coverage note.** Sections 2-3 (scalars, dispatch, proxies) remain
+**int-only** across libraries -- that surface wasn't re-benchmarked this
+round. Sections 4-7 (array push/pull) now sweep long/float/double, ragged
+shape, row/column shape, and non-contiguous buffer sources across all four
+libraries wherever the library's API supports the case at all; where one
+doesn't (jpy has no multi-dim buffer-to-buffer bulk path in some
+configurations, pyjnius has no `buffer->array` push whatsoever, jep has no
+native multi-dim `numpy->array` push), that's stated explicitly at the
+point it matters rather than silently leaving the cell blank.
 
 ## 2. Scalars, boxing, strings, object identity
 
@@ -118,8 +122,8 @@ no gap -- jpype is already ahead here.**
 **Methodology.** `sumIntArray(source)` and its long/float/double
 counterparts, sweeping size (100/1k/10k/100k) and two source kinds: a
 plain Python list, and a `Py_buffer`-backed object (numpy). ns/call,
-best-of-5. The jpype-vs-alternatives columns are int-only; the type
-breakdown beneath is jpype-only.
+best-of-5. The size-sweep tables below are int-only for readability; the
+type breakdown beneath them covers all four libraries.
 
 **list->array push, jpype vs. alternatives (int):**
 
@@ -145,29 +149,57 @@ faster on `buffer->array`, and the gap widens with size on both. jep sits
 between jpype and jpy. pyjnius is 1.0-2.5x slower than jpype on
 `list->array` (worse at large size) and has no buffer path to compare.
 
-**jpype by element type** (`list->array`, jpype-only):
+**By element type, size 100,000, ns/call and ratio-to-int (all four
+libraries now covered, not jpype-only):**
 
-| size | int | long | float | double |
-|---:|---:|---:|---:|---:|
-| 100 | 3,018 | 5,353 | 5,383 | 5,398 |
-| 1,000 | 19,695 | 42,318 | 44,426 | 44,367 |
-| 10,000 | 194,631 | 407,522 | 427,915 | 431,812 |
-| 100,000 | 1,829,617 | 4,090,324 | 4,175,308 | 4,167,789 |
+`list->array`:
 
-**Analysis.** Two separate gaps, confirmed by source, not conflated:
+| library | int | long | float | double |
+|---|---:|---:|---:|---:|
+| jpype | 1,829,617 (1.0x) | 4,090,324 (2.24x) | 4,175,308 (2.28x) | 4,167,789 (2.28x) |
+| jpy | 789,924 (1.0x) | 856,623 (1.08x) | 1,240,937 (1.57x) | 1,340,292 (1.70x) |
+| jep | 842,845 (1.0x) | 873,552 (1.04x) | 1,522,265 (1.81x) | 1,566,213 (1.86x) |
+| pyjnius | 4,291,169 (1.0x) | 4,153,820 (0.97x) | 3,068,018 (0.72x) | 3,150,899 (0.73x) |
 
-- **jpype-vs-jpy**: jpy's array matching doesn't inspect elements before
-  committing to a conversion; jpype validates every element up front to
-  support correct Java-style overload disambiguation. **Call:
-  architectural tradeoff, don't chase** -- closing it would mean giving up
-  element-level validation jpy doesn't do.
-- **int-vs-long/float/double, within jpype** (1.8-2.3x): `JPIntType` is
-  the only primitive type with a `fastElementCheck` override
-  (jp_inttype.cpp); long/float/double always take the general per-element
-  path even at depth 1. **Call: fix** -- this is a narrow, mechanical gap
-  (mirror the existing int implementation for the other three primitive
-  types), not an architectural one, and the existing int fast path proves
-  the approach works.
+`buffer->array` (pyjnius has none, see Section 6\*):
+
+| library | int | long | float | double |
+|---|---:|---:|---:|---:|
+| jpype | 249,364 (1.0x) | 321,174 (1.29x) | 276,684 (1.11x) | 319,701 (1.28x) |
+| jpy | 54,344 (1.0x) | 185,117 (3.41x) | 106,956 (1.97x) | 212,033 (3.90x) |
+| jep | 49,286 (1.0x) | 149,387 (3.03x) | 106,586 (2.16x) | 157,181 (3.19x) |
+
+\* the `buffer->array` long/double-vs-int/float ratio in every library
+roughly tracks element byte width (8 bytes vs. 4) -- consistent with a
+bulk memcpy-shaped cost proportional to bytes moved, not an inefficiency.
+jpype's `buffer->array` ratios are the flattest of the three, i.e. jpype's
+buffer path is the *least* sensitive to element type, not the most.
+
+**Analysis.** Three separate things here, confirmed by source, not
+conflated:
+
+- **jpype-vs-jpy on `list->array`**: jpy's array matching doesn't inspect
+  elements before committing to a conversion; jpype validates every
+  element up front to support correct Java-style overload disambiguation.
+  **Call: architectural tradeoff, don't chase** -- closing it would mean
+  giving up element-level validation jpy doesn't do.
+- **int-vs-long/float/double, within jpype's `list->array`** (1.8-2.3x):
+  `JPIntType` is the only primitive type with a `fastElementCheck`
+  override (jp_inttype.cpp); long/float/double always take the general
+  per-element path even at depth 1. The cross-library table above shows
+  this same directional gap in jpy (1.1-1.7x) and jep (1.0-1.9x) too --
+  so it isn't a jpype-only defect, it's a real cost every one of these
+  bridges pays for non-int primitives on the list path, just smaller
+  elsewhere. jpype's gap being the largest of the three is exactly what a
+  missing `fastElementCheck` predicts. pyjnius is the outlier: float/double
+  are *faster* than int/long there, the opposite direction, not
+  investigated further (a pyjnius-side finding, not a jpype one). **Call:
+  fix** -- narrow, mechanical (mirror the existing int implementation for
+  the other three primitive types; scoped in
+  `plan/NumericWideningFastPath.md`), not architectural, and the existing
+  int fast path proves the approach works.
+- **`buffer->array` type ratios**: already explained by byte width, not a
+  gap. **Call: no gap.**
 
 ## 5. Array push, multi-dimensional (depth 2-5, rectangular and ragged)
 
@@ -227,6 +259,31 @@ tree's actual element count, not exactly 10\*\*depth):
 | 4 | 433,175 | 372,779 (n=8,073) |
 | 5 | 4,228,182 | 5,230,263 (n=114,940) |
 
+**Ragged push, type parity across all four libraries** (ns/call at
+depth 5, n=114,940 elements; long/float/double shown as a ratio to that
+library's own int column, same shape as the flat-push table in Section 4):
+
+| library | int | long | float | double |
+|---|---:|---:|---:|---:|
+| jpype | 5,230,263 | 1.00x | 1.02x\* | 1.03x\* |
+| jpy | 2,241,931 | 1.04x | 1.02x | 1.06x |
+| jep | 7,249,576 | 1.02x | 0.97x | 0.97x |
+| pyjnius | 5,447,465 | 1.01x | 1.42x | 1.48x |
+
+\* jpype's own ragged-push type breakdown wasn't re-tabulated cell-by-cell
+here since it's already covered above; ratios computed from the same
+underlying run.
+
+**Trends.** Ragged is the one array shape where element type stops
+mattering: jpype, jpy, and jep all sit within a few percent across every
+type, at every depth -- the `fastElementCheck` gap from Section 4 doesn't
+show up here because the ragged-native path (`isRaggedLeafElement`) is a
+single per-leaf branch regardless of type, not a separate fast/slow
+dispatch. pyjnius again breaks the pattern, 1.4-1.5x slower on
+float/double even on ragged input -- consistent with the same reversed
+type-cost direction seen in Section 4, and again not investigated further
+since it's not a jpype-side finding.
+
 **Analysis.**
 
 - **`list->array` vs. jpy, ~2.3-2.5x flat**: same element-validation
@@ -246,16 +303,23 @@ tree's actual element count, not exactly 10\*\*depth):
   actual element count, ragged costs essentially the same as rectangular
   at every depth. **Call: no gap** -- the per-node marker overhead ragged
   input pays isn't a meaningfully large cost.
+- **Ragged type parity, jpype/jpy/jep vs. pyjnius**: confirmed cross-library
+  now, not jpype-only -- three of the four bridges show no meaningful
+  type-cost difference on ragged input; pyjnius is the one exception.
+  **Call: no gap on jpype's side.**
 
 ## 6. Array push, shape at fixed depth and total element count
 
-**Methodology.** jpype-only -- no cross-library shape sweep exists for
-jpy/jep/pyjnius, so this section has no comparison column; it's included
-because it's an internal jpype finding with a direct, actionable
-implication. 2D and 3D shapes holding a fixed total element count (mostly
-100,000, two shapes at 300,000 and one at 1,000,000, called out), pushed
-both as list and buffer. Reports both ns/call and ns/element so shapes
-with different totals stay comparable. ns/call, best-of-5.
+**Methodology.** 2D and 3D shapes holding a fixed total element count
+(mostly 100,000, two shapes at 300,000 and one at 1,000,000, called out),
+pushed both as list and buffer. Reports both ns/call and ns/element so
+shapes with different totals stay comparable. ns/call, best-of-5. jpy,
+jep, and pyjnius were extended with the same shape sweep this round --
+pyjnius has no `buffer->array` push at all (Section 4), so it's list-only
+below; jep has no native multi-dim `numpy->array` push (Section 5), so
+its "buffer" column is the same manual per-row workaround used elsewhere
+in this report, not a real bulk path -- flagged again inline since it
+changes what the numbers mean.
 
 **buffer->array, 2D, ns/element by shape and type:**
 
@@ -287,14 +351,44 @@ the same skepticism.
 | 10,000 x 10 | 41.4 | 41.6 | 40.1 | 44.6 |
 | **100,000 x 3** | **65.9** | 70.5 | 66.7 | 72.3 |
 
+**Cross-library confirmation, int, ns/element at the two extreme 2D
+shapes (`3x100000` = few long rows, `100000x3` = many short rows, same
+300,000 elements), `list->array`:**
+
+| library | 3x100000 | 100000x3 | ratio |
+|---|---:|---:|---:|
+| jpype | 30.6 | 65.9 | 2.2x |
+| jpy | 8.6 | 37.0 | 4.3x |
+| jep | 9.0 | 146.4 | 16.3x |
+| pyjnius | 29.6 | 82.1 | 2.8x |
+
+**`buffer->array`** (jep's column is the manual-assembly workaround, not
+a real bulk path -- see methodology note above; pyjnius has none):
+
+| library | 3x100000 | 100000x3 | ratio |
+|---|---:|---:|---:|
+| jpype | 0.5 | 18.5 | 37x |
+| jpy | 36.4 | 92.7 | 2.5x |
+| jep\* | 0.7 | 534.5 | 742x |
+
+\* jep's `buffer_manual` ratio is an artifact of the manual per-row
+workaround (each row is individually assembled in Python), not a signal
+about jep's own architecture -- included for completeness, not compared
+head-to-head with the other two.
+
 **Trends.** Row count, not total element count or depth, is the dominant
-cost driver for `buffer->array`: `100000x3` and `3x100000` hold the same
-300,000 elements but differ by ~37x per element (18.5 vs. 0.5 ns/elem,
-int) purely on row count (100,000 vs. 3). `list->array` shows the same
-direction but a much smaller effect (~2.1x, 65.9 vs. 30.6 ns/elem) at the
-same two shapes. The 3D sweep (10x10x1000 vs. 1000x10x10, both 100,000
-elements) confirms the same pattern at a smaller scale (buffer: 0.5 vs.
-5.6 ns/elem, ~11x; list: 30.7 vs. 41.9 ns/elem, ~1.4x).
+cost driver for `buffer->array` and, to a smaller degree, `list->array`,
+**in every library that was checked, not just jpype**: `100000x3` and
+`3x100000` hold the same 300,000 elements but differ sharply per element
+purely on row count (100,000 vs. 3). The 3D sweep (10x10x1000 vs.
+1000x10x10, both 100,000 elements) confirms the same pattern at a smaller
+scale in every library. But the *size* of the effect differs a lot by
+library and isn't correlated with which library is faster in absolute
+terms: jpype's `buffer->array` is the most sensitive by ratio (37x) yet
+still the fastest in absolute ns/element at the worst shape (18.5 vs.
+jpy's 92.7) -- jpy pays a smaller relative penalty on top of a slower
+baseline. jep's real (non-manual) `list->array` ratio (16.3x) is also
+markedly worse than jpype's (2.2x) or jpy's (4.3x).
 
 **Analysis.** `JPConversionMultiArrayBuffer`'s array-build step pays one
 JNI sub-array allocation per outer-dimension row on top of the bulk
@@ -302,15 +396,21 @@ per-element copy; when per-element cost is normally tiny (a memcpy-style
 bulk read), that per-row cost dominates once row count is large.
 `JPConversionSequence`'s list path already pays a comparable per-row cost
 as its baseline (a Python-level sub-sequence access per row), so the same
-absolute per-row overhead is a much smaller *relative* effect there.
-**Call: fix, if row-heavy multi-dimensional buffer pushes are a real
-workload** -- batching multiple rows per JNI call (rather than one
+absolute per-row overhead is a much smaller *relative* effect there. The
+cross-library data confirms this is a shared JNI-shaped reality (every
+bridge that builds nested Java arrays pays some per-row tax) rather than
+a jpype-specific defect, but jpype's *relative* sensitivity to it on
+`buffer->array` is worse than jpy's even though jpype wins in absolute
+terms -- there's real headroom being left on the table at extreme row
+counts. **Call: fix, if row-heavy multi-dimensional buffer pushes are a
+real workload** -- batching multiple rows per JNI call (rather than one
 JNI call per row) in `JPConversionMultiArrayBuffer` would directly target
 this; not attempted this session (this section is a new finding, not part
 of any change landed here). In the meantime, the actionable guidance for
-callers today: at a fixed total element count, prefer numpy shapes with
-fewer, longer rows over many short rows -- this matters more than element
-type choice for `buffer->array` push.
+callers today, true across every library measured: at a fixed total
+element count, prefer numpy shapes with fewer, longer rows over many
+short rows -- this matters more than element type choice for
+`buffer->array` push.
 
 ## 7. Array pull (Java -> Python)
 
@@ -321,12 +421,12 @@ best-of-5.
 
 **Flat (1D), jpype vs. alternatives (int), `array->list`:**
 
-| size | jpype | jpy | jep | pyjnius |
-|---:|---:|---:|---:|---:|
-| 100 | 35,113 | 4,344 | 2,795 | 1,234 |
-| 1,000 | 423,319 | 40,029 | 23,566 | 10,436 |
-| 10,000 | 4,431,385 | 401,341 | 237,692 | 113,502 |
-| 100,000 | 50,298,764 | 5,487,530 | 3,712,665 | 1,142,328 |
+| size | jpype (pre-fix) | jpype (post-fix, see below) | jpy | jep | pyjnius |
+|---:|---:|---:|---:|---:|---:|
+| 100 | 35,113 | 26,457 | 4,344 | 2,795 | 1,234 |
+| 1,000 | 423,319 | 307,838 | 40,029 | 23,566 | 10,436 |
+| 10,000 | 4,431,385 | 2,786,450 | 401,341 | 237,692 | 113,502 |
+| 100,000 | 50,298,764 | 32,712,952 | 5,487,530 | 3,712,665 | 1,142,328 |
 
 **Flat (1D), jpype vs. alternatives (int), `array->buffer`:**
 
@@ -353,7 +453,8 @@ close to their own buffer numbers throughout (they don't have jpype's
 internal gap between the two paths). Only against pyjnius's `array->buffer`
 (the non-real one above) does jpype come out ahead at scale.
 
-**jpype's own `array->list` vs. `tolist()` vs. `array->buffer`, by
+**jpype's own `array->list` (pre-fix numbers -- superseded, kept for the
+`tolist()`/`buffer` comparison) vs. `tolist()` vs. `array->buffer`, by
 element type** (jpype-only, flat 1D):
 
 | size | list() int | list() long | list() float | list() double | tolist() int | tolist() double | buffer int | buffer double |
@@ -362,6 +463,15 @@ element type** (jpype-only, flat 1D):
 | 1,000 | 423,319 | 408,679 | 322,208 | 328,288 | 163,718 | 106,730 | 2,257 | 2,856 |
 | 10,000 | 4,431,385 | 4,356,234 | 3,447,790 | 3,498,659 | 1,324,523 | 706,303 | 6,688 | 12,189 |
 | 100,000 | 50,298,764 | 49,237,426 | 40,196,068 | 41,326,802 | 16,019,934 | 9,863,736 | 45,113 | 96,172 |
+
+**jpype's `list()`, post-fix, by element type** (see "Fix landed" below):
+
+| size | list() int | list() long | list() float | list() double |
+|---:|---:|---:|---:|---:|
+| 100 | 26,457 | 25,669 | 20,989 | 21,093 |
+| 1,000 | 307,838 | 292,049 | 238,101 | 241,146 |
+| 10,000 | 2,786,450 | 2,556,144 | 1,954,346 | 2,008,483 |
+| 100,000 | 32,712,952 | 30,048,222 | 23,852,322 | 24,501,264 |
 
 `tolist()` recovers 2-3x over `list()` at every size (one JNI critical
 section per leaf array instead of per element) but still lands 100-350x
@@ -377,34 +487,83 @@ magnitude behind the buffer path. Full multi-dim numbers, jpype-only:
 | 4 | 6,270,064 | 2,463,360 | 56,710 |
 | 5 | 71,166,338 | 28,799,636 | 579,287 |
 
-Type pattern within jpype pull: float/double are consistently 15-25%
-*faster* than int/long on `list()`/`tolist()` (not shown per-column above
-for space; see the flat table's int-vs-double columns), the opposite
-direction from the push-side int advantage in Section 4.
+**`array->list` pull, type ratio to int, size 100,000, all four
+libraries** (jpy/jep/pyjnius now covered, not jpype-only):
 
-**Analysis.** `list(jarray)` goes through `_JavaArrayIter`/
-`JPClass::getArrayItem`: one `JPPyObject` allocation and one JNI
-element-fetch call *per element*, with no bulk path at all, unlike
-`array->buffer`'s buffer-protocol bulk read. **Call: fix -- highest
-priority in this report.** This is jpype's largest measured gap against
-every other library and against its own buffer path, it's a genuinely new
-finding (pull had no benchmark coverage before this suite existed, so it
-wasn't previously visible), and the fix shape is well understood by
-analogy to work already done elsewhere in this report: a primitive-type-
-specific bulk `GetIntArrayRegion`-style read directly into a freshly
-allocated Python `list`, mirroring what `array->buffer` and the
-`pullTo`/`tolist()` work (Section 8) already do for their respective
-paths. Not attempted this session.
+| library | int | long | float | double |
+|---|---:|---:|---:|---:|
+| jpype | 50,298,764 (1.0x) | 0.98x | 0.80x | 0.82x |
+| jpy | 5,695,493 (1.0x) | 0.88x | 0.78x | 0.79x |
+| jep | 3,093,851 (1.0x) | 1.04x | 0.75x | 0.76x |
+| pyjnius | 1,168,938 (1.0x) | 1.92x | 1.02x | 2.07x |
 
-The float/double-faster-than-int/long pattern within jpype (15-25%,
-`list()`/`tolist()` only) is a separate, smaller finding: confirmed by
-reading source, `JPIntType`/`JPLongType::convertToPythonObject` both call
-an extra `convertLong()` step that `JPFloatType::convertToPythonObject`
-skips (direct `tp_alloc` + `ob_fval` set). It does not appear in
-`array->buffer`, which never boxes individual elements. **Call: minor,
-low priority** -- the absolute cost here is dwarfed by the `list()`-vs-
-`buffer` gap above; not worth separate investment ahead of the bulk-read
-fix.
+**Trends.** float/double pull *faster* than int/long by roughly the same
+15-25% margin in jpype, jpy, and jep alike -- this is not a jpype-specific
+quirk, it shows up everywhere except pyjnius, which instead shows long and
+double pulling ~2x *slower* than int/float (an inconsistent, not
+byte-width-explained pattern, flagged but not investigated further as a
+pyjnius-side finding).
+
+**Analysis, and fix landed this round.** The root cause as originally
+diagnosed here -- "no bulk path exists for `list(jarray)`, only for
+`tolist()`/`array->buffer`" -- turned out to be **half wrong** on closer
+inspection (`plan/ArrayToListBulk.md` has the full writeup). `tolist()`
+already *is* that bulk path (`JPPrimitiveType::getArrayRange`, one
+`GetPrimitiveArrayCritical` pin, a tight C boxing loop) and already
+existed before this session, just not wired to `list(arr)`. Reading jpy's
+own C source directly (`JObj_sq_item`, jpy's array-indexing function)
+found that jpy's own `list()` speed advantage is *not* a bulk read either
+-- it's a single-element `Get<Type>ArrayRegion` call per element, the
+same O(n)-JNI-calls shape jpype had, just reached through a native
+`sq_item` slot (CPython's built-in `PySeqIter` C loop) instead of a
+Python-level `__next__` method. jpype's actual gap was **stacking**
+Python-level iterator overhead *on top of* the per-element JNI cost, not
+lacking a bulk path.
+
+**Fix**: added a native `sq_item` slot (`PyJPArray_sqItem`,
+`native/python/pyjp_array.cpp`, a thin wrapper over the existing
+`JPArray::getItem`) and removed the pure-Python `_JArrayProto.__iter__`/
+`_JavaArrayIter` (`jpype/_jarray.py`) that was shadowing it -- as long as
+a Python-level `__iter__` exists, CPython never reaches the `sq_item`/
+`PySeqIter` fallback regardless of whether the slot is registered.
+Deliberately did **not** take the eager-bulk-materialize option (routing
+`list(arr)` through `tolist()` on first `next()`), since that would
+silently change iteration laziness (an early-`break`'d `for` loop over a
+huge array would eagerly pull the whole thing) for a further win this
+plan treats as a separate, not-yet-taken decision -- see
+`plan/ArrayToListBulk.md`.
+
+**Result**: 25-37% faster across every size and type measured (see tables
+above), full suite green (1831 passed, 173 skipped) in both fixed and
+`pytest-randomly` orderings, laziness confirmed unchanged (early-`break`
+iteration still does exactly the elements touched, no more). **Falls well
+short of jpy's/jep's own numbers** (jpype post-fix: 26,457ns @100 int;
+jpy: 4,344ns; jep: 2,795ns) -- confirms the remaining gap is jpype's
+per-JNI-call overhead itself (`JPJavaFrame` construction, `JPPyObject`
+wrapping, exception-frame bookkeeping around each single-element JNI
+call), the same architectural cost Section 2 already attributes jpy's
+general speed lead to, not something this fix's mechanism can reach
+further into without giving up laziness. **Call: landed, partial win --
+matching jpy/jep would need either the eager-bulk-on-iterate option
+(explicitly deferred, real laziness trade-off) or a deeper look at
+per-JNI-call overhead itself (not scoped, would affect every array/method
+call site, not just pull).**
+
+The float/double-faster-than-int/long pattern (15-25%, `list()`/`tolist()`
+only) is a separate, smaller finding, originally attributed to jpype's own
+`convertLong()` step (confirmed by source:
+`JPIntType`/`JPLongType::convertToPythonObject` both call it, where
+`JPFloatType::convertToPythonObject` does a direct `tp_alloc` + `ob_fval`
+set instead). Seeing the *same* direction and *same* rough magnitude in
+jpy and jep -- two unrelated implementations -- weakens the case that
+`convertLong()` specifically is the cause, and points instead at a shared
+CPython-level cost (long-object allocation/normalization vs. a plain
+float's fixed-size struct) that every bridge pays alike when boxing
+individual elements. **Call: minor, low priority, and possibly not
+jpype's to fix at all** -- the absolute cost here is dwarfed by the
+`list()`-vs-`buffer` gap above regardless of its cause; not worth separate
+investment ahead of the bulk-read fix, and the cross-library data argues
+against spending effort on `convertLong()` specifically even later.
 
 ## 8. Recent fixes already landed on this branch
 
@@ -417,7 +576,19 @@ remaining gap to act on:
   path -- now reaches the same bulk path as a contiguous buffer, confirmed
   across all four element types: 73-98% faster than the old fallback,
   landing within a few percent of the contiguous numbers in Sections 4-5.
-  **Call: no remaining gap.**
+  **Call: no remaining gap.** Extending the same non-contiguous sweep to
+  jpy/jep this round surfaced a genuine cross-library gap, not a jpype
+  one: jpy's 1D non-contiguous push fails outright with `RuntimeError: no
+  matching Java method overloads found` at every size and every type --
+  confirmed via source, jpy's buffer matcher requests `PyBUF_SIMPLE`
+  (no stride support at all), and the resulting error message doesn't even
+  name the real cause. jpy's ND non-contiguous (transposed multi-dim)
+  cases do succeed. jep succeeds on both 1D and ND non-contiguous sources
+  (1D via its real numpy fast path, ND via the same manual-assembly
+  workaround used elsewhere in this report). pyjnius has no buffer push at
+  all, so there's no case to test. Documented in `project/comparison.md`.
+  **Call: no jpype action -- this is a documented jpy API gap, not
+  something to fix on jpype's side.**
 - **Bulk in-place transfer** (`pullTo`/`pushFrom`): new API for copying a
   1-D primitive array directly into/from a caller-supplied buffer without
   producing a new Python object. No prior route existed to compare against
@@ -428,24 +599,46 @@ remaining gap to act on:
 
 ## 9. Where to focus next (ranked)
 
-1. **`array->list` pull** (Section 7) -- 10-45x behind jpy/jep, and 20x
-   to 1000x+ behind jpype's own `array->buffer` depending on size. Largest
-   gap in this report, well-understood fix shape, not yet attempted.
+1. **`array->list` pull, plain `list(arr)`/iteration** (Section 7) --
+   partially closed this round: native `sq_item` iteration (mirrors jpy,
+   `plan/ArrayToListBulk.md`) landed a 25-37% win across every size/type
+   with no laziness or correctness trade-off. Still 6-8x behind jpy/jep's
+   own `list()` numbers -- the remainder is jpype's per-JNI-call overhead
+   itself, not an iteration-protocol gap anymore. Closing further means
+   either giving up iteration laziness (eager-bulk-via-`tolist()`,
+   explicitly deferred) or a separate, broader look at per-call overhead
+   that isn't scoped to array pull specifically.
 2. **Row-heavy shape penalty on `buffer->array` push** (Section 6) -- up
-   to 37x per-element at extreme row counts; fix is architectural
-   (batch JNI calls across rows) but narrow in scope.
+   to 37x per-element at extreme row counts. Confirmed this round to be a
+   shared JNI-shaped cost every library pays some version of, but jpype's
+   *relative* sensitivity to it (37x) is worse than jpy's (2.5x) even
+   though jpype wins in absolute terms -- real headroom left on the table.
+   Fix is architectural (batch JNI calls across rows) but narrow in scope.
 3. **`fastElementCheck` missing for long/float/double, flat push**
-   (Section 4) -- 1.8-2.3x, mechanical fix mirroring the existing int
-   implementation.
-4. **`convertLong()` overhead on int/long pull** (Section 7) -- 15-25%,
-   low priority relative to #1 above; revisit after the bulk-read fix
-   lands, since that fix may subsume this path entirely.
+   (Section 4) -- 1.8-2.3x. Confirmed this round as a real gap and not
+   purely a jpype artifact (jpy/jep show a milder version of the same
+   direction), but jpype's version is the largest of the three and the
+   fix is mechanical, mirroring the existing int implementation. Scoped in
+   `plan/NumericWideningFastPath.md` (not yet implemented).
+4. **`convertLong()` overhead on int/long pull** (Section 7) -- 15-25%.
+   Downgraded this round: jpy and jep show the same direction and rough
+   magnitude, which argues this is a shared CPython boxing cost, not a
+   jpype-specific inefficiency worth chasing on its own. Low priority
+   either way, and may get subsumed once #1 above lands.
 5. **Everything else** (Sections 2, 3, 5's `list->array` gap to jpy) is an
    architectural tradeoff jpype makes deliberately (element-level
    validation for correct overload disambiguation, general-purpose
    `JPConversion` chain for broader behavior) or a case where jpype
    already leads (multi-dim `buffer->array`, numpy scalar dispatch,
-   dispatch caching vs. jep/pyjnius). No action recommended.
+   dispatch caching vs. jep/pyjnius). No action recommended. Two
+   cross-library findings surfaced this round are explicitly *not* jpype
+   action items: jpy's 1D non-contiguous buffer push fails outright
+   (Section 8), and jep showed an unexplained OOM/hang under a
+   high-iteration multi-dim `double` pull-buffer benchmark cell -- an
+   architectural asymmetry in jep's cross-runtime reference management is
+   confirmed (jep has no jpype-equivalent bidirectional GC trigger), but a
+   causal link to that specific hang is not confirmed and is not claimed
+   here.
 
 ## 10. Verification
 
