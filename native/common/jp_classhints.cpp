@@ -266,7 +266,6 @@ public:
 		JP_TRACE_IN("JPTypeConversion::matches");
 		if (!PyObject_IsInstance(match.object, type_.get()))
 			return JPMatch::_none;
-		match.closure = cls;
 		match.conversion = this;
 		match.type = JPMatch::_none;
 		return JPMatch::_implicit; // Prevent further searching
