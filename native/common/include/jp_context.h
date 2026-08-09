@@ -111,7 +111,7 @@ public:
 	friend class JPJavaFrame;
 	friend class JPClass;
 	// Free functions in jp_exception.cpp used by the JPBaseError hierarchy's
-	// toPython()/toJava() (see jp_error.h / plan/ExceptionRefactor.md).
+	// toPython()/toJava() (see jp_error.h).
 	friend void convertJavaToPython(jthrowable th);
 	friend void convertPythonToJava(const char* mesg);
 

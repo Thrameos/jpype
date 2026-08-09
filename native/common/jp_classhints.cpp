@@ -506,8 +506,14 @@ public:
 		    (componentType == JPContext_global->_char || componentType == JPContext_global->_byte))
 			return match.type = JPMatch::_none;
 
-		// If is isn't a buffer we can skip
-		JPPyBuffer	buffer(match.object, PyBUF_ND | PyBUF_FORMAT);
+		// If is isn't a buffer we can skip. PyBUF_STRIDES (not just
+		// PyBUF_ND) so a non-contiguous 1D source (e.g. a numpy column
+		// slice) still qualifies here instead of falling back to
+		// sequenceConversion's per-element probing. setArrayRange (called
+		// from convert() below) already opens its own PyBUF_FULL_RO view
+		// and walks strides correctly regardless, so this only changes
+		// matches()'s cost/quality for a strided source, not convert()'s.
+		JPPyBuffer	buffer(match.object, PyBUF_STRIDES | PyBUF_FORMAT);
 		if (!buffer.valid())
 		{
 			PyErr_Clear();
@@ -595,11 +601,15 @@ public:
 		if (!PyObject_CheckBuffer(match.object))
 			return match.type = JPMatch::_none;
 
-		// Same flags as bufferConversion above: PyBUF_ND requires a
-		// C-contiguous view, so anything that can't provide one (e.g. a
-		// transposed numpy array) simply fails to match here and falls
-		// through to the general (always-correct) sequenceConversion.
-		JPPyBuffer buffer(match.object, PyBUF_ND | PyBUF_FORMAT);
+		// Same flags as bufferConversion above: PyBUF_STRIDES (not just
+		// PyBUF_ND) so a non-contiguous source (a transposed numpy array,
+		// a sliced sub-array, ...) still matches here instead of falling
+		// through to the fully general per-row sequenceConversion.
+		// convert() below already only takes its bulk DirectByteBuffer
+		// fast path when PyBuffer_IsContiguous holds; the non-contiguous
+		// case falls to newMultiArrayObject/convertMultiArrayObject,
+		// which already walks view.strides correctly at every dimension.
+		JPPyBuffer buffer(match.object, PyBUF_STRIDES | PyBUF_FORMAT);
 		if (!buffer.valid())
 		{
 			PyErr_Clear();
@@ -634,7 +644,7 @@ public:
 		auto *acls = (JPArrayClass *) match.closure;
 		JPPrimitiveType *pcls = acls->getMultiArrayLeaf();
 
-		JPPyBuffer buffer(match.object, PyBUF_ND | PyBUF_FORMAT);
+		JPPyBuffer buffer(match.object, PyBUF_STRIDES | PyBUF_FORMAT);
 		if (!buffer.valid())
 			JP_RAISE(PyExc_TypeError, "buffer protocol required");
 		Py_buffer &view = buffer.getView();
@@ -662,16 +672,15 @@ public:
 
 		jvalue res;
 
-		// Fast path (plan/ArrayTransferPhase3.md phase 3.6/3.7): whenever
-		// the source buffer's bytes can be turned into pcls's elements by
-		// some fixed, bulk-friendly operation -- raw reinterpret, a plain
-		// byte-swap, or half-precision decode -- hand its memory to Java
-		// as a single DirectByteBuffer and let Java do the entire reshape
-		// (no further JNI calls, so no per-leaf-array
-		// GetPrimitiveArrayCritical section). Falls back to the general
-		// per-leaf critical-section path below only for genuine dtype
-		// coercion (e.g. float64 -> int32), which still requires visiting
-		// every element through `converter`.
+		// Fast path: whenever the source buffer's bytes can be turned
+		// into pcls's elements by some fixed, bulk-friendly operation --
+		// raw reinterpret, a plain byte-swap, or half-precision decode --
+		// hand its memory to Java as a single DirectByteBuffer and let
+		// Java do the entire reshape (no further JNI calls, so no
+		// per-leaf-array GetPrimitiveArrayCritical section). Falls back
+		// to the general per-leaf critical-section path below only for
+		// genuine dtype coercion (e.g. float64 -> int32), which still
+		// requires visiting every element through `converter`.
 		JPRawTransferMode mode = classifyRawTransfer(converter, pcls, format, (int) view.itemsize, code);
 		if (mode != RAW_NONE && PyBuffer_IsContiguous(&view, 'C'))
 		{
@@ -691,9 +700,9 @@ public:
 
 // Ragged-native fast path for a nested Python list of int/long/float/double
 // being pushed into a multi-dimensional primitive array (int[][],
-// double[][][], ...) -- plan/ArrayTransferPhase3.md phase 3.9. Unlike
-// JPConversionMultiArrayBuffer above, there's no buffer-protocol
-// shape/stride/dtype to read off in one shot here: this is a genuine
+// double[][][], ...). Unlike JPConversionMultiArrayBuffer above, there's
+// no buffer-protocol shape/stride/dtype to read off in one shot here:
+// this is a genuine
 // Python list tree, so every leaf value still has to be visited once, no
 // matter what. What this conversion avoids is JPClass::setArrayRange's
 // redundant re-matching of the same elements (verify pass, then copy

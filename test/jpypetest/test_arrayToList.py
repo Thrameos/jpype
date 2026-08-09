@@ -18,10 +18,9 @@
 
 """
 Test for JArray.tolist() -- bulk-convert a Java array into a genuine
-Python list. Closes the `array->list` pull gap scoped in
-plan/ArrayToListBulk.md (phase 3.2 of plan/ArrayTransferPhase3.md):
-primitive arrays are read in one JNI critical section instead of one JNI
-call per element via list(arr)/_JavaArrayIter.
+Python list. Closes the `array->list` pull gap: primitive arrays are
+read in one JNI critical section instead of one JNI call per element via
+list(arr)/_JavaArrayIter.
 """
 
 import jpype

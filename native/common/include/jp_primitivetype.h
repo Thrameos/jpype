@@ -70,7 +70,7 @@ public:
 	 * Bulk-read a (possibly strided) range of a primitive array's elements
 	 * into a new Python list in one JNI critical section, instead of one
 	 * JNI call (getArrayItem) per element -- closes the `array->list` pull
-	 * gap (plan/ArrayToListBulk.md). Boxing itself (one PyObject per
+	 * gap. Boxing itself (one PyObject per
 	 * element) still happens per element, same as getArrayItem -- that
 	 * part is unavoidable for a real Python list -- but it reuses
 	 * convertToPythonObject so behavior (including any registered host

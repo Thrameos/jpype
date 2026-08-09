@@ -17,13 +17,14 @@
 # *****************************************************************************
 
 """
-Correctness tests for the phase 3.9 ragged-native list push redesign
-(plan/ArrayTransferPhase3.md): JPConversionRaggedSequence's fast path for
-a nested Python list of int/long/float/double being pushed into a
-multi-dimensional primitive array, at depth >= 2. Covers rectangular and
-genuinely ragged (jagged) input at multiple depths/types, the scope
-boundary (short/byte/char/boolean must stay on the untouched, existing
-path), the mixed-type fallback, and overload disambiguation.
+Correctness tests for pushing a nested (rectangular or genuinely ragged)
+Python list into a multi-dimensional primitive Java array -- what the
+API guarantees the caller regardless of which internal conversion
+handles it. Covers rectangular and genuinely ragged (jagged) input at
+multiple depths/types, the type-widening rules (bool implicitly widens
+to int, an incompatible element type raises TypeError) at both depth
+>= 2 and flat (1D) depth, the leaf-type scope boundary (short/byte/char/
+boolean must be unaffected), and overload disambiguation.
 """
 
 import jpype
@@ -91,12 +92,13 @@ class ArrayRaggedPushTestCase(common.JPypeTestCase):
         expected = sum(x for p in data for r in p for x in r)
         self.assertEqual(self.DeepBench.sum3DIntArray(data), expected)
 
-    # ---- genuinely ragged (jagged) input -- the primary target of this
-    # phase, not deferred ----
+    # ---- genuinely ragged (jagged) input, fully supported (not just
+    # rectangular arrays with a jagged fallback) ----
 
     def testRaggedInt3DWorkedExample(self):
-        # The exact worked example from the phase 3.9 design doc's wire
-        # format section.
+        # Sibling sub-lists at both the outer and middle level differ in
+        # length, and the leaf lengths vary too -- a compact worked
+        # example covering ragged branching at every level at once.
         data = [[[1, 2], [3]], [[4, 5, 6]]]
         ja = JArray(JInt, 3)(data)
         self.assertEqual(to_nested_list(ja), data)
@@ -227,3 +229,29 @@ class ArrayRaggedPushTestCase(common.JPypeTestCase):
         data = [[1, 2], [3]]
         with self.assertRaises(TypeError):
             self.DeepBench.overloadArrayType(data)
+
+    # ---- flat (1D) list push: the same type-widening contract users get
+    # at depth >= 2 above (bool implicitly widens to int; a genuinely
+    # incompatible element type raises TypeError) must also hold one
+    # dimension down, regardless of which conversion happens to implement
+    # it internally. Not already covered elsewhere for a flat list --
+    # unlike empty/single-element flat-list construction, already covered
+    # verbatim in test_arrayPullPush.py/test_arrayToList.py. ----
+
+    def testFlatMixedIntThenBoolFallsBackAndSucceeds(self):
+        # bool is a subclass of int but fails PyLong_CheckExact -- the
+        # fast per-list-of-exact-ints path in JPIntType::setArrayRange
+        # breaks out on it, falling to the general per-element path,
+        # which does accept it (bool -> int is a valid implicit
+        # conversion there).
+        data = [1, 2, True, 4]
+        ja = JArray(JInt, 1)(data)
+        self.assertEqual(to_nested_list(ja), [1, 2, 1, 4])
+
+    def testFlatMixedIntThenFloatRaises(self):
+        with self.assertRaises(TypeError):
+            JArray(JInt, 1)([1, 2, 4.5])
+
+    def testFlatMixedIntThenStringRaises(self):
+        with self.assertRaises(TypeError):
+            JArray(JInt, 1)([1, 2, "x"])

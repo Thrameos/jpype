@@ -17,18 +17,18 @@
 # *****************************************************************************
 
 """
-Correctness tests for the phase 3.6 buffer-handoff push/pull redesign
-(plan/ArrayTransferPhase3.md): JPConversionMultiArrayBuffer's fast path
-(numpy multi-dim -> Java array, direct-buffer handoff + pure-Java
-reshape) and JPArrayView's fast fill (Java multi-dim array -> numpy,
-same idea reversed). test_buffer.py already covers per-type pull
-(np.asarray) and construction-time push at 1D-3D for every primitive
-type; this file targets what's specific to the redesign and not already
-exercised there: argument-conversion push (JPConversionMultiArrayBuffer
-fires for a declared array-typed *method parameter*, not the JArray(...)
-constructor path) at depths up to 5, the dtype-mismatch fallback
-(general converter path, not the new fast path), and large arrays that
-cross the internal parallel-vs-serial threshold on both sides.
+Correctness tests for pushing/pulling a numpy (buffer-protocol) array
+into/out of a multi-dimensional primitive Java array: matching-dtype
+bulk transfer, the dtype-mismatch fallback (a real per-element
+conversion, e.g. float64 -> int32), non-contiguous sources (transposed
+or strided views, which must not silently reinterpret the wrong bytes),
+byte-swapped/float16 sources, and large arrays that cross the internal
+parallel-vs-serial threshold on both sides. test_buffer.py already
+covers per-type pull (np.asarray) and construction-time push at 1D-3D
+for every primitive type; this file targets what's not already
+exercised there: argument-conversion push (a declared array-typed
+*method parameter*, not the JArray(...) constructor path) at depths up
+to 5, and the cases above.
 """
 
 import jpype
@@ -95,6 +95,49 @@ class ArrayMultiDimBufferTestCase(common.JPypeTestCase):
         arr = base.T
         self.assertFalse(arr.flags['C_CONTIGUOUS'])
         self.assertEqual(self.DeepBench.sum2DIntArray(arr), int(arr.sum()))
+
+    # ---- push: a non-contiguous source (transposed, or a strided slice)
+    # is a fully valid buffer-protocol object and must push correctly,
+    # via a bulk path rather than falling all the way back to a fully
+    # general per-row/per-element walk. Sum alone can't catch a
+    # misindexed reshape (same total either way, per
+    # testPushValuesLandCorrectly's own comment above), so these
+    # round-trip elementwise instead. ----
+
+    def testPushNonContiguousValuesLandCorrectly2D(self):
+        base = np.arange(16, dtype=np.int32).reshape(4, 4)
+        arr = base.T
+        self.assertFalse(arr.flags['C_CONTIGUOUS'])
+        ja = JArray(JInt, 2)(arr)
+        back = np.asarray(ja)
+        np.testing.assert_array_equal(back, arr)
+
+    def testPushNonContiguousValuesLandCorrectly3D(self):
+        base = np.arange(60, dtype=np.int32).reshape(3, 4, 5)
+        arr = np.transpose(base, (2, 0, 1))
+        self.assertFalse(arr.flags['C_CONTIGUOUS'])
+        ja = JArray(JInt, 3)(arr)
+        back = np.asarray(ja)
+        np.testing.assert_array_equal(back, arr)
+
+    def testPushNonContiguousStridedSlice2D(self):
+        base = np.arange(100, dtype=np.int32).reshape(10, 10)
+        arr = base[::2, ::2]
+        self.assertFalse(arr.flags['C_CONTIGUOUS'])
+        ja = JArray(JInt, 2)(arr)
+        back = np.asarray(ja)
+        np.testing.assert_array_equal(back, arr)
+
+    def testPushNonContiguous1DColumn(self):
+        # 1D case, one dimension down from the ND tests above: a numpy
+        # column slice has a non-unit stride, so this exercises the same
+        # non-contiguous-source-must-still-match-the-buffer-path
+        # requirement for a flat array argument.
+        base = np.arange(20, dtype=np.int32).reshape(4, 5)
+        col = base[:, 2]
+        self.assertFalse(col.flags['C_CONTIGUOUS'])
+        result = self.DeepBench.identityIntArray(col)
+        np.testing.assert_array_equal(np.asarray(result), col)
 
     # ---- push: byte-swapped / float16 (RAW_SWAPPED, RAW_HALF_* bulk fast
     # paths in JPConversionMultiArrayBuffer -- classifyRawTransfer routes

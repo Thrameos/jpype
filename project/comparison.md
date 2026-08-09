@@ -459,8 +459,8 @@ METHODS = {
 own method names* (`addFirst`/`removeFirst`), so Java code gets a
 collection that feels native, backed transparently by the real Python
 object. jpype ships five built-in providers this way already (not
-hypothetical -- 27 `.pyspi` files, 475/475 tests passing per
-`plan/archive/SPI.md`'s status line): `python.io` (the full `io`/`_io`
+hypothetical -- 27 `.pyspi` files, 475/475 tests passing): `python.io`
+(the full `io`/`_io`
 hierarchy -- `BytesIO`/`StringIO`/`FileIO`/`BufferedReader`/`Writer`/
 `TextIOWrapper`/etc.), `python.collections` (`ChainMap`/`Counter`/
 `OrderedDict`/`defaultdict`/`deque`), `python.datetime` (`date`/

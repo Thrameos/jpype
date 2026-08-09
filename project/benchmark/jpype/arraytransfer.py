@@ -1,9 +1,8 @@
-"""Bulk array-transfer primitives added in the phase-3 array transfer
-effort (plan/ArrayTransferPhase3.md): JArray.pullTo()/pushFrom() (both
+"""Bulk array-transfer primitives: JArray.pullTo()/pushFrom() (both
 1-D primitive arrays only -- dest/src need only match total element
-count, not shape), pushFrom's byte-swapped/float16 converting fast path
-(phase 3.7), direct-buffer sharing, zero-copy slicing, and 2D bulk
-transfer via collectRectangular.
+count, not shape), pushFrom's byte-swapped/float16 converting fast path,
+direct-buffer sharing, zero-copy slicing, and 2D bulk transfer via
+collectRectangular.
 
 Adapted from `reverse`'s benchmark/arraybench/ (bench_array.py's four
 models), which drove these from Java through reverse's Java-to-Python
@@ -93,12 +92,12 @@ for size in SIZES:
             return dest[0]
         run(f"naive per-element double[{size}]", naive_fill, size)
 
-# ---- Model 1c: pushFrom converting fast path (phase 3.7) ----
+# ---- Model 1c: pushFrom converting fast path ----
 # Non-native-byte-order and float16 sources used to fall all the way back
 # to a scalar converter()/pack() loop, one GetPrimitiveArrayCritical pair
 # per call, same as the dtype-matching path had before pushFrom existed.
-# Phase 3.7 extended the bulk fast path to cover both in a single JNI
-# crossing -- compare directly against the matching-dtype row above.
+# The bulk fast path now covers both in a single JNI crossing -- compare
+# directly against the matching-dtype row above.
 
 print("=== JPype: pushFrom converting fast path (byte-swapped / float16) ===")
 for size in SIZES:

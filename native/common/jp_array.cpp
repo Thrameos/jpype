@@ -317,8 +317,7 @@ JPArrayView::JPArrayView(JPArray* array, jobject collection)
 	m_Memory = new char[sz];
 	m_Owned = true;
 
-	// Phase 3.6 (plan/ArrayTransferPhase3.md): a single JNI entry into
-	// Support.collectToBuffer instead of one reflective
+	// A single JNI entry into Support.collectToBuffer instead of one reflective
 	// GetObjectArrayElement plus one Get<Type>ArrayRegion (via
 	// copyElements) per leaf array -- the whole remaining-elements walk
 	// and bulk write into m_Memory happens in pure Java (including the

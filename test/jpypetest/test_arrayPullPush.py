@@ -21,9 +21,9 @@ Tests for JArray.pullTo()/JArray.pushFrom() -- bulk-copy a Java primitive
 array's elements out to a caller-supplied writable buffer, and the mirror
 operation, bulk-copying a caller-supplied readable buffer's elements into
 an existing Java primitive array in place. pullTo was ported from the
-`reverse` branch as JArray.copyInto (plan/ArrayTransferPhase3.md); pushFrom
-and the naming (pullTo/pushFrom, matching the J2NI View.pull/push
-precedent) were added alongside the byte-order/float16 bulk fast path.
+`reverse` branch as JArray.copyInto; pushFrom and the naming
+(pullTo/pushFrom, matching the J2NI View.pull/push precedent) were added
+alongside the byte-order/float16 bulk fast path.
 """
 
 import jpype

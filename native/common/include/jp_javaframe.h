@@ -167,21 +167,21 @@ public:
 	jobject collectRectangular(jarray obj);
 	jobject assemble(jobject dims, jobject parts);
 
-	// Phase 3.6 buffer-handoff push/pull (plan/ArrayTransferPhase3.md) --
-	// single JNI entry into org.jpype.internal.Support, everything after
-	// that is plain Java (no per-leaf-array JNI calls), including the
-	// serial-vs-parallel decision -- Java already knows the total element
-	// count once the shape is in hand and has no less insight into
-	// IntStream/ForkJoinPool dispatch cost than C++ would, so that
-	// decision isn't threaded across the JNI boundary at all. `typeCode`
-	// is the JNI primitive type signature character (see
+	// Buffer-handoff multi-dim push/pull -- single JNI entry into
+	// org.jpype.internal.Support, everything after that is plain Java (no
+	// per-leaf-array JNI calls), including the serial-vs-parallel
+	// decision -- Java already knows the total element count once the
+	// shape is in hand and has no less insight into IntStream/
+	// ForkJoinPool dispatch cost than C++ would, so that decision isn't
+	// threaded across the JNI boundary at all. `typeCode` is the JNI
+	// primitive type signature character (see
 	// JPPrimitiveType::getTypeCode()); `buf` must be a direct
 	// java.nio.ByteBuffer.
 	jobject fillMultiArrayFromBuffer(char typeCode, jint mode, jobject buf, jintArray shape);
 	void collectMultiArrayToBuffer(char typeCode, jobject collected, jobject buf);
 
-	// Phase 3.9 ragged-native push (plan/ArrayTransferPhase3.md) -- same
-	// shape as fillMultiArrayFromBuffer above (single JNI entry into
+	// Ragged-native nested-list push -- same shape as
+	// fillMultiArrayFromBuffer above (single JNI entry into
 	// org.jpype.internal.Support, everything after that plain Java), but
 	// for a ragged tree (one int32 length marker per node, depth-first
 	// pre-order) rather than a fixed rectangular shape array. `buf` must

@@ -158,8 +158,8 @@ class JPStringType;
  *
  * Used to decide whether a multi-dim buffer push
  * (JPConversionMultiArrayBuffer) or a flat JArray.push can take a fast
- * direct-buffer-handoff path (plan/ArrayTransferPhase3.md phase 3.6/3.7)
- * instead of the general element-by-element converter path. `code` must be
+ * direct-buffer-handoff path instead of the general element-by-element
+ * converter path. `code` must be
  * the same target-code string already passed to the getConverter() call
  * that produced `converter`; `format`/`itemsize` are the source buffer's
  * own (`Py_buffer.format`/`Py_buffer.itemsize`).

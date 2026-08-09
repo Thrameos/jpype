@@ -52,8 +52,24 @@ JPMatch::Type JPArrayClass::findJavaConversionImpl(JPMatch &match)
 	JP_TRACE_IN("JPArrayClass::findJavaConversion");
 	// m_MultiArrayDepth < 2 covers every existing 1D array class (the vast
 	// majority of calls into this function) -- skip even calling into
-	// multiArrayBufferConversion for those so this addition costs nothing
-	// beyond one integer compare on the paths it doesn't apply to.
+	// multiArrayBufferConversion/raggedSequenceConversion for those so
+	// this addition costs nothing beyond one integer compare on the paths
+	// it doesn't apply to. raggedSequenceConversion's gate was tried at
+	// depth >= 1 and reverted after measuring it made flat int[] push
+	// ~50-70% *slower*, not faster (see RESULTS.md). Its
+	// remainingDepth==1 base case is mechanically reusable for a flat
+	// list, but there's no redundant-pass problem to fix there the way
+	// there is at depth >= 2: at depth 1, sequenceConversion::convert()
+	// calls the primitive-type-specific setArrayRange override (e.g.
+	// JPIntType::setArrayRange, a single JNI critical-pin + tight write
+	// loop, no verify/copy split) rather than JPClass::setArrayRange's
+	// generic non-primitive-component fallback (the actual source of the
+	// redundant re-matching this conversion fixes, which only fires when
+	// the component type is itself an array class, i.e. depth >= 2).
+	// Adding the ragged-native encode step at depth 1 only adds cost --
+	// an extra heap buffer, an extra NewDirectByteBuffer JNI call, and a
+	// reflection-based Array.newInstance on the Java side, none of which
+	// the old path pays -- with nothing to offset it.
 	if (nullConversion->matches(this, match)
 			|| objectConversion->matches(this, match)
 			|| charArrayConversion->matches(this, match)

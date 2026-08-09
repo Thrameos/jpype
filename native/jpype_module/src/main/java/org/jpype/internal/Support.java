@@ -164,7 +164,7 @@ class Support
     return parts;
   }
 
-  // ---- Phase 3.6 (plan/ArrayTransferPhase3.md): buffer-handoff push/pull.
+  // ---- Buffer-handoff multi-dim push/pull.
   //
   // Both methods below replace an O(leaf-array-count) JNI-call sequence
   // (one GetPrimitiveArrayCritical-pinned pack loop per leaf on push, one
@@ -690,7 +690,7 @@ class Support
     }
   }
 
-  // ---- Phase 3.9 (plan/ArrayTransferPhase3.md): ragged-native list push.
+  // ---- Ragged-native nested-list push.
   //
   // Counterpart to fillFromBuffer above, but for a *ragged* nested Python
   // list of int/long/float/double rather than a rectangular buffer-

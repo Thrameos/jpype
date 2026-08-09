@@ -577,12 +577,11 @@ isolated to just the null-argument call, once to confirm the non-null
 call doesn't crash) before being written up as a real bug rather than a
 one-off fluke.
 
-## Phase 3: bulk in-place array transfer (pullTo/pushFrom/tolist), 2026-08-08
+## Bulk in-place array transfer (pullTo/pushFrom/tolist), 2026-08-08
 
-Follow-on to the array work above, covering `plan/ArrayTransferPhase3.md`
-phases 3.1-3.7 (predecessor: #1457 "Caching multidim push", #1443 "Array
-copyInto"). Three new `JArray` methods, plus an internal redesign of the
-existing multi-dimensional buffer push/pull path:
+Follow-on to the array work above. Three new `JArray` methods, plus an
+internal redesign of the existing multi-dimensional buffer push/pull
+path:
 
 - **`pullTo(dest)`** -- bulk-copy a primitive array's elements out into a
   caller-supplied writable buffer (e.g. a preallocated numpy array).
@@ -590,25 +589,25 @@ existing multi-dimensional buffer push/pull path:
   not shape.
 - **`pushFrom(src)`** -- the mirror: bulk-fill an already-allocated
   1-D primitive array from a caller-supplied readable buffer. Also
-  extended (phase 3.7) to cover non-native-byte-order and `float16`
+  extended to cover non-native-byte-order and `float16`
   sources in the same single-JNI-crossing bulk path, instead of falling
   back to a scalar `converter()`/`pack()` loop.
 - **`tolist()`** -- bulk-convert a Java array into a genuine Python list;
   multi-dimensional primitive arrays produce genuinely nested lists. One
   JNI critical section per leaf array instead of one JNI call (plus one
   `JPPyObject` allocation) per element via `list(arr)`.
-- **Multi-dimensional buffer push/pull redesign (phase 3.6)** -- both
+- **Multi-dimensional buffer push/pull redesign** -- both
   directions of `numpy <-> int[][]...[]` (etc.) conversion now hand the
   whole buffer to Java in a single JNI call
   (`Support.fillMultiArrayFromBuffer`/`collectMultiArrayToBuffer`) and
   let Java do the reshape/copy in bulk, instead of one JNI call per leaf
   sub-array. This is the same underlying code path `array_multidim.py`'s
-  `buffer->array`/`array->buffer` rows already measured before phase 3 --
-  re-run below to quantify the redesign's own effect.
+  `buffer->array`/`array->buffer` rows already measured earlier in this
+  file -- re-run below to quantify the redesign's own effect.
 
 All numbers below: ns/call, best-of-5, this branch
 (`array-transfer-phase3`), jpype only -- jpy/jep/pyjnius are unaffected
-by this phase (none of them have an equivalent explicit bulk-transfer API
+by this work (none of them have an equivalent explicit bulk-transfer API
 or the internal buffer-handoff mechanism being changed), so re-running
 their venvs wouldn't add information here; see the sections above for the
 standing four-library comparison.
@@ -618,7 +617,7 @@ standing four-library comparison.
 `project/benchmark/jpype/arraytransfer.py`, Models 1/1b -- bulk transfer
 between a `double[]` and an existing numpy array, vs. an element-by-element
 loop through the generic array wrapper (the only way to do this before
-phase 3.6):
+the redesign below):
 
 | size | pullTo | naive per-element pull | pushFrom | naive per-element push |
 |---:|---:|---:|---:|---:|
@@ -626,7 +625,7 @@ phase 3.6):
 | 100,000 | 21,284 | 33,292,511 | 24,251 | 30,894,733 |
 | 1,000,000 | 410,503 | *(not run -- minutes long)* | 560,609 | *(not run -- minutes long)* |
 
-### `pushFrom` converting fast path (phase 3.7)
+### `pushFrom` converting fast path
 
 `arraytransfer.py`, Model 1c -- a byte-swapped or `float16` numpy source
 now takes the same bulk path as a matching-dtype source (first column,
@@ -641,9 +640,9 @@ per-element convert loop:
 
 Still slower than the matching-dtype path (real per-element conversion
 work, not just a memcpy), but a single JNI crossing instead of one pinned
-critical section per row -- no separate benchmark exists for the pre-3.7
-fallback path since it was never reachable from Python at any speed
-before `pushFrom` itself existed.
+critical section per row -- no separate benchmark exists for the older
+fallback-only behavior since it was never reachable from Python at any
+speed before `pushFrom` itself existed.
 
 ### `tolist()` vs. `list(arr)`
 
@@ -671,18 +670,19 @@ repeated alongside for scale:
 
 `tolist()` is consistently 2-3x faster than `list(arr)` at every size and
 depth -- it removes the per-element JNI crossing, but still pays a real
-`PyLong_FromLong`/`PyList_SET_ITEM` boxing cost per element (GIL-bound,
-per `plan/ArrayTransferPhase3.md`'s "GIL boundary" note), so it doesn't
+`PyLong_FromLong`/`PyList_SET_ITEM` boxing cost per element (GIL-bound --
+that boxing loop can't be parallelized on the Java side since the work
+that dominates it is on the Python side of the boundary), so it doesn't
 close the gap to `array->buffer`'s true bulk read. That gap is inherent
 to producing boxed Python objects at all, not a shortfall of this
 implementation.
 
-### Multi-dimensional buffer push/pull: before/after the phase 3.6 redesign
+### Multi-dimensional buffer push/pull: before/after the single-JNI-call redesign
 
 Same benchmark (`array_multidim.py`'s `buffer->array`/`array->buffer`
 rows, `int[]...[]`, 10\*\*dims elements), re-run on this branch and
 compared against the "master vs. this branch" numbers recorded earlier in
-this file (pre-phase-3, single-JNI-per-leaf-row):
+this file (before this redesign, single-JNI-per-leaf-row):
 
 **push, buffer->array:**
 
@@ -716,28 +716,27 @@ Re-run in the same disposable-venv/from-clean-CMake-state setup as the
 rest of this file (see this repo's CLAUDE.md); every script listed above
 executed to completion immediately before its numbers were recorded here.
 Full `test/jpypetest` suite: 1533 passed, 173 skipped, 0 failures (same
-baseline as before this phase, no regressions).
+baseline as before this work, no regressions).
 
-## Phase 3.9: ragged-native list push for multi-dim primitive arrays, 2026-08-08
+## Ragged-native list push for multi-dim primitive arrays, 2026-08-08
 
-Closes the one gap phase 3.1-3.8 deliberately left untouched: a *nested
+Closes a gap the work above deliberately left untouched: a *nested
 Python list* (as opposed to a buffer-protocol object) pushed into a
 multi-dimensional primitive array (`int[][]`, `double[][][]`, ...).
 `JPConversionRaggedSequence` (`jp_classhints.cpp`) replaces
 `JPClass::setArrayRange`'s redundant per-level verify+copy re-matching
 with one validation walk plus one encode walk, for `int`/`long`/`float`/
-`double` leaf types at depth >= 2 -- see `plan/ArrayTransferPhase3.md`'s
-Phase 3.9 section for the full design. Ragged (jagged) input was in scope
+`double` leaf types at depth >= 2. Ragged (jagged) input was in scope
 from the start, not deferred; `array_ragged.py` (new) measures it
 directly rather than assuming a rectangular-only result generalizes.
 
 All numbers below: ns/call, best-of-5, `array-transfer-phase3`, jpype
 only, same-session before/after pairs (both measured back-to-back on this
-branch: `git checkout` to the commit immediately before phase 3.9
-(`1c7d67d3`) for "before", rebuilt from clean CMake state per this repo's
-CLAUDE.md, then `git checkout array-transfer-phase3` and rebuilt again for
-"after" -- not mixed with the differently-dated numbers recorded earlier
-in this file, to rule out session-to-session machine noise as an
+branch: `git checkout` to the commit immediately before this conversion
+existed (`1c7d67d3`) for "before", rebuilt from clean CMake state per this
+repo's CLAUDE.md, then `git checkout array-transfer-phase3` and rebuilt
+again for "after" -- not mixed with the differently-dated numbers recorded
+earlier in this file, to rule out session-to-session machine noise as an
 explanation for the difference).
 
 **push, list->array, rectangular** (`array_multidim.py`,
@@ -763,15 +762,16 @@ not exactly 10\*\*dims since branching varies):
 | 5 | 114,940 | 44,211,172 | 5,267,672 | -88% |
 
 Ragged input improves by essentially the same margin as rectangular at
-every depth -- the per-node marker overhead the design doc's "Expected
-impact" section flagged as a plausible reason for ragged to win less than
-rectangular turns out not to be a meaningfully large cost in practice; the
-redundant matches/verify/copy recursion this phase removes dominates the
-total either way, ragged or not.
+every depth -- the per-node marker overhead was a plausible reason to
+expect ragged to win less than rectangular, but that turns out not to be
+a meaningfully large cost in practice; the redundant matches/verify/copy
+recursion this conversion removes dominates the total either way, ragged
+or not.
 
 **push, list->array vs. `list->array(np.array())`** -- how close the new
-path comes to phase 3.3's "build one buffer, then bulk-push it" reference
-point, which was always understood as an upper bound (real per-Python-
+path comes to the "build one buffer, then bulk-push it" reference
+point measured earlier in this file, which was always understood as an
+upper bound (real per-Python-
 element work still has to happen once; the new path just stops paying for
 it 2-3x over):
 
@@ -790,9 +790,9 @@ than delegating to `np.array()`'s own (also real, just not separately
 timed here) list-walk cost.
 
 **push, list->array vs. jpy/jep** -- the comparison that originally
-motivated this phase (`plan/ArrayTransferPhase3.md`: "7-22x slower than
-jpy/jep at depth"), jpy/jep columns unchanged from the standing
-"Multi-dimensional (2D-5D...)" table earlier in this file (this phase
+motivated this work (list->array push was 7-22x slower than jpy/jep at
+depth), jpy/jep columns unchanged from the standing
+"Multi-dimensional (2D-5D...)" table earlier in this file (this work
 doesn't touch either library):
 
 | dims | jpype (after) | jpy | jep | jpype/jpy | jpype/jep |
@@ -803,10 +803,10 @@ doesn't touch either library):
 | 5 | 4,178,878 | 1,832,619 | 5,343,343 | 2.3x | 0.78x |
 
 jpype's `list->array` push now beats jep's at every depth tested (jep was
-1.1-1.3x faster before this phase), and the gap to jpy closes from
+1.1-1.3x faster before this work), and the gap to jpy closes from
 7-22x down to a flat ~2.3-2.5x regardless of depth -- the depth-dependent
 blowup (7x at 2D growing to 22x at 5D) is specifically what the redundant
-per-level re-matching this phase removes was causing; what's left is a
+per-level re-matching this conversion removes was causing; what's left is a
 roughly constant per-element cost gap, consistent with jpy's own bulk
 native-extension implementation still doing less per-element work in C
 than CPython-level `PyLong_AsLong`/`PyFloat_AsDouble` extraction can.
@@ -820,5 +820,109 @@ kind of stale-build false alarm this repo's CLAUDE.md warns about); the
 pairs agreed within normal run-to-run noise (a few percent), not the
 large systematic swing a genuine stale-artifact contamination would
 produce. Full `test/jpypetest` suite on the "after" state: 1824 passed,
-173 skipped, 0 failures (the 28 new phase 3.9 cases plus the 1796
-pre-3.9 baseline, no regressions).
+173 skipped, 0 failures (28 new cases for this conversion plus the 1796
+pre-existing baseline, no regressions).
+
+## Non-contiguous buffer-argument matching (push), and a flat-list attempt that didn't pay off, 2026-08-08
+
+Two follow-on changes to the same `int[][]`/`int[]` push paths covered
+above, found by re-reading `jp_arrayclass.cpp`/`jp_classhints.cpp`'s
+matching logic directly: one landed with a large, unambiguous win; the
+other was implemented, benchmarked, and reverted after the numbers
+showed it made the common case slower, not faster. Both are recorded
+here since the negative result is as informative as the positive one.
+
+### Landed: a numpy row/column slice or transposed array now takes a bulk push path
+
+Before this change, `bufferConversion`/`multiArrayBufferConversion`
+(the fast paths for a buffer-protocol source, e.g. numpy) opened their
+`Py_buffer` view requesting only a C-contiguous representation. Per the
+buffer protocol, that request *fails outright* for anything that can't
+provide contiguous memory -- a numpy column slice, a transposed array,
+a strided sub-array -- even though such an object is a fully valid
+buffer-protocol source. The match failed before `shape`/`strides` were
+even inspected, so these sources fell all the way back to the fully
+general per-element (1D) or per-row (multi-dim) conversion path, the
+same one a plain Python list uses.
+
+The fix requests stride information instead of requiring contiguity
+up front; the code that actually walks the buffer already handled
+arbitrary strides correctly in both directions (confirmed by reading it
+before assuming a fix was needed) -- the only change is that
+non-contiguous sources now reach that code instead of being rejected
+before they get the chance.
+
+**Flat (1D), numpy column slice, push** (`sumIntArray(column)`,
+`array_noncontig.py`, new -- "before" here means the source was
+rejected by the fast-path match and fell back to the general per-
+element path; there's no separate flag to toggle, so before/after is
+measured across this fix landing):
+
+| size | before | after | change |
+|---:|---:|---:|---:|
+| 100 | 5,385 ns | 1,405-1,451 ns | -73% to -74% |
+| 1,000 | 42,778 ns | 3,168-3,198 ns | -93% |
+| 10,000 | 425,520 ns | 20,922-21,040 ns | -95% |
+| 100,000 | 4,123,014 ns | 206,751-213,190 ns | -95% |
+
+**Multi-dimensional, transposed numpy array, push**
+(`sum{2,3,4,5}DIntArray(transposed)`, `array_noncontig.py`):
+
+| dims | before | after | change |
+|---:|---:|---:|---:|
+| 2 | 23,914 ns | 2,820-2,878 ns | -88% |
+| 3 | 366,863 ns | 14,801-15,494 ns | -96% |
+| 4 | 4,972,565 ns | 137,910-139,781 ns | -97% |
+| 5 | 63,185,681 ns | 1,410,749-1,439,599 ns | -98% |
+
+"After" measured twice (independent runs) to confirm reproducibility --
+both agree within a few percent, not the large systematic swing a
+stale-build artifact would produce. The fixed non-contiguous push also
+lands close to this file's existing *contiguous* `buffer->array`
+numbers measured in the same session (e.g. flat size 100: 1,405-1,451
+ns non-contiguous vs. 1,387-1,519 ns contiguous, near parity) --
+confirming it reaches the same bulk machinery, not just "less bad than
+before."
+
+### Tried and reverted: extending the ragged-native list-push fast path down to a flat (depth-1) list
+
+A separate change widened the ragged-native nested-list push
+conversion covered earlier in this file to also handle a flat list, not
+just nested lists of depth >= 2 -- the code that walks
+the list tree already treated a flat list as its own base case
+internally, so this looked like free coverage. It wasn't: measured
+end-to-end, flat `int[]` push got **~50-70% slower**, not faster.
+
+| size | before | after (reverted) |
+|---:|---:|---:|
+| 100 | 3,129 ns | 4,630-4,654 ns |
+| 1,000 | 19,942 ns | 32,764-33,284 ns |
+| 10,000 | 189,550 ns | 317,844-318,599 ns |
+| 100,000 | 1,831,445 ns | 3,029,982-3,060,289 ns |
+
+Root cause: the redundant re-matching problem the depth->=2 version of
+this conversion fixes is specific to the *generic*, non-primitive-
+component array-fill routine, which only gets used when the array's
+declared component type is itself an array class (i.e. genuinely at
+depth >= 2). At depth 1, the existing push path already calls a
+primitive-type-specific fill routine -- a single pinned-memory write
+loop, no redundant passes at all -- so there was nothing to reclaim.
+Routing a flat list through the tree-walk conversion instead added
+pure overhead on top of that already-tight path: a heap-allocated
+scratch buffer, an extra buffer-handoff call across the JNI boundary,
+and a reflection-based array allocation on the Java side, none of which
+the original path pays. Reverted; flat list push is unchanged from the
+numbers earlier in this file.
+
+Re-verified the revert genuinely restored the original behavior (not
+just "close enough"): re-ran the flat push benchmark twice more after
+reverting -- 3,113 / 19,984 / 193,440-197,451 / 1,827,389-1,931,686 ns,
+matching the original numbers within normal run-to-run noise, not the
+50-70% swing the regression showed.
+
+### Verification
+
+Same disposable-venv/from-clean-CMake-state protocol as the rest of
+this file. Full `test/jpypetest` suite on the final state (non-
+contiguous fix kept, flat-list-push change reverted): 1831 passed, 173
+skipped, 0 failures -- no regressions.
