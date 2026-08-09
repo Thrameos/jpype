@@ -79,10 +79,16 @@ csv_log = CsvLog(
      'n', 'best_ns', 'median_ns', 'ns_per_element'])
 
 
-def nested_list_shaped(shape):
+def nested_list_shaped(shape, leaf=int):
+    """leaf must produce a genuine (exact-type) Python float for a
+    float[]/double[] target -- the ragged-native list-push fast path's
+    leaf check (isRaggedLeafElement, jp_classhints.cpp) requires
+    PyFloat_CheckExact for F/D leaves, same as PyLong_CheckExact for I/J;
+    a plain Python int is valid (Java widens it) but misses this fast
+    path and silently falls back to the general per-element path."""
     if len(shape) == 1:
-        return list(range(shape[0]))
-    return [nested_list_shaped(shape[1:]) for _ in range(shape[0])]
+        return [leaf(i) for i in range(shape[0])]
+    return [nested_list_shaped(shape[1:], leaf) for _ in range(shape[0])]
 
 
 def total_elements(shape):
@@ -111,9 +117,11 @@ def run(name, fn, shape, source, dtype):
 
 
 for label, dtype, sumfn_by_dims in TYPES:
+    leaf = float if label in ('float', 'double') else int
+
     print(f"=== JPype: list->array, shape sweep, 2D, push (Python -> Java), {label} ===")
     for shape in SHAPES_2D:
-        lst = nested_list_shaped(shape)
+        lst = nested_list_shaped(shape, leaf)
         sumfn = sumfn_by_dims[2]
         run(f"list->array {label}[{shape[0]}][{shape[1]}]",
             lambda lst=lst, sumfn=sumfn: sumfn(lst), shape, 'list', label)
@@ -127,7 +135,7 @@ for label, dtype, sumfn_by_dims in TYPES:
 
     print(f"=== JPype: list->array, shape sweep, 3D, push (Python -> Java), {label} ===")
     for shape in SHAPES_3D:
-        lst = nested_list_shaped(shape)
+        lst = nested_list_shaped(shape, leaf)
         sumfn = sumfn_by_dims[3]
         run(f"list->array {label}[{shape[0]}][{shape[1]}][{shape[2]}]",
             lambda lst=lst, sumfn=sumfn: sumfn(lst), shape, 'list', label)

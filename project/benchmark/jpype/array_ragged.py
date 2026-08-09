@@ -51,17 +51,24 @@ csv_log = CsvLog(
     ['category', 'direction', 'source', 'dtype', 'dims', 'size', 'n', 'best_ns', 'median_ns'])
 
 
-def nested_list_ragged(dims, avg_n, seed=0):
+def nested_list_ragged(dims, avg_n, seed=0, leaf=int):
     """Sibling lengths vary uniformly in [avg_n-4, avg_n+4] at every
     level (including the leaf level) -- genuinely ragged at every depth,
     not just the outermost. Fixed seed so repeated runs (e.g. before vs.
-    after a code change) build the exact same tree."""
+    after a code change) build the exact same tree.
+
+    leaf must produce a genuine (exact-type) Python float for a
+    float[]/double[] target -- the ragged-native list-push fast path's
+    leaf check (isRaggedLeafElement, jp_classhints.cpp) requires
+    PyFloat_CheckExact for F/D leaves, same as PyLong_CheckExact for I/J;
+    a plain Python int is valid (Java widens it) but misses this fast
+    path and silently falls back to the general per-element path."""
     rng = random.Random(seed)
 
     def build(d):
         n = rng.randint(max(1, avg_n - 4), avg_n + 4)
         if d == 1:
-            return list(range(n))
+            return [leaf(i) for i in range(n)]
         return [build(d - 1) for _ in range(n)]
     return build(dims)
 
@@ -88,9 +95,10 @@ def run(name, fn, total_elements, dtype, dims):
 
 
 for label, SUM_BY_DIMS in TYPES:
+    leaf = float if label in ('float', 'double') else int
     print(f"=== JPype: ragged list->array, multi-dimensional, push (Python -> Java), {label} ===")
     for dims in DIMS:
-        lst = nested_list_ragged(dims, 10, seed=dims)
+        lst = nested_list_ragged(dims, 10, seed=dims, leaf=leaf)
         size = count_elements(lst, dims)
         sumfn = SUM_BY_DIMS[dims]
         print(f"  (dims={dims}, actual element count={size})")

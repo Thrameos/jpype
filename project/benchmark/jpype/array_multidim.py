@@ -106,10 +106,19 @@ csv_log = CsvLog(
     ['category', 'direction', 'source', 'dtype', 'dims', 'size', 'n', 'best_ns', 'median_ns'])
 
 
-def nested_list(dims, n):
+def nested_list(dims, n, leaf=int):
+    """leaf converts each leaf value -- must be a genuine (exact-type)
+    Python float for a float[]/double[] target, not just any numeric
+    value: the ragged-native list-push fast path's leaf check
+    (isRaggedLeafElement, jp_classhints.cpp) requires PyFloat_CheckExact
+    for F/D leaves, same as it requires PyLong_CheckExact for I/J -- a
+    plain Python int handed to a float[][] target is valid (Java widens
+    it), but misses this fast path entirely and silently falls back to
+    the general per-element conversion instead, which is not what this
+    benchmark is trying to measure here."""
     if dims == 1:
-        return list(range(n))
-    return [nested_list(dims - 1, n) for _ in range(n)]
+        return [leaf(i) for i in range(n)]
+    return [nested_list(dims - 1, n, leaf) for _ in range(n)]
 
 
 def to_nested_list(ja, dims):
@@ -138,10 +147,12 @@ def run(name, fn, total_elements, direction, source, dtype, dims):
 
 
 for label, dtype, SUM_BY_DIMS, MAKE_BY_DIMS in TYPES:
+    leaf = float if label in ('float', 'double') else int
+
     print(f"=== JPype: list->array, multi-dimensional, push (Python -> Java), {label} ===")
     for dims in DIMS:
         size = 10 ** dims
-        lst = nested_list(dims, 10)
+        lst = nested_list(dims, 10, leaf)
         sumfn = SUM_BY_DIMS[dims]
         run(f"list->array {label}{'[]' * dims}(10^{dims}), fresh",
             lambda lst=lst, sumfn=sumfn: sumfn(lst), size,
@@ -150,7 +161,7 @@ for label, dtype, SUM_BY_DIMS, MAKE_BY_DIMS in TYPES:
     print(f"=== JPype: list->array via np.array(), multi-dimensional, push (Python -> Java), {label} ===")
     for dims in DIMS:
         size = 10 ** dims
-        lst = nested_list(dims, 10)
+        lst = nested_list(dims, 10, leaf)
         sumfn = SUM_BY_DIMS[dims]
 
         def via_numpy(lst=lst, sumfn=sumfn, dtype=dtype):
