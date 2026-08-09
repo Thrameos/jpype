@@ -423,10 +423,10 @@ best-of-5.
 
 | size | jpype (pre-fix) | jpype (post-fix, see below) | jpy | jep | pyjnius |
 |---:|---:|---:|---:|---:|---:|
-| 100 | 35,113 | 26,457 | 4,344 | 2,795 | 1,234 |
-| 1,000 | 423,319 | 307,838 | 40,029 | 23,566 | 10,436 |
-| 10,000 | 4,431,385 | 2,786,450 | 401,341 | 237,692 | 113,502 |
-| 100,000 | 50,298,764 | 32,712,952 | 5,487,530 | 3,712,665 | 1,142,328 |
+| 100 | 35,113 | 21,782 | 4,344 | 2,795 | 1,234 |
+| 1,000 | 423,319 | 275,116 | 40,029 | 23,566 | 10,436 |
+| 10,000 | 4,431,385 | 2,388,714 | 401,341 | 237,692 | 113,502 |
+| 100,000 | 50,298,764 | 28,646,785 | 5,487,530 | 3,712,665 | 1,142,328 |
 
 **Flat (1D), jpype vs. alternatives (int), `array->buffer`:**
 
@@ -468,10 +468,10 @@ element type** (jpype-only, flat 1D):
 
 | size | list() int | list() long | list() float | list() double |
 |---:|---:|---:|---:|---:|
-| 100 | 26,457 | 25,669 | 20,989 | 21,093 |
-| 1,000 | 307,838 | 292,049 | 238,101 | 241,146 |
-| 10,000 | 2,786,450 | 2,556,144 | 1,954,346 | 2,008,483 |
-| 100,000 | 32,712,952 | 30,048,222 | 23,852,322 | 24,501,264 |
+| 100 | 21,782 | 20,871 | 15,490 | 15,422 |
+| 1,000 | 275,116 | 268,220 | 201,346 | 200,611 |
+| 10,000 | 2,388,714 | 2,318,627 | 1,624,157 | 1,616,436 |
+| 100,000 | 28,646,785 | 28,200,957 | 20,378,950 | 20,442,630 |
 
 `tolist()` recovers 2-3x over `list()` at every size (one JNI critical
 section per leaf array instead of per element) but still lands 100-350x
@@ -480,12 +480,12 @@ pattern at every depth (2-5): `list()` 15-100x behind `array->buffer`,
 `tolist()` recovering roughly half that gap, both still an order of
 magnitude behind the buffer path. Full multi-dim numbers, jpype-only:
 
-| depth | list() int | tolist() int | buffer int |
-|---:|---:|---:|---:|
-| 2 | 50,843 | 21,249 | 3,272 |
-| 3 | 576,515 | 282,514 | 8,449 |
-| 4 | 6,270,064 | 2,463,360 | 56,710 |
-| 5 | 71,166,338 | 28,799,636 | 579,287 |
+| depth | list() int (pre-fix) | list() int (post-fix, see below) | tolist() int | buffer int |
+|---:|---:|---:|---:|---:|
+| 2 | 50,843 | 31,166 | 21,249 | 3,272 |
+| 3 | 576,515 | 373,921 | 282,514 | 8,449 |
+| 4 | 6,270,064 | 4,267,946 | 2,463,360 | 56,710 |
+| 5 | 71,166,338 | 51,369,609 | 28,799,636 | 579,287 |
 
 **`array->list` pull, type ratio to int, size 100,000, all four
 libraries** (jpy/jep/pyjnius now covered, not jpype-only):
@@ -520,12 +520,35 @@ Python-level `__next__` method. jpype's actual gap was **stacking**
 Python-level iterator overhead *on top of* the per-element JNI cost, not
 lacking a bulk path.
 
-**Fix**: added a native `sq_item` slot (`PyJPArray_sqItem`,
-`native/python/pyjp_array.cpp`, a thin wrapper over the existing
-`JPArray::getItem`) and removed the pure-Python `_JArrayProto.__iter__`/
-`_JavaArrayIter` (`jpype/_jarray.py`) that was shadowing it -- as long as
-a Python-level `__iter__` exists, CPython never reaches the `sq_item`/
-`PySeqIter` fallback regardless of whether the slot is registered.
+**Fix, in two rounds -- the first one regressed multi-dim and was caught
+by the same benchmark suite before landing for good.** Round 1 added a
+native `sq_item` slot (`PyJPArray_sqItem`) and removed the pure-Python
+`_JArrayProto.__iter__`/`_JavaArrayIter` (`jpype/_jarray.py`) that was
+shadowing it, so CPython's built-in `PySeqIter` would drive iteration.
+Flat improved 25-37%, but a clean A/B against the pre-fix commit (same
+benchmark script, ruling out version skew) showed multi-dimensional pull
+got consistently ~30% *slower*. Root-caused with `strace`, not
+guesswork: `PySeqIter` finds the end of iteration by calling `sq_item`
+one index past the end and catching `IndexError`, and raising *any*
+exception while a `JPJavaFrame` is open and then popping that frame is
+expensive here -- thousands of `futex` calls per hit, consistent with
+JVM safepoint synchronization triggered by the frame-pop/exception-state
+interaction, not anything in jpype's own code. A bounds check inside
+`sq_item` (to dodge jpype's own C++-throw exception path specifically)
+did not fix it -- the cost turned out to be tied to *any* pending
+exception at frame-pop time, including a plain `PyErr_SetString` with no
+C++ throw at all. Small arrays paid this once per `list()` call as a
+large fixed cost, which is why deeply nested multi-dim pulls (many small
+leaf arrays) regressed while one large flat array barely noticed it.
+
+Round 2 (landed): `PyJPArrayIter`, a real native iterator type mirroring
+CPython's own `list`/`tuple` iterators -- checks length *before* ever
+calling into array access, and returns `NULL` with **no exception set**
+to signal a clean stop, the same trick that lets `list`/`tuple` iteration
+skip exception-raising overhead entirely. Registered as `JArray`'s
+`Py_tp_iter`, ahead of the `sq_item`/`PySeqIter` fallback in CPython's
+iterator-protocol lookup order (`sq_item` itself stays, now with a
+matching bounds check, since other C-level consumers still reach it).
 Deliberately did **not** take the eager-bulk-materialize option (routing
 `list(arr)` through `tolist()` on first `next()`), since that would
 silently change iteration laziness (an early-`break`'d `for` loop over a
@@ -533,21 +556,25 @@ huge array would eagerly pull the whole thing) for a further win this
 plan treats as a separate, not-yet-taken decision -- see
 `plan/ArrayToListBulk.md`.
 
-**Result**: 25-37% faster across every size and type measured (see tables
-above), full suite green (1831 passed, 173 skipped) in both fixed and
-`pytest-randomly` orderings, laziness confirmed unchanged (early-`break`
-iteration still does exactly the elements touched, no more). **Falls well
-short of jpy's/jep's own numbers** (jpype post-fix: 26,457ns @100 int;
-jpy: 4,344ns; jep: 2,795ns) -- confirms the remaining gap is jpype's
-per-JNI-call overhead itself (`JPJavaFrame` construction, `JPPyObject`
-wrapping, exception-frame bookkeeping around each single-element JNI
-call), the same architectural cost Section 2 already attributes jpy's
-general speed lead to, not something this fix's mechanism can reach
-further into without giving up laziness. **Call: landed, partial win --
-matching jpy/jep would need either the eager-bulk-on-iterate option
-(explicitly deferred, real laziness trade-off) or a deeper look at
-per-JNI-call overhead itself (not scoped, would affect every array/method
-call site, not just pull).**
+**Result**: faster than *both* the round-1 fix and the original baseline
+at every case measured, flat and multi-dim alike (see tables above; e.g.
+flat @100 int: 35,113 -> 21,782 ns, -38%; multi-dim depth 5:
+71,166,338 -> 51,369,609 ns, -31%). Full suite green (1831 passed, 173
+skipped) in both fixed and `pytest-randomly` orderings, laziness
+confirmed unchanged (early-`break` iteration still does exactly the
+elements touched, no more, verified by instrumented call-counting).
+**Still falls short of jpy's/jep's own numbers** (jpype @100 int:
+21,782ns; jpy: 4,344ns; jep: 2,795ns) -- confirms the remaining gap is
+jpype's per-JNI-call overhead itself (`JPJavaFrame` construction,
+`JPPyObject` wrapping, exception-frame bookkeeping around each
+single-element JNI call), the same architectural cost Section 2 already
+attributes jpy's general speed lead to. **Call: landed, real win, gap to
+jpy/jep remains** -- closing further would need either the
+eager-bulk-on-iterate option (explicitly deferred, real laziness
+trade-off) or a deeper look at per-JNI-call overhead itself (not scoped,
+would affect every array/method call site, not just pull) -- see the
+`JPJavaFrame::fast` idea raised during this investigation, not yet
+scoped into a plan.
 
 The float/double-faster-than-int/long pattern (15-25%, `list()`/`tolist()`
 only) is a separate, smaller finding, originally attributed to jpype's own
@@ -600,13 +627,18 @@ remaining gap to act on:
 ## 9. Where to focus next (ranked)
 
 1. **`array->list` pull, plain `list(arr)`/iteration** (Section 7) --
-   partially closed this round: native `sq_item` iteration (mirrors jpy,
-   `plan/ArrayToListBulk.md`) landed a 25-37% win across every size/type
-   with no laziness or correctness trade-off. Still 6-8x behind jpy/jep's
-   own `list()` numbers -- the remainder is jpype's per-JNI-call overhead
-   itself, not an iteration-protocol gap anymore. Closing further means
-   either giving up iteration laziness (eager-bulk-via-`tolist()`,
-   explicitly deferred) or a separate, broader look at per-call overhead
+   partially closed this round: a native `PyJPArrayIter` iterator type
+   (`plan/ArrayToListBulk.md`) landed a 31-40% win across every size/type
+   and both flat and multi-dim shapes, with no laziness or correctness
+   trade-off -- and no lingering regression, unlike the first attempt
+   (native `sq_item` + CPython's generic `PySeqIter`), which improved flat
+   but regressed multi-dim ~30% via an expensive JVM-safepoint interaction
+   on the iteration-boundary exception, caught and fixed before landing.
+   Still ~5x behind jpy/jep's own `list()` numbers -- the remainder is
+   jpype's per-JNI-call overhead itself, not an iteration-protocol gap
+   anymore. Closing further means either giving up iteration laziness
+   (eager-bulk-via-`tolist()`, explicitly deferred), or a separate, broader
+   look at per-call overhead
    that isn't scoped to array pull specifically.
 2. **Row-heavy shape penalty on `buffer->array` push** (Section 6) -- up
    to 37x per-element at extreme row counts. Confirmed this round to be a
