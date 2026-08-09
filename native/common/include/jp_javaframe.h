@@ -180,6 +180,15 @@ public:
 	jobject fillMultiArrayFromBuffer(char typeCode, jint mode, jobject buf, jintArray shape);
 	void collectMultiArrayToBuffer(char typeCode, jobject collected, jobject buf);
 
+	// Phase 3.9 ragged-native push (plan/ArrayTransferPhase3.md) -- same
+	// shape as fillMultiArrayFromBuffer above (single JNI entry into
+	// org.jpype.internal.Support, everything after that plain Java), but
+	// for a ragged tree (one int32 length marker per node, depth-first
+	// pre-order) rather than a fixed rectangular shape array. `buf` must
+	// be a direct java.nio.ByteBuffer holding the encoded tree; `dims` is
+	// the array's static nesting depth.
+	jobject fillRaggedFromBuffer(char typeCode, jint dims, jobject buf);
+
 	jobject newArrayInstance(jclass c, jintArray dims);
 	jthrowable getCause(jthrowable th);
 	jstring getMessage(jthrowable th);

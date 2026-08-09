@@ -690,4 +690,119 @@ class Support
     }
   }
 
+  // ---- Phase 3.9 (plan/ArrayTransferPhase3.md): ragged-native list push.
+  //
+  // Counterpart to fillFromBuffer above, but for a *ragged* nested Python
+  // list of int/long/float/double rather than a rectangular buffer-
+  // protocol source -- there is no shape[] to drive the reshape, since a
+  // ragged tree's shape isn't uniform per dimension. Instead the C++ side
+  // (JPConversionRaggedSequence::convert, jp_classhints.cpp) writes one
+  // int32 length marker per node, depth-first pre-order, uniformly at
+  // every level including the outermost, followed by raw leaf values --
+  // so this side reads the same shape back one marker at a time instead
+  // of consulting a precomputed array. Still one JNI crossing total, then
+  // pure Java (no further JNI/reflection round trips per node beyond the
+  // Array.newInstance/Array.set already needed to build the result).
+
+  /**
+   * Reconstruct a ragged multi-dimensional primitive array from the
+   * depth-first pre-order buffer JPConversionRaggedSequence::convert
+   * wrote.
+   *
+   * @param typeCode primitive type signature character -- I/J/F/D only
+   * (see isRaggedEligible in jp_classhints.h; every other type stays on
+   * the JPConversionSequence path and never reaches here).
+   * @param dims the array's static nesting depth (e.g. 3 for int[][][]),
+   * known up front from the target class, not discovered from the data.
+   * @param src a direct buffer positioned at the start of the encoded
+   * tree.
+   * @return the assembled array (e.g. int[][][] for dims == 3).
+   */
+  public static Object fillRaggedFromBuffer(char typeCode, int dims, ByteBuffer src)
+  {
+    src.order(ByteOrder.nativeOrder());
+    return readRaggedNode(typeCode, dims, src);
+  }
+
+  private static Class<?> raggedLeafClass(char typeCode)
+  {
+    switch (typeCode)
+    {
+      case 'I':
+        return int.class;
+      case 'J':
+        return long.class;
+      case 'F':
+        return float.class;
+      case 'D':
+        return double.class;
+      default:
+        throw new IllegalArgumentException("Unsupported ragged leaf type code: " + typeCode);
+    }
+  }
+
+  /**
+   * The Class of a {@code depth}-dimensional array of typeCode's
+   * primitive (depth == 1 -&gt; e.g. {@code int[].class}, depth == 2 -&gt;
+   * {@code int[][].class}, ...) -- used to build the *container* one
+   * level up via Array.newInstance(componentClass, n), not read off an
+   * already-materialized child (which would break on a legitimately
+   * empty node, n == 0).
+   */
+  private static Class<?> raggedArrayClass(char typeCode, int depth)
+  {
+    Class<?> c = raggedLeafClass(typeCode);
+    for (int i = 0; i < depth; i++)
+      c = Array.newInstance(c, 0).getClass();
+    return c;
+  }
+
+  private static Object readRaggedNode(char typeCode, int remainingDepth, ByteBuffer src)
+  {
+    int n = src.getInt();
+    if (remainingDepth == 1)
+      return readRaggedLeaf(typeCode, n, src);
+    Object arr = Array.newInstance(raggedArrayClass(typeCode, remainingDepth - 1), n);
+    for (int i = 0; i < n; i++)
+      Array.set(arr, i, readRaggedNode(typeCode, remainingDepth - 1, src));
+    return arr;
+  }
+
+  private static Object readRaggedLeaf(char typeCode, int n, ByteBuffer src)
+  {
+    switch (typeCode)
+    {
+      case 'I':
+      {
+        int[] row = new int[n];
+        src.asIntBuffer().get(row, 0, n);
+        src.position(src.position() + n * Integer.BYTES);
+        return row;
+      }
+      case 'J':
+      {
+        long[] row = new long[n];
+        src.asLongBuffer().get(row, 0, n);
+        src.position(src.position() + n * Long.BYTES);
+        return row;
+      }
+      case 'F':
+      {
+        float[] row = new float[n];
+        src.asFloatBuffer().get(row, 0, n);
+        src.position(src.position() + n * Float.BYTES);
+        return row;
+      }
+      case 'D':
+      {
+        double[] row = new double[n];
+        src.asDoubleBuffer().get(row, 0, n);
+        src.position(src.position() + n * Double.BYTES);
+        return row;
+      }
+      default:
+        throw new IllegalArgumentException("Unsupported ragged leaf type code: " + typeCode);
+    }
+  }
+
 }

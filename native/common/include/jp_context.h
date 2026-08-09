@@ -229,6 +229,7 @@ private:
 	jmethodID m_Support_assembleID{};
 	jmethodID m_Support_fillFromBufferID{};
 	jmethodID m_Support_collectToBufferID{};
+	jmethodID m_Support_fillRaggedFromBufferID{};
 
 	// Java Functions
 	jmethodID m_Object_ToStringID{};

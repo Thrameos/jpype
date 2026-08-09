@@ -121,7 +121,15 @@ extern JPConversion *charArrayConversion;
 extern JPConversion *byteArrayConversion;
 extern JPConversion *bufferConversion;
 extern JPConversion *multiArrayBufferConversion;
+extern JPConversion *raggedSequenceConversion;
 extern JPConversion *sequenceConversion;
+
+// True for the leaf primitive type codes raggedSequenceConversion
+// supports (I/J/F/D -- see jp_classhints.cpp for why). Checked by
+// JPArrayClass::findJavaConversionImpl before even attempting
+// raggedSequenceConversion->matches(), so a disqualified array class
+// (short[][], Object[][], ...) never calls into it at all.
+bool isRaggedEligible(char typeCode);
 extern JPConversion *nullConversion;
 extern JPConversion *classConversion;
 extern JPConversion *objectConversion;

@@ -199,6 +199,23 @@ public class DeepBench
     return s;
   }
 
+  // Overloads differing only in array leaf element type -- for
+  // plan/ArrayTransferPhase3.md phase 3.9's raggedSequenceConversion
+  // regression coverage: confirms matches() correctly qualifies/
+  // disqualifies each candidate for a ragged plain-int nested list (no
+  // buffer built for either candidate, since that only happens in
+  // convert() for the winner) and JPMethodDispatch::findOverload still
+  // picks a single, deterministic overload rather than raising Ambiguous.
+  public static String overloadArrayType(int[][] a)
+  {
+    return "int";
+  }
+
+  public static String overloadArrayType(long[][] a)
+  {
+    return "long";
+  }
+
   // 2D variant of sumIntArray -- component type is itself int[], so
   // conversion recurses through the array-conversion machinery once per
   // outer element in addition to the per-element work each inner array

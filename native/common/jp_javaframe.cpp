@@ -1191,6 +1191,21 @@ jobject JPJavaFrame::fillMultiArrayFromBuffer(char typeCode, jint mode, jobject 
 			context->m_Support_fillFromBufferID, v));
 }
 
+jobject JPJavaFrame::fillRaggedFromBuffer(char typeCode, jint dims, jobject buf)
+{
+	JPContext* context = getContext();
+	if (context->m_Support_fillRaggedFromBufferID == nullptr)
+		return nullptr;
+	jvalue v[3];
+	v[0].c = (jchar) typeCode;
+	v[1].i = dims;
+	v[2].l = buf;
+	JAVA_RETURN(jobject, "JPJavaFrame::fillRaggedFromBuffer",
+			CallStaticObjectMethodA(
+			context->m_SupportClass.get(),
+			context->m_Support_fillRaggedFromBufferID, v));
+}
+
 void JPJavaFrame::collectMultiArrayToBuffer(char typeCode, jobject collected, jobject buf)
 {
 	JPContext* context = getContext();

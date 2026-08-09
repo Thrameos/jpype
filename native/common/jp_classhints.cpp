@@ -26,6 +26,7 @@
 #include "pyjp.h"
 
 #include "jp_primitive_accessor.h"
+#include "jp_inttype.h"
 
 JPMatch::JPMatch() : conversion(nullptr), frame(nullptr), object(nullptr),
 					 type(JPMatch::_none), closure(nullptr), cacheable(true),
@@ -688,6 +689,282 @@ public:
 	}
 } _multiArrayBufferConversion;
 
+// Ragged-native fast path for a nested Python list of int/long/float/double
+// being pushed into a multi-dimensional primitive array (int[][],
+// double[][][], ...) -- plan/ArrayTransferPhase3.md phase 3.9. Unlike
+// JPConversionMultiArrayBuffer above, there's no buffer-protocol
+// shape/stride/dtype to read off in one shot here: this is a genuine
+// Python list tree, so every leaf value still has to be visited once, no
+// matter what. What this conversion avoids is JPClass::setArrayRange's
+// redundant re-matching of the same elements (verify pass, then copy
+// pass, each re-running findJavaConversion) at every non-primitive
+// nesting level -- matches() below does one real validation walk (same
+// as JPConversionSequence's own), and convert() does one real encode
+// walk, versus today's 3+ redundant passes compounding recursively with
+// depth.
+//
+// Scope: only I/J/F/D leaf types -- 4 or 8 bytes, a clean multiple of the
+// int32 length marker in the wire format below, and both have a
+// java.nio bulk buffer type (unlike boolean, which has none). Z/B/C/S
+// leaf types never reach this conversion at all (isRaggedEligible below,
+// checked by the caller in JPArrayClass::findJavaConversionImpl before
+// even trying matches()) -- they keep using JPConversionSequence
+// unchanged.
+bool isRaggedEligible(char typeCode)
+{
+	return typeCode == 'I' || typeCode == 'J' || typeCode == 'F' || typeCode == 'D';
+}
+
+static inline size_t raggedItemSize(char typeCode)
+{
+	return (typeCode == 'I' || typeCode == 'F') ? sizeof (jint) : sizeof (jlong);
+}
+
+// Fast, exact-type-only leaf check -- mirrors JPIntType::fastElementCheck's
+// PyLong_CheckExact fast path (the only existing fastElementCheck
+// override; long/float/double never got one). Anything that doesn't pass
+// (a bool, a numpy scalar, an __index__ object, a plain Python int handed
+// to a float[]/double[] target, ...) fails the *whole* match for this
+// conversion (see matchRaggedNode below) and falls through to
+// JPConversionSequence's general path unchanged -- this is the only
+// fallback trigger in this design, raggedness itself never is one.
+static inline bool isRaggedLeafElement(char typeCode, PyObject *obj)
+{
+	switch (typeCode)
+	{
+		case 'I':
+		case 'J':
+			return PyLong_CheckExact(obj);
+		case 'F':
+		case 'D':
+			return PyFloat_CheckExact(obj);
+		default:
+			return false; // GCOVR_EXCL_LINE
+	}
+}
+
+// Depth-first pre-order walk mirroring the wire format's own encode()
+// shape exactly: one int32 length marker per node, uniformly at every
+// level including the outermost, then raw leaf values once
+// remainingDepth reaches 1. Computes the exact serialized byte count for
+// this subtree as a free byproduct of the validation walk matches() has
+// to do anyway (out-param byteCount), and returns false -- whole subtree
+// disqualified, no partial credit -- the instant anything doesn't fit:
+// wrong Python type at a leaf, a non-sequence where a sub-list was
+// expected, or a sequence whose size() itself raised.
+//
+// Self-contained rather than routed through componentType->
+// findJavaConversion()/JPArrayClass::findJavaConversionImpl the way
+// JPConversionSequence recurses: that dispatch path only re-enters this
+// same conversion while m_MultiArrayDepth stays >= 2, so at the
+// second-to-last level (e.g. int[] as the component of int[][]) it would
+// fall through to JPConversionSequence's plain per-element check instead
+// -- which has no byteCount field to hand back. Self-recursion sidesteps
+// that mismatch entirely and stays exactly in step with encode() below.
+static bool matchRaggedNode(PyObject *node, int remainingDepth, char typeCode, jlong &byteCount)
+{
+	if (!PySequence_Check(node) || JPPyString::check(node))
+		return false;
+	JPPySequence seq = JPPySequence::use(node);
+	jlong length = seq.size();
+	if (length == -1 && PyErr_Occurred())
+	{
+		PyErr_Clear();
+		return false;
+	}
+
+	jlong total = sizeof (jint); // this node's own length marker
+	if (remainingDepth == 1)
+	{
+		for (jlong i = 0; i < length; i++)
+		{
+			JPPyObject item = seq[i];
+			if (!isRaggedLeafElement(typeCode, item.get()))
+				return false;
+		}
+		total += length * (jlong) raggedItemSize(typeCode);
+	} else
+	{
+		for (jlong i = 0; i < length; i++)
+		{
+			JPPyObject item = seq[i];
+			jlong childBytes = 0;
+			if (!matchRaggedNode(item.get(), remainingDepth - 1, typeCode, childBytes))
+				return false;
+			total += childBytes;
+		}
+	}
+	byteCount = total;
+	return true;
+}
+
+// convert()-side mirror of matchRaggedNode -- run once, only for the
+// winning candidate, writing exactly what matchRaggedNode already proved
+// would fit. No re-validation of element types here: that's already done,
+// and re-checking would just be the third redundant pass this whole
+// design exists to cut out. buffer must already be sized to exactly
+// matches()'s byteCount; offset is threaded through by reference so every
+// recursive call -- including successive siblings at the same level --
+// keeps writing forward from where the last one left off.
+static void encodeRaggedNode(PyObject *node, int remainingDepth, char typeCode, char *buffer, size_t &offset)
+{
+	JPPySequence seq = JPPySequence::use(node);
+	jlong length = seq.size();
+	*(jint*) (buffer + offset) = (jint) length;
+	offset += sizeof (jint);
+
+	if (remainingDepth == 1)
+	{
+		for (jlong i = 0; i < length; i++)
+		{
+			JPPyObject item = seq[i];
+			switch (typeCode)
+			{
+				case 'I':
+				{
+					long v = PyLong_AsLong(item.get());
+					if (v == -1)
+						JP_PY_CHECK();
+					*(jint*) (buffer + offset) = (jint) JPIntType::assertRange(v);
+					offset += sizeof (jint);
+					break;
+				}
+				case 'J':
+				{
+					jlong v = PyLong_AsLongLong(item.get());
+					if (v == -1)
+						JP_PY_CHECK();
+					*(jlong*) (buffer + offset) = v;
+					offset += sizeof (jlong);
+					break;
+				}
+				case 'F':
+				{
+					double v = PyFloat_AsDouble(item.get());
+					if (v == -1.)
+						JP_PY_CHECK();
+					*(jfloat*) (buffer + offset) = (jfloat) v;
+					offset += sizeof (jfloat);
+					break;
+				}
+				default: // 'D'
+				{
+					double v = PyFloat_AsDouble(item.get());
+					if (v == -1.)
+						JP_PY_CHECK();
+					*(jdouble*) (buffer + offset) = (jdouble) v;
+					offset += sizeof (jdouble);
+					break;
+				}
+			}
+		}
+	} else
+	{
+		for (jlong i = 0; i < length; i++)
+		{
+			JPPyObject item = seq[i];
+			encodeRaggedNode(item.get(), remainingDepth - 1, typeCode, buffer, offset);
+		}
+	}
+}
+
+// closure encoding for this conversion only -- a documented, deliberate
+// single exception to every other JPConversion in this file, which
+// stores a real registry-owned JPClass*/JPFunctional* there (see the
+// comment on JPMatch::closure in jp_match.h, which already anticipates
+// this: "or a value that fits directly in the pointer, e.g. an
+// integer"). convert() never needs the array class pointer itself here --
+// only two cheap facts derived from it (this array's nesting depth and
+// leaf type code, both already read once by matches() below) plus the
+// byte count matches() computes as a free byproduct of its walk. All
+// three fit in one pointer-sized value, so there's no reason to spend the
+// slot on a full JPClass* only to immediately reduce it back down to two
+// small fields in convert() -- and no reason for JPMatch to carry a
+// second field (as an earlier version of this conversion did) just for
+// the one value that didn't fit alongside it. That second field cost
+// every JPMatch everywhere 8 bytes, paid on every conversion of every
+// argument of every call, to serve only this one path.
+//
+// Layout (high to low bits): 8 bits dims, 8 bits typeCode, 48 bits
+// byteCount. 48 bits is 256 TiB -- no real allocation will ever reach
+// that; if one somehow did, the std::vector allocation in convert() below
+// would already have failed well before this became a real limit.
+static inline void *packRaggedClosure(int dims, char typeCode, jlong byteCount)
+{
+	uint64_t v = ((uint64_t) (unsigned char) dims << 56)
+			| ((uint64_t) (unsigned char) typeCode << 48)
+			| ((uint64_t) byteCount & 0xFFFFFFFFFFFFULL);
+	return reinterpret_cast<void*> ((uintptr_t) v);
+}
+
+static inline void unpackRaggedClosure(void *closure, int &dims, char &typeCode, jlong &byteCount)
+{
+	auto v = (uint64_t) reinterpret_cast<uintptr_t> (closure);
+	dims = (int) ((v >> 56) & 0xFF);
+	typeCode = (char) ((v >> 48) & 0xFF);
+	byteCount = (jlong) (v & 0xFFFFFFFFFFFFULL);
+}
+
+class JPConversionRaggedSequence : public JPConversion
+{
+public:
+
+	JPMatch::Type matches(JPClass *cls, JPMatch &match) override
+	{
+		JP_TRACE_IN("JPConversionRaggedSequence::matches");
+		auto *acls = dynamic_cast<JPArrayClass*>( cls);
+		int dims = acls->getMultiArrayDepth();
+		char typeCode = acls->getMultiArrayLeaf()->getTypeCode();
+
+		jlong total = 0;
+		if (!matchRaggedNode(match.object, dims, typeCode, total))
+			return match.type = JPMatch::_none;
+
+		// Depends on the list's actual contents (every leaf value's exact
+		// Python type, all the way down), not just Py_TYPE(object) -- same
+		// reasoning as JPConversionSequence/JPConversionBuffer above.
+		match.cacheable = false;
+		match.closure = packRaggedClosure(dims, typeCode, total);
+		match.conversion = raggedSequenceConversion;
+		return match.type = JPMatch::_implicit;
+		JP_TRACE_OUT;
+	}
+
+	void getInfo(JPClass *cls, JPConversionInfo &info) override
+	{
+		// Covered by Sequence, same as multiArrayBufferConversion above --
+		// this doesn't accept a different *shape* of Python input, just a
+		// faster internal path for what JPConversionSequence already
+		// documents.
+	}
+
+	jvalue convert(JPMatch &match) override
+	{
+		JP_TRACE_IN("JPConversionRaggedSequence::convert");
+		JPJavaFrame frame(*match.frame);
+		int dims;
+		char typeCode;
+		jlong byteCount;
+		unpackRaggedClosure(match.closure, dims, typeCode, byteCount);
+
+		// Exact-size, RAII-local allocation -- byteCount was computed by
+		// matches() as a free byproduct of the walk it already had to do,
+		// so there's no growth/guessing here, and buffer (along with
+		// everything reachable only through it) is destroyed the instant
+		// this function returns. The only thing that escapes is the
+		// resulting jobject local reference below.
+		std::vector<char> buffer(byteCount);
+		size_t offset = 0;
+		encodeRaggedNode(match.object, dims, typeCode, buffer.data(), offset);
+
+		jobject directBuf = frame.NewDirectByteBuffer(buffer.data(), (jlong) buffer.size());
+		jvalue res;
+		res.l = frame.keep(frame.fillRaggedFromBuffer(typeCode, (jint) dims, directBuf));
+		return res;
+		JP_TRACE_OUT;
+	}
+} _raggedSequenceConversion;
+
 class JPConversionSequence : public JPConversion
 {
 public:
@@ -1265,6 +1542,7 @@ JPConversion *charArrayConversion = &_charArrayConversion;
 JPConversion *byteArrayConversion = &_byteArrayConversion;
 JPConversion *bufferConversion = &_bufferConversion;
 JPConversion *multiArrayBufferConversion = &_multiArrayBufferConversion;
+JPConversion *raggedSequenceConversion = &_raggedSequenceConversion;
 JPConversion *sequenceConversion = &_sequenceConversion;
 JPConversion *nullConversion = &_nullConversion;
 JPConversion *classConversion = &_classConversion;
