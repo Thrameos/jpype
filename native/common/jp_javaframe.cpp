@@ -38,7 +38,6 @@ static void jpype_frame_check(int popped)
 // JP_ASSERT_FAST_FRAMES builds -- used to verify every JPJavaFrame::fast()
 // call site is honest: fast() itself never touches this counter, it just
 // borrows whatever real frame (outer/inner/external/copy) already exists.
-// See plan/JavaFrameFast.md.
 #ifdef JP_ASSERT_FAST_FRAMES
 static thread_local int g_frameDepth = 0;
 
@@ -1399,6 +1398,96 @@ void JPJavaFrame::registerRef(jobject obj, void* ref, JCleanupHook cleanup)
 {
 	JPReferenceQueue::registerRef(*this, obj, ref, cleanup);
 }
+
+/*****************************************************************************/
+// JPJavaAccess -- see jp_javaframe.h for the design rationale.
+
+JPJavaAccess::JPJavaAccess()
+: m_Env(nullptr)
+{
+	// outer()'s constructor does this check before fetching env (for the
+	// same reason: without it, an array access after shutdownJVM() fails
+	// deep inside getEnv()'s thread-attach logic with a confusing generic
+	// error instead of the documented jpype.JVMNotRunning -- see
+	// test_shutdown.py). Cheap: a null check and a bool read, no JNI call.
+	assertJVMRunning(JPContext_global, JP_STACKINFO());
+	m_Env = JPContext_global->getEnv();
+}
+
+void JPJavaAccess::checkFast()
+{
+	if (m_Env->ExceptionCheck() != JNI_TRUE)
+		return; // hot path: no exception, no frame ever touched
+	JPJavaFrame frame = JPJavaFrame::inner();
+	jthrowable th = frame.ExceptionOccurred();
+	frame.ExceptionClear();
+	throw JPJavaError(frame, th, JP_STACKINFO());
+}
+
+#define JAVA_FAST_CHECK(Y,Z) \
+  Z; \
+  JP_TRACE_JAVA(Y, 0); \
+  checkFast();
+
+jsize JPJavaAccess::GetArrayLength(jarray a0)
+{
+	jsize ret = m_Env->GetArrayLength(a0);
+	JP_TRACE_JAVA("JPJavaAccess::GetArrayLength", 0);
+	checkFast();
+	return ret;
+}
+
+void JPJavaAccess::GetBooleanArrayRegion(jbooleanArray array, jsize start, jsize len, jboolean* vals)
+{
+	JAVA_FAST_CHECK("JPJavaAccess::GetBooleanArrayRegion",
+			m_Env->GetBooleanArrayRegion(array, start, len, vals));
+}
+
+void JPJavaAccess::GetByteArrayRegion(jbyteArray array, jsize start, jsize len, jbyte* vals)
+{
+	JAVA_FAST_CHECK("JPJavaAccess::GetByteArrayRegion",
+			m_Env->GetByteArrayRegion(array, start, len, vals));
+}
+
+void JPJavaAccess::GetCharArrayRegion(jcharArray array, jsize start, jsize len, jchar* vals)
+{
+	JAVA_FAST_CHECK("JPJavaAccess::GetCharArrayRegion",
+			m_Env->GetCharArrayRegion(array, start, len, vals));
+}
+
+void JPJavaAccess::GetShortArrayRegion(jshortArray array, jsize start, jsize len, jshort* vals)
+{
+	JAVA_FAST_CHECK("JPJavaAccess::GetShortArrayRegion",
+			m_Env->GetShortArrayRegion(array, start, len, vals));
+}
+
+void JPJavaAccess::GetIntArrayRegion(jintArray array, jsize start, jsize len, jint* vals)
+{
+	JAVA_FAST_CHECK("JPJavaAccess::GetIntArrayRegion",
+			m_Env->GetIntArrayRegion(array, start, len, vals));
+}
+
+void JPJavaAccess::GetLongArrayRegion(jlongArray array, jsize start, jsize len, jlong* vals)
+{
+	JAVA_FAST_CHECK("JPJavaAccess::GetLongArrayRegion",
+			m_Env->GetLongArrayRegion(array, start, len, vals));
+}
+
+void JPJavaAccess::GetFloatArrayRegion(jfloatArray array, jsize start, jsize len, jfloat* vals)
+{
+	JAVA_FAST_CHECK("JPJavaAccess::GetFloatArrayRegion",
+			m_Env->GetFloatArrayRegion(array, start, len, vals));
+}
+
+void JPJavaAccess::GetDoubleArrayRegion(jdoubleArray array, jsize start, jsize len, jdouble* vals)
+{
+	JAVA_FAST_CHECK("JPJavaAccess::GetDoubleArrayRegion",
+			m_Env->GetDoubleArrayRegion(array, start, len, vals));
+}
+
+#undef JAVA_FAST_CHECK
+
+/*****************************************************************************/
 
 void JPJavaFrame::clearInterrupt(bool throws)
 {

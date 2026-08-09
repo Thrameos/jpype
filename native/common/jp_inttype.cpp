@@ -16,6 +16,8 @@
 #include "jpype.h"
 #include "pyjp.h"
 #include "jp_array.h"
+#include "jp_arrayclass.h"
+#include "jp_classhints.h"
 #include "jp_primitive_accessor.h"
 #include "jp_inttype.h"
 
@@ -312,6 +314,83 @@ void JPIntType::setArrayItem(JPJavaFrame& frame, jarray a, jsize ndx, PyObject* 
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java int");
 	type_t val = field(match.convert());
 	frame.SetIntArrayRegion((array_t) a, ndx, 1, &val);
+}
+
+JPPyObject JPIntType::getFastArrayItem(JPJavaAccess& frame, jarray a, jsize ndx)
+{
+	// Inlines convertToPythonObject directly rather than calling it,
+	// because that would require a real JPJavaFrame& just to satisfy the
+	// signature -- and PyJPValue_assignJavaSlot is a *guaranteed* no-op
+	// for this family: it's rooted at a JValueFn-registered base type
+	// (PyJPNumberLong_Type -- see PyJPClass_GetJValueFn's tp_base walk,
+	// which every subclass, including a customized host, must inherit
+	// from), so its early "nothing to write" return always fires here.
+	// No frame is ever genuinely needed on this path.
+	auto array = (array_t) a;
+	type_t val;
+	frame.GetIntArrayRegion(array, ndx, 1, &val);
+	JPPyObject tmp = JPPyObject::call(PyLong_FromLong(val));
+	if (getHost() == nullptr)
+		return tmp;
+	return JPPyObject::call(convertLong(getHost(), (PyLongObject*) tmp.get()));
+}
+
+JPArray* JPIntType::createArrayWrapper(const JPValue& value)
+{
+	return new JPArrayInt(value);
+}
+
+JPArrayClass* JPIntType::createArrayClass(JPJavaFrame& frame, jclass cls,
+		const string& name, JPClass* superClass, jint modifiers)
+{
+	return new JPArrayClassInt(frame, cls, name, superClass, this, modifiers);
+}
+
+JPMatch::Type JPArrayClassInt::findJavaConversionImpl(JPMatch &match)
+{
+	JP_TRACE_IN("JPArrayClassInt::findJavaConversion");
+	if (nullConversion->matches(this, match)
+			|| objectConversion->matches(this, match)
+			|| bufferConversion->matches(this, match)
+			|| sequenceConversion->matches(this, match)
+			|| hintsConversion->matches(this, match)
+			)
+		return match.type;
+	JP_TRACE("None");
+	return match.type = JPMatch::_none;
+	JP_TRACE_OUT;
+}
+
+void JPArrayClassInt::getConversionInfo(JPConversionInfo &info)
+{
+	JPJavaFrame frame = JPJavaFrame::outer();
+	objectConversion->getInfo(this, info);
+	bufferConversion->getInfo(this, info);
+	sequenceConversion->getInfo(this, info);
+	hintsConversion->getInfo(this, info);
+	PyList_Append(info.ret, PyJPClass_create(frame, this).get());
+}
+
+JPArrayInt::JPArrayInt(const JPValue& array)
+: JPArray(array), m_CompType(dynamic_cast<JPIntType*>(m_Class->getComponentType()))
+{
+}
+
+JPArrayInt::JPArrayInt(JPArrayInt* src, jsize start, jsize stop, jsize step)
+: JPArray(src, start, stop, step), m_CompType(src->m_CompType)
+{
+}
+
+JPPyObject JPArrayInt::getItem(jsize ndx)
+{
+	ndx = checkIndex(ndx);
+	JPJavaAccess frame;
+	return m_CompType->getFastArrayItem(frame, m_Object.get(), m_Start + ndx * m_Step);
+}
+
+JPArray* JPArrayInt::slice(jsize start, jsize stop, jsize step)
+{
+	return new JPArrayInt(this, start, stop, step);
 }
 
 void JPIntType::getView(JPArrayView& view)

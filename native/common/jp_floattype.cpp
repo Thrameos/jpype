@@ -16,6 +16,8 @@
 #include "jpype.h"
 #include "pyjp.h"
 #include "jp_array.h"
+#include "jp_arrayclass.h"
+#include "jp_classhints.h"
 #include "jp_primitive_accessor.h"
 #include "jp_floattype.h"
 #include "jp_boxedtype.h"
@@ -266,6 +268,86 @@ void JPFloatType::setArrayItem(JPJavaFrame& frame, jarray a, jsize ndx, PyObject
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java float");
 	type_t val = field(match.convert());
 	frame.SetFloatArrayRegion((array_t) a, ndx, 1, &val);
+}
+
+JPPyObject JPFloatType::getFastArrayItem(JPJavaAccess& frame, jarray a, jsize ndx)
+{
+	// Inlines convertToPythonObject directly rather than calling it,
+	// because that would require a real JPJavaFrame& just to satisfy the
+	// signature. Unlike byte/short/int/long/char (see
+	// JPIntType::getFastArrayItem), float has no JValueFn registered, so
+	// PyJPValue_assignJavaSlot's real effect -- a plain offset-based
+	// jvalue write, no JNI involved -- does need replicating here, but
+	// that's pure Python-level type metadata (PyJPValue_getJavaSlotOffset)
+	// plus a raw memory write, not anything a frame is needed for.
+	auto array = (array_t) a;
+	type_t val;
+	frame.GetFloatArrayRegion(array, ndx, 1, &val);
+	PyTypeObject* wrapper = getHost();
+	JPPyObject obj = JPPyObject::call(wrapper->tp_alloc(wrapper, 0));
+	((PyFloatObject*) obj.get())->ob_fval = val;
+	Py_ssize_t offset = PyJPValue_getJavaSlotOffset(obj.get());
+	auto* slot = (jvalue*) (((char*) obj.get()) + offset);
+	slot->f = val;
+	return obj;
+}
+
+JPArray* JPFloatType::createArrayWrapper(const JPValue& value)
+{
+	return new JPArrayFloat(value);
+}
+
+JPArrayClass* JPFloatType::createArrayClass(JPJavaFrame& frame, jclass cls,
+		const string& name, JPClass* superClass, jint modifiers)
+{
+	return new JPArrayClassFloat(frame, cls, name, superClass, this, modifiers);
+}
+
+JPMatch::Type JPArrayClassFloat::findJavaConversionImpl(JPMatch &match)
+{
+	JP_TRACE_IN("JPArrayClassFloat::findJavaConversion");
+	if (nullConversion->matches(this, match)
+			|| objectConversion->matches(this, match)
+			|| bufferConversion->matches(this, match)
+			|| sequenceConversion->matches(this, match)
+			|| hintsConversion->matches(this, match)
+			)
+		return match.type;
+	JP_TRACE("None");
+	return match.type = JPMatch::_none;
+	JP_TRACE_OUT;
+}
+
+void JPArrayClassFloat::getConversionInfo(JPConversionInfo &info)
+{
+	JPJavaFrame frame = JPJavaFrame::outer();
+	objectConversion->getInfo(this, info);
+	bufferConversion->getInfo(this, info);
+	sequenceConversion->getInfo(this, info);
+	hintsConversion->getInfo(this, info);
+	PyList_Append(info.ret, PyJPClass_create(frame, this).get());
+}
+
+JPArrayFloat::JPArrayFloat(const JPValue& array)
+: JPArray(array), m_CompType(dynamic_cast<JPFloatType*>(m_Class->getComponentType()))
+{
+}
+
+JPArrayFloat::JPArrayFloat(JPArrayFloat* src, jsize start, jsize stop, jsize step)
+: JPArray(src, start, stop, step), m_CompType(src->m_CompType)
+{
+}
+
+JPPyObject JPArrayFloat::getItem(jsize ndx)
+{
+	ndx = checkIndex(ndx);
+	JPJavaAccess frame;
+	return m_CompType->getFastArrayItem(frame, m_Object.get(), m_Start + ndx * m_Step);
+}
+
+JPArray* JPArrayFloat::slice(jsize start, jsize stop, jsize step)
+{
+	return new JPArrayFloat(this, start, stop, step);
 }
 
 void JPFloatType::getView(JPArrayView& view)

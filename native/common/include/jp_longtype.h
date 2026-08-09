@@ -57,6 +57,14 @@ public:
 	JPPyObject  getArrayItem(JPJavaFrame& frame, jarray, jsize ndx) override;
 	void        setArrayItem(JPJavaFrame& frame, jarray, jsize ndx, PyObject* val) override;
 
+	// Non-virtual, narrow-frame companion to getArrayItem above -- called
+	// only by JPArrayLong::getItem().
+	JPPyObject  getFastArrayItem(JPJavaAccess& frame, jarray, jsize ndx);
+
+	JPArray*    createArrayWrapper(const JPValue& value) override;
+	JPArrayClass* createArrayClass(JPJavaFrame& frame, jclass cls,
+			const string& name, JPClass* superClass, jint modifiers) override;
+
 	char getTypeCode() override
 	{
 		return 'J';

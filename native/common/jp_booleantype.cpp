@@ -16,6 +16,8 @@
 #include "jpype.h"
 #include "pyjp.h"
 #include "jp_array.h"
+#include "jp_arrayclass.h"
+#include "jp_classhints.h"
 #include "jp_primitive_accessor.h"
 #include "jp_booleantype.h"
 #include "jp_boxedtype.h"
@@ -309,6 +311,76 @@ void JPBooleanType::setArrayItem(JPJavaFrame& frame, jarray a, jsize ndx, PyObje
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java boolean");
 	type_t val = field(match.convert());
 	frame.SetBooleanArrayRegion((array_t) a, ndx, 1, &val);
+}
+
+JPPyObject JPBooleanType::getFastArrayItem(JPJavaAccess& frame, jarray a, jsize ndx)
+{
+	// Unlike the other seven primitives, convertToPythonObject here is
+	// PyBool_FromLong(val.z) alone -- no getHost()/convertLong, no
+	// PyJPValue_assignJavaSlot call at all -- so this is genuinely
+	// frame-free, not just frame-unused: no JPJavaFrame is ever touched.
+	auto array = (array_t) a;
+	type_t val;
+	frame.GetBooleanArrayRegion(array, ndx, 1, &val);
+	return JPPyObject::call(PyBool_FromLong(val));
+}
+
+JPArray* JPBooleanType::createArrayWrapper(const JPValue& value)
+{
+	return new JPArrayBoolean(value);
+}
+
+JPArrayClass* JPBooleanType::createArrayClass(JPJavaFrame& frame, jclass cls,
+		const string& name, JPClass* superClass, jint modifiers)
+{
+	return new JPArrayClassBoolean(frame, cls, name, superClass, this, modifiers);
+}
+
+JPMatch::Type JPArrayClassBoolean::findJavaConversionImpl(JPMatch &match)
+{
+	JP_TRACE_IN("JPArrayClassBoolean::findJavaConversion");
+	if (nullConversion->matches(this, match)
+			|| objectConversion->matches(this, match)
+			|| bufferConversion->matches(this, match)
+			|| sequenceConversion->matches(this, match)
+			|| hintsConversion->matches(this, match)
+			)
+		return match.type;
+	JP_TRACE("None");
+	return match.type = JPMatch::_none;
+	JP_TRACE_OUT;
+}
+
+void JPArrayClassBoolean::getConversionInfo(JPConversionInfo &info)
+{
+	JPJavaFrame frame = JPJavaFrame::outer();
+	objectConversion->getInfo(this, info);
+	bufferConversion->getInfo(this, info);
+	sequenceConversion->getInfo(this, info);
+	hintsConversion->getInfo(this, info);
+	PyList_Append(info.ret, PyJPClass_create(frame, this).get());
+}
+
+JPArrayBoolean::JPArrayBoolean(const JPValue& array)
+: JPArray(array), m_CompType(dynamic_cast<JPBooleanType*>(m_Class->getComponentType()))
+{
+}
+
+JPArrayBoolean::JPArrayBoolean(JPArrayBoolean* src, jsize start, jsize stop, jsize step)
+: JPArray(src, start, stop, step), m_CompType(src->m_CompType)
+{
+}
+
+JPPyObject JPArrayBoolean::getItem(jsize ndx)
+{
+	ndx = checkIndex(ndx);
+	JPJavaAccess frame;
+	return m_CompType->getFastArrayItem(frame, m_Object.get(), m_Start + ndx * m_Step);
+}
+
+JPArray* JPArrayBoolean::slice(jsize start, jsize stop, jsize step)
+{
+	return new JPArrayBoolean(this, start, stop, step);
 }
 
 void JPBooleanType::getView(JPArrayView& view)

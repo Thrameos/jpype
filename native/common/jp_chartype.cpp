@@ -16,6 +16,8 @@
 #include "jpype.h"
 #include "pyjp.h"
 #include "jp_array.h"
+#include "jp_arrayclass.h"
+#include "jp_classhints.h"
 #include "jp_primitive_accessor.h"
 #include "jp_chartype.h"
 #include "jp_boxedtype.h"
@@ -250,6 +252,77 @@ void JPCharType::setArrayItem(JPJavaFrame& frame, jarray a, jsize ndx, PyObject*
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java char");
 	type_t val = field(match.convert());
 	frame.SetCharArrayRegion((array_t) a, ndx, 1, &val);
+}
+
+JPPyObject JPCharType::getFastArrayItem(JPJavaAccess& frame, jarray a, jsize ndx)
+{
+	// See JPIntType::getFastArrayItem: inlines convertToPythonObject
+	// directly -- PyJPValue_assignJavaSlot is a guaranteed no-op for this
+	// family, so no frame is ever genuinely needed here.
+	auto array = (array_t) a;
+	type_t val;
+	frame.GetCharArrayRegion(array, ndx, 1, &val);
+	return JPPyObject::call(PyJPChar_Create((PyTypeObject*) _JChar, val));
+}
+
+JPArray* JPCharType::createArrayWrapper(const JPValue& value)
+{
+	return new JPArrayChar(value);
+}
+
+JPArrayClass* JPCharType::createArrayClass(JPJavaFrame& frame, jclass cls,
+		const string& name, JPClass* superClass, jint modifiers)
+{
+	return new JPArrayClassChar(frame, cls, name, superClass, this, modifiers);
+}
+
+JPMatch::Type JPArrayClassChar::findJavaConversionImpl(JPMatch &match)
+{
+	JP_TRACE_IN("JPArrayClassChar::findJavaConversion");
+	if (nullConversion->matches(this, match)
+			|| objectConversion->matches(this, match)
+			|| charArrayConversion->matches(this, match)
+			|| bufferConversion->matches(this, match)
+			|| sequenceConversion->matches(this, match)
+			|| hintsConversion->matches(this, match)
+			)
+		return match.type;
+	JP_TRACE("None");
+	return match.type = JPMatch::_none;
+	JP_TRACE_OUT;
+}
+
+void JPArrayClassChar::getConversionInfo(JPConversionInfo &info)
+{
+	JPJavaFrame frame = JPJavaFrame::outer();
+	objectConversion->getInfo(this, info);
+	charArrayConversion->getInfo(this, info);
+	bufferConversion->getInfo(this, info);
+	sequenceConversion->getInfo(this, info);
+	hintsConversion->getInfo(this, info);
+	PyList_Append(info.ret, PyJPClass_create(frame, this).get());
+}
+
+JPArrayChar::JPArrayChar(const JPValue& array)
+: JPArray(array), m_CompType(dynamic_cast<JPCharType*>(m_Class->getComponentType()))
+{
+}
+
+JPArrayChar::JPArrayChar(JPArrayChar* src, jsize start, jsize stop, jsize step)
+: JPArray(src, start, stop, step), m_CompType(src->m_CompType)
+{
+}
+
+JPPyObject JPArrayChar::getItem(jsize ndx)
+{
+	ndx = checkIndex(ndx);
+	JPJavaAccess frame;
+	return m_CompType->getFastArrayItem(frame, m_Object.get(), m_Start + ndx * m_Step);
+}
+
+JPArray* JPArrayChar::slice(jsize start, jsize stop, jsize step)
+{
+	return new JPArrayChar(this, start, stop, step);
 }
 
 void JPCharType::getView(JPArrayView& view)

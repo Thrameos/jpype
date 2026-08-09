@@ -13,29 +13,31 @@
 
    See NOTICE file for details.
  *****************************************************************************/
-#ifndef JP_FUNCTIONAL_H
-#define JP_FUNCTIONAL_H
+#ifndef _JPINTERFACETYPE_H_
+#define _JPINTERFACETYPE_H_
 
-class JPFunctional : public JPInterfaceType
+/**
+ * Wrapper for interfaces, which can be targeted by a Python @JImplements
+ * proxy -- unlike a plain (non-interface) class, which a dynamic proxy can
+ * never be assigned to. Constructed instead of the plain JPClass base
+ * whenever JPModifier::isInterface(modifiers) is true (see
+ * TypeFactoryNative_defineObjectClass), so proxyConversion is only ever
+ * tried against a class it could actually match -- JPClass's own
+ * findJavaConversionImpl doesn't include it at all.
+ */
+class JPInterfaceType : public JPClass
 {
 public:
-	JPFunctional(JPJavaFrame& frame,
-			jclass clss,
+	JPInterfaceType(JPJavaFrame& frame, jclass clss,
 			const string& name,
 			JPClass* super,
 			JPClassList& interfaces,
 			jint modifiers);
-	~JPFunctional() override;
+
+	~ JPInterfaceType() override;
 
 	JPMatch::Type findJavaConversionImpl(JPMatch &match) override;
 	void getConversionInfo(JPConversionInfo &info) override;
-
-	string getMethod()
-	{
-		return m_Method;
-	}
-protected:
-	string  m_Method;
 } ;
 
-#endif /* JP_FUNCTIONAL_H */
+#endif // _JPINTERFACETYPE_H_

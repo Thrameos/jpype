@@ -16,6 +16,8 @@
 #include "jpype.h"
 #include "pyjp.h"
 #include "jp_array.h"
+#include "jp_arrayclass.h"
+#include "jp_classhints.h"
 #include "jp_primitive_accessor.h"
 #include "jp_shorttype.h"
 
@@ -265,6 +267,76 @@ void JPShortType::setArrayItem(JPJavaFrame& frame, jarray a, jsize ndx, PyObject
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java short");
 	type_t val = field(match.convert());
 	frame.SetShortArrayRegion((array_t) a, ndx, 1, &val);
+}
+
+JPPyObject JPShortType::getFastArrayItem(JPJavaAccess& frame, jarray a, jsize ndx)
+{
+	// See JPIntType::getFastArrayItem: inlines convertToPythonObject
+	// directly -- PyJPValue_assignJavaSlot is a guaranteed no-op for this
+	// family, so no frame is ever genuinely needed here.
+	auto array = (array_t) a;
+	type_t val;
+	frame.GetShortArrayRegion(array, ndx, 1, &val);
+	JPPyObject tmp = JPPyObject::call(PyLong_FromLong(val));
+	return JPPyObject::call(convertLong(getHost(), (PyLongObject*) tmp.get()));
+}
+
+JPArray* JPShortType::createArrayWrapper(const JPValue& value)
+{
+	return new JPArrayShort(value);
+}
+
+JPArrayClass* JPShortType::createArrayClass(JPJavaFrame& frame, jclass cls,
+		const string& name, JPClass* superClass, jint modifiers)
+{
+	return new JPArrayClassShort(frame, cls, name, superClass, this, modifiers);
+}
+
+JPMatch::Type JPArrayClassShort::findJavaConversionImpl(JPMatch &match)
+{
+	JP_TRACE_IN("JPArrayClassShort::findJavaConversion");
+	if (nullConversion->matches(this, match)
+			|| objectConversion->matches(this, match)
+			|| bufferConversion->matches(this, match)
+			|| sequenceConversion->matches(this, match)
+			|| hintsConversion->matches(this, match)
+			)
+		return match.type;
+	JP_TRACE("None");
+	return match.type = JPMatch::_none;
+	JP_TRACE_OUT;
+}
+
+void JPArrayClassShort::getConversionInfo(JPConversionInfo &info)
+{
+	JPJavaFrame frame = JPJavaFrame::outer();
+	objectConversion->getInfo(this, info);
+	bufferConversion->getInfo(this, info);
+	sequenceConversion->getInfo(this, info);
+	hintsConversion->getInfo(this, info);
+	PyList_Append(info.ret, PyJPClass_create(frame, this).get());
+}
+
+JPArrayShort::JPArrayShort(const JPValue& array)
+: JPArray(array), m_CompType(dynamic_cast<JPShortType*>(m_Class->getComponentType()))
+{
+}
+
+JPArrayShort::JPArrayShort(JPArrayShort* src, jsize start, jsize stop, jsize step)
+: JPArray(src, start, stop, step), m_CompType(src->m_CompType)
+{
+}
+
+JPPyObject JPArrayShort::getItem(jsize ndx)
+{
+	ndx = checkIndex(ndx);
+	JPJavaAccess frame;
+	return m_CompType->getFastArrayItem(frame, m_Object.get(), m_Start + ndx * m_Step);
+}
+
+JPArray* JPArrayShort::slice(jsize start, jsize stop, jsize step)
+{
+	return new JPArrayShort(this, start, stop, step);
 }
 
 void JPShortType::getView(JPArrayView& view)

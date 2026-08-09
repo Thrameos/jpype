@@ -15,7 +15,9 @@
  *****************************************************************************/
 #include "jpype.h"
 #include "pyjp.h"
+#include "jp_array.h"
 #include "jp_arrayclass.h"
+#include "jp_classhints.h"
 #include "jp_context.h"
 #include "jp_stringtype.h"
 
@@ -50,35 +52,17 @@ JPArrayClass::~JPArrayClass()
 JPMatch::Type JPArrayClass::findJavaConversionImpl(JPMatch &match)
 {
 	JP_TRACE_IN("JPArrayClass::findJavaConversion");
-	// m_MultiArrayDepth < 2 covers every existing 1D array class (the vast
-	// majority of calls into this function) -- skip even calling into
-	// multiArrayBufferConversion/raggedSequenceConversion for those so
-	// this addition costs nothing beyond one integer compare on the paths
-	// it doesn't apply to. raggedSequenceConversion's gate was tried at
-	// depth >= 1 and reverted after measuring it made flat int[] push
-	// ~50-70% *slower*, not faster (see RESULTS.md). Its
-	// remainingDepth==1 base case is mechanically reusable for a flat
-	// list, but there's no redundant-pass problem to fix there the way
-	// there is at depth >= 2: at depth 1, sequenceConversion::convert()
-	// calls the primitive-type-specific setArrayRange override (e.g.
-	// JPIntType::setArrayRange, a single JNI critical-pin + tight write
-	// loop, no verify/copy split) rather than JPClass::setArrayRange's
-	// generic non-primitive-component fallback (the actual source of the
-	// redundant re-matching this conversion fixes, which only fires when
-	// the component type is itself an array class, i.e. depth >= 2).
-	// Adding the ragged-native encode step at depth 1 only adds cost --
-	// an extra heap buffer, an extra NewDirectByteBuffer JNI call, and a
-	// reflection-based Array.newInstance on the Java side, none of which
-	// the old path pays -- with nothing to offset it.
+	// This base is used directly for a plain class/interface component
+	// (String[], Foo[]) and for a nested array that doesn't bottom out in
+	// a primitive leaf (Object[][], String[][], ...) -- neither case can
+	// ever match char/byte/buffer/multiArrayBuffer/raggedSequence (see
+	// JPArrayClassChar/Byte/Xxx and JPArrayClassNested/NestedRagged in
+	// jp_arrayclass.h), so this chain never tries any of them at all,
+	// unconditionally, rather than gating them with a runtime check that
+	// could be skipped if an earlier branch in an || chain already
+	// matched.
 	if (nullConversion->matches(this, match)
 			|| objectConversion->matches(this, match)
-			|| charArrayConversion->matches(this, match)
-			|| byteArrayConversion->matches(this, match)
-			|| bufferConversion->matches(this, match)
-			|| (m_MultiArrayDepth >= 2 && multiArrayBufferConversion->matches(this, match))
-			|| (m_MultiArrayDepth >= 2 && m_MultiArrayLeaf != nullptr
-				&& isRaggedEligible(m_MultiArrayLeaf->getTypeCode())
-				&& raggedSequenceConversion->matches(this, match))
 			|| sequenceConversion->matches(this, match)
 			|| hintsConversion->matches(this, match)
 			)
@@ -92,8 +76,86 @@ void JPArrayClass::getConversionInfo(JPConversionInfo &info)
 {
 	JPJavaFrame frame = JPJavaFrame::outer();
 	objectConversion->getInfo(this, info);
-	charArrayConversion->getInfo(this, info);
-	byteArrayConversion->getInfo(this, info);
+	sequenceConversion->getInfo(this, info);
+	hintsConversion->getInfo(this, info);
+	PyList_Append(info.ret, PyJPClass_create(frame, this).get());
+}
+
+JPArrayClass* JPArrayClass::createArrayClass(JPJavaFrame& frame, jclass cls,
+		const string& name, JPClass* superClass, jint modifiers)
+{
+	// `this` is the component type of the array being built, i.e. the
+	// *inner* array (int[] when building int[][]) -- its own leaf/depth
+	// fields (set once at its own construction, above) fully determine
+	// which specialization the new, one-level-deeper array class needs.
+	// Decided once, here, rather than carried as a runtime condition
+	// into the new class's findJavaConversionImpl.
+	if (m_MultiArrayLeaf == nullptr)
+		return new JPArrayClass(frame, cls, name, superClass, this, modifiers);
+	if (isRaggedEligible(m_MultiArrayLeaf->getTypeCode()))
+		return new JPArrayClassNestedRagged(frame, cls, name, superClass, this, modifiers);
+	return new JPArrayClassNested(frame, cls, name, superClass, this, modifiers);
+}
+
+JPMatch::Type JPArrayClassNested::findJavaConversionImpl(JPMatch &match)
+{
+	JP_TRACE_IN("JPArrayClassNested::findJavaConversion");
+	if (nullConversion->matches(this, match)
+			|| objectConversion->matches(this, match)
+			|| multiArrayBufferConversion->matches(this, match)
+			|| sequenceConversion->matches(this, match)
+			|| hintsConversion->matches(this, match)
+			)
+		return match.type;
+	JP_TRACE("None");
+	return match.type = JPMatch::_none;
+	JP_TRACE_OUT;
+}
+
+void JPArrayClassNested::getConversionInfo(JPConversionInfo &info)
+{
+	JPJavaFrame frame = JPJavaFrame::outer();
+	objectConversion->getInfo(this, info);
+	multiArrayBufferConversion->getInfo(this, info);
+	sequenceConversion->getInfo(this, info);
+	hintsConversion->getInfo(this, info);
+	PyList_Append(info.ret, PyJPClass_create(frame, this).get());
+}
+
+JPMatch::Type JPArrayClassNestedRagged::findJavaConversionImpl(JPMatch &match)
+{
+	JP_TRACE_IN("JPArrayClassNestedRagged::findJavaConversion");
+	// raggedSequenceConversion must never be reached for a flat, depth-1
+	// array (see RESULTS.md for the measured ~50-70% int[] push
+	// slowdown from doing so): at depth 1, sequenceConversion::convert()
+	// calls the primitive-type-specific setArrayRange override (e.g.
+	// JPIntType::setArrayRange, a single JNI critical-pin + tight write
+	// loop, no verify/copy split) rather than JPClass::setArrayRange's
+	// generic non-primitive-component fallback, so there's no
+	// redundant-pass problem for raggedSequenceConversion to fix at
+	// depth 1 the way there is for a genuinely nested array (this
+	// class, only ever used at depth >= 2, where the redundant
+	// re-matching happens because the component type is itself an
+	// array class).
+	if (nullConversion->matches(this, match)
+			|| objectConversion->matches(this, match)
+			|| multiArrayBufferConversion->matches(this, match)
+			|| raggedSequenceConversion->matches(this, match)
+			|| sequenceConversion->matches(this, match)
+			|| hintsConversion->matches(this, match)
+			)
+		return match.type;
+	JP_TRACE("None");
+	return match.type = JPMatch::_none;
+	JP_TRACE_OUT;
+}
+
+void JPArrayClassNestedRagged::getConversionInfo(JPConversionInfo &info)
+{
+	JPJavaFrame frame = JPJavaFrame::outer();
+	objectConversion->getInfo(this, info);
+	multiArrayBufferConversion->getInfo(this, info);
+	raggedSequenceConversion->getInfo(this, info);
 	sequenceConversion->getInfo(this, info);
 	hintsConversion->getInfo(this, info);
 	PyList_Append(info.ret, PyJPClass_create(frame, this).get());
@@ -134,4 +196,24 @@ JPValue JPArrayClass::newArray(JPJavaFrame& frame, int length)
 	jvalue v;
 	v.l = m_ComponentType->newArrayOf(frame, length);
 	return JPValue(this, v);
+}
+
+JPArray* JPArrayClass::createArrayWrapper(const JPValue& value)
+{
+	return new JPArrayNested(value);
+}
+
+JPArrayNested::JPArrayNested(const JPValue& array)
+: JPArrayObject(array)
+{
+}
+
+JPArrayNested::JPArrayNested(JPArrayNested* src, jsize start, jsize stop, jsize step)
+: JPArrayObject(src, start, stop, step)
+{
+}
+
+JPArray* JPArrayNested::slice(jsize start, jsize stop, jsize step)
+{
+	return new JPArrayNested(this, start, stop, step);
 }

@@ -66,7 +66,14 @@ static PyObject *PyJPArrayIter_next(PyJPArrayIter *self)
 	JP_PY_TRY("PyJPArrayIter_next");
 	if (self->m_Array == nullptr)
 		return nullptr; // already exhausted
-	JPJavaFrame frame = JPJavaFrame::outer();
+	// No JPJavaFrame constructed here on purpose -- JPArray::getItem() is
+	// fully self-contained per concrete subclass (a primitive read needs
+	// no frame at all on its common path; an object-array read pushes
+	// its own outer() internally). Pushing one here "just in case" would
+	// tax every element of every array type with a real
+	// PushLocalFrame/PopLocalFrame pair regardless of whether the
+	// concrete type ever needs one, exactly the per-call cost this whole
+	// design exists to avoid.
 	JPArray *array = self->m_Array->m_Array;
 	if (array == nullptr || self->m_Index >= array->getLength())
 	{
@@ -171,7 +178,7 @@ static int PyJPArray_init(PyObject *self, PyObject *args, PyObject *kwargs)
 				// Create a new array with the correct length and copy elements
 				jsize sliceLength = srcArray->getLength();
 				JPValue newArray = arrayClass->newArray(frame, sliceLength);
-				((PyJPArray*) self)->m_Array = new JPArray(newArray);
+				((PyJPArray*) self)->m_Array = JPArray::create(newArray);
 				((PyJPArray*) self)->m_Array->setRange(0, sliceLength, 1, v);
 				PyJPValue_assignJavaSlot(frame, self, newArray);
 				return 0;
@@ -179,7 +186,7 @@ static int PyJPArray_init(PyObject *self, PyObject *args, PyObject *kwargs)
 		}
 
 		JPValue value(valueCls, PyJPValue_getJValue(frame, v));
-		((PyJPArray*) self)->m_Array = new JPArray(value);
+		((PyJPArray*) self)->m_Array = JPArray::create(value);
 		PyJPValue_assignJavaSlot(frame, self, value);
 		return 0;
 	}
@@ -191,7 +198,7 @@ static int PyJPArray_init(PyObject *self, PyObject *args, PyObject *kwargs)
 		if (length < 0 || length > 2147483647)
 			JP_RAISE(PyExc_ValueError, "Array size invalid");
 		JPValue newArray = arrayClass->newArray(frame, (int) length);
-		((PyJPArray*) self)->m_Array = new JPArray(newArray);
+		((PyJPArray*) self)->m_Array = JPArray::create(newArray);
 		((PyJPArray*) self)->m_Array->setRange(0, (jsize) length, 1, v);
 		PyJPValue_assignJavaSlot(frame, self, newArray);
 		return 0;
@@ -204,7 +211,7 @@ static int PyJPArray_init(PyObject *self, PyObject *args, PyObject *kwargs)
 		if (length < 0 || length > 2147483647)
 			JP_RAISE(PyExc_ValueError, "Array size invalid");
 		JPValue newArray = arrayClass->newArray(frame, (int) length);
-		((PyJPArray*) self)->m_Array = new JPArray(newArray);
+		((PyJPArray*) self)->m_Array = JPArray::create(newArray);
 		PyJPValue_assignJavaSlot(frame, self, newArray);
 		return 0;
 	}
@@ -232,7 +239,8 @@ static PyObject *PyJPArray_repr(PyJPArray *self)
 static Py_ssize_t PyJPArray_len(PyJPArray *self)
 {
 	JP_PY_TRY("PyJPArray_len");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	// JPArray::getLength() returns a cached jsize set at construction --
+	// no JNI call, so no frame (fast or real) is needed here at all.
 	if (self->m_Array == nullptr)
 		JP_RAISE(PyExc_ValueError, "Null array"); // GCOVR_EXCL_LINE
 	return self->m_Array->getLength();
@@ -247,7 +255,8 @@ static PyObject* PyJPArray_length(PyJPArray *self, PyObject *closure)
 static PyObject *PyJPArray_sqItem(PyJPArray *self, Py_ssize_t index)
 {
 	JP_PY_TRY("PyJPArray_sqItem");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	// No JPJavaFrame constructed here -- see PyJPArrayIter_next's comment
+	// above; JPArray::getItem() is fully self-contained per subclass.
 	if (self->m_Array == nullptr)
 		JP_RAISE(PyExc_ValueError, "Null array");
 
@@ -280,7 +289,11 @@ static PyObject *PyJPArray_sqItem(PyJPArray *self, Py_ssize_t index)
 static PyObject *PyJPArray_getItem(PyJPArray *self, PyObject *item)
 {
 	JP_PY_TRY("PyJPArray_getArrayItem");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	// No JPJavaFrame constructed here on the general entry path -- see
+	// PyJPArrayIter_next's comment. The index branch below needs none at
+	// all (JPArray::getItem() is self-contained); only the slice branch
+	// genuinely uses one (PyJPValue_assignJavaSlot/PyJPValue_getJValue),
+	// so it constructs its own, scoped to just that branch.
 	if (self->m_Array == nullptr)
 		JP_RAISE(PyExc_ValueError, "Null array");
 
@@ -294,6 +307,7 @@ static PyObject *PyJPArray_getItem(PyJPArray *self, PyObject *item)
 
 	if (PySlice_Check(item))
 	{
+		JPJavaFrame frame = JPJavaFrame::outer();
 		Py_ssize_t start, stop, step, slicelength;
 		auto length = (Py_ssize_t) self->m_Array->getLength();
 
@@ -320,7 +334,7 @@ static PyObject *PyJPArray_getItem(PyJPArray *self, PyObject *item)
 
 		// Set up JPArray as slice
 		JPArray *array = ((PyJPArray*) self)->m_Array;
-		((PyJPArray*) newArray.get())->m_Array = new JPArray(array,
+		((PyJPArray*) newArray.get())->m_Array = array->slice(
 				(jsize) start, (jsize) stop, (jsize) step);
 		return newArray.keep();
 	}
@@ -711,7 +725,7 @@ JPPyObject PyJPArray_create(JPJavaFrame &frame, PyTypeObject *type, const JPValu
 {
 	PyObject *obj = type->tp_alloc(type, 0);
 	JP_PY_CHECK();
-	((PyJPArray*) obj)->m_Array = new JPArray(value);
+	((PyJPArray*) obj)->m_Array = JPArray::create(value);
 	PyJPValue_assignJavaSlot(frame, obj, value);
 	return JPPyObject::claim(obj);
 }

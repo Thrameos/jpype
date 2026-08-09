@@ -106,13 +106,24 @@ public:
 	 * their entire duration (no `New*`-family JNI call, no
 	 * jobject-returning JNI call, no re-entry into Python). It borrows
 	 * whatever real frame already exists further up the call stack --
-	 * using fast() does not create a new safety scope of its own. See
-	 * plan/JavaFrameFast.md for the full rationale and the
-	 * JP_ASSERT_FAST_FRAMES build that checks this contract.
+	 * using fast() does not create a new safety scope of its own. See the
+	 * JP_ASSERT_FAST_FRAMES build (JP_ASSERT_HAS_FRAME/g_frameDepth in
+	 * jp_javaframe.cpp) for the mechanism that checks this contract.
 	 */
 	static JPJavaFrame fast()
 	{
 		return JPJavaFrame((JNIEnv*) nullptr);
+	}
+
+	/** Same as fast(), but for a caller that already holds this thread's
+	 * JNIEnv* (e.g. JPJavaAccess::getEnv()) -- skips the redundant
+	 * JPContext::getEnv() lookup (a real JNI call, not free) that the
+	 * no-arg fast() would otherwise repeat right after the caller already
+	 * paid for it once.
+	 */
+	static JPJavaFrame fast(JNIEnv* env)
+	{
+		return JPJavaFrame(env);
 	}
 
 	JPJavaFrame(const JPJavaFrame& frame);
@@ -428,6 +439,59 @@ public:
 
 	void clearInterrupt(bool throws);
 
+} ;
+
+/** A compile-time-narrow companion to JPJavaFrame for call sites that are
+ * provably local-reference-free on their own happy path (no `New*`, no
+ * `CallObjectMethodA` family, no re-entry into Python) -- e.g. a primitive
+ * array element read (`Get<Type>ArrayRegion`). Unlike JPJavaFrame::fast(),
+ * this is not the same C++ type as JPJavaFrame at all: it has no
+ * reference-creating methods to call in the first place, so a future edit
+ * that tries to reach for one here is a compile error in every build, not
+ * a runtime assertion gated behind JP_ASSERT_FAST_FRAMES. It never pushes a
+ * JNI local frame and never needs to -- it makes no local references.
+ *
+ * The one thing every wrapped JNI call still needs is the *exception*
+ * check every JAVA_CHECK/JAVA_RETURN pays after any JNI call (even a call
+ * that is documented as not throwing can still observe an
+ * already-pending exception from something earlier in the call chain).
+ * checkFast() is that check's frame-less equivalent: on the (overwhelming)
+ * common case of no pending exception it touches nothing but
+ * ExceptionCheck(), a boolean query. Only on the rare exception branch
+ * does it escalate to a real JPJavaFrame::inner(), specifically because
+ * ExceptionOccurred() returns a local jthrowable reference (and building
+ * the JPJavaError from it may create more), which needs somewhere real to
+ * be popped from.
+ */
+class JPJavaAccess
+{
+	JNIEnv* m_Env;
+
+public:
+	JPJavaAccess();
+
+	void checkFast();
+
+	/** For a caller that needs to escalate to a real JPJavaFrame (e.g. to
+	 * call the shared convertToPythonObject) -- pass to
+	 * JPJavaFrame::fast(env) so it doesn't redundantly re-fetch this
+	 * thread's JNIEnv*, which is a real JNI call, not free.
+	 */
+	JNIEnv* getEnv() const
+	{
+		return m_Env;
+	}
+
+	jsize GetArrayLength(jarray a0);
+
+	void GetBooleanArrayRegion(jbooleanArray array, jsize start, jsize len, jboolean* vals);
+	void GetByteArrayRegion(jbyteArray array, jsize start, jsize len, jbyte* vals);
+	void GetCharArrayRegion(jcharArray array, jsize start, jsize len, jchar* vals);
+	void GetShortArrayRegion(jshortArray array, jsize start, jsize len, jshort* vals);
+	void GetIntArrayRegion(jintArray array, jsize start, jsize len, jint* vals);
+	void GetLongArrayRegion(jlongArray array, jsize start, jsize len, jlong* vals);
+	void GetFloatArrayRegion(jfloatArray array, jsize start, jsize len, jfloat* vals);
+	void GetDoubleArrayRegion(jdoubleArray array, jsize start, jsize len, jdouble* vals);
 } ;
 
 #endif // _JP_JAVA_FRAME_H_

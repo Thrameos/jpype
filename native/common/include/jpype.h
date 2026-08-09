@@ -134,6 +134,14 @@ class JPArrayClass;
 class JPArrayView;
 class JPBoxedType;
 class JPPrimitiveType;
+class JPBooleanType;
+class JPByteType;
+class JPCharType;
+class JPShortType;
+class JPIntType;
+class JPLongType;
+class JPFloatType;
+class JPDoubleType;
 class JPStringType;
 
 /**

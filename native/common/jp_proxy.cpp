@@ -20,6 +20,7 @@
 #include "jp_reference_queue.h"
 #include "jp_primitive_accessor.h"
 #include "jp_boxedtype.h"
+#include "jp_interfacetype.h"
 #include "jp_functional.h"
 
 JPPyObject getArgs(jlongArray parameterTypePtrs,

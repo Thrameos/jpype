@@ -231,6 +231,35 @@ public:
 	virtual JPPyObject  getArrayItem(JPJavaFrame& frame, jarray, jsize ndx);
 	virtual void        setArrayItem(JPJavaFrame& frame, jarray, jsize ndx, PyObject* val);
 
+	/** Construct the concrete JPArray subclass to wrap an array whose
+	 * component type is `this` -- called as
+	 * `arrayClass->getComponentType()->createArrayWrapper(value)` from
+	 * JPArray::create(), reusing this same per-type fork instead of a new
+	 * dispatch table. Default (this base): component is a plain
+	 * class/interface -> JPArrayObject. JPArrayClass overrides for a
+	 * component that is itself an array -> JPArrayNested. Each JPXxxType
+	 * overrides for its own primitive component -> the matching
+	 * JPArrayXxx.
+	 */
+	virtual JPArray*    createArrayWrapper(const JPValue& value);
+
+	/** Construct the JPArrayClass metadata object for an array whose
+	 * component type is `this` -- called as
+	 * `componentType->createArrayClass(...)` from
+	 * TypeFactoryNative_defineArrayClass, the same pattern as
+	 * createArrayWrapper: the component type picks its own specialized
+	 * JPArrayClass subclass (which conversions apply -- e.g. char[] vs
+	 * double[] -- differs by component type and is fixed for the
+	 * class's lifetime), instead of one shared JPArrayClass re-deriving
+	 * that per call. Default (this base): plain JPArrayClass -- used for
+	 * a plain class/interface component or a component that is itself
+	 * an array (nested arrays; multi-array-depth conversions there don't
+	 * depend on the leaf primitive's identity). Each JPXxxType overrides
+	 * to return its own JPArrayClassXxx.
+	 */
+	virtual JPArrayClass* createArrayClass(JPJavaFrame& frame, jclass cls,
+			const string& name, JPClass* superClass, jint modifiers);
+
 	/**
 	 * Expose IsAssignableFrom to python.
 	 */

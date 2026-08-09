@@ -66,6 +66,22 @@ JPArray::JPArray(JPArray* instance, jsize start, jsize stop, jsize step)
 JPArray::~JPArray()
 = default;
 
+JPArray* JPArray::create(const JPValue& value)
+{
+	auto* arrayClass = dynamic_cast<JPArrayClass*>(value.getClass());
+	ASSERT_NOT_NULL(arrayClass);
+	return arrayClass->getComponentType()->createArrayWrapper(value);
+}
+
+jsize JPArray::checkIndex(jsize ndx) const
+{
+	if (ndx < 0)
+		ndx += m_Length;
+	if (ndx >= m_Length || ndx < 0)
+		JP_RAISE(PyExc_IndexError, "array index out of bounds");
+	return ndx;
+}
+
 jsize JPArray::getLength() const
 {
 	return m_Length;
@@ -114,28 +130,27 @@ void JPArray::setItem(jsize ndx, PyObject* val)
 	compType->setArrayItem(frame, m_Object.get(), m_Start + ndx*m_Step, val);
 }
 
-JPPyObject JPArray::getItem(jsize ndx)
+JPArrayObject::JPArrayObject(const JPValue& array)
+: JPArray(array)
 {
+}
+
+JPArrayObject::JPArrayObject(JPArrayObject* src, jsize start, jsize stop, jsize step)
+: JPArray(src, start, stop, step)
+{
+}
+
+JPPyObject JPArrayObject::getItem(jsize ndx)
+{
+	ndx = checkIndex(ndx);
 	JPClass* compType = m_Class->getComponentType();
-
-	if (ndx < 0)
-		ndx += m_Length;
-
-	if (ndx >= m_Length || ndx < 0)
-	{
-		JP_RAISE(PyExc_IndexError, "array index out of bounds");
-	}
-
-	// Primitive element reads create no local Java references (see
-	// plan/JavaFrameFast.md), so they don't need a pushed frame -- object
-	// element reads (GetObjectArrayElement) do, and keep outer().
-	if (compType->isPrimitive())
-	{
-		JPJavaFrame frame = JPJavaFrame::fast();
-		return compType->getArrayItem(frame, m_Object.get(), m_Start + ndx * m_Step);
-	}
 	JPJavaFrame frame = JPJavaFrame::outer();
 	return compType->getArrayItem(frame, m_Object.get(), m_Start + ndx * m_Step);
+}
+
+JPArray* JPArrayObject::slice(jsize start, jsize stop, jsize step)
+{
+	return new JPArrayObject(this, start, stop, step);
 }
 
 jarray JPArray::clone(JPJavaFrame& frame, PyObject* obj)

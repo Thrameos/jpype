@@ -15,6 +15,7 @@
  *****************************************************************************/
 #include "jpype.h"
 #include "pyjp.h"
+#include "jp_interfacetype.h"
 #include "jp_functional.h"
 #include "jp_proxy.h"
 
@@ -23,7 +24,7 @@ JPFunctional::JPFunctional(JPJavaFrame& frame, jclass clss,
 		JPClass* super,
 		JPClassList& interfaces,
 		jint modifiers)
-: JPClass(frame, clss, name, super, interfaces, modifiers)
+: JPInterfaceType(frame, clss, name, super, interfaces, modifiers)
 {
 	m_Method = frame.getFunctional(clss);
 }
@@ -134,7 +135,7 @@ public:
 JPMatch::Type JPFunctional::findJavaConversionImpl(JPMatch &match)
 {
 	JP_TRACE_IN("JPJPFunctional::findJavaConversiocdn");
-	JPClass::findJavaConversionImpl(match);
+	JPInterfaceType::findJavaConversionImpl(match);
 	if (match.type != JPMatch::_none)
 		return match.type;
 	if (functional_conversion.matches(this, match))
@@ -146,7 +147,7 @@ JPMatch::Type JPFunctional::findJavaConversionImpl(JPMatch &match)
 void JPFunctional::getConversionInfo(JPConversionInfo &info)
 {
 	JP_TRACE_IN("JPJPFunctional::getConversionInfo");
-	JPClass::getConversionInfo(info);
+	JPInterfaceType::getConversionInfo(info);
 	functional_conversion.getInfo(this, info);
 	JP_TRACE_OUT;  // GCOVR_EXCL_LINE
 }

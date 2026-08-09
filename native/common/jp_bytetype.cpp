@@ -16,6 +16,8 @@
 #include "jpype.h"
 #include "pyjp.h"
 #include "jp_array.h"
+#include "jp_arrayclass.h"
+#include "jp_classhints.h"
 #include "jp_primitive_accessor.h"
 #include "jp_bytetype.h"
 
@@ -242,6 +244,80 @@ void JPByteType::setArrayItem(JPJavaFrame& frame, jarray a, jsize ndx, PyObject*
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java byte");
 	type_t val = field(match.convert());
 	frame.SetByteArrayRegion((array_t) a, ndx, 1, &val);
+}
+
+JPPyObject JPByteType::getFastArrayItem(JPJavaAccess& frame, jarray a, jsize ndx)
+{
+	// See JPIntType::getFastArrayItem: inlines convertToPythonObject
+	// directly -- PyJPValue_assignJavaSlot is a guaranteed no-op for this
+	// family, so no frame is ever genuinely needed here. Unlike int, byte
+	// has no getHost()==nullptr branch in its own convertToPythonObject,
+	// so none is replicated here either.
+	auto array = (array_t) a;
+	type_t val;
+	frame.GetByteArrayRegion(array, ndx, 1, &val);
+	JPPyObject tmp = JPPyObject::call(PyLong_FromLong(val));
+	return JPPyObject::call(convertLong(getHost(), (PyLongObject*) tmp.get()));
+}
+
+JPArray* JPByteType::createArrayWrapper(const JPValue& value)
+{
+	return new JPArrayByte(value);
+}
+
+JPArrayClass* JPByteType::createArrayClass(JPJavaFrame& frame, jclass cls,
+		const string& name, JPClass* superClass, jint modifiers)
+{
+	return new JPArrayClassByte(frame, cls, name, superClass, this, modifiers);
+}
+
+JPMatch::Type JPArrayClassByte::findJavaConversionImpl(JPMatch &match)
+{
+	JP_TRACE_IN("JPArrayClassByte::findJavaConversion");
+	if (nullConversion->matches(this, match)
+			|| objectConversion->matches(this, match)
+			|| byteArrayConversion->matches(this, match)
+			|| bufferConversion->matches(this, match)
+			|| sequenceConversion->matches(this, match)
+			|| hintsConversion->matches(this, match)
+			)
+		return match.type;
+	JP_TRACE("None");
+	return match.type = JPMatch::_none;
+	JP_TRACE_OUT;
+}
+
+void JPArrayClassByte::getConversionInfo(JPConversionInfo &info)
+{
+	JPJavaFrame frame = JPJavaFrame::outer();
+	objectConversion->getInfo(this, info);
+	byteArrayConversion->getInfo(this, info);
+	bufferConversion->getInfo(this, info);
+	sequenceConversion->getInfo(this, info);
+	hintsConversion->getInfo(this, info);
+	PyList_Append(info.ret, PyJPClass_create(frame, this).get());
+}
+
+JPArrayByte::JPArrayByte(const JPValue& array)
+: JPArray(array), m_CompType(dynamic_cast<JPByteType*>(m_Class->getComponentType()))
+{
+}
+
+JPArrayByte::JPArrayByte(JPArrayByte* src, jsize start, jsize stop, jsize step)
+: JPArray(src, start, stop, step), m_CompType(src->m_CompType)
+{
+}
+
+JPPyObject JPArrayByte::getItem(jsize ndx)
+{
+	ndx = checkIndex(ndx);
+	JPJavaAccess frame;
+	return m_CompType->getFastArrayItem(frame, m_Object.get(), m_Start + ndx * m_Step);
+}
+
+JPArray* JPArrayByte::slice(jsize start, jsize stop, jsize step)
+{
+	return new JPArrayByte(this, start, stop, step);
 }
 
 void JPByteType::getView(JPArrayView& view)

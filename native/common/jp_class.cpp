@@ -15,6 +15,8 @@
  *****************************************************************************/
 #include "jpype.h"
 #include "pyjp.h"
+#include "jp_array.h"
+#include "jp_arrayclass.h"
 #include "jp_field.h"
 #include "jp_methoddispatch.h"
 #include "jp_method.h"
@@ -307,6 +309,17 @@ JPPyObject JPClass::getArrayItem(JPJavaFrame& frame, jarray a, jsize ndx)
 	JP_TRACE_OUT;
 }
 
+JPArray* JPClass::createArrayWrapper(const JPValue& value)
+{
+	return new JPArrayObject(value);
+}
+
+JPArrayClass* JPClass::createArrayClass(JPJavaFrame& frame, jclass cls,
+		const string& name, JPClass* superClass, jint modifiers)
+{
+	return new JPArrayClass(frame, cls, name, superClass, this, modifiers);
+}
+
 //</editor-fold>
 //<editor-fold desc="conversion" defaultstate="collapsed">
 
@@ -422,9 +435,13 @@ JPPyObject JPClass::convertToPythonObject(JPJavaFrame& frame, jvalue value, bool
 JPMatch::Type JPClass::findJavaConversionImpl(JPMatch &match)
 {
 	JP_TRACE_IN("JPClass::findJavaConversionImpl");
+	// A dynamic proxy can only ever be assigned to an interface -- never
+	// a plain class, which this is (an actual interface is constructed
+	// as a JPInterfaceType instead; see
+	// TypeFactoryNative_defineObjectClass) -- so proxyConversion is
+	// deliberately not tried here at all.
 	if (nullConversion->matches(this, match)
 			|| objectConversion->matches(this, match)
-			|| proxyConversion->matches(this, match)
 			|| hintsConversion->matches(this, match))
 		return match.type;
 	JP_TRACE("No match");

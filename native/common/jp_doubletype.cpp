@@ -16,6 +16,8 @@
 #include "jpype.h"
 #include "pyjp.h"
 #include "jp_array.h"
+#include "jp_arrayclass.h"
+#include "jp_classhints.h"
 #include "jp_primitive_accessor.h"
 #include "jp_doubletype.h"
 
@@ -280,6 +282,82 @@ void JPDoubleType::setArrayItem(JPJavaFrame& frame, jarray a, jsize ndx, PyObjec
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java double");
 	type_t val = field(match.convert());
 	frame.SetDoubleArrayRegion((array_t) a, ndx, 1, &val);
+}
+
+JPPyObject JPDoubleType::getFastArrayItem(JPJavaAccess& frame, jarray a, jsize ndx)
+{
+	// See JPFloatType::getFastArrayItem: inlines convertToPythonObject
+	// directly, including its real (frame-free) slot write, rather than
+	// calling it via a real JPJavaFrame& that would never actually be
+	// used for anything JNI-related.
+	auto array = (array_t) a;
+	type_t val;
+	frame.GetDoubleArrayRegion(array, ndx, 1, &val);
+	PyTypeObject* wrapper = getHost();
+	JPPyObject obj = JPPyObject::call(wrapper->tp_alloc(wrapper, 0));
+	((PyFloatObject*) obj.get())->ob_fval = val;
+	Py_ssize_t offset = PyJPValue_getJavaSlotOffset(obj.get());
+	auto* slot = (jvalue*) (((char*) obj.get()) + offset);
+	slot->d = val;
+	return obj;
+}
+
+JPArray* JPDoubleType::createArrayWrapper(const JPValue& value)
+{
+	return new JPArrayDouble(value);
+}
+
+JPArrayClass* JPDoubleType::createArrayClass(JPJavaFrame& frame, jclass cls,
+		const string& name, JPClass* superClass, jint modifiers)
+{
+	return new JPArrayClassDouble(frame, cls, name, superClass, this, modifiers);
+}
+
+JPMatch::Type JPArrayClassDouble::findJavaConversionImpl(JPMatch &match)
+{
+	JP_TRACE_IN("JPArrayClassDouble::findJavaConversion");
+	if (nullConversion->matches(this, match)
+			|| objectConversion->matches(this, match)
+			|| bufferConversion->matches(this, match)
+			|| sequenceConversion->matches(this, match)
+			|| hintsConversion->matches(this, match)
+			)
+		return match.type;
+	JP_TRACE("None");
+	return match.type = JPMatch::_none;
+	JP_TRACE_OUT;
+}
+
+void JPArrayClassDouble::getConversionInfo(JPConversionInfo &info)
+{
+	JPJavaFrame frame = JPJavaFrame::outer();
+	objectConversion->getInfo(this, info);
+	bufferConversion->getInfo(this, info);
+	sequenceConversion->getInfo(this, info);
+	hintsConversion->getInfo(this, info);
+	PyList_Append(info.ret, PyJPClass_create(frame, this).get());
+}
+
+JPArrayDouble::JPArrayDouble(const JPValue& array)
+: JPArray(array), m_CompType(dynamic_cast<JPDoubleType*>(m_Class->getComponentType()))
+{
+}
+
+JPArrayDouble::JPArrayDouble(JPArrayDouble* src, jsize start, jsize stop, jsize step)
+: JPArray(src, start, stop, step), m_CompType(src->m_CompType)
+{
+}
+
+JPPyObject JPArrayDouble::getItem(jsize ndx)
+{
+	ndx = checkIndex(ndx);
+	JPJavaAccess frame;
+	return m_CompType->getFastArrayItem(frame, m_Object.get(), m_Start + ndx * m_Step);
+}
+
+JPArray* JPArrayDouble::slice(jsize start, jsize stop, jsize step)
+{
+	return new JPArrayDouble(this, start, stop, step);
 }
 
 void JPDoubleType::getView(JPArrayView& view)

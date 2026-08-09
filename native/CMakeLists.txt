@@ -29,6 +29,7 @@ set(JPYPE_NATIVE_SRC
         common/jp_floattype.cpp
         common/jp_functional.cpp
         common/jp_gc.cpp
+        common/jp_interfacetype.cpp
         common/jp_inttype.cpp
         common/jp_javaframe.cpp
         common/jp_longtype.cpp
