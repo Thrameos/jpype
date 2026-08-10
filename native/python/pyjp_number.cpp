@@ -30,19 +30,70 @@ struct PyJPFloat
 	jvalue extra;
 };
 
-// Long/Boolean no longer keep any trailing per-instance storage at all: the
+// Long/Boolean keep no trailing per-instance storage at all: the
 // PyLongObject itself, and tp_jvalue (see longJValue below) reconstructs a
-// jvalue from it on demand -- boxing via a real JNI call when the context is
-// a boxed wrapper, reading the digits directly when it's a primitive. So
-// there's no fixed offset to protect any more, and ordinary CPython subtype
-// construction (long_subtype_new, dispatched via PyLong_Type.tp_new with the
-// real subtype) is exactly the right tool -- the earlier hand-written-digit
-// version existed solely to keep a trailing JPValue at a constant offset.
+// jvalue from it on demand. With no appended slot to protect, this builds
+// the digits directly into a single instance of the real subtype, rather
+// than routing through PyLong_Type.tp_new -- which for an int subtype
+// (long_subtype_new) allocates and fills a throwaway base-PyLong first via
+// PyNumber_Long, then allocates a second, real instance of the subtype and
+// copies the digits across. Every array element pulled through this path
+// paid for two allocations plus a tuple pack/unpack instead of one.
+//
+// Digit layout is duplicated per CPython version boundary (confirmed
+// against the CPython source tree directly, tags v3.10.0 through v3.14.0):
+//   - <=3.11: struct _longobject { PyObject_VAR_HEAD; digit ob_digit[1]; };
+//     sign is the sign of ob_size.
+//   - >=3.12: struct _longobject { PyObject_HEAD; _PyLongValue long_value; }
+//     where long_value = { uintptr_t lv_tag; digit ob_digit[1]; }. lv_tag's
+//     low 2 bits are sign (0=positive,1=zero,2=negative), bit 2 is the
+//     immortal-object flag (0 for our freshly allocated objects), lv_tag>>3
+//     is the digit count.
 PyObject* PyJPNumber_longFromLongLong(PyTypeObject* type, long long value)
 {
-	JPPyObject tmp = JPPyObject::call(PyLong_FromLongLong(value));
-	JPPyObject args = JPPyTuple_Pack(tmp.get());
-	return PyLong_Type.tp_new(type, args.get(), nullptr);
+	// Magnitude via unsigned negation so INT64_MIN doesn't overflow.
+	unsigned long long mag = (value < 0)
+			? (0ULL - (unsigned long long) value)
+			: (unsigned long long) value;
+
+#if PYLONG_BITS_IN_DIGIT == 30
+#define JLONG_MAX_DIGITS 3 /* 3*30 = 90 >= 64 bits */
+#elif PYLONG_BITS_IN_DIGIT == 15
+#define JLONG_MAX_DIGITS 5 /* 5*15 = 75 >= 64 bits */
+#else
+#error "Unexpected PYLONG_BITS_IN_DIGIT"
+#endif
+
+	digit digits[JLONG_MAX_DIGITS];
+	unsigned long long m = mag;
+	for (int i = 0; i < JLONG_MAX_DIGITS; i++)
+	{
+		digits[i] = (digit) (m & PyLong_MASK);
+		m >>= PyLong_SHIFT;
+	}
+	int ndigits = JLONG_MAX_DIGITS;
+	while (ndigits > 0 && digits[ndigits - 1] == 0)
+		ndigits--;
+#undef JLONG_MAX_DIGITS
+
+	// Allocate exactly the digits this value needs -- no appended slot
+	// means no fixed budget to protect, unlike the earlier version of this
+	// function that reserved a worst-case-width digit array.
+	auto* self = (PyLongObject*) type->tp_alloc(type, ndigits);
+	if (self == nullptr)
+		return nullptr;
+
+#if PY_VERSION_HEX >= 0x030c0000
+	int sign_code = (mag == 0) ? 1 : (value < 0 ? 2 : 0);
+	self->long_value.lv_tag = ((uintptr_t) ndigits << 3) | (uintptr_t) sign_code;
+	for (int i = 0; i < ndigits; i++)
+		self->long_value.ob_digit[i] = digits[i];
+#else
+	Py_SET_SIZE(self, (value < 0) ? -ndigits : ndigits);
+	for (int i = 0; i < ndigits; i++)
+		self->ob_digit[i] = digits[i];
+#endif
+	return (PyObject*) self;
 }
 
 static PyObject* newFloatFixed(PyTypeObject* type, double value)
