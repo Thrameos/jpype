@@ -17,13 +17,23 @@ CLAUDE.md. Iteration count scales down as per-call cost grows
 (`n = max(20, 5_000_000 // total_elements)`, `n // 10` warmup), so the
 largest array sizes (~1,000,000 elements) run at only 20-50 timed
 iterations -- called out explicitly wherever it affects confidence in a
-specific number. jep runs on Python 3.10 (this checkout's only working
-native build) and embeds Python inside the JVM, the reverse of
+specific number. **This formula applies to every number in Sections 2-9
+and to GraalPy's `list->array`/`array->list`/`array->buffer` numbers in
+Section 10 (verifiable directly against the `n` column recorded in each
+`project/benchmark/graalpy/*_results.csv` -- e.g. `array_flat.py`'s
+`list->array` row records n=50000/5000/500/50 at sizes
+100/1,000/10,000/100,000, matching the formula exactly). It does
+*not* apply to Section 10's `buffer->array (manual)` numbers, which use
+a different, much smaller budget (n as low as 3) for reasons specific to
+that category -- see Section 10's opening note before reading those
+rows.** jep runs on Python 3.10 (this checkout's only working native
+build) and embeds Python inside the JVM, the reverse of
 jpype/jpy/pyjnius's architecture, so its numbers carry extra uncertainty.
 Every number in every table comes from an actual recorded run of the
-corresponding script in `project/benchmark/{jpype,jpy,jep,pyjnius}/*.py`
--- none are hand-transcribed or extrapolated. See
-`project/benchmark/README.md` to reproduce.
+corresponding script in
+`project/benchmark/{jpype,jpy,jep,pyjnius,graalpy}/*.py` -- none are
+hand-transcribed or extrapolated. See `project/benchmark/README.md` to
+reproduce.
 
 **Coverage note.** Sections 2-3 (scalars, dispatch, proxies) remain
 **int-only** across libraries -- that surface wasn't re-benchmarked this
@@ -844,8 +854,23 @@ runs at n=20 to n=50,000 samples per trial. GraalPy's manual
 buffer-push category runs at **n=3 samples** at every size >=10,000
 elements (`_arrayutil.py`'s `calls_for_manual()`, a ~1,000x smaller
 iteration budget than `calls_for()` uses for every other category, sized
-around ~5,000 elements/trial instead of ~5,000,000). This isn't a minor
-tuning choice: it exists because GraalPy has **no native
+around ~5,000 elements/trial instead of ~5,000,000). **Concretely why
+the formula was changed, not just that it was**: the unmodified
+`calls_for()` formula was tried first and predicts n=50 at 100,000
+elements; `build_manual()`'s own measured cost at that size is ~1.27
+seconds/call (best case, int) -- 5 trials x 50 calls plus warmup is
+~255 calls, ~5.4 minutes for that *one* type at that *one* size in
+*one* file. Multiplied across 4 element types, several sizes/depths, and
+four separate files (`array_flat.py`/`array_multidim.py`/
+`array_noncontig.py`/`array_shape.py`), the unmodified formula does not
+finish in any practical time for this comparison -- confirmed directly,
+not estimated: the first attempt at running `array_flat.py`'s manual
+category under the unmodified formula produced no output within a
+2-minute window before being killed. `calls_for_manual()`'s ~1,000x
+smaller budget is what makes finishing this comparison at all possible;
+it is a real deviation from Section 1's stated formula, not a
+rigor-preserving equivalent of it. This isn't a minor tuning choice: it
+exists because GraalPy has **no native
 `buffer->array` push at all**, at any size or depth (confirmed
 empirically -- `TypeError('invalid instantiation of foreign object')`
 unconditionally). Every number in the "buffer->array (manual)" rows
