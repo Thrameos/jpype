@@ -172,6 +172,14 @@ uniform per-element Python-level loop, exactly the kind of hot loop a
 real JIT is supposed to be good at optimizing, so it's fair game to
 measure on its own terms even though it takes the long way around.
 
+Because it's so slow, `build_manual()`'s numbers are collected at n=3
+samples/trial at every size that matters (`_arrayutil.py`'s
+`calls_for_manual()`, a ~1,000x smaller budget than every other category
+in this suite uses) -- real numbers from real code, but at far lower
+statistical confidence than anywhere else in this comparison; see
+`RESULTS.md`'s Section 10 intro for the full statement of what that
+means for reading these rows.
+
 **Measured result: `build_manual()` is roughly 250-300x slower per
 element than GraalPy's own automatic `list->array` push** (~13,000
 ns/element vs. ~45 ns/element, see `RESULTS.md`) -- confirming that

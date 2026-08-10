@@ -835,6 +835,35 @@ scalar/dispatch/proxy benchmarks below use a 1000-iteration warmup before
 any timed trial, same as every other library here, and the split persists
 regardless.
 
+**Second methodology difference, more important than the first: the
+"buffer->array (manual)" numbers throughout 10.2-10.4 were collected at
+far lower statistical rigor than every other number in this entire
+report, and that needs to be stated plainly, not left implicit.** Every
+other measurement here -- across all ten sections, all five libraries --
+runs at n=20 to n=50,000 samples per trial. GraalPy's manual
+buffer-push category runs at **n=3 samples** at every size >=10,000
+elements (`_arrayutil.py`'s `calls_for_manual()`, a ~1,000x smaller
+iteration budget than `calls_for()` uses for every other category, sized
+around ~5,000 elements/trial instead of ~5,000,000). This isn't a minor
+tuning choice: it exists because GraalPy has **no native
+`buffer->array` push at all**, at any size or depth (confirmed
+empirically -- `TypeError('invalid instantiation of foreign object')`
+unconditionally). Every number in the "buffer->array (manual)" rows
+below comes from a per-element Java-array-construction routine written
+for this comparison (`graalpy/_arrayutil.py`), not from anything GraalPy
+does on its own. Without that hand-written code, this entire category
+would be blank for GraalPy, the same as `pyjnius/array_noncontig.py`'s
+stub. n=3 was still not enough to avoid failure outright: two cells
+(int and long `list->array` push at the `100000x3` row-heavy shape, a
+*different*, automatic category, not even the manual one) hit a genuine
+`MemoryError` under a capped `-Xmx3g` heap and are recorded as `N/A` in
+`array_shape_results.csv`, not silently omitted -- see 10.4. Read every
+"buffer->array (manual)" number below with that context: it is a real
+measurement of real (slow) code actually running, not a fabricated or
+estimated number, but it carries far less statistical confidence than
+anything else in this report, and it measures code that exists only
+because GraalPy itself has nothing to measure in its place.
+
 ### 10.1 Scalars, dispatch, proxy
 
 **Methodology.** Same operations as Section 2/3 -- `Math.max`/`Math.sqrt`,
@@ -888,15 +917,21 @@ ahead on most of these same rows.
 ### 10.2 Array push (flat, 1D) -- the core finding
 
 **Methodology.** Same as Section 4: `sum{Type}Array(source)`, sweeping
-size and two source kinds. GraalPy has no automatic `buffer->array` push
-at all (confirmed empirically, any depth, any type -- see
-`project/benchmark/README.md`'s gap footnote); per this session's
-direction, that gap is not skipped but emulated by hand
-(`graalpy/_arrayutil.py`'s `build_manual()`: allocate a real Java array,
-fill it element-by-element from the numpy source) and measured as a real
-category, "buffer->array (manual)" below -- a JIT is supposed to be able
-to optimize even a plain elementwise loop, so it's fair game to measure
-on those terms.
+size and two source kinds. **GraalPy cannot do a `buffer->array` push at
+all -- there is no code path in GraalPy itself that does this, at any
+size, depth, or element type** (confirmed empirically: `TypeError('invalid
+instantiation of foreign object')` unconditionally -- see
+`project/benchmark/README.md`'s gap footnote). Left as-is, this section
+would have four real columns for jpype/jpy/jep/pyjnius and a blank cell
+for GraalPy. Instead, per this session's direction, a replacement was
+written from scratch for this comparison (`graalpy/_arrayutil.py`'s
+`build_manual()`: allocate a real Java array, fill it element-by-element
+from the numpy source) so GraalPy has *some* number here rather than
+none -- labeled "buffer->array (manual)" below to make clear it is
+this comparison's code being timed, not GraalPy's. See the note at the
+top of Section 10 for how much statistical rigor that number-manufacturing
+cost (n=3 samples at the sizes that matter, ~1,000x fewer than every
+other category in this report).
 
 **int, ns/call, all four categories, all sizes:**
 
