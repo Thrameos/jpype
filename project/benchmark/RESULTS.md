@@ -854,23 +854,37 @@ runs at n=20 to n=50,000 samples per trial. GraalPy's manual
 buffer-push category runs at **n=3 samples** at every size >=10,000
 elements (`_arrayutil.py`'s `calls_for_manual()`, a ~1,000x smaller
 iteration budget than `calls_for()` uses for every other category, sized
-around ~5,000 elements/trial instead of ~5,000,000). **Concretely why
-the formula was changed, not just that it was**: the unmodified
-`calls_for()` formula was tried first and predicts n=50 at 100,000
-elements; `build_manual()`'s own measured cost at that size is ~1.27
-seconds/call (best case, int) -- 5 trials x 50 calls plus warmup is
-~255 calls, ~5.4 minutes for that *one* type at that *one* size in
-*one* file. Multiplied across 4 element types, several sizes/depths, and
-four separate files (`array_flat.py`/`array_multidim.py`/
-`array_noncontig.py`/`array_shape.py`), the unmodified formula does not
-finish in any practical time for this comparison -- confirmed directly,
-not estimated: the first attempt at running `array_flat.py`'s manual
-category under the unmodified formula produced no output within a
-2-minute window before being killed. `calls_for_manual()`'s ~1,000x
-smaller budget is what makes finishing this comparison at all possible;
-it is a real deviation from Section 1's stated formula, not a
-rigor-preserving equivalent of it. This isn't a minor tuning choice: it
-exists because GraalPy has **no native
+around ~5,000 elements/trial instead of ~5,000,000). **The exact
+mechanism, stated precisely rather than as "rigor degraded under time
+pressure": `calls_for_manual()` is `n = max(3, 5_000 // size)`, a
+fixed per-trial element budget chosen once and applied uniformly, not a
+per-row measurement of how much a given size could actually afford.**
+That budget floors out at n=3 for any size >=1,667 elements -- which is
+why `array_flat.py`'s 10,000-element row (n=3, ~100M ns/call, ~1.7
+minutes total across 5 trials) and its 100,000-element row (n=3, ~1.27B
+ns/call, ~21 minutes total) get the *same* sample count despite a 12x
+difference in per-call cost, not a smoothly degrading one. At the small
+end this budget is conservative, not forced: the 100-element row (n=50,
+~927,000 ns/call best) totals only ~46 seconds at n=50 and was nowhere
+near a time-forced cut -- it could have run at the full `calls_for()`
+formula's n=50,000 (~3.9 minutes) without difficulty. The actual
+justification for choosing one fixed, conservative budget instead of a
+per-row-optimal one: this category exists across four files
+(`array_flat.py`/`array_multidim.py`/`array_noncontig.py`/
+`array_shape.py`), each sweeping 4 element types and multiple
+sizes/depths/shapes, and the full unmodified `calls_for()` formula
+*does* blow up badly at the large-size end specifically (100,000
+elements at n=50 would be ~5.4 minutes for one type in one file alone,
+confirmed directly -- the first attempt at running `array_flat.py`'s
+manual category under the unmodified formula produced no output within
+a 2-minute window before being killed) -- so one budget, sized for the
+worst case actually encountered and applied everywhere for consistency,
+replaced a per-row-tuned one. That is a real, deliberate deviation from
+Section 1's stated formula, and a real reduction in statistical rigor
+across the board for this category (uniformly, not just where forced) --
+not the size-adaptive story implied by the phrase "collapsed because the
+operation is too slow." This isn't a minor tuning choice: it exists
+because GraalPy has **no native
 `buffer->array` push at all**, at any size or depth (confirmed
 empirically -- `TypeError('invalid instantiation of foreign object')`
 unconditionally). Every number in the "buffer->array (manual)" rows
