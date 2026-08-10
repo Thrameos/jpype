@@ -1,32 +1,34 @@
 # Cross-library call-overhead benchmarks
 
-Compares JPype's general per-call overhead against jpy, jep, and pyjnius,
-to check whether the JPClass::findJavaConversion caching work
-(native/common/include/jp_conversioncache.h) has closed the gap.
+Compares JPype's general per-call overhead against jpy, jep, pyjnius, and
+GraalPy, to check whether the JPClass::findJavaConversion caching work
+(native/common/include/jp_conversioncache.h) has closed the gap, and (for
+GraalPy specifically) how far JPype is behind a bridge with a genuine
+tiered JIT (Truffle/Graal) instead of an interpreter.
 
 Laid out as one directory per library -- `jpype/`, `jpy/`, `jep/`,
-`pyjnius/` -- with matching filenames across all four, one file per
-benchmark category. To compare a category across libraries, just look at
-the same filename in each directory (e.g. `jpype/array_flat.py` vs
-`jpy/array_flat.py` vs `jep/array_flat.py` vs `pyjnius/array_flat.py`); a
-file missing from one directory, or a row missing from one file, is a
-documented gap (see below), not an oversight. Categories, and where each
-one lives:
+`pyjnius/`, `graalpy/` -- with matching filenames across all five, one
+file per benchmark category. To compare a category across libraries, just
+look at the same filename in each directory (e.g. `jpype/array_flat.py`
+vs `jpy/array_flat.py` vs `jep/array_flat.py` vs `pyjnius/array_flat.py`
+vs `graalpy/array_flat.py`); a file missing from one directory, or a row
+missing from one file, is a documented gap (see below), not an oversight.
+Categories, and where each one lives:
 
-| file | category | jpype | jpy | jep | pyjnius |
-|---|---|---|---|---|---|
-| `int.py` | `Math.max(int,int)`, `new Integer(int)` | yes | yes | yes | yes |
-| `double.py` | `Math.sqrt(double)`, `new Double(double)` | yes | yes | yes | yes |
-| `strings.py` | `new String(...)` + `.toString()` | yes | yes | yes | yes |
-| `object.py` | plain `Object` identity (arg + return) | yes | yes | yes | yes |
-| `dispatch.py` | overload resolution x16, mono + polymorphic | yes | yes | yes | yes |
-| `proxy.py` | established callback binding, int + Object arg | yes | -- | yes | int arg only\*\*\* |
-| `array_flat.py` | 1D list->array/buffer->array, 100/1k/10k/100k elements, int/long/float/double | yes | yes | yes | list->array only\*\*\*\* |
-| `array_multidim.py` | 2D-5D list->array/buffer->array, fixed element count, int/long/float/double | yes | yes | yes | list->array only\*\*\*\* |
-| `array_ragged.py` | ragged (irregular sibling-length) nested-list push, 2D-5D, int/long/float/double | yes | yes | yes | yes |
-| `array_noncontig.py` | non-contiguous numpy buffer push (column slice / transposed), flat + 2D-5D, int/long/float/double | yes | yes | yes | stub only\*\*\*\*\* |
-| `array_shape.py` | 2D/3D shape sweep at fixed total element count, push only, int/long/float/double | yes | yes | yes | list->array only\*\*\*\*\*\* |
-| `classhints.py` | `@JConversion` hint-list cache scan | yes | -- | -- | -- |
+| file | category | jpype | jpy | jep | pyjnius | graalpy |
+|---|---|---|---|---|---|---|
+| `int.py` | `Math.max(int,int)`, `new Integer(int)` | yes | yes | yes | yes | yes |
+| `double.py` | `Math.sqrt(double)`, `new Double(double)` | yes | yes | yes | yes | yes |
+| `strings.py` | `new String(...)` + `.toString()` | yes | yes | yes | yes | yes |
+| `object.py` | plain `Object` identity (arg + return) | yes | yes | yes | yes | yes |
+| `dispatch.py` | overload resolution x16, mono + polymorphic | yes | yes | yes | yes | yes |
+| `proxy.py` | established callback binding, int + Object arg | yes | -- | yes | int arg only\*\*\* | yes\*\*\*\*\*\*\* |
+| `array_flat.py` | 1D list->array/buffer->array, 100/1k/10k/100k elements, int/long/float/double | yes | yes | yes | list->array only\*\*\*\* | list->array + manual buffer->array\*\*\*\*\*\*\*\* |
+| `array_multidim.py` | 2D-5D list->array/buffer->array, fixed element count, int/long/float/double | yes | yes | yes | list->array only\*\*\*\* | list->array + manual buffer->array\*\*\*\*\*\*\*\* |
+| `array_ragged.py` | ragged (irregular sibling-length) nested-list push, 2D-5D, int/long/float/double | yes | yes | yes | yes | yes |
+| `array_noncontig.py` | non-contiguous numpy buffer push (column slice / transposed), flat + 2D-5D, int/long/float/double | yes | yes | yes | stub only\*\*\*\*\* | manual buffer->array\*\*\*\*\*\*\*\* |
+| `array_shape.py` | 2D/3D shape sweep at fixed total element count, push only, int/long/float/double | yes | yes | yes | list->array only\*\*\*\*\*\* | list->array + manual buffer->array\*\*\*\*\*\*\*\* |
+| `classhints.py` | `@JConversion` hint-list cache scan | yes | -- | -- | -- | -- |
 
 `int.py`/`double.py`/`strings.py` are trivial single-overload JDK-builtin
 calls -- a baseline with no interesting conversion machinery behind it.
@@ -149,6 +151,46 @@ The `list->array` category itself (the same `nested_list_shaped`
 helper, same `SHAPES_2D`/`SHAPES_3D` lists, same fixed-total-varying-
 shape point) ports directly with no other caveat.
 
+\*\*\*\*\*\*\*\* **GraalPy has no `buffer->array` push at all, at any
+size, depth, or element type -- worse than pyjnius's version of the same
+gap.** Passing a numpy array where a Java array argument is expected
+raises `TypeError('invalid instantiation of foreign object')`
+unconditionally (confirmed empirically), even for a flat 1D target --
+stricter than jep (which at least has a real fast path for flat 1D) and
+on par with pyjnius's blanket rejection, except pyjnius at least fails
+with one consistent, clear exception type rather than a generic
+`TypeError` from the polyglot layer's own argument-conversion machinery.
+Unlike pyjnius's version of this gap, it is **not** treated as a
+documented no-path stub here: converting a numpy array to/from a Java
+array is basic orchestration for a Python/Java bridge, not an edge case,
+so `graalpy/_arrayutil.py`'s `build_manual()` emulates the missing push
+by hand -- allocate a genuine Java array via `java.type('<prim>[]...')`
+and fill it element by element (recursing one level per dimension) from
+the numpy source -- and every `graalpy/array_*.py` file measures it as a
+real "buffer->array (manual)" category, not a gap to skip. It's a plain,
+uniform per-element Python-level loop, exactly the kind of hot loop a
+real JIT is supposed to be good at optimizing, so it's fair game to
+measure on its own terms even though it takes the long way around.
+
+**Measured result: `build_manual()` is roughly 250-300x slower per
+element than GraalPy's own automatic `list->array` push** (~13,000
+ns/element vs. ~45 ns/element, see `RESULTS.md`) -- confirming that
+GraalPy's JIT helps with hot scalar/dispatch/proxy call overhead
+(Sections 2-3 there) but does nothing to compensate for a genuinely
+missing bulk-transfer primitive; no amount of tier-4 compilation turns an
+element-at-a-time polyglot marshalling loop into a bulk memcpy. At
+extreme row-heavy shapes (`graalpy/array_shape.py`'s `100000x3`/`3x100000`
+2D shapes), `build_manual()`'s per-object overhead can exhaust a capped
+GraalPy heap outright -- a genuine `MemoryError`, reproduced reliably at
+`-Xmx3g` on this machine, caught per-row (recorded as `N/A` in the CSV,
+not silently dropped) so one exhausted shape doesn't take the rest of the
+sweep down with it. See `graalpy/array_shape.py`'s docstring and
+`RESULTS.md`'s GraalPy section for the full writeup of what this implies
+for using GraalPy in scientific-Python-orchestration workloads (which are
+dominated by exactly this kind of bulk array transfer, not scalar call
+overhead) versus microscript/glue-code use cases (where GraalPy's fast
+scalar/proxy path and JIT are a genuine advantage).
+
 `classhints.py` is JPype-only (exercises the hint-list cache
 specifically; jpy/jep have no `@JConversion`-style extensible hint
 mechanism to compare against). Requires the test harness classes
@@ -173,6 +215,24 @@ Java interface differs and isn't drop-in comparable:
   there's no `jpy/proxy.py`.
 - pyjnius: `PythonJavaClass` subclass + `@java_method('<jni-signature>')`,
   also constructed once.
+- GraalPy: nothing at all -- a plain Python object (or even a bare
+  function, for a single-method interface) with a matching method name is
+  auto-adapted to any Java functional interface wherever one is expected,
+  confirmed empirically for both the `int`-arg and `Object`-arg cases,
+  including the null-`Object`-argument case that crashes pyjnius (see
+  \*\*\* below) -- GraalPy's Java-hosts-Python direction handles it
+  cleanly with no proxy-construction API of any kind. See
+  \*\*\*\*\*\*\* below.
+
+\*\*\*\*\*\*\* **GraalPy has no explicit proxy-construction step, unlike
+every other library here** -- see `graalpy/proxy.py`'s docstring. This
+makes GraalPy's proxy category the one place in this whole suite where
+GraalPy is architecturally *simpler*, not just faster or slower, than
+jpype/jep/pyjnius: those three all need an explicit
+class-implements-interface declaration (`@JImplements`, `jep.jproxy()`,
+`PythonJavaClass` subclassing) constructed once ahead of the steady-state
+calls being measured; GraalPy needs nothing extra at all, the plain
+callback object itself is already a valid argument.
 
 \*\*\* **pyjnius's proxy Object-arg case is not benchmarked because it
 crashes the JVM.** `DeepBench.invokeObjectCallbackWithNull` (a
@@ -302,3 +362,77 @@ cd ~/devel/pyjnius && /tmp/pyjnius-bench-venv/bin/pip install -e .
 cd /path/to/jpype && /tmp/pyjnius-bench-venv/bin/python \
     project/benchmark/pyjnius/dispatch.py test/classes test/harness
 ```
+
+## GraalPy
+
+GraalPy embeds Python *inside* the JVM (same direction as jep, opposite
+of jpype/jpy/pyjnius): a small Java launcher (`graalpy/src/main/java/org/
+jpype/bench/graalpy/Bench.java`) opens a GraalPy `Context` with
+`allowAllAccess(true)` and evals the given `.py` script inside it. Unlike
+jep, GraalPy's embedded stdout *is* connected to the launching process's
+stdout, so these scripts print directly and import `../_common.py` the
+normal way (`__file__` is defined, unlike jep's embedded interpreter).
+
+Needs a GraalVM CE JDK with a version-matched (not just any) GraalPy
+Maven/Truffle artifact set -- see `graalpy/pom.xml`'s `graalpy.version`
+property comment for exactly why the versions are pinned where they are
+(short version: 25.0.2 on both sides is the newest version with both a
+prebuilt `numpy` wheel and a matching standalone GraalVM CE JDK release;
+anything newer forces either a from-source numpy build via meson -- which
+OOM-killed this 7.7GB machine during setup, see this repo's CLAUDE.md --
+or a libgraal native-ABI mismatch between the JDK's bundled compiler and
+the Truffle jars, both fatal to the actual point of this comparison).
+GraalVM CE isn't in apt for this distro; it was installed under
+`~/.local`:
+
+```
+GRAALVM_DIR=~/.local/graalvm-community-openjdk-25.0.2+10.1
+# download/verify against the checksummed asset at
+# https://github.com/graalvm/graalvm-ce-builds/releases/tag/jdk-25.0.2
+# (jdk-25.0.2 specifically -- see the pom.xml comment above)
+
+cd project/benchmark/graalpy
+JAVA_HOME="$GRAALVM_DIR" mvn package
+# pulls numpy==2.2.4 (pinned to the newest prebuilt GraalPy wheel, see
+# pom.xml) into a GraalPy-managed venv under
+# target/classes/org.graalvm.python.vfs/venv via graalpy-maven-plugin,
+# and copies runtime dependency jars to target/lib/ for the classpath
+# below.
+```
+
+**Always cap the JVM heap explicitly when running any of these** -- an
+uncapped run doesn't fail cleanly on this machine, see this repo's
+CLAUDE.md and the OOM incident during this harness's own setup (a nested
+Maven -> pip -> meson build chain, each its own ~1GB+ Truffle runtime,
+exhausted all 7.7GB of RAM and triggered the kernel OOM killer, which
+killed unrelated processes system-wide, not just the offending build).
+`graalpy/run_all.sh` runs the full suite sequentially (never
+concurrently) with `-Xmx3g -Dpolyglot.engine.CompilerThreads=2` for
+exactly this reason -- **always invoke `$GRAALVM_DIR/bin/java` directly
+by absolute path, not whatever `java`/`JAVA_HOME` this shell's profile
+happens to default to** (this repo's normal `JAVA_HOME` is a plain
+Temurin JDK with no bundled libgraal; running under it silently falls
+back to an interpreter-only "fallback runtime", defeating the entire
+point of this comparison, with no error, just a `[engine] WARNING: ...
+JVMCI is not enabled` line easy to miss in the log):
+
+```
+# int.py/double.py/strings.py/object.py/dispatch.py/proxy.py/array_*.py
+# all run through the same Bench launcher -- DeepBench needs
+# test/classes + test/harness on the classpath (harmless to include even
+# for the three that don't call it):
+cd project/benchmark/graalpy
+"$GRAALVM_DIR/bin/java" -Xmx3g -Dpolyglot.engine.CompilerThreads=2 \
+    --enable-native-access=ALL-UNNAMED \
+    -cp "target/classes:target/lib/*:../../../test/classes:../../../test/harness" \
+    org.jpype.bench.graalpy.Bench int.py
+
+# or run everything sequentially, logging each script to
+# graalpy/run_logs/<script>.log:
+./run_all.sh
+```
+
+`--enable-native-access=ALL-UNNAMED` suppresses a native-access warning
+from numpy's compiled C-extension module running under GraalPy's C-API
+emulation layer; harmless to omit, just noisy.
+

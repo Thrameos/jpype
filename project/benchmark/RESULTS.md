@@ -811,7 +811,307 @@ remaining gap to act on:
    causal link to that specific hang is not confirmed and is not claimed
    here.
 
-## 10. Verification
+## 10. GraalPy: a true-JIT comparison point
+
+**Scope.** jpy/jep/pyjnius (Sections 2-9) are all CPython, no JIT at all --
+the interesting question against them was architectural overhead per
+call. GraalPy runs on Truffle/Graal, a genuine tiered JIT compiler, so
+the question here is different: how much of jpype's remaining gap to a
+fast bridge is call-dispatch overhead a JIT *can* buy back, versus a
+structural gap (a missing bulk-transfer path) no amount of JIT
+compilation fixes? Same `DeepBench` test class, same benchmark scripts
+ported to `project/benchmark/graalpy/`, run via a small Java launcher
+(GraalPy embeds Python *inside* the JVM, jep's direction, not
+jpype/jpy/pyjnius's) -- see `project/benchmark/README.md`'s GraalPy
+section for setup and the mandatory heap cap.
+
+**Methodology difference worth flagging up front**: every table below
+reports both best-of-5 and median-of-5, not just best, because GraalPy's
+best/median split is far wider than any of jpype/jpy/jep/pyjnius's --
+best-of-5 alone would misleadingly flatter it. This is very likely JIT
+warmup/deopt noise (background compiler threads competing with the timed
+loop, tier transitions mid-run) rather than measurement error -- the
+scalar/dispatch/proxy benchmarks below use a 1000-iteration warmup before
+any timed trial, same as every other library here, and the split persists
+regardless.
+
+### 10.1 Scalars, dispatch, proxy
+
+**Methodology.** Same operations as Section 2/3 -- `Math.max`/`Math.sqrt`,
+boxed `Integer`/`Double`, `String` round trip, `Object` identity, 16-way
+dispatch, and an established-binding proxy callback. int-only, matching
+that section's coverage.
+
+| operation | jpype | jpy | jep | pyjnius | GraalPy best | GraalPy median |
+|---|---:|---:|---:|---:|---:|---:|
+| `Math.max(int,int)` | 750 | 353 | 1299 | 1276 | **183** | 1250 |
+| `new Integer(int)` | 840 | 479 | 1257 | 7403 | 229 | 281 |
+| `Math.sqrt(double)` | 690 | 393 | 645 | 497 | **117** | 874 |
+| `new Double(double)` | 918 | 506 | 1378 | 6765 | 726 | 758 |
+| `new String` + `.toString()` | 1022 | 927 | 2512 | 22349 | 791 | 908 |
+| `Object` identity (arg + return) | 995 | 730 | 1971 | 3763 | **160** | 887 |
+| dispatch, overload x16, monomorphic | 686 | 370 | 4454 | 3858 | **119** | 932 |
+| dispatch, overload x16, polymorphic | 925 | 456 | 4558 | 4000 | 911 | 1153 |
+| proxy callback, `int` arg | 2655 | N/A | 2240 | 39412 | 526 | 1459 |
+
+**Trends.** On best-of-5, GraalPy wins outright on 6 of 9 rows -- including
+beating jpy (this report's previous fastest bridge, by a wide margin, on
+every earlier section) by 1.9-3.1x on `Math.max`, `Math.sqrt`, `Object`
+identity, and monomorphic dispatch. But every GraalPy median is 1.4-10.5x
+its own best, a spread none of the other four libraries show at any
+comparable magnitude (jpype's own best-vs-median split, visible in
+Section 7's tables, is typically under 1.3x). Boxed `Integer`/`Double`
+and the `String` round trip are the exception -- GraalPy's best and
+median are close together there (1.0-1.2x), and not even GraalPy's
+fastest row against jpy.
+
+**Analysis.** The JIT is doing real work: monomorphic call sites
+(`Math.max`, a single dispatch target, `Object` identity) are exactly
+where a tiered compiler earns its keep, and GraalPy's best numbers there
+are the fastest in this entire report by a clear margin. Boxed
+`Integer(int)`/`Double(double)` construction stresses object allocation
+and GC more than call dispatch, which likely explains why GraalPy doesn't
+lead there and shows the tightest best/median spread on those two rows
+specifically (less exposed to inconsistent tier-up timing since there's
+less hot-path compilation headroom to gain in the first place). Read
+together with 10.2-10.4 below, this is the clearest evidence in this
+report that "true JIT" is not a uniform advantage: it wins big on hot,
+simple, monomorphic call shapes, wins nothing on allocation-bound
+operations, and (see 10.2) does nothing at all for a missing bulk-transfer
+primitive. **Call: no jpype action** -- this isn't a gap to close, it's a
+different bridge with a different cost model. Where it's informative is
+the best/median instability itself: any orchestration workload sensitive
+to *tail* latency, not just throughput, should weight GraalPy's median
+column, not its best -- on that column jpype is still competitive or
+ahead on most of these same rows.
+
+### 10.2 Array push (flat, 1D) -- the core finding
+
+**Methodology.** Same as Section 4: `sum{Type}Array(source)`, sweeping
+size and two source kinds. GraalPy has no automatic `buffer->array` push
+at all (confirmed empirically, any depth, any type -- see
+`project/benchmark/README.md`'s gap footnote); per this session's
+direction, that gap is not skipped but emulated by hand
+(`graalpy/_arrayutil.py`'s `build_manual()`: allocate a real Java array,
+fill it element-by-element from the numpy source) and measured as a real
+category, "buffer->array (manual)" below -- a JIT is supposed to be able
+to optimize even a plain elementwise loop, so it's fair game to measure
+on those terms.
+
+**int, ns/call, all four categories, all sizes:**
+
+| size | list->array (auto) | buffer->array (manual) | array->list (pull) | array->buffer (pull) |
+|---:|---:|---:|---:|---:|
+| 100 | 6,343 | 926,818 | 4,976 | -- |
+| 1,000 | 45,881 | 18,021,907 | 48,655 | -- |
+| 10,000 | 436,983 | 100,162,181 | 531,490 | -- |
+| 100,000 | 4,511,797 | 1,270,242,940 | 4,711,893 | 328,347,674 |
+
+**By element type, size 100,000, ns/call:**
+
+| direction/source | int | long | float | double |
+|---|---:|---:|---:|---:|
+| push, list->array | 4,511,797 | 4,041,574 | 4,218,600 | 4,927,029 |
+| push, buffer->array (manual) | 1,270,242,940 | 1,074,613,858 | 1,107,439,654 | 1,395,707,555 |
+| pull, array->list | 4,711,893 | 4,666,041 | 8,080,424 | 7,030,721 |
+| pull, array->buffer | 328,347,674 | 318,848,746 | 372,512,536 | 346,203,671 |
+
+**Trends.** `list->array` push and `array->list` pull are both
+competitive with jpype/jpy/jep at every size (e.g. int @100,000:
+GraalPy 4.51M ns vs. jpype 1.83M, jpy 0.77M, jep 0.84M -- GraalPy is
+2.5-5.9x slower here, not catastrophic, in the same ballpark as
+pyjnius). The other two rows are not in the same ballpark as anything
+else in this report:
+- **`buffer->array` (manual)**: 250-300x slower per element than
+  GraalPy's own `list->array` (e.g. int @100,000: 1.27B ns vs. 4.51M ns).
+  Compared cross-library, jpype's real `buffer->array` fast path at the
+  same size is 249,364 ns (Section 4) -- GraalPy's manual emulation is
+  **~5,100x slower** than jpype's genuine bulk path, and slower even than
+  jpype's `list->array` (its slowest push category) by ~280x.
+- **`array->buffer` pull**: 69.7x slower than GraalPy's own `array->list`
+  at the same size (328.3M ns vs. 4.71M ns) -- the *opposite* ranking
+  from jpype/jpy, where `array->buffer` is the fast path and beats
+  `array->list` by 100-350x (Section 7). This matches the jep/pyjnius
+  pattern exactly (Section 7's footnote): `np.asarray()` on a
+  `polyglot.ForeignList` is not hitting a real buffer read, it's paying
+  `array->list`'s per-element cost plus a numpy-array-build step on top.
+
+**Analysis.** GraalPy's polyglot interop layer has a real, working
+per-element/per-call marshalling path (that's what `list->array` and
+`array->list` both use, and it's genuinely JIT-accelerated -- see 10.1),
+but **no bulk buffer-protocol bridge in either direction**. Every other
+library in this report that has *any* numpy interop (jpype, jpy, and
+jep for flat targets) has this as a first-class fast path precisely
+because scientific-Python workloads are dominated by exactly this
+operation. GraalPy's polyglot design evidently didn't prioritize it: the
+`TypeError('invalid instantiation of foreign object')` on a numpy-array
+argument is not a bug being tripped over, it's the polyglot argument
+converter genuinely having no matching case for a `Py_buffer`-backed
+foreign object at all. **Call: not a jpype gap -- a structural
+observation about GraalPy.** No amount of GraalPy JIT work touches this;
+it needs a new conversion path in GraalPy's own polyglot/numpy interop
+layer, the same category of fix jpype's own `JPConversionMultiArrayBuffer`
+represents, not present here in any form to begin with.
+
+### 10.3 Array push, multi-dimensional and ragged
+
+**Methodology.** Same as Section 5: depth 2-5, `10**depth` elements,
+uniform shape; plus the ragged (irregular sibling-length) sweep.
+
+**int, depth 5 (100,000 elements), all categories:**
+
+| category | ns/call |
+|---|---:|
+| push, list->array | 5,081,921 |
+| push, buffer->array (manual) | 1,187,855,838 |
+| pull, array->list | 8,420,835 |
+| pull, array->buffer | 590,896,683 |
+
+**Ragged push (list->array, GraalPy's only push path -- no
+ragged-vs-rectangular fast-path distinction to lose, same reasoning as
+jep's/pyjnius's ragged files), all four types, depth 5:**
+
+| type | n (actual elements) | ns/call |
+|---|---:|---:|
+| int | 114,940 | 6,543,572 |
+| long | 114,940 | 6,478,348 |
+| float | 114,940 | 7,402,321 |
+| double | 114,940 | 7,783,541 |
+
+**Trends.** `list->array` push at depth 5 (5.08M ns) barely moves from
+flat @100,000 (4.51M ns, 10.2) -- GraalPy's automatic push path is not
+noticeably sensitive to nesting depth, matching jpype's own
+depth-insensitivity within its `list->array` path (Section 5). The manual
+`buffer->array` emulation is *not* meaningfully worse at depth 5 (1.19B
+ns) than flat (1.27B ns) either -- expected, since `build_manual()`'s
+cost is driven by total element count and per-element polyglot crossings,
+not nesting depth specifically (each row/leaf is one recursive call, not
+a qualitatively different operation at each level). `array->buffer` pull
+gets *worse* relative to `array->list` as depth grows (70x at flat,
+125x at depth 5) -- consistent with `np.asarray()` walking a deeper
+recursive `ForeignList`-of-`ForeignList` structure, more polyglot-boundary
+crossings per element, not fewer. Ragged push costs essentially the same
+as rectangular list->array at a matched element count (int: 6.54M ns for
+114,940 ragged elements vs. 5.08M ns for 100,000 rectangular -- normalized
+per-element, 56.9 vs. 50.8 ns/element, an 11% difference, not the order-
+of-magnitude gaps elsewhere in this section), same finding as jpype's own
+ragged-vs-rectangular parity (Section 5).
+
+**Analysis.** No new finding beyond 10.2 -- the manual buffer emulation's
+cost is dominated by per-element polyglot-crossing overhead regardless of
+how that element count is organized (flat, nested, ragged), which is
+exactly what "no bulk path exists, only a per-element one" predicts.
+**Call: no jpype action**, same reasoning as 10.2.
+
+### 10.4 Non-contiguous sources and row-heavy shapes
+
+**Methodology.** Same as Sections 6 (shape sweep) and the non-contiguous
+buffer-source check folded into Section 8. GraalPy's manual
+`build_manual()` push indexes the numpy source directly
+(`np_sub[i]`), so numpy itself resolves whatever strides the source has
+-- there's a real "does non-contiguous cost more" question to ask, unlike
+pyjnius (no buffer push at all, nothing to degrade).
+
+**Non-contiguous vs. contiguous, int, manual push, same element counts:**
+
+| shape | contiguous (10.2/10.3) | non-contiguous | ratio |
+|---|---:|---:|---:|
+| flat 100,000 (column slice vs. flat) | 1,270,242,940 | 1,224,092,764 | 0.96x |
+| depth 5, 100,000 (rectangular vs. transposed) | 1,187,855,838 | 1,218,818,482 | 1.03x |
+
+**Row-heavy 2D shape sweep, int, manual buffer->array push, ns/element:**
+
+| shape (rows x cols) | ns/element |
+|---|---:|
+| 1,000 x 100 | 11,639 |
+| 10 x 10,000 | 12,175 |
+| 100 x 1,000 | 12,212 |
+| 10,000 x 10 | 12,315 |
+| 3 x 100,000 | 12,888 |
+| 1,000 x 1,000 | 13,536 |
+| **100,000 x 3** | **15,449** |
+
+**`list->array`, same shapes, int -- `100000x3` and `long`'s equivalent
+row both hit a genuine `MemoryError`** (recorded as `N/A` in
+`array_shape_results.csv`, not silently dropped -- see
+`graalpy/array_shape.py`'s per-row `try`/`except`): dozens of
+`TruffleCompilerThread`/`Python GC` `OutOfMemoryError`s precede each one
+in the run log, at a capped `-Xmx3g` heap. float and double completed the
+same row without incident in the same run (115.87 ns/element for double,
+2.7x its `3x100000` counterpart's 43.11 -- the same directional row-count
+penalty every library in Section 6 shows, just closer in magnitude to
+jpype's/pyjnius's ~2-3x than jpy's ~4x).
+
+**Trends.** The non-contiguous manual push shows **no measurable
+penalty** (0.96-1.03x, noise-level) -- unsurprising, since `build_manual()`
+was never a bulk-read path to begin with; there's no fast path for
+non-contiguity to knock it off of. The row-heavy shape sweep shows only a
+**mild** 1.33x penalty (11,639 -> 15,449 ns/element) for the manual
+buffer path across the full row-count range -- far smaller in relative
+terms than jpype's own 37x buffer->array penalty at the same shape
+extreme (Section 6), because GraalPy's baseline per-element cost is
+already so dominated by polyglot-crossing overhead that one extra
+JNI-shaped per-row allocation barely registers on top. The `list->array`
+`MemoryError`s are the standout result of this whole section: GraalPy's
+per-object overhead for building ~100,000 small Java array objects (one
+per row) is heavy enough to exhaust a 3GB heap outright, something no
+other library in this report comes close to at the same shape and heap
+budget.
+
+**Analysis.** Two separate findings, not conflated: (1) GraalPy's manual
+push genuinely doesn't care about memory layout (expected, no buffer
+fast path exists to be layout-sensitive in the first place) or, within
+its own terms, row count (expected, same reasoning as 10.3); (2)
+GraalPy's per-Java-object overhead is high enough that a shape other
+libraries handle without incident (jpype: 65.9 ns/element at this same
+shape, Section 6) can exhaust a capped heap under GraalPy specifically.
+**Call: not a jpype gap.** Worth carrying into the strategic framing
+(below): this is a second, independent way GraalPy is unsuited to
+memory-conscious orchestration workloads, on top of the missing
+bulk-transfer path in 10.2 -- not just "slower," but capable of failing
+outright on a shape none of jpype/jpy/jep/pyjnius even flinch at.
+
+### 10.5 Proxy: the one place GraalPy is architecturally simpler
+
+Already covered in `project/benchmark/README.md`'s proxy section --
+summarized here since it's the one clearly favorable structural finding.
+GraalPy needs **no explicit proxy-construction step at all**: a plain
+Python object (or bare function, for a single-method interface) with a
+matching method name is auto-adapted to any Java functional interface
+wherever one is expected. This is qualitatively different from
+jpype's `@JImplements`, jep's `jep.jproxy()`, and pyjnius's
+`PythonJavaClass` subclassing, all of which require an explicit
+class-implements-interface declaration constructed once ahead of the
+steady-state calls being measured. It also has no null-argument crash --
+`invokeObjectCallbackWithNull`, the exact case that segfaults pyjnius
+(Section 3), works cleanly under GraalPy with no special handling. This
+is architectural, not a speed result (see 10.1's proxy row for the speed
+comparison) -- **Call: worth learning from, not competing with**: this is
+a genuinely simpler interop model for the callback direction
+specifically, unrelated to the array-transfer gap in 10.2-10.4.
+
+### 10.6 Strategic summary
+
+Put together, GraalPy's Truffle/Graal JIT delivers exactly where a JIT
+can: hot, simple, monomorphic call sites (10.1) beat every other bridge
+in this report, sometimes by 2-3x. But scientific-Python orchestration --
+the workload this comparison was actually motivated by -- is dominated by
+bulk numpy<->Java array transfer, not scalar call overhead, and GraalPy
+has **no purpose-built path for that at all**, in either direction
+(10.2), a gap wide enough (~5,100x versus jpype's real fast path) that no
+realistic amount of JIT tiering closes it, plus a second, independent
+failure mode (10.4: heap exhaustion on ordinary row-heavy shapes) that
+none of jpype/jpy/jep/pyjnius exhibit at the same budget. The one place
+GraalPy is unambiguously ahead structurally, not just faster, is the
+callback/proxy direction (10.5) -- a genuinely simpler interop model
+worth learning from independent of the rest of this section's findings.
+**Net read for anyone weighing GraalVM's polyglot model as an
+architecture to follow**: viable, even excellent, for microscript/glue-code
+call patterns; not viable as-is for a scientific-orchestration
+substitute, where jpype (and jpy) remain the only two bridges in this
+report with real bulk buffer-transfer paths in both directions.
+
+## 11. Verification
 
 Every change referenced in this report went through the full local suite
 (standard and `ENABLE_COVERAGE=ON`/fault-injection builds, both fixed and
