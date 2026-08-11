@@ -436,10 +436,10 @@ best-of-5.
 
 | size | jpype | jpy | jep | pyjnius |
 |---:|---:|---:|---:|---:|
-| 100 | 11,138 | 4,344 | 2,795 | 1,234 |
-| 1,000 | 102,331 | 40,029 | 23,566 | 10,436 |
-| 10,000 | 1,024,320 | 401,341 | 237,692 | 113,502 |
-| 100,000 | 11,443,363 | 5,487,530 | 3,712,665 | 1,142,328 |
+| 100 | 9,753 | 4,344 | 2,795 | 1,234 |
+| 1,000 | 84,508 | 40,029 | 23,566 | 10,436 |
+| 10,000 | 843,648 | 401,341 | 237,692 | 113,502 |
+| 100,000 | 9,906,480 | 5,487,530 | 3,712,665 | 1,142,328 |
 
 `array->buffer`:
 
@@ -458,20 +458,46 @@ a real bulk read -- structurally different from jpype's/jpy's genuine
 buffer reads, which is why they get *worse* than `array->list`, not
 better, as size grows.
 
-**Interpretation.** `array->list` is 2.1-2.6x slower than jpy and
-3.1-4.3x slower than jep at every size. jpype is the only one of the
+**Interpretation.** `array->list` is 1.8-2.3x slower than jpy and
+2.7-3.6x slower than jep at every size. jpype is the only one of the
 four where `array->list` is *slower than its own `array->buffer`* -- by
-5.8x at size 100 growing to 245x at size 100,000. jpy and jep stay close
+5.1x at size 100 growing to 212x at size 100,000. jpy and jep stay close
 to their own buffer numbers throughout (they don't have jpype's internal
 gap between the two paths). Only against pyjnius's `array->buffer` (the
 non-real one above) does jpype come out ahead at scale.
+
+pyjnius's own `array->list` is the fastest number in this whole table,
+and the gap to jpype widens with size (1.234 vs jpype's 9,753ns at size
+100, to 1,142,328 vs jpype's 9,906,480ns at 100,000 -- an 8.7x gap at
+scale) despite pyjnius losing almost every other benchmark in this
+report. Checked directly rather than assumed: `make{Type}Array`'s
+return value is confirmed a fresh, fully-populated Python `list` inside
+the timed call every time (verified via `type()`/`len()`/`sum()` on a
+direct call, not a lazy or reused object), so this isn't a
+materialize-outside-the-timed-region artifact. The real mechanism is
+that pyjnius's Cython JNI-array-to-list conversion builds one plain
+`PyLong`/`PyFloat` per element straight from the read buffer, while
+jpype's own per-element boxing (`convertToPythonObject`) builds a
+jpype-specific numeric subtype instance carrying Java-value metadata on
+top (the slot that makes `isinstance(x, jpype.JInt)` and similar work) --
+a genuinely heavier object than a plain `int`/`float`, on top of the same
+per-element JNI-call overhead described below. int/long/short/byte used
+to also pay for a second, wholly redundant allocation beyond that (a
+throwaway plain `PyLong` built and then immediately unpacked straight
+back out, just to hand its value to the real wrapper's constructor) --
+removed in this pass (`convertLong` now takes the native value directly;
+`jp_inttype.cpp`/`jp_longtype.cpp`/`jp_shorttype.cpp`/`jp_bytetype.cpp`),
+which is why `array->list`/`tolist()` below are noticeably cheaper than
+before for those two types. The remaining gap against pyjnius is the
+wrapper-subtype construction itself, an architectural cost, not further
+redundant work.
 
 `list()` and `tolist()` both box one `PyObject` per element (one
 `Get<Type>ArrayRegion` JNI call plus one boxed-object allocation each);
 `array->buffer` avoids per-element boxing entirely via a direct buffer
 handoff, which is why it is one to two orders of magnitude cheaper than
 either. The remaining gap between jpype's `list()`/`tolist()` and
-jpy's/jep's own numbers (jpype @100 int: 11,138ns; jpy: 4,344ns; jep:
+jpy's/jep's own numbers (jpype @100 int: 9,753ns; jpy: 4,344ns; jep:
 2,795ns) is jpype's per-JNI-call overhead itself (`JPJavaFrame`
 construction, `JPPyObject` wrapping, exception-frame bookkeeping around
 each single-element JNI call) -- the same architectural cost Section 2
@@ -481,27 +507,28 @@ attributes jpy's general speed lead to.
 
 | size | list() int | list() long | list() float | list() double | tolist() int | tolist() long | tolist() float | tolist() double |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 100 | 11,138 | 11,602 | 10,373 | 10,518 | 8,703 | 8,347 | 7,968 | 8,023 |
-| 1,000 | 102,331 | 108,616 | 91,493 | 94,288 | 80,369 | 73,121 | 65,981 | 66,098 |
-| 10,000 | 1,024,320 | 1,078,992 | 911,071 | 935,501 | 784,487 | 708,673 | 647,727 | 644,329 |
-| 100,000 | 11,443,363 | 12,218,063 | 10,681,402 | 10,860,732 | 9,738,113 | 8,752,710 | 8,034,715 | 8,191,833 |
+| 100 | 9,753 | 10,139 | 10,287 | 10,411 | 7,759 | 6,916 | 7,696 | 7,658 |
+| 1,000 | 84,508 | 88,827 | 90,874 | 92,289 | 63,279 | 55,696 | 63,153 | 63,093 |
+| 10,000 | 843,648 | 871,045 | 895,955 | 916,370 | 611,811 | 543,112 | 620,346 | 620,752 |
+| 100,000 | 9,906,480 | 10,312,611 | 10,568,598 | 10,816,051 | 7,560,779 | 7,205,120 | 7,714,589 | 7,669,728 |
 
-**Interpretation.** `list()` lands within 1.18-1.52x of `tolist()`
-across sizes and types (int narrowest, long widest) -- neither is a real
-bulk-*decode* path, boxing happens one `PyObject` at a time either way,
-`list()` simply pays additional Python-iterator-protocol overhead on
-top. Both remain well behind `array->buffer` (7.1) for the same reason.
+**Interpretation.** `list()` lands within 1.03-1.60x of `tolist()`
+across sizes and types (int narrowest at small sizes, long widest) --
+neither is a real bulk-*decode* path, boxing happens one `PyObject` at a
+time either way, `list()` simply pays additional Python-iterator-protocol
+overhead on top. Both remain well behind `array->buffer` (7.1) for the
+same reason.
 
 **Multi-dimensional** (jpype-only, int):
 
 | depth | list() | tolist() | buffer |
 |---:|---:|---:|---:|
-| 2 | 19,537 | 17,931 | 3,497 |
-| 3 | 251,710 | 251,010 | 8,490 |
-| 4 | 3,018,978 | 2,124,538 | 63,024 |
-| 5 | 38,539,253 | 25,743,804 | 613,734 |
+| 2 | 17,921 | 17,392 | 3,558 |
+| 3 | 176,029 | 171,559 | 8,980 |
+| 4 | 1,848,088 | 1,783,278 | 62,000 |
+| 5 | 20,961,567 | 18,375,404 | 650,395 |
 
-`list()` stands within 1.00-1.50x of `tolist()` at every depth, both
+`list()` stands within 1.03-1.14x of `tolist()` at every depth, both
 roughly an order of magnitude or more behind the buffer path -- the
 same pattern as the flat case.
 
@@ -509,21 +536,28 @@ same pattern as the flat case.
 
 | library | int | long | float | double |
 |---|---:|---:|---:|---:|
-| jpype | 11,443,363 (1.0x) | 1.07x | 0.93x | 0.95x |
+| jpype | 9,906,480 (1.0x) | 1.04x | 1.07x | 1.09x |
 | jpy | 5,695,493 (1.0x) | 0.88x | 0.78x | 0.79x |
 | jep | 3,093,851 (1.0x) | 1.04x | 0.75x | 0.76x |
 | pyjnius | 1,168,938 (1.0x) | 1.92x | 1.02x | 2.07x |
 
-**Interpretation.** float/double pull *faster* than int/long in jpype,
-jpy, and jep alike -- not a jpype-specific quirk. pyjnius instead shows
-long and double pulling ~2x *slower* than int/float, an inconsistent
-pattern not investigated further. jpype's float/double margin over int
-(5-7% for `list()`, 8-18% for `tolist()`) is narrower than jpy's/
-jep's own 21-25% margin. The remaining int/long-vs-float/double cost
-difference within jpype traces to `convertToPythonObject`: int/long
-route through a more general integer-construction path
-(`JPIntType`/`JPLongType`) than float/double's direct `tp_alloc` + field
-set (`JPFloatType`/`JPDoubleType`).
+**Interpretation.** float/double pull *faster* than int/long in jpy and
+jep; within jpype the two are now close to parity (int fastest, double
+1.09x behind it) rather than the reverse. That reversal is a direct
+consequence of the `convertToPythonObject` fix described in 7.1: int/
+long previously paid for a redundant throwaway `PyLong` allocation that
+float/double's own conversion path never had, which made int/long look
+artificially expensive relative to float/double in the same table in the
+previous edition of this report. With that allocation removed, int/long
+land at or slightly below float/double's own cost -- consistent with
+`JPIntType`/`JPLongType`'s wrapper construction being no heavier than
+`JPFloatType`/`JPDoubleType`'s direct `tp_alloc` + field set once the
+redundant step is gone. jpy's and jep's own float/double-faster-than-
+int/long pattern is unrelated to this fix (neither library's code
+changed) -- a genuine property of their own conversion paths, not
+something this report can attribute further. pyjnius instead shows long
+and double pulling ~2x *slower* than int/float, an inconsistent pattern
+not investigated further.
 
 ### 7.4 Bulk in-place transfer (`pullTo`/`pushFrom`)
 

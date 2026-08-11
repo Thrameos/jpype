@@ -36,8 +36,7 @@ JPClass* JPLongType::getBoxedClass(JPJavaFrame& frame) const
 
 JPPyObject JPLongType::convertToPythonObject(JPJavaFrame& frame, jvalue val, bool cast)
 {
-	JPPyObject tmp = JPPyObject::call(PyLong_FromLongLong(field(val)));
-	JPPyObject out = JPPyObject::call(convertLong(getHost(), (PyLongObject*) tmp.get()));
+	JPPyObject out = JPPyObject::call(convertLong(getHost(), field(val)));
 	PyJPValue_assignJavaSlot(frame, out.get(), JPValue(this, val));
 	return out;
 }
@@ -317,8 +316,7 @@ JPPyObject JPLongType::getFastArrayItem(JPJavaAccess& frame, jarray a, jsize ndx
 	auto array = (array_t) a;
 	type_t val;
 	frame.GetLongArrayRegion(array, ndx, 1, &val);
-	JPPyObject tmp = JPPyObject::call(PyLong_FromLongLong(val));
-	return JPPyObject::call(convertLong(getHost(), (PyLongObject*) tmp.get()));
+	return JPPyObject::call(convertLong(getHost(), val));
 }
 
 JPArray* JPLongType::createArrayWrapper(const JPValue& value)

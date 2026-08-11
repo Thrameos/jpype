@@ -30,15 +30,17 @@ bool JPPrimitiveType::isPrimitive() const
 	return true;
 }
 
-PyObject *JPPrimitiveType::convertLong(PyTypeObject* wrapper, PyLongObject* tmp)
+PyObject *JPPrimitiveType::convertLong(PyTypeObject* wrapper, long long value)
 {
 	if (wrapper == nullptr)
 		JP_RAISE(PyExc_SystemError, "bad wrapper");
 
-	// PyLong_AsLongLong can't fail/overflow here -- tmp always represents a
-	// genuine Java primitive (byte/short/int/long), which always fits
-	// within 64 bits.
-	long long value = PyLong_AsLongLong((PyObject*) tmp);
+	// Builds directly into the real wrapper instance. Callers used to
+	// build a throwaway plain PyLongObject via PyLong_FromLong(Long) just
+	// so this could immediately unpack it back out via PyLong_AsLongLong
+	// -- a redundant allocation on every array-pull element, since the
+	// caller already has the native value in hand (it came straight out
+	// of a jvalue). Skip the round trip.
 	return PyJPNumber_longFromLongLong(wrapper, value);
 }
 

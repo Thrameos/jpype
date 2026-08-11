@@ -36,10 +36,9 @@ JPClass* JPIntType::getBoxedClass(JPJavaFrame& frame) const
 
 JPPyObject JPIntType::convertToPythonObject(JPJavaFrame& frame, jvalue val, bool cast)
 {
-	JPPyObject tmp = JPPyObject::call(PyLong_FromLong(field(val)));
 	if (getHost() == nullptr)
-		return tmp;
-	JPPyObject out = JPPyObject::call(convertLong(getHost(), (PyLongObject*) tmp.get()));
+		return JPPyObject::call(PyLong_FromLong(field(val)));
+	JPPyObject out = JPPyObject::call(convertLong(getHost(), field(val)));
 	PyJPValue_assignJavaSlot(frame, out.get(), JPValue(this, val));
 	return out;
 }
@@ -332,10 +331,9 @@ JPPyObject JPIntType::getFastArrayItem(JPJavaAccess& frame, jarray a, jsize ndx)
 	auto array = (array_t) a;
 	type_t val;
 	frame.GetIntArrayRegion(array, ndx, 1, &val);
-	JPPyObject tmp = JPPyObject::call(PyLong_FromLong(val));
 	if (getHost() == nullptr)
-		return tmp;
-	return JPPyObject::call(convertLong(getHost(), (PyLongObject*) tmp.get()));
+		return JPPyObject::call(PyLong_FromLong(val));
+	return JPPyObject::call(convertLong(getHost(), val));
 }
 
 JPArray* JPIntType::createArrayWrapper(const JPValue& value)

@@ -63,8 +63,10 @@ public:
 	virtual jobject newMultiArrayObject(JPJavaFrame &frame,
 			JPPyBuffer& view, jconverter converter, int subs, int base, jobject dims) = 0;
 
-	// Helper for Long types
-	PyObject *convertLong(PyTypeObject* wrapper, PyLongObject* tmp);
+	// Helper for Long types -- builds the wrapper instance directly from
+	// the native value (no throwaway PyLongObject on the way in; see
+	// jp_primitivetype.cpp).
+	PyObject *convertLong(PyTypeObject* wrapper, long long value);
 
 	/**
 	 * Bulk-read a (possibly strided) range of a primitive array's elements
