@@ -139,6 +139,18 @@ JPMatch::Type JPDoubleType::findJavaConversionImpl(JPMatch &match)
 	JP_TRACE_OUT;
 }
 
+bool JPDoubleType::fastElementCheck(PyObject* obj, JPMatch::Type& quality) const
+{
+	// Matches asDoubleExactConversion's PyFloat_CheckExact branch above --
+	// see JPIntType::fastElementCheck for the same pattern. Unlike float,
+	// double is a lossless widening of a Python float, so this earns
+	// _exact, not _implicit.
+	if (!PyFloat_CheckExact(obj))
+		return false;
+	quality = JPMatch::_exact;
+	return true;
+}
+
 void JPDoubleType::getConversionInfo(JPConversionInfo &info)
 {
 	JPJavaFrame frame = JPJavaFrame::outer();
@@ -254,15 +266,35 @@ void JPDoubleType::setArrayRange(JPJavaFrame& frame, jarray a,
 		}
 	}
 
-	// Use sequence API
-	JPPySequence seq = JPPySequence::use(sequence);
 	jsize index = start;
-	for (Py_ssize_t i = 0; i < length; ++i, index += step)
+	Py_ssize_t i = 0;
+
+	// Fast path: a plain list of exact floats, avoiding PySequence_GetItem's
+	// generic protocol dispatch in favor of PyList_GET_ITEM. See
+	// JPIntType::setArrayRange for the same pattern.
+	if (PyList_CheckExact(sequence))
 	{
-		type_t v = (type_t) PyFloat_AsDouble(seq[i].get());
-		if (v == -1)
-			JP_PY_CHECK();
-		val[index] = v;
+		for (; i < length; ++i, index += step)
+		{
+			PyObject *item = PyList_GET_ITEM(sequence, i);
+			if (!PyFloat_CheckExact(item))
+				break;
+			val[index] = (type_t) PyFloat_AS_DOUBLE(item);
+		}
+	}
+
+	if (i < length)
+	{
+		// General sequence API, continuing from wherever the fast path
+		// above left off.
+		JPPySequence seq = JPPySequence::use(sequence);
+		for (; i < length; ++i, index += step)
+		{
+			type_t v = (type_t) PyFloat_AsDouble(seq[i].get());
+			if (v == -1)
+				JP_PY_CHECK();
+			val[index] = v;
+		}
 	}
 	accessor.commit();
 	JP_TRACE_OUT;

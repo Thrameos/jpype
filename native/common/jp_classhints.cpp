@@ -768,9 +768,9 @@ static inline size_t raggedItemSize(char typeCode)
 	return (typeCode == 'I' || typeCode == 'F') ? sizeof (jint) : sizeof (jlong);
 }
 
-// Fast, exact-type-only leaf check -- mirrors JPIntType::fastElementCheck's
-// PyLong_CheckExact fast path (the only existing fastElementCheck
-// override; long/float/double never got one). Anything that doesn't pass
+// Fast, exact-type-only leaf check -- mirrors the exact-type-only fast
+// paths of JPIntType/JPLongType/JPFloatType/JPDoubleType::fastElementCheck.
+// Anything that doesn't pass
 // (a bool, a numpy scalar, an __index__ object, a plain Python int handed
 // to a float[]/double[] target, ...) fails the *whole* match for this
 // conversion (see matchRaggedNode below) and falls through to

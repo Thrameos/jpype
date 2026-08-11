@@ -76,7 +76,10 @@ def run(name, fn, total_elements, direction, source, dtype):
 for label, dtype, sumfn, makefn in TYPES:
     print(f"=== jpy: list->array, flat, push (Python -> Java), {label} ===")
     for size in SIZES:
-        lst = list(range(size))
+        # Python-level element type matches the target array's own kind --
+        # exercises each type's own homogeneous push, not a widening
+        # conversion from a different Python type.
+        lst = [float(i) for i in range(size)] if dtype.kind == 'f' else list(range(size))
         run(f"list->array {label}[{size}], fresh",
             lambda lst=lst, sumfn=sumfn: sumfn(lst), size,
             'push', 'list', label)

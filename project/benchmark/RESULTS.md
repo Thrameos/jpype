@@ -199,14 +199,16 @@ non-contiguous sources (manual per-row assembly, e.g.
 
 ### 4.5 By element type, size 100,000
 
-`list->array`:
+`list->array` (Python list element type matches the target array's own
+kind -- a float list for `float[]`/`double[]`, not a widening push of a
+Python int list):
 
 | library | int | long | float | double |
 |---|---:|---:|---:|---:|
-| jpype | 1,829,617 (1.0x) | 4,090,324 (2.24x) | 4,175,308 (2.28x) | 4,167,789 (2.28x) |
-| jpy | 789,924 (1.0x) | 856,623 (1.08x) | 1,240,937 (1.57x) | 1,340,292 (1.70x) |
-| jep | 842,845 (1.0x) | 873,552 (1.04x) | 1,522,265 (1.81x) | 1,566,213 (1.86x) |
-| pyjnius | 4,291,169 (1.0x) | 4,153,820 (0.97x) | 3,068,018 (0.72x) | 3,150,899 (0.73x) |
+| jpype | 1,848,067 (1.0x) | 1,913,257 (1.04x) | 1,697,198 (0.92x) | 1,782,759 (0.96x) |
+| jpy | 761,579 (1.0x) | 847,617 (1.11x) | 767,554 (1.01x) | 880,358 (1.16x) |
+| jep | 1,310,225 (1.0x) | 1,281,302 (0.98x) | 1,037,738 (0.79x) | 997,185 (0.76x) |
+| pyjnius | 4,145,734 (1.0x) | 3,971,551 (0.96x) | 2,864,110 (0.69x) | 3,553,790 (0.86x) |
 
 `buffer->array` (pyjnius has none):
 
@@ -222,14 +224,21 @@ non-contiguous sources (manual per-row assembly, e.g.
   elements before committing to a conversion; jpype validates every
   element up front to support correct Java-style overload
   disambiguation -- an architectural tradeoff, not a gap to close.
-- **`list->array`, int vs. long/float/double, within jpype** (1.8-2.3x):
-  `JPIntType` is the only primitive type with a `fastElementCheck`
-  override (`jp_inttype.cpp`); long/float/double always take the general
-  per-element path even at depth 1. jpy (1.1-1.7x) and jep (1.0-1.9x)
-  show the same directional gap, smaller in magnitude -- jpype's is the
-  largest of the three, consistent with the missing `fastElementCheck`.
-  pyjnius is the outlier: float/double are *faster* than int/long there,
-  the opposite direction, not investigated further.
+- **`list->array`, int vs. long/float/double, within jpype**: all four
+  types land within 0.92-1.04x of each other. `setArrayRange` (the loop
+  that does the actual per-element conversion) has a `PyList_CheckExact`
+  fast loop -- `PyList_GET_ITEM` plus a direct `PyLong`/`PyFloat` read,
+  skipping the generic sequence-protocol dispatch -- in all four of
+  `jp_inttype.cpp`/`jp_longtype.cpp`/`jp_floattype.cpp`/
+  `jp_doubletype.cpp`. `fastElementCheck` overrides (used only for
+  overload-resolution quality, not the conversion itself) exist on all
+  four primitive types for the same reason, but were not what closed
+  this gap.
+- **`list->array` type parity, cross-library**: all four libraries show
+  float/double at or below int/long's cost (0.69-1.16x), not above it --
+  jpy and jep track jpype's near-parity result; pyjnius's float/double
+  lead is the widest of the four, consistent across every library here
+  rather than an outlier.
 - **`buffer->array` type ratios**: long/double cost roughly 2-3x int/float
   across jpype, jpy, and jep alike -- shared behavior of `DeepBench`'s
   per-type sum method (included in the timed call), not a push-path
@@ -308,13 +317,13 @@ own int column):
   2, 9.6x ahead at depth 5) -- jpype is the only one of the three with a
   real bulk multi-dimensional buffer path.
 - **Type parity within jpype, depth >= 2**: all four types within 1-8%
-  of each other at every depth -- no type-cost gap here, unlike the flat
-  case in Section 4.
+  of each other at every depth, matching the flat-push parity in
+  Section 4.5.
 - **Ragged vs. rectangular, within jpype**: normalized for actual
   element count, ragged costs essentially the same as rectangular at
   every depth -- the ragged-native path (`isRaggedLeafElement`) is a
-  single per-leaf branch regardless of type, so the `fastElementCheck`
-  gap from Section 4 doesn't appear here.
+  single per-leaf branch regardless of type, the same shape as the flat
+  push's `PyList_CheckExact` fast loop (Section 4.5).
 - **Ragged type parity, cross-library**: jpype, jpy, and jep all sit
   within a few percent across every type; pyjnius is the exception,
   1.4-1.5x slower on float/double, consistent with the same reversed

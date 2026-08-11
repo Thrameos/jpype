@@ -122,6 +122,16 @@ JPMatch::Type JPLongType::findJavaConversionImpl(JPMatch &match)
 	JP_TRACE_OUT;
 }
 
+bool JPLongType::fastElementCheck(PyObject* obj, JPMatch::Type& quality) const
+{
+	// Matches longConversion's (JPConversionLong<JPLongType>) exact-type
+	// branch above -- see JPIntType::fastElementCheck for the same pattern.
+	if (!PyLong_CheckExact(obj))
+		return false;
+	quality = JPMatch::_implicit;
+	return true;
+}
+
 void JPLongType::getConversionInfo(JPConversionInfo &info)
 {
 	JPJavaFrame frame = JPJavaFrame::outer();
@@ -236,21 +246,45 @@ void JPLongType::setArrayRange(JPJavaFrame& frame, jarray a,
 		}
 	}
 
-	// Use sequence API
-	JPPySequence seq = JPPySequence::use(sequence);
 	jsize index = start;
-	for (Py_ssize_t i = 0; i < length; ++i, index += step)
+	Py_ssize_t i = 0;
+
+	// Fast path: a plain list of exact ints, avoiding PySequence_GetItem's
+	// generic protocol dispatch in favor of PyList_GET_ITEM, and
+	// PyLong_AsLongLong instead of the more general PyIndex_Check path.
+	// See JPIntType::setArrayRange for the same pattern.
+	if (PyList_CheckExact(sequence))
 	{
-		PyObject *item = seq[i].get();
-		if (!PyIndex_Check(item))
+		for (; i < length; ++i, index += step)
 		{
-			PyErr_Format(PyExc_TypeError, "Unable to implicitly convert '%s' to long", Py_TYPE(item)->tp_name);
-			JP_RAISE_PYTHON();
-		}
-		jlong v = PyLong_AsLongLong(item);
-		if (v == -1)
-			JP_PY_CHECK()
+			PyObject *item = PyList_GET_ITEM(sequence, i);
+			if (!PyLong_CheckExact(item))
+				break;
+			jlong v = PyLong_AsLongLong(item);
+			if (v == -1)
+				JP_PY_CHECK();
 			val[index] = (type_t) v;
+		}
+	}
+
+	if (i < length)
+	{
+		// General sequence API, continuing from wherever the fast path
+		// above left off.
+		JPPySequence seq = JPPySequence::use(sequence);
+		for (; i < length; ++i, index += step)
+		{
+			PyObject *item = seq[i].get();
+			if (!PyIndex_Check(item))
+			{
+				PyErr_Format(PyExc_TypeError, "Unable to implicitly convert '%s' to long", Py_TYPE(item)->tp_name);
+				JP_RAISE_PYTHON();
+			}
+			jlong v = PyLong_AsLongLong(item);
+			if (v == -1)
+				JP_PY_CHECK()
+				val[index] = (type_t) v;
+		}
 	}
 	accessor.commit();
 	JP_TRACE_OUT;
