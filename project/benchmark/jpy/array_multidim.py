@@ -13,7 +13,7 @@ timing), so both categories collapse onto the same generic per-element
 code path here -- kept as separate rows anyway for a direct comparison
 against jpype's (which does have a real fast path) and jep's (partial)
 rows of the same name:
-  - push, "list->array"/"buffer->array": DeepBench.sum{2,3,4,5}D{Type}Array
+  - push, "list->array"/"buffer->array": DeepBench.void{2,3,4,5}D{Type}Array
     on a nested list or a numpy array respectively -- jpy's general
     per-element recursion (`JType_CreateJavaArray`, jpy_jtype.c) handles
     a numpy sub-array exactly like any other Python sequence, so expect
@@ -58,29 +58,29 @@ DIMS = [2, 3, 4, 5]
 # (label, numpy dtype, {sum2D..sum5D}, {make2D..make5D})
 TYPES = [
     ('int', np.dtype('int32'), {
-        2: DeepBench.sum2DIntArray, 3: DeepBench.sum3DIntArray,
-        4: DeepBench.sum4DIntArray, 5: DeepBench.sum5DIntArray,
+        2: DeepBench.void2DIntArray, 3: DeepBench.void3DIntArray,
+        4: DeepBench.void4DIntArray, 5: DeepBench.void5DIntArray,
     }, {
         2: DeepBench.make2DIntArray, 3: DeepBench.make3DIntArray,
         4: DeepBench.make4DIntArray, 5: DeepBench.make5DIntArray,
     }),
     ('long', np.dtype('int64'), {
-        2: DeepBench.sum2DLongArray, 3: DeepBench.sum3DLongArray,
-        4: DeepBench.sum4DLongArray, 5: DeepBench.sum5DLongArray,
+        2: DeepBench.void2DLongArray, 3: DeepBench.void3DLongArray,
+        4: DeepBench.void4DLongArray, 5: DeepBench.void5DLongArray,
     }, {
         2: DeepBench.make2DLongArray, 3: DeepBench.make3DLongArray,
         4: DeepBench.make4DLongArray, 5: DeepBench.make5DLongArray,
     }),
     ('float', np.dtype('float32'), {
-        2: DeepBench.sum2DFloatArray, 3: DeepBench.sum3DFloatArray,
-        4: DeepBench.sum4DFloatArray, 5: DeepBench.sum5DFloatArray,
+        2: DeepBench.void2DFloatArray, 3: DeepBench.void3DFloatArray,
+        4: DeepBench.void4DFloatArray, 5: DeepBench.void5DFloatArray,
     }, {
         2: DeepBench.make2DFloatArray, 3: DeepBench.make3DFloatArray,
         4: DeepBench.make4DFloatArray, 5: DeepBench.make5DFloatArray,
     }),
     ('double', np.dtype('float64'), {
-        2: DeepBench.sum2DDoubleArray, 3: DeepBench.sum3DDoubleArray,
-        4: DeepBench.sum4DDoubleArray, 5: DeepBench.sum5DDoubleArray,
+        2: DeepBench.void2DDoubleArray, 3: DeepBench.void3DDoubleArray,
+        4: DeepBench.void4DDoubleArray, 5: DeepBench.void5DDoubleArray,
     }, {
         2: DeepBench.make2DDoubleArray, 3: DeepBench.make3DDoubleArray,
         4: DeepBench.make4DDoubleArray, 5: DeepBench.make5DDoubleArray,

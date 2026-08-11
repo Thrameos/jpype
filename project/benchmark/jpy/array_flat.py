@@ -48,10 +48,10 @@ SIZES = [100, 1_000, 10_000, 100_000]
 
 # (label, numpy dtype, sum{Type}Array, make{Type}Array)
 TYPES = [
-    ('int', np.dtype('int32'), DeepBench.sumIntArray, DeepBench.makeIntArray),
-    ('long', np.dtype('int64'), DeepBench.sumLongArray, DeepBench.makeLongArray),
-    ('float', np.dtype('float32'), DeepBench.sumFloatArray, DeepBench.makeFloatArray),
-    ('double', np.dtype('float64'), DeepBench.sumDoubleArray, DeepBench.makeDoubleArray),
+    ('int', np.dtype('int32'), DeepBench.voidIntArray, DeepBench.makeIntArray),
+    ('long', np.dtype('int64'), DeepBench.voidLongArray, DeepBench.makeLongArray),
+    ('float', np.dtype('float32'), DeepBench.voidFloatArray, DeepBench.makeFloatArray),
+    ('double', np.dtype('float64'), DeepBench.voidDoubleArray, DeepBench.makeDoubleArray),
 ]
 
 csv_log = CsvLog(
@@ -83,6 +83,17 @@ for label, dtype, sumfn, makefn in TYPES:
         run(f"list->array {label}[{size}], fresh",
             lambda lst=lst, sumfn=sumfn: sumfn(lst), size,
             'push', 'list', label)
+
+    if dtype.kind == 'f':
+        print(f"=== jpy: list->array, flat, push (Python -> Java), {label}, widening from int ===")
+        for size in SIZES:
+            # A plain Python int list pushed into a float[]/double[]
+            # target -- idiomatic, and not the same benchmark as the
+            # homogeneous-type row above.
+            lst = list(range(size))
+            run(f"list->array {label}[{size}], widening from int",
+                lambda lst=lst, sumfn=sumfn: sumfn(lst), size,
+                'push', 'list_widen', label)
 
     print(f"=== jpy: buffer->array, flat, push (Python -> Java), {label} ===")
     for size in SIZES:

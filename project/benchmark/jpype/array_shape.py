@@ -60,16 +60,16 @@ SHAPES_3D = [(1000, 10, 10), (10, 10, 1000)]
 
 TYPES = [
     ('int', np.dtype('int32'), {
-        2: DeepBench.sum2DIntArray, 3: DeepBench.sum3DIntArray,
+        2: DeepBench.void2DIntArray, 3: DeepBench.void3DIntArray,
     }),
     ('long', np.dtype('int64'), {
-        2: DeepBench.sum2DLongArray, 3: DeepBench.sum3DLongArray,
+        2: DeepBench.void2DLongArray, 3: DeepBench.void3DLongArray,
     }),
     ('float', np.dtype('float32'), {
-        2: DeepBench.sum2DFloatArray, 3: DeepBench.sum3DFloatArray,
+        2: DeepBench.void2DFloatArray, 3: DeepBench.void3DFloatArray,
     }),
     ('double', np.dtype('float64'), {
-        2: DeepBench.sum2DDoubleArray, 3: DeepBench.sum3DDoubleArray,
+        2: DeepBench.void2DDoubleArray, 3: DeepBench.void3DDoubleArray,
     }),
 ]
 

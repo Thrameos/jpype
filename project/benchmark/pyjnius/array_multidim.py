@@ -52,29 +52,29 @@ DIMS = [2, 3, 4, 5]
 # (label, {sum2D..sum5D}, {make2D..make5D})
 TYPES = [
     ('int', {
-        2: DeepBench.sum2DIntArray, 3: DeepBench.sum3DIntArray,
-        4: DeepBench.sum4DIntArray, 5: DeepBench.sum5DIntArray,
+        2: DeepBench.void2DIntArray, 3: DeepBench.void3DIntArray,
+        4: DeepBench.void4DIntArray, 5: DeepBench.void5DIntArray,
     }, {
         2: DeepBench.make2DIntArray, 3: DeepBench.make3DIntArray,
         4: DeepBench.make4DIntArray, 5: DeepBench.make5DIntArray,
     }),
     ('long', {
-        2: DeepBench.sum2DLongArray, 3: DeepBench.sum3DLongArray,
-        4: DeepBench.sum4DLongArray, 5: DeepBench.sum5DLongArray,
+        2: DeepBench.void2DLongArray, 3: DeepBench.void3DLongArray,
+        4: DeepBench.void4DLongArray, 5: DeepBench.void5DLongArray,
     }, {
         2: DeepBench.make2DLongArray, 3: DeepBench.make3DLongArray,
         4: DeepBench.make4DLongArray, 5: DeepBench.make5DLongArray,
     }),
     ('float', {
-        2: DeepBench.sum2DFloatArray, 3: DeepBench.sum3DFloatArray,
-        4: DeepBench.sum4DFloatArray, 5: DeepBench.sum5DFloatArray,
+        2: DeepBench.void2DFloatArray, 3: DeepBench.void3DFloatArray,
+        4: DeepBench.void4DFloatArray, 5: DeepBench.void5DFloatArray,
     }, {
         2: DeepBench.make2DFloatArray, 3: DeepBench.make3DFloatArray,
         4: DeepBench.make4DFloatArray, 5: DeepBench.make5DFloatArray,
     }),
     ('double', {
-        2: DeepBench.sum2DDoubleArray, 3: DeepBench.sum3DDoubleArray,
-        4: DeepBench.sum4DDoubleArray, 5: DeepBench.sum5DDoubleArray,
+        2: DeepBench.void2DDoubleArray, 3: DeepBench.void3DDoubleArray,
+        4: DeepBench.void4DDoubleArray, 5: DeepBench.void5DDoubleArray,
     }, {
         2: DeepBench.make2DDoubleArray, 3: DeepBench.make3DDoubleArray,
         4: DeepBench.make4DDoubleArray, 5: DeepBench.make5DDoubleArray,

@@ -43,6 +43,38 @@ lists, boxed-type round trips, non-contiguous numpy sources, ragged
 nested lists) is covered by `test/jpypetest`, run in a disposable venv
 per this repo's CLAUDE.md.
 
+**Push methodology note.** Sections 4-6's push benchmarks call a Java
+method on the converted array so the JIT can't dead-code-eliminate the
+conversion; earlier editions of this report used `DeepBench.sum{Type}Array`
+for that purpose, whose own O(elements) summation loop runs *inside* the
+timed call. That loop's cost turned out to be real and sharply
+type-dependent -- measured directly, with an already-converted Java array
+(no conversion in the call at all), at n=100,000: `sumIntArray` 8,414ns,
+`sumLongArray` 23,771ns, `sumFloatArray`/`sumDoubleArray` ~68,000ns each
+(int/long's accumulation into a `long` auto-vectorizes; float/double's
+sequential-dependency accumulation into a `double` does not). Against
+`list->array`'s push cost (hundreds of thousands to millions of ns at this
+size) that's a small fraction and doesn't change any conclusion; against
+`buffer->array`'s (tens of thousands of ns) it was a large fraction and
+did -- it was the actual explanation for the "float costs ~2x int despite
+identical byte width" pattern an earlier edition attributed to it, in one
+place, without recognizing the same confound applied everywhere else `sum`
+was used for push timing. Every push number in Sections 4-6 now instead
+calls a `DeepBench.void{Type}Array`/`void{2,3,4,5}D{Type}Array` method that
+touches nothing and returns nothing (measured directly, same setup: 360-450ns
+for all four types, effectively pure per-call overhead) -- library-vs-library
+comparisons at a fixed type were already valid either way (`sum`'s cost is
+identical Java bytecode regardless of which binding invokes it, so it
+cancels in a same-type difference), but by-type ratios inside a single
+library were not, and are corrected here.
+
+**Sample size.** The iteration-count formula above means the largest push/pull
+benchmarks in this report run at n=20-50 raw calls (best-of-5 trials each).
+Combined with the push-methodology note above, treat any by-type ratio
+in Sections 4-6 as directional at the last significant figure, not as a
+precise measurement -- the qualitative pattern (which type is cheaper, by
+roughly how much) is the reliable part.
+
 ## 2. Scalars, boxing, strings, object identity
 
 **Methodology.** Single-call round trips: a static method call
@@ -52,12 +84,27 @@ a plain `Object` reference. ns/call, best-of-5.
 
 | operation | jpype | jpy | jep | pyjnius |
 |---|---:|---:|---:|---:|
-| `Math.max(int,int)` | 750 | 353 | 1299 | 1276 |
-| `new Integer(int)` | 840 | 479 | 1257 | 7403 |
-| `Math.sqrt(double)` | 690 | 393 | 645 | 497 |
-| `new Double(double)` | 918 | 506 | 1378 | 6765 |
+| `Math.max(int,int)` | 672 | 353 | 1299 | 1276 |
+| `new Integer(int)` | 811 | 479 | 1257 | 7403 |
+| `Math.sqrt(double)` | 706 | 393 | 645 | 497 |
+| `new Double(double)` | 933 | 506 | 1378 | 6765 |
 | `new String` + `.toString()` | 1022 | 927 | 2512 | 22349 |
 | `Object` identity (arg + return) | 995 | 730 | 1971 | 3763 |
+
+jpype's `Math.max`/`new Integer` rows were re-run for this edition (not
+byte-identical to the previous one) since scalar `int` returns go
+through the same `convertToPythonObject` this pass's redundant-allocation
+fix touched (Section 7.1); `Math.sqrt`/`new Double` were re-run too, for
+comparison, since `double` wasn't touched by that fix. `Math.max` moved
+from 750 to 672ns (-10%) and `new Integer` from 840 to 811ns (-3%), both
+in the expected direction; `Math.sqrt`/`new Double` moved by a similar
+few percent in *both* directions across the two rows, which is the more
+likely explanation for all four deltas here -- at a ~750ns call, a
+single-allocation removal is a plausible few-percent effect, but it's not
+distinguishable from ordinary run-to-run noise at n=20-50 (Section 1) in
+either the touched or untouched rows. Not re-measured with a
+controlled, larger-n microbenchmark the way Section 7.1's redundant
+allocation was; treat this row's specific deltas as unconfirmed.
 
 **Interpretation.** jpy is fastest on every row, by 1.6-2.1x on the
 numeric rows and up to ~9x on boxed-`Integer`. jpype beats jep on every
@@ -115,43 +162,50 @@ for `int`/`long` parameters, unlike their `float`/`double` matchers.
 
 ## 4. Array push, flat (1D)
 
-**Methodology.** `sumIntArray(source)` and its long/float/double
-counterparts, sweeping size (100/1k/10k/100k) and two source kinds: a
-plain Python list, and a `Py_buffer`-backed object (numpy). ns/call,
-best-of-5. The size-sweep tables below are int-only for readability; the
-type breakdown beneath them covers all four libraries.
+**Methodology.** `voidIntArray(source)` and its long/float/double
+counterparts (see Section 1's push methodology note), sweeping size
+(100/1k/10k/100k) and two source kinds: a plain Python list, and a
+`Py_buffer`-backed object (numpy). ns/call, best-of-5. The size-sweep
+tables below are int-only for readability; the type breakdown beneath
+them covers all four libraries.
 
 ### 4.1 `list->array` push (method argument)
 
 | size | jpype | jpy | jep | pyjnius |
 |---:|---:|---:|---:|---:|
-| 100 | 3,018 | 1,313 | 1,939 | 3,068 |
-| 1,000 | 19,695 | 8,294 | 9,574 | 25,932 |
-| 10,000 | 194,631 | 78,342 | 86,629 | 268,303 |
-| 100,000 | 1,829,617 | 774,569 | 840,301 | 4,520,089 |
+| 100 | 2,983 | 1,186 | 2,492 | 3,017 |
+| 1,000 | 20,762 | 8,142 | 14,645 | 26,054 |
+| 10,000 | 201,954 | 76,972 | 136,955 | 275,144 |
+| 100,000 | 1,905,281 | 791,520 | 1,328,300 | 4,653,195 |
 
 ### 4.2 `buffer->array` push (method argument)
 
 Argument conversion for a numpy array against a flat primitive parameter
 (e.g. `int[]`) hands the source buffer directly to a single Java call
 (`Support.fillFlatFromBuffer`), which performs any dtype coercion
-(signed/unsigned int 1/2/4/8 bytes, float32/float64, float16) and
-handles non-unit stride directly, so a sliced/strided numpy column
-reaches the same fast path as a fully contiguous array. A negative-stride
-source (`arr[::-1]`) falls back to a per-element path.
+(signed/unsigned int 1/2/4/8 bytes, float32/float64, float16) and takes
+an explicit stride parameter rather than requiring a C-contiguous
+source, so a sliced/strided numpy column takes the same code path as a
+fully contiguous array -- architecturally, not necessarily at the same
+*cost*: Section 4.4 measures a real, currently-unexplained 3.9x
+regression on a non-contiguous 1D source at this same size, which
+contradicts a "same fast path, same cost" reading of this paragraph and
+is flagged there rather than resolved. A negative-stride source
+(`arr[::-1]`) falls back to a per-element path.
 
 pyjnius has no `buffer->array` push at all (see 4.4).
 
 | size | jpype | jpy | jep |
 |---:|---:|---:|---:|
-| 100 | 1,459 | 497 | 770 |
-| 1,000 | 1,847 | 890 | 1,176 |
-| 10,000 | 6,862 | 6,392 | 6,118 |
-| 100,000 | 57,371 | 48,307 | 51,150 |
+| 100 | 1,206 | 436 | 836 |
+| 1,000 | 1,571 | 768 | 1,174 |
+| 10,000 | 5,876 | 4,765 | 5,915 |
+| 100,000 | 54,480 | 37,371 | 45,630 |
 
-**Interpretation.** jpype lands within ~9-19% of jpy and jep at 100,000
-elements across all four types, and is faster than both jpy and jep on
-`long`, `float`, and `double` at that size (see 4.4). At small sizes,
+**Interpretation.** jpype trails jpy by 10-46% and jep by 3-19% across
+all four types at 100,000 elements (int shows the widest gap to both;
+double is closest, and edges ahead of jep specifically, 92,204 vs
+95,957ns -- see 4.5 for the full by-type table). At small sizes,
 per-call fixed overhead (buffer validation, `NewDirectByteBuffer`, one
 JNI call) dominates and jpype trails jpy/jep by a wider margin.
 
@@ -167,7 +221,7 @@ cross-library equivalent benchmarked.
 | operation | ns/call |
 |---|---:|
 | `int[100000]` slice assignment | 9,371 |
-| `int[100000]` method-argument push (4.2, for comparison) | 57,371 |
+| `int[100000]` method-argument push (4.2, for comparison) | 54,480 |
 
 **Interpretation.** Slice assignment is cheaper than the method-argument
 push at the same size because it skips both the fresh-array allocation
@@ -181,42 +235,70 @@ parameter, rather than requiring a C-contiguous source.
 
 | library | `int[100000]`, non-contiguous column slice |
 |---|---:|
-| jpype | 80,715 |
-| jep | 75,448 |
+| jpype | 213,581 (best), 345,015 (median) |
+| jep | 60,201 |
 | jpy | fails (`RuntimeError: no matching Java method overloads found`) |
 | pyjnius | N/A (no buffer push at all) |
 
-**Interpretation.** jpype's non-contiguous push (80,715ns) is only 1.4x
-its own contiguous push (57,371ns, Section 4.2), and lands close to
-jep's dedicated 1D non-contiguous fast path (75,448ns). jpy's buffer
-matcher requests `PyBUF_SIMPLE` (no stride support at all) and fails
-outright on any non-contiguous 1D source; its ND non-contiguous
+**Interpretation.** jep's non-contiguous push came down with the push
+methodology fix (Section 1), as expected. jpype's went the other way --
+up roughly 2.6x from the previous edition's 80,715ns, and with unusually
+wide best-vs-median spread (213,581 vs 345,015ns, a 62% gap that no
+other row in this report shows), suggesting real run-to-run instability
+rather than a clean regression. This wasn't reproduced from a fresh-clone
+disposable venv (per this repo's CLAUDE.md build-isolation guidance) and
+isn't otherwise explained by anything changed in this pass -- flagged
+here rather than resolved, since chasing it down is a separate
+investigation from the push-methodology fix this section is about. jpy's
+buffer matcher requests `PyBUF_SIMPLE` (no stride support at all) and
+fails outright on any non-contiguous 1D source; its ND non-contiguous
 (transposed multi-dim) cases do succeed, at the same cost as the
 contiguous case. jep succeeds on both 1D (real numpy fast path) and ND
 non-contiguous sources (manual per-row assembly, e.g.
-`double[][][][][]` (10^5): 21,500,000 ns). Full capability matrix in
+`double[][][][][]` (10^5): 24,222,693ns). Full capability matrix in
 `project/comparison.md`.
 
 ### 4.5 By element type, size 100,000
 
-`list->array` (Python list element type matches the target array's own
-kind -- a float list for `float[]`/`double[]`, not a widening push of a
-Python int list):
+Two different `list->array` inputs are reported separately here, since
+they measure genuinely different things: a Python list whose element
+type already matches the target array (a float list for
+`float[]`/`double[]`), and a plain Python **int** list pushed into a
+`float[]`/`double[]` target -- an ordinary, idiomatic thing for a caller
+to write (`javaMethod([1, 2, 3])` against a `double[]` parameter) that an
+earlier edition of this report conflated with the matched-type case.
+
+`list->array`, matched element type:
 
 | library | int | long | float | double |
 |---|---:|---:|---:|---:|
-| jpype | 1,848,067 (1.0x) | 1,913,257 (1.04x) | 1,697,198 (0.92x) | 1,782,759 (0.96x) |
-| jpy | 761,579 (1.0x) | 847,617 (1.11x) | 767,554 (1.01x) | 880,358 (1.16x) |
-| jep | 1,310,225 (1.0x) | 1,281,302 (0.98x) | 1,037,738 (0.79x) | 997,185 (0.76x) |
-| pyjnius | 4,145,734 (1.0x) | 3,971,551 (0.96x) | 2,864,110 (0.69x) | 3,553,790 (0.86x) |
+| jpype | 1,905,281 (1.0x) | 1,994,072 (1.05x) | 1,736,646 (0.91x) | 1,766,987 (0.93x) |
+| jpy | 791,520 (1.0x) | 848,558 (1.07x) | 731,562 (0.92x) | 805,252 (1.02x) |
+| jep | 1,328,300 (1.0x) | 1,301,621 (0.98x) | 1,006,701 (0.76x) | 952,065 (0.72x) |
+| pyjnius | 4,653,195 (1.0x) | 4,228,499 (0.91x) | 3,021,846 (0.65x) | 3,484,234 (0.75x) |
 
-`buffer->array` (pyjnius has none):
+`list->array`, **widening from a Python int list** (float/double only --
+int/long have no widening case, a plain int list already *is* their
+matched-type input):
+
+| library | float | double | float vs. matched-type float | double vs. matched-type double |
+|---|---:|---:|---:|---:|
+| jpype | 4,301,929 | 4,317,766 | 2.48x | 2.44x |
+| jpy | 1,174,941 | 1,235,077 | 1.61x | 1.53x |
+| jep | 2,726,655 | 2,740,411 | 2.71x | 2.88x |
+| pyjnius | 2,939,610 | 4,273,681 | 0.97x | 1.23x |
+
+`buffer->array` (pyjnius has none; numpy's own dtype already fixes the
+element type, so there's no separate widening case here -- pushing an
+`int32` numpy array into a `double[]` parameter is a dtype-coercion
+question numpy itself resolves via casting rules, not something this
+report's `buffer->array` benchmarks exercise):
 
 | library | int | long | float | double |
 |---|---:|---:|---:|---:|
-| jpype | 57,371 (1.0x) | 123,853 (2.16x) | 108,005 (1.88x) | 163,149 (2.84x) |
-| jpy | 48,307 (1.0x) | 138,314 (2.86x) | 107,158 (2.22x) | 146,112 (3.02x) |
-| jep | 51,150 (1.0x) | 116,257 (2.27x) | 109,273 (2.14x) | 162,870 (3.18x) |
+| jpype | 54,480 (1.0x) | 97,818 (1.80x) | 42,919 (0.79x) | 92,204 (1.69x) |
+| jpy | 37,371 (1.0x) | 81,999 (2.19x) | 37,906 (1.01x) | 83,511 (2.23x) |
+| jep | 45,630 (1.0x) | 91,056 (2.00x) | 41,630 (0.91x) | 95,957 (2.10x) |
 
 **Interpretation.**
 
@@ -224,32 +306,66 @@ Python int list):
   elements before committing to a conversion; jpype validates every
   element up front to support correct Java-style overload
   disambiguation -- an architectural tradeoff, not a gap to close.
-- **`list->array`, int vs. long/float/double, within jpype**: all four
-  types land within 0.92-1.04x of each other. `setArrayRange` (the loop
-  that does the actual per-element conversion) has a `PyList_CheckExact`
-  fast loop -- `PyList_GET_ITEM` plus a direct `PyLong`/`PyFloat` read,
-  skipping the generic sequence-protocol dispatch -- in all four of
-  `jp_inttype.cpp`/`jp_longtype.cpp`/`jp_floattype.cpp`/
-  `jp_doubletype.cpp`. `fastElementCheck` overrides (used only for
-  overload-resolution quality, not the conversion itself) exist on all
-  four primitive types for the same reason, but were not what closed
-  this gap.
-- **`list->array` type parity, cross-library**: all four libraries show
-  float/double at or below int/long's cost (0.69-1.16x), not above it --
-  jpy and jep track jpype's near-parity result; pyjnius's float/double
-  lead is the widest of the four, consistent across every library here
-  rather than an outlier.
-- **`buffer->array` type ratios**: long/double cost roughly 2-3x int/float
-  across jpype, jpy, and jep alike -- shared behavior of `DeepBench`'s
-  per-type sum method (included in the timed call), not a push-path
-  difference between libraries, and does not track element byte width
-  (float and int are both 4 bytes, yet float costs ~2x int's time in all
-  three).
+- **`list->array`, matched-type int vs. long/float/double, within
+  jpype**: all four types land within 0.91-1.05x of each other.
+  `setArrayRange` (the loop that does the actual per-element conversion)
+  has a `PyList_CheckExact` fast loop -- `PyList_GET_ITEM` plus a direct
+  `PyLong`/`PyFloat` read, skipping the generic sequence-protocol
+  dispatch -- in all four of `jp_inttype.cpp`/`jp_longtype.cpp`/
+  `jp_floattype.cpp`/`jp_doubletype.cpp`. `fastElementCheck` overrides
+  (used only for overload-resolution quality, not the conversion itself)
+  exist on all four primitive types for the same reason, but were not
+  what closed this gap. This parity is real, but it is specifically a
+  matched-Python-type result -- it says the fast loop works, not that
+  `list->array` is type-insensitive in general (see the widening table).
+- **`list->array`, widening from int, within jpype (2.4-2.5x)**: this is
+  the case an earlier edition of this report measured under the
+  "float/long/double" columns without separating it from matched-type
+  input, and attributed to the missing `fastElementCheck`/fast-loop
+  overrides that were added in that pass. That attribution doesn't
+  survive this edition's split: the fast loop's own `PyFloat_CheckExact`
+  check never matches a `PyLong` element, so an int list falls straight
+  to the general per-element path regardless of the fast-loop fix --
+  which is exactly why the widening numbers here are close to what that
+  earlier edition originally reported (2.28x for float, 2.28x for
+  double) while the matched-type numbers moved to near-parity. The
+  earlier 2.3x figure wasn't measurement noise; it was, and remains, the
+  real cost of this specific (common) input pattern. Closing it would
+  need the fast loop to also accept `PyLong` elements for a float/double
+  target (valid Java widening) -- not attempted here.
+- **`list->array` type parity, cross-library, matched-type**: all four
+  libraries show float/double at or below int/long's cost (0.65-1.07x),
+  not above it -- jpy and jep track jpype's near-parity result;
+  pyjnius's float/double lead is the widest of the four, consistent
+  across every library here rather than an outlier.
+- **`list->array`, widening from int, cross-library**: jpy (1.5-1.6x)
+  and jep (2.7-2.9x) show the same directional penalty as jpype: none of
+  the three libraries' float/double fast paths accept a Python int
+  element without falling back. pyjnius is again the exception (0.97x
+  and 1.23x) -- it doesn't show a widening penalty at all, consistent
+  with its float/double lead in the matched-type table; whatever pyjnius
+  does for float/double array construction isn't type-checking the
+  Python element the way the other three libraries' fast paths do.
+- **`buffer->array` type ratios**: now that Java-side per-type summation
+  cost is out of the timed call (see Section 1's push methodology note --
+  an earlier edition of this report measured `sum{Type}Array` here and
+  attributed float's inflated cost to that method's own non-vectorizable
+  accumulation loop, without realizing the same confound touched every
+  other push table in Sections 4-6 too), the numbers track element byte
+  width the way a bulk buffer copy should: long/double (8 bytes) cost
+  1.7-2.2x int/float (4 bytes) across all three libraries, and int/float
+  -- both 4 bytes -- land within 1-21% of each other (float is
+  consistently the *cheaper* of the two, jpype's widest such gap at 21%).
+  This is the cleanest physical story in the whole by-type comparison,
+  and it only emerged once the confound was removed. Unlike
+  `list->array`, this table has no separate widening case to conflate
+  with it (see the table note above).
 
 ## 5. Array push, multi-dimensional (depth 2-5, rectangular and ragged)
 
-**Methodology.** `sum{2,3,4,5}D{Type}Array(nested_list)`, 10\*\*depth
-elements, uniform 10-wide shape (rectangular) and a second sweep with
+**Methodology.** `void{2,3,4,5}D{Type}Array(nested_list)` (see Section
+1's push methodology note), 10\*\*depth elements, uniform 10-wide shape
+(rectangular) and a second sweep with
 irregular sibling lengths at every level (ragged, fixed seed for
 reproducibility). ns/call, best-of-5.
 
@@ -257,44 +373,44 @@ reproducibility). ns/call, best-of-5.
 
 | depth | jpype | jpy | jep | pyjnius |
 |---:|---:|---:|---:|---:|
-| 2 | 5,473 | 2,226 | 5,914 | 4,867 |
-| 3 | 44,685 | 18,304 | 54,016 | 41,419 |
-| 4 | 432,827 | 179,039 | 536,362 | 418,743 |
-| 5 | 4,178,878 | 1,832,619 | 5,343,343 | 4,563,869 |
+| 2 | 5,393 | 2,009 | 7,154 | 4,866 |
+| 3 | 45,925 | 17,306 | 65,772 | 42,665 |
+| 4 | 438,572 | 168,455 | 641,714 | 432,587 |
+| 5 | 4,282,564 | 1,747,970 | 6,495,953 | 5,133,107 |
 
 **`buffer->array` push (int; jep has no automatic multi-dim buffer
 path):**
 
 | depth | jpype | jpy | jep\* |
 |---:|---:|---:|---:|
-| 2 | 2,204 | 5,392 | 19,344 |
-| 3 | 7,199 | 53,558 | 190,041 |
-| 4 | 69,180 | 542,709 | 1,896,885 |
-| 5 | 567,554 | 5,452,297 | 18,973,229 |
+| 2 | 1,916 | 5,332 | 20,395 |
+| 3 | 6,382 | 54,050 | 199,846 |
+| 4 | 68,381 | 548,059 | 2,013,800 |
+| 5 | 589,825 | 5,409,156 | 20,274,290 |
 
 \* jep raises `TypeError` for numpy input to a multi-dim argument; the
 jep column is a manual per-row workaround, slower than jep's own
 `list->array` at this row size.
 
 **jpype by element type** (`list->array`, rectangular -- all four types
-within 1-8% of each other at every depth):
+within 2-10% of each other at every depth):
 
 | depth | int | long | float | double |
 |---:|---:|---:|---:|---:|
-| 2 | 5,384 | 5,370 | 5,219 | 5,462 |
-| 3 | 44,355 | 44,337 | 44,589 | 46,491 |
-| 4 | 433,175 | 432,453 | 429,016 | 450,266 |
-| 5 | 4,228,182 | 4,199,778 | 4,148,553 | 4,536,156 |
+| 2 | 5,393 | 5,284 | 5,484 | 5,515 |
+| 3 | 45,925 | 45,498 | 48,045 | 49,414 |
+| 4 | 438,572 | 438,923 | 445,475 | 454,450 |
+| 5 | 4,282,564 | 4,356,063 | 4,460,878 | 4,705,742 |
 
 **jpype, ragged vs. rectangular** (int; ragged `n` is the tree's actual
 element count, not exactly 10\*\*depth):
 
 | depth | rectangular | ragged (n) |
 |---:|---:|---:|
-| 2 | 5,384 | 3,625 (n=53) |
-| 3 | 44,355 | 51,693 (n=1,034) |
-| 4 | 433,175 | 372,779 (n=8,073) |
-| 5 | 4,228,182 | 5,230,263 (n=114,940) |
+| 2 | 5,393 | 3,429 (n=53) |
+| 3 | 45,925 | 48,899 (n=1,034) |
+| 4 | 438,572 | 374,519 (n=8,073) |
+| 5 | 4,282,564 | 5,269,898 (n=114,940) |
 
 **Ragged push, type parity across all four libraries** (depth 5,
 n=114,940 elements; long/float/double shown as a ratio to that library's
@@ -302,23 +418,27 @@ own int column):
 
 | library | int | long | float | double |
 |---|---:|---:|---:|---:|
-| jpype | 5,230,263 | 1.00x | 1.02x | 1.03x |
-| jpy | 2,241,931 | 1.04x | 1.02x | 1.06x |
-| jep | 7,249,576 | 1.02x | 0.97x | 0.97x |
-| pyjnius | 5,447,465 | 1.01x | 1.42x | 1.48x |
+| jpype | 5,269,898 | 1.04x | 1.08x | 1.08x |
+| jpy | 2,032,404 | 1.07x | 1.01x | 1.05x |
+| jep | 7,897,254 | 1.03x | 0.95x | 0.95x |
+| pyjnius | 6,371,139 | 1.06x | 1.38x | 1.40x |
 
 **Interpretation.**
 
-- **`list->array` vs. jpy** (~2.3-2.5x, roughly constant with depth):
+- **`list->array` vs. jpy** (~2.4-2.7x, roughly constant with depth):
   same element-validation tradeoff as Section 4.
 - **`list->array` vs. jep/pyjnius**: jpype already wins at every depth.
 - **`buffer->array` vs. jpy/jep**: jpype is *faster* at every depth, and
-  the gap widens with depth in jpype's favor (2.4x ahead of jpy at depth
-  2, 9.6x ahead at depth 5) -- jpype is the only one of the three with a
+  the gap widens with depth in jpype's favor (2.8x ahead of jpy at depth
+  2, 9.2x ahead at depth 5) -- jpype is the only one of the three with a
   real bulk multi-dimensional buffer path.
-- **Type parity within jpype, depth >= 2**: all four types within 1-8%
-  of each other at every depth, matching the flat-push parity in
-  Section 4.5.
+- **Type parity within jpype, depth >= 2**: all four types within 2-10%
+  of each other at every depth, matching the flat-push matched-type
+  parity in Section 4.5 -- this sweep's nested lists use a genuine
+  Python `float` at float/double leaves (`leaf = float if label in
+  ('float', 'double') else int`, `array_multidim.py`), not an int being
+  widened, so it's the same fast-path scenario Section 4.5 measures, not
+  the widening one.
 - **Ragged vs. rectangular, within jpype**: normalized for actual
   element count, ragged costs essentially the same as rectangular at
   every depth -- the ragged-native path (`isRaggedLeafElement`) is a
@@ -344,30 +464,25 @@ this report, not a real bulk path.
 
 | shape (rows x cols) | int | long | float | double |
 |---|---:|---:|---:|---:|
-| 3 x 100,000 | 0.5 | 3.0\* | 1.2 | 1.7 |
-| 10 x 10,000 | 0.7 | 7.6 | 1.3 | 1.6 |
-| 100 x 1,000 | 0.6 | 8.1 | 1.2 | 1.6 |
-| 1,000 x 100 | 1.2 | 3.8 | 1.6 | 2.1 |
-| 1,000 x 1,000 | 1.3 | 5.5 | 1.5 | 3.2 |
-| 10,000 x 10 | 5.2 | 7.6 | 5.8 | 5.9 |
-| **100,000 x 3** | **18.5** | 19.1 | 19.9 | 18.0 |
-
-\* Noisy: a 9-trial/200-iteration spot-check of this cell gave 1.7
-ns/elem (522,478 ns/call), not the 3.0 ns/elem (914,750 ns/call) shown --
-direction held, magnitude didn't. Treat other outliers in the
-smallest-iteration-count rows with the same skepticism.
+| 3 x 100,000 | 0.51 | 4.52 | 0.47 | 1.03 |
+| 10 x 10,000 | 0.65 | 1.40 | 0.55 | 0.89 |
+| 100 x 1,000 | 0.59 | 1.56 | 0.60 | 1.08 |
+| 1,000 x 100 | 0.88 | 1.70 | 0.92 | 1.37 |
+| 1,000 x 1,000 | 0.53 | 1.21 | 0.58 | 1.13 |
+| 10,000 x 10 | 4.82 | 5.46 | 4.97 | 5.19 |
+| **100,000 x 3** | **15.52** | 18.90 | 17.96 | 21.41 |
 
 **`list->array`, 2D, ns/element by shape and type (for comparison):**
 
 | shape (rows x cols) | int | long | float | double |
 |---|---:|---:|---:|---:|
-| 3 x 100,000 | 30.6 | 31.4 | 31.2 | 33.1 |
-| 10 x 10,000 | 30.6 | 30.7 | 33.4 | 31.8 |
-| 100 x 1,000 | 30.8 | 30.9 | 32.5 | 33.5 |
-| 1,000 x 100 | 31.7 | 32.0 | 31.4 | 37.6 |
-| 1,000 x 1,000 | 31.7 | 37.4 | 32.0 | 33.5 |
-| 10,000 x 10 | 41.4 | 41.6 | 40.1 | 44.6 |
-| **100,000 x 3** | **65.9** | 70.5 | 66.7 | 72.3 |
+| 3 x 100,000 | 32.76 | 34.59 | 31.66 | 35.16 |
+| 10 x 10,000 | 31.89 | 32.33 | 31.43 | 31.53 |
+| 100 x 1,000 | 31.92 | 31.52 | 31.11 | 31.38 |
+| 1,000 x 100 | 32.25 | 32.46 | 32.06 | 32.79 |
+| 1,000 x 1,000 | 32.87 | 37.55 | 31.46 | 33.38 |
+| 10,000 x 10 | 41.42 | 42.08 | 41.08 | 43.63 |
+| **100,000 x 3** | **67.93** | 74.04 | 67.83 | 72.70 |
 
 **Cross-library confirmation, int, ns/element at the two extreme 2D
 shapes (`3x100000` = few long rows, `100000x3` = many short rows, same
@@ -377,19 +492,19 @@ shapes (`3x100000` = few long rows, `100000x3` = many short rows, same
 
 | library | 3x100000 | 100000x3 | ratio |
 |---|---:|---:|---:|
-| jpype | 30.6 | 65.9 | 2.2x |
-| jpy | 8.6 | 37.0 | 4.3x |
-| jep | 9.0 | 146.4 | 16.3x |
-| pyjnius | 29.6 | 82.1 | 2.8x |
+| jpype | 32.76 | 67.93 | 2.1x |
+| jpy | 8.01 | 35.56 | 4.4x |
+| jep | 13.61 | 163.63 | 12.0x |
+| pyjnius | 30.55 | 83.37 | 2.7x |
 
 **`buffer->array`** (jep's column is the manual-assembly workaround, not
 a real bulk path; pyjnius has none):
 
 | library | 3x100000 | 100000x3 | ratio |
 |---|---:|---:|---:|
-| jpype | 0.5 | 18.5 | 37x |
-| jpy | 36.4 | 92.7 | 2.5x |
-| jep\* | 0.7 | 534.5 | 742x |
+| jpype | 0.51 | 15.52 | 30.4x |
+| jpy | 37.43 | 94.74 | 2.5x |
+| jep\* | 0.70 | 608.25 | 869x |
 
 \* jep's `buffer_manual` ratio is an artifact of the manual per-row
 workaround (each row is individually assembled in Python), not a signal
@@ -403,10 +518,13 @@ count. The 3D sweep (10x10x1000 vs. 1000x10x10, both 100,000 elements)
 confirms the same pattern at a smaller scale. The size of the effect
 differs a lot by library and isn't correlated with which library is
 faster in absolute terms: jpype's `buffer->array` is the most sensitive
-by ratio (37x) yet still the fastest in absolute ns/element at the worst
-shape (18.5 vs. jpy's 92.7) -- jpy pays a smaller relative penalty on top
-of a slower baseline. jep's real (non-manual) `list->array` ratio
-(16.3x) is markedly worse than jpype's (2.2x) or jpy's (4.3x).
+by ratio (30x) yet still the fastest in absolute ns/element at the worst
+shape (15.5 vs. jpy's 94.7) -- jpy pays a smaller relative penalty on top
+of a slower baseline that barely moved when the push-methodology fix
+(Section 1) landed, meaning jpy's 2D buffer numbers were already
+conversion-dominated, not summation-dominated, unlike jpype's smallest
+shapes. jep's real (non-manual) `list->array` ratio (12.0x) is markedly
+worse than jpype's (2.1x) or jpy's (4.4x).
 
 `JPConversionMultiArrayBuffer`'s array-build step pays one JNI
 sub-array allocation per outer-dimension row on top of the bulk
@@ -619,10 +737,10 @@ under a capped `-Xmx3g` heap and are recorded as `N/A` in
 
 | operation | jpype | jpy | jep | pyjnius | GraalPy best | GraalPy median |
 |---|---:|---:|---:|---:|---:|---:|
-| `Math.max(int,int)` | 750 | 353 | 1299 | 1276 | **183** | 1250 |
-| `new Integer(int)` | 840 | 479 | 1257 | 7403 | 229 | 281 |
-| `Math.sqrt(double)` | 690 | 393 | 645 | 497 | **117** | 874 |
-| `new Double(double)` | 918 | 506 | 1378 | 6765 | 726 | 758 |
+| `Math.max(int,int)` | 672 | 353 | 1299 | 1276 | **183** | 1250 |
+| `new Integer(int)` | 811 | 479 | 1257 | 7403 | 229 | 281 |
+| `Math.sqrt(double)` | 706 | 393 | 645 | 497 | **117** | 874 |
+| `new Double(double)` | 933 | 506 | 1378 | 6765 | 726 | 758 |
 | `new String` + `.toString()` | 1022 | 927 | 2512 | 22349 | 791 | 908 |
 | `Object` identity (arg + return) | 995 | 730 | 1971 | 3763 | **160** | 887 |
 | dispatch, overload x16, monomorphic | 686 | 370 | 4454 | 3858 | **119** | 932 |
@@ -685,20 +803,21 @@ rows in ms/call):
 
 **Interpretation.** `list->array` push and `array->list` pull are both
 competitive with jpype/jpy/jep at every size (e.g. int @100,000: GraalPy
-4,511,797 ns vs. jpype 1,829,617, jpy 774,569, jep 840,301 (Section
-4.1) -- GraalPy is 2.5-5.9x slower here, in the same ballpark as
+4,511,797 ns vs. jpype 1,905,281, jpy 791,520, jep 1,328,300 (Section
+4.1) -- GraalPy is 2.4-5.7x slower here, in the same ballpark as
 pyjnius). The other two rows are not in the same ballpark as anything
 else in this report:
 
 - **`buffer->array` (manual)**: 250-300x slower per element than
   GraalPy's own `list->array` (e.g. int @100,000: 1,270.2 ms vs. 4.51
   ms). jpype's real `buffer->array` fast path at the same size is
-  57,371ns = 0.057 ms (Section 4.2) -- GraalPy's manual emulation is
-  roughly 22,000x slower.
+  54,480ns = 0.054 ms (Section 4.2) -- GraalPy's manual emulation is
+  roughly 23,000x slower.
 - **`array->buffer` pull**: 69.7x slower than GraalPy's own `array->list`
   at the same size (328.3 ms vs. 4.71 ms) -- the opposite ranking from
   jpype/jpy, where `array->buffer` is the fast path and beats
-  `array->list` by 100-350x (Section 7). This matches the jep/pyjnius
+  `array->list` by 5.1-212x for jpype and 4.4-119x for jpy, growing with
+  size in both cases (Section 7.1). This matches the jep/pyjnius
   pattern (Section 7.1's footnote): `np.asarray()` on a
   `polyglot.ForeignList` pays `array->list`'s per-element cost plus a
   numpy-array-build step on top, not a real buffer read.
@@ -785,14 +904,24 @@ for double, 2.7x its `3x100000` counterpart's 43.1 ns/element).
 penalty (0.96-1.03x, noise-level) -- unsurprising, `build_manual()` was
 never a bulk-read path to begin with. The row-heavy shape sweep shows
 only a mild 1.33x penalty (11,639 -> 15,449 ns/element) for the manual
-buffer path, far smaller in relative terms than jpype's own 37x
+buffer path, far smaller in relative terms than jpype's own 30.4x
 `buffer->array` penalty at the same shape extreme (Section 6), because
 GraalPy's baseline per-element cost is already dominated by
 polyglot-crossing overhead. The `list->array` `MemoryError`s are the
-standout result: GraalPy's per-object overhead for building ~100,000
-small Java array objects (one per row) is heavy enough to exhaust a 3GB
-heap outright, something no other library in this report comes close to
-at the same shape and heap budget.
+standout result, but not a capacity finding: int and long both fail at
+`100000x3`, while float and double -- the *same* byte widths (4 and 8
+bytes respectively) as int and long -- complete the identical row
+without incident. If this were genuinely too much live data for a 3GB
+heap, byte width would predict the split; it doesn't, so the failure
+tracks something else about how int/long values get built and churned
+at this shape (a GC-throughput/allocation-rate problem -- the collector
+falling behind, "GC overhead limit exceeded" in spirit -- rather than
+the live set not fitting). That makes it tuning-sensitive in a way a
+real capability gap isn't: a larger heap or different GC settings might
+clear it, unlike the missing `buffer->array` push path itself, which no
+heap size fixes. Flagged as an open question, not run down further here
+-- something no other library in this report comes close to triggering
+at the same shape and heap budget, regardless of its ultimate cause.
 
 ### 8.5 Proxy: the one place GraalPy is architecturally simpler
 
@@ -820,9 +949,13 @@ dominated by bulk numpy<->Java array transfer, not scalar call overhead,
 and GraalPy has no purpose-built path for that at all, in either
 direction (8.2), a gap wide enough (tens of thousands of times versus
 jpype's real fast path) that no realistic amount of JIT tiering closes
-it, plus a second, independent failure mode (8.4: heap exhaustion on
-ordinary row-heavy shapes) that none of jpype/jpy/jep/pyjnius exhibit at
-the same budget. The one place GraalPy is unambiguously ahead
+it, plus a second, GC-throughput-shaped failure (8.4: int/long fail with
+`MemoryError` on ordinary row-heavy shapes at a capped 3GB heap while
+same-byte-width float/double don't, pointing at an allocation-rate
+problem rather than a hard capacity limit -- tuning-sensitive, and not
+weighted the same as the missing `buffer->array` path above, which no
+amount of heap or GC tuning fixes) that none of jpype/jpy/jep/pyjnius
+exhibit at the same budget. The one place GraalPy is unambiguously ahead
 structurally, not just faster, is the callback/proxy direction (8.5).
 Net read for anyone weighing GraalVM's polyglot model as an architecture
 to follow: viable, even excellent, for microscript/glue-code call

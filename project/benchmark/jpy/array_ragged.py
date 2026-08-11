@@ -2,7 +2,7 @@
 specifically the case array_multidim.py's `nested_list()` never
 exercises (every sibling length there is fixed at 10, so a genuinely
 irregular tree has no baseline there). Companion to array_multidim.py;
-same DeepBench.sum{2,3,4,5}D{Type}Array push entry point, but built from a
+same DeepBench.void{2,3,4,5}D{Type}Array push entry point, but built from a
 tree whose branching factor varies at every level (fixed seed, so
 "before" and "after" runs against the same commit produce identical
 trees and therefore a fair per-call comparison) instead of a uniform
@@ -45,20 +45,20 @@ DIMS = [2, 3, 4, 5]
 
 TYPES = [
     ('int', {
-        2: DeepBench.sum2DIntArray, 3: DeepBench.sum3DIntArray,
-        4: DeepBench.sum4DIntArray, 5: DeepBench.sum5DIntArray,
+        2: DeepBench.void2DIntArray, 3: DeepBench.void3DIntArray,
+        4: DeepBench.void4DIntArray, 5: DeepBench.void5DIntArray,
     }),
     ('long', {
-        2: DeepBench.sum2DLongArray, 3: DeepBench.sum3DLongArray,
-        4: DeepBench.sum4DLongArray, 5: DeepBench.sum5DLongArray,
+        2: DeepBench.void2DLongArray, 3: DeepBench.void3DLongArray,
+        4: DeepBench.void4DLongArray, 5: DeepBench.void5DLongArray,
     }),
     ('float', {
-        2: DeepBench.sum2DFloatArray, 3: DeepBench.sum3DFloatArray,
-        4: DeepBench.sum4DFloatArray, 5: DeepBench.sum5DFloatArray,
+        2: DeepBench.void2DFloatArray, 3: DeepBench.void3DFloatArray,
+        4: DeepBench.void4DFloatArray, 5: DeepBench.void5DFloatArray,
     }),
     ('double', {
-        2: DeepBench.sum2DDoubleArray, 3: DeepBench.sum3DDoubleArray,
-        4: DeepBench.sum4DDoubleArray, 5: DeepBench.sum5DDoubleArray,
+        2: DeepBench.void2DDoubleArray, 3: DeepBench.void3DDoubleArray,
+        4: DeepBench.void4DDoubleArray, 5: DeepBench.void5DDoubleArray,
     }),
 ]
 

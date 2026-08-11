@@ -9,9 +9,9 @@ walk (or errors outright). Swept across four primitive element types
 (int32, int64, float32, float64).
 
 Two categories:
-  - 1D: DeepBench.sum{Type}Array(numpy_column) -- a non-unit-stride column
+  - 1D: DeepBench.void{Type}Array(numpy_column) -- a non-unit-stride column
     slice out of a 2D array.
-  - ND: DeepBench.sum{2,3,4,5}D{Type}Array(transposed_numpy_array) --
+  - ND: DeepBench.void{2,3,4,5}D{Type}Array(transposed_numpy_array) --
     np.transpose with a reversed axis order, guaranteed non-contiguous
     past 1D.
 
@@ -68,21 +68,21 @@ SIZES = [100, 1_000, 10_000, 100_000]
 DIMS = [2, 3, 4, 5]
 
 TYPES = [
-    ('int', np.dtype('int32'), DeepBench.sumIntArray, {
-        2: DeepBench.sum2DIntArray, 3: DeepBench.sum3DIntArray,
-        4: DeepBench.sum4DIntArray, 5: DeepBench.sum5DIntArray,
+    ('int', np.dtype('int32'), DeepBench.voidIntArray, {
+        2: DeepBench.void2DIntArray, 3: DeepBench.void3DIntArray,
+        4: DeepBench.void4DIntArray, 5: DeepBench.void5DIntArray,
     }),
-    ('long', np.dtype('int64'), DeepBench.sumLongArray, {
-        2: DeepBench.sum2DLongArray, 3: DeepBench.sum3DLongArray,
-        4: DeepBench.sum4DLongArray, 5: DeepBench.sum5DLongArray,
+    ('long', np.dtype('int64'), DeepBench.voidLongArray, {
+        2: DeepBench.void2DLongArray, 3: DeepBench.void3DLongArray,
+        4: DeepBench.void4DLongArray, 5: DeepBench.void5DLongArray,
     }),
-    ('float', np.dtype('float32'), DeepBench.sumFloatArray, {
-        2: DeepBench.sum2DFloatArray, 3: DeepBench.sum3DFloatArray,
-        4: DeepBench.sum4DFloatArray, 5: DeepBench.sum5DFloatArray,
+    ('float', np.dtype('float32'), DeepBench.voidFloatArray, {
+        2: DeepBench.void2DFloatArray, 3: DeepBench.void3DFloatArray,
+        4: DeepBench.void4DFloatArray, 5: DeepBench.void5DFloatArray,
     }),
-    ('double', np.dtype('float64'), DeepBench.sumDoubleArray, {
-        2: DeepBench.sum2DDoubleArray, 3: DeepBench.sum3DDoubleArray,
-        4: DeepBench.sum4DDoubleArray, 5: DeepBench.sum5DDoubleArray,
+    ('double', np.dtype('float64'), DeepBench.voidDoubleArray, {
+        2: DeepBench.void2DDoubleArray, 3: DeepBench.void3DDoubleArray,
+        4: DeepBench.void4DDoubleArray, 5: DeepBench.void5DDoubleArray,
     }),
 ]
 

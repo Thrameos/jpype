@@ -135,16 +135,16 @@ DIMS = [2, 3]
 # (label, numpy dtype, identity{Type}Array, {sum2D, sum3D})
 TYPES = [
     ('int', np.dtype('int32'), DeepBench.identityIntArray, {
-        2: DeepBench.sum2DIntArray, 3: DeepBench.sum3DIntArray,
+        2: DeepBench.void2DIntArray, 3: DeepBench.void3DIntArray,
     }),
     ('long', np.dtype('int64'), DeepBench.identityLongArray, {
-        2: DeepBench.sum2DLongArray, 3: DeepBench.sum3DLongArray,
+        2: DeepBench.void2DLongArray, 3: DeepBench.void3DLongArray,
     }),
     ('float', np.dtype('float32'), DeepBench.identityFloatArray, {
-        2: DeepBench.sum2DFloatArray, 3: DeepBench.sum3DFloatArray,
+        2: DeepBench.void2DFloatArray, 3: DeepBench.void3DFloatArray,
     }),
     ('double', np.dtype('float64'), DeepBench.identityDoubleArray, {
-        2: DeepBench.sum2DDoubleArray, 3: DeepBench.sum3DDoubleArray,
+        2: DeepBench.void2DDoubleArray, 3: DeepBench.void3DDoubleArray,
     }),
 ]
 

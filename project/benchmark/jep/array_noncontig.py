@@ -10,7 +10,7 @@ across four primitive element types (int32, int64, float32, float64).
 Two categories, and jep's two real limitations (see array_flat.py's and
 array_multidim.py's module docstrings) shape both differently:
 
-  - 1D: DeepBench.sum{Type}Array(numpy_column) -- a non-unit-stride
+  - 1D: DeepBench.identity{Type}Array(numpy_column) -- a non-unit-stride
     column slice out of a 2D array. jep's real numpy fast path
     (convert_pyndarray_jprimitivearray) genuinely exists at 1D (unlike
     the ND case below), so this ports directly and actually tests the
@@ -118,23 +118,25 @@ csv_path = sys.argv[2] if len(sys.argv) > 2 else os.path.join(
 SIZES = [100, 1_000, 10_000, 100_000]
 DIMS = [2, 3, 4, 5]
 
-# (label, numpy dtype, identity{Type}Array, sum{Type}Array, {sum2D..sum5D})
+# (label, numpy dtype, identity{Type}Array [manual-assembly leaf, return
+# value used], void{Type}Array [actual flat push benchmark target,
+# return value discarded], {void2D..void5D})
 TYPES = [
-    ('int', np.dtype('int32'), DeepBench.identityIntArray, DeepBench.sumIntArray, {
-        2: DeepBench.sum2DIntArray, 3: DeepBench.sum3DIntArray,
-        4: DeepBench.sum4DIntArray, 5: DeepBench.sum5DIntArray,
+    ('int', np.dtype('int32'), DeepBench.identityIntArray, DeepBench.voidIntArray, {
+        2: DeepBench.void2DIntArray, 3: DeepBench.void3DIntArray,
+        4: DeepBench.void4DIntArray, 5: DeepBench.void5DIntArray,
     }),
-    ('long', np.dtype('int64'), DeepBench.identityLongArray, DeepBench.sumLongArray, {
-        2: DeepBench.sum2DLongArray, 3: DeepBench.sum3DLongArray,
-        4: DeepBench.sum4DLongArray, 5: DeepBench.sum5DLongArray,
+    ('long', np.dtype('int64'), DeepBench.identityLongArray, DeepBench.voidLongArray, {
+        2: DeepBench.void2DLongArray, 3: DeepBench.void3DLongArray,
+        4: DeepBench.void4DLongArray, 5: DeepBench.void5DLongArray,
     }),
-    ('float', np.dtype('float32'), DeepBench.identityFloatArray, DeepBench.sumFloatArray, {
-        2: DeepBench.sum2DFloatArray, 3: DeepBench.sum3DFloatArray,
-        4: DeepBench.sum4DFloatArray, 5: DeepBench.sum5DFloatArray,
+    ('float', np.dtype('float32'), DeepBench.identityFloatArray, DeepBench.voidFloatArray, {
+        2: DeepBench.void2DFloatArray, 3: DeepBench.void3DFloatArray,
+        4: DeepBench.void4DFloatArray, 5: DeepBench.void5DFloatArray,
     }),
-    ('double', np.dtype('float64'), DeepBench.identityDoubleArray, DeepBench.sumDoubleArray, {
-        2: DeepBench.sum2DDoubleArray, 3: DeepBench.sum3DDoubleArray,
-        4: DeepBench.sum4DDoubleArray, 5: DeepBench.sum5DDoubleArray,
+    ('double', np.dtype('float64'), DeepBench.identityDoubleArray, DeepBench.voidDoubleArray, {
+        2: DeepBench.void2DDoubleArray, 3: DeepBench.void3DDoubleArray,
+        4: DeepBench.void4DDoubleArray, 5: DeepBench.void5DDoubleArray,
     }),
 ]
 

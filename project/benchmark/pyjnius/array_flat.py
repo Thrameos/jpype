@@ -13,7 +13,7 @@ list/tuple, got array(...)')` unconditionally. This is stricter than
 jep (which does have a real numpy fast path for a flat 1D target) and
 stricter than jpy/jpype (which both accept a buffer-protocol object).
 So only three rows exist here, not four, for every type in the sweep:
-  - "push, list->array": DeepBench.sum{Type}Array(list) -- the only push
+  - "push, list->array": DeepBench.void{Type}Array(list) -- the only push
     path pyjnius has for arrays, period.
   - "pull, array->list": DeepBench.make{Type}Array(n) -- unlike the other
     three libraries, pyjnius doesn't return a wrapper array object here
@@ -58,10 +58,10 @@ SIZES = [100, 1_000, 10_000, 100_000]
 
 # (label, sum{Type}Array, make{Type}Array)
 TYPES = [
-    ('int', DeepBench.sumIntArray, DeepBench.makeIntArray),
-    ('long', DeepBench.sumLongArray, DeepBench.makeLongArray),
-    ('float', DeepBench.sumFloatArray, DeepBench.makeFloatArray),
-    ('double', DeepBench.sumDoubleArray, DeepBench.makeDoubleArray),
+    ('int', DeepBench.voidIntArray, DeepBench.makeIntArray),
+    ('long', DeepBench.voidLongArray, DeepBench.makeLongArray),
+    ('float', DeepBench.voidFloatArray, DeepBench.makeFloatArray),
+    ('double', DeepBench.voidDoubleArray, DeepBench.makeDoubleArray),
 ]
 
 csv_log = CsvLog(
@@ -93,6 +93,17 @@ for label, sumfn, makefn in TYPES:
         run(f"list->array {label}[{size}], fresh",
             lambda lst=lst, sumfn=sumfn: sumfn(lst), size,
             'push', 'list', label)
+
+    if label in ('float', 'double'):
+        print(f"=== pyjnius: list->array, flat, push (Python -> Java), {label}, widening from int ===")
+        for size in SIZES:
+            # A plain Python int list pushed into a float[]/double[]
+            # target -- idiomatic, and not the same benchmark as the
+            # homogeneous-type row above.
+            lst = list(range(size))
+            run(f"list->array {label}[{size}], widening from int",
+                lambda lst=lst, sumfn=sumfn: sumfn(lst), size,
+                'push', 'list_widen', label)
 
     print(f"=== pyjnius: array->list, flat, pull (Java -> Python), {label} ===")
     for size in SIZES:

@@ -11,11 +11,11 @@ instead of size), ../array_shape.py (sweeping shape at fixed depth), and
 Four categories per direction, not one "arrays" bucket -- a plain Python
 list and a buffer-protocol object (numpy) hit genuinely different native
 code paths, not just different inputs to the same one:
-  - push (Python -> Java), "list->array": DeepBench.sum{Type}Array(list) --
+  - push (Python -> Java), "list->array": DeepBench.void{Type}Array(list) --
     JPConversionSequence, a per-element walk (fast-pathed for homogeneous
     exact Python numbers of the matching kind, but still one Python-level
     item lookup per element).
-  - push (Python -> Java), "buffer->array": DeepBench.sum{Type}Array(numpy)
+  - push (Python -> Java), "buffer->array": DeepBench.void{Type}Array(numpy)
     -- JPConversionBuffer, a direct memory copy via the buffer protocol,
     no per-element Python-level access at all.
   - pull (Java -> Python), "array->list": list(DeepBench.make{Type}Array(n))
@@ -46,10 +46,10 @@ SIZES = [100, 1_000, 10_000, 100_000]
 
 # (label, numpy dtype, sum{Type}Array, make{Type}Array)
 TYPES = [
-    ('int', np.dtype('int32'), DeepBench.sumIntArray, DeepBench.makeIntArray),
-    ('long', np.dtype('int64'), DeepBench.sumLongArray, DeepBench.makeLongArray),
-    ('float', np.dtype('float32'), DeepBench.sumFloatArray, DeepBench.makeFloatArray),
-    ('double', np.dtype('float64'), DeepBench.sumDoubleArray, DeepBench.makeDoubleArray),
+    ('int', np.dtype('int32'), DeepBench.voidIntArray, DeepBench.makeIntArray),
+    ('long', np.dtype('int64'), DeepBench.voidLongArray, DeepBench.makeLongArray),
+    ('float', np.dtype('float32'), DeepBench.voidFloatArray, DeepBench.makeFloatArray),
+    ('double', np.dtype('float64'), DeepBench.voidDoubleArray, DeepBench.makeDoubleArray),
 ]
 
 csv_log = CsvLog(
@@ -85,6 +85,21 @@ for label, dtype, sumfn, makefn in TYPES:
         run(f"list->array {label}[{size}], fresh",
             lambda lst=lst, sumfn=sumfn: sumfn(lst), size,
             'push', 'list', label)
+
+    if dtype.kind == 'f':
+        print(f"=== JPype: list->array, flat, push (Python -> Java), {label}, widening from int ===")
+        for size in SIZES:
+            # A plain Python int list pushed into a float[]/double[]
+            # target -- idiomatic (`javaMethod([1, 2, 3])` against a
+            # double[] parameter), and NOT the same benchmark as the
+            # homogeneous-type row above: int list elements don't hit
+            # PyFloat_CheckExact, so this never takes the fast
+            # PyList_CheckExact loop and always falls to the general
+            # per-element path.
+            lst = list(range(size))
+            run(f"list->array {label}[{size}], widening from int",
+                lambda lst=lst, sumfn=sumfn: sumfn(lst), size,
+                'push', 'list_widen', label)
 
     print(f"=== JPype: buffer->array, flat, push (Python -> Java), {label} ===")
     for size in SIZES:

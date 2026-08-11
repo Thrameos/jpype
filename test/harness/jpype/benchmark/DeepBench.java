@@ -208,6 +208,30 @@ public class DeepBench
     return a;
   }
 
+  // Zero-Java-side-compute push benchmarking targets: unlike sumXArray
+  // (which does type-dependent O(elements) work, see
+  // project/benchmark/RESULTS.md's push methodology note) and unlike
+  // identityXArray above (which echoes the array back, adding a real if
+  // small and type-uniform array-wrapping cost to the return path), these
+  // do nothing at all with the argument and return nothing -- isolating
+  // push/conversion cost from every other confound this file's methods
+  // carry.
+  public static void voidIntArray(int[] a)
+  {
+  }
+
+  public static void voidLongArray(long[] a)
+  {
+  }
+
+  public static void voidFloatArray(float[] a)
+  {
+  }
+
+  public static void voidDoubleArray(double[] a)
+  {
+  }
+
   public static long sumIntList(List<Integer> a)
   {
     long s = 0;
@@ -283,6 +307,30 @@ public class DeepBench
             for (int x : row)
               s += x;
     return s;
+  }
+
+  // 2D/3D/4D/5D counterparts of voidIntArray -- zero-Java-side-compute push
+  // benchmarking at depth: unlike sum{2,3,4,5}DIntArray, these do no
+  // per-element work and return nothing at all, isolating the conversion
+  // cost itself from the (type-dependent -- int/long's simple-accumulator
+  // sum auto-vectorizes, float/double's does not, see
+  // project/benchmark/RESULTS.md's push methodology note) cost of actually
+  // summing the elements afterward, and from identityIntArray's own
+  // array-wrapping return cost.
+  public static void void2DIntArray(int[][] a)
+  {
+  }
+
+  public static void void3DIntArray(int[][][] a)
+  {
+  }
+
+  public static void void4DIntArray(int[][][][] a)
+  {
+  }
+
+  public static void void5DIntArray(int[][][][][] a)
+  {
   }
 
   // "make*IntArray" -- the Java-side counterpart of sum*IntArray, for
@@ -394,6 +442,23 @@ public class DeepBench
     return s;
   }
 
+  // See void2DIntArray etc. for why these exist.
+  public static void void2DLongArray(long[][] a)
+  {
+  }
+
+  public static void void3DLongArray(long[][][] a)
+  {
+  }
+
+  public static void void4DLongArray(long[][][][] a)
+  {
+  }
+
+  public static void void5DLongArray(long[][][][][] a)
+  {
+  }
+
   public static long[] makeLongArray(int n)
   {
     long[] a = new long[n];
@@ -494,6 +559,23 @@ public class DeepBench
     return s;
   }
 
+  // See void2DIntArray etc. for why these exist.
+  public static void void2DFloatArray(float[][] a)
+  {
+  }
+
+  public static void void3DFloatArray(float[][][] a)
+  {
+  }
+
+  public static void void4DFloatArray(float[][][][] a)
+  {
+  }
+
+  public static void void5DFloatArray(float[][][][][] a)
+  {
+  }
+
   public static float[] makeFloatArray(int n)
   {
     float[] a = new float[n];
@@ -592,6 +674,23 @@ public class DeepBench
             for (double x : row)
               s += x;
     return s;
+  }
+
+  // See void2DIntArray etc. for why these exist.
+  public static void void2DDoubleArray(double[][] a)
+  {
+  }
+
+  public static void void3DDoubleArray(double[][][] a)
+  {
+  }
+
+  public static void void4DDoubleArray(double[][][][] a)
+  {
+  }
+
+  public static void void5DDoubleArray(double[][][][][] a)
+  {
   }
 
   public static double[] makeDoubleArray(int n)

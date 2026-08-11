@@ -14,7 +14,7 @@ itself matters independent of depth), and ../README.md.
 Three categories in the push section, not two -- see ../array_flat.py for
 why list vs. buffer input are genuinely different native code paths, not
 just different inputs to the same one:
-  - push, "list->array": DeepBench.sum{2,3,4,5}D{Type}Array(nested_list) --
+  - push, "list->array": DeepBench.void{2,3,4,5}D{Type}Array(nested_list) --
     JPConversionSequence recursing once per nesting level, materializing
     a fresh Python-level sub-sequence access at every row. The current,
     only path for a plain nested list today.
@@ -30,7 +30,7 @@ just different inputs to the same one:
     fix would build the buffer in C++, not delegate to numpy) -- it's a
     stand-in that's fast/correct enough to tell whether the general
     shape of the idea is worth pursuing at all.
-  - push, "buffer->array": DeepBench.sum{2,3,4,5}D{Type}Array(numpy_array)
+  - push, "buffer->array": DeepBench.void{2,3,4,5}D{Type}Array(numpy_array)
     -- JPConversionMultiArrayBuffer, which fires when the buffer's ndim
     matches the target's nesting depth exactly: one bulk copy for the
     whole array, no per-row Python-level access at all. Also the second
@@ -72,29 +72,29 @@ DIMS = [2, 3, 4, 5]
 # (label, numpy dtype, {sum2D..sum5D}, {make2D..make5D})
 TYPES = [
     ('int', np.dtype('int32'), {
-        2: DeepBench.sum2DIntArray, 3: DeepBench.sum3DIntArray,
-        4: DeepBench.sum4DIntArray, 5: DeepBench.sum5DIntArray,
+        2: DeepBench.void2DIntArray, 3: DeepBench.void3DIntArray,
+        4: DeepBench.void4DIntArray, 5: DeepBench.void5DIntArray,
     }, {
         2: DeepBench.make2DIntArray, 3: DeepBench.make3DIntArray,
         4: DeepBench.make4DIntArray, 5: DeepBench.make5DIntArray,
     }),
     ('long', np.dtype('int64'), {
-        2: DeepBench.sum2DLongArray, 3: DeepBench.sum3DLongArray,
-        4: DeepBench.sum4DLongArray, 5: DeepBench.sum5DLongArray,
+        2: DeepBench.void2DLongArray, 3: DeepBench.void3DLongArray,
+        4: DeepBench.void4DLongArray, 5: DeepBench.void5DLongArray,
     }, {
         2: DeepBench.make2DLongArray, 3: DeepBench.make3DLongArray,
         4: DeepBench.make4DLongArray, 5: DeepBench.make5DLongArray,
     }),
     ('float', np.dtype('float32'), {
-        2: DeepBench.sum2DFloatArray, 3: DeepBench.sum3DFloatArray,
-        4: DeepBench.sum4DFloatArray, 5: DeepBench.sum5DFloatArray,
+        2: DeepBench.void2DFloatArray, 3: DeepBench.void3DFloatArray,
+        4: DeepBench.void4DFloatArray, 5: DeepBench.void5DFloatArray,
     }, {
         2: DeepBench.make2DFloatArray, 3: DeepBench.make3DFloatArray,
         4: DeepBench.make4DFloatArray, 5: DeepBench.make5DFloatArray,
     }),
     ('double', np.dtype('float64'), {
-        2: DeepBench.sum2DDoubleArray, 3: DeepBench.sum3DDoubleArray,
-        4: DeepBench.sum4DDoubleArray, 5: DeepBench.sum5DDoubleArray,
+        2: DeepBench.void2DDoubleArray, 3: DeepBench.void3DDoubleArray,
+        4: DeepBench.void4DDoubleArray, 5: DeepBench.void5DDoubleArray,
     }, {
         2: DeepBench.make2DDoubleArray, 3: DeepBench.make3DDoubleArray,
         4: DeepBench.make4DDoubleArray, 5: DeepBench.make5DDoubleArray,
