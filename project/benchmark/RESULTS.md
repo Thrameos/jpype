@@ -186,8 +186,8 @@ parameter, rather than requiring a C-contiguous source.
 | jpy | fails (`RuntimeError: no matching Java method overloads found`) |
 | pyjnius | N/A (no buffer push at all) |
 
-**Interpretation.** jpype's non-contiguous push (80,715ns) is cheaper
-than jpype's own *contiguous* push used to cost, and lands close to
+**Interpretation.** jpype's non-contiguous push (80,715ns) is only 1.4x
+its own contiguous push (57,371ns, Section 4.2), and lands close to
 jep's dedicated 1D non-contiguous fast path (75,448ns). jpy's buffer
 matcher requests `PyBUF_SIMPLE` (no stride support at all) and fails
 outright on any non-contiguous 1D source; its ND non-contiguous
@@ -362,7 +362,9 @@ smallest-iteration-count rows with the same skepticism.
 
 **Cross-library confirmation, int, ns/element at the two extreme 2D
 shapes (`3x100000` = few long rows, `100000x3` = many short rows, same
-300,000 elements), `list->array`:**
+300,000 elements):**
+
+**`list->array`:**
 
 | library | 3x100000 | 100000x3 | ratio |
 |---|---:|---:|---:|
@@ -507,7 +509,7 @@ same pattern as the flat case.
 jpy, and jep alike -- not a jpype-specific quirk. pyjnius instead shows
 long and double pulling ~2x *slower* than int/float, an inconsistent
 pattern not investigated further. jpype's float/double margin over int
-(now 5-7% for `list()`, 8-18% for `tolist()`) is narrower than jpy's/
+(5-7% for `list()`, 8-18% for `tolist()`) is narrower than jpy's/
 jep's own 21-25% margin. The remaining int/long-vs-float/double cost
 difference within jpype traces to `convertToPythonObject`: int/long
 route through a more general integer-construction path
@@ -688,19 +690,19 @@ depth 5:**
 | float | 114,940 | 7,402,321 |
 | double | 114,940 | 7,783,541 |
 
-**Interpretation.** `list->array` push at depth 5 (5.08M ns) barely
-moves from flat @100,000 (4.51M ns, 8.2) -- GraalPy's automatic push
+**Interpretation.** `list->array` push at depth 5 (5,081,921 ns) barely
+moves from flat @100,000 (4,511,797 ns, Section 8.2) -- GraalPy's automatic push
 path is not noticeably sensitive to nesting depth, matching jpype's own
 depth-insensitivity within its `list->array` path (Section 5). The
 manual `buffer->array` emulation is not meaningfully worse at depth 5
-(1.19B ns) than flat (1.27B ns) either, since `build_manual()`'s cost is
+(1,187.9 ms) than flat (1,270.2 ms) either, since `build_manual()`'s cost is
 driven by total element count and per-element polyglot crossings, not
 nesting depth. `array->buffer` pull gets worse relative to `array->list`
 as depth grows (70x at flat, 125x at depth 5), consistent with
 `np.asarray()` walking a deeper recursive `ForeignList`-of-`ForeignList`
 structure. Ragged push costs essentially the same as rectangular
-`list->array` at a matched element count (int: 6.54M ns for 114,940
-ragged elements vs. 5.08M ns for 100,000 rectangular -- 56.9 vs. 50.8
+`list->array` at a matched element count (int: 6,543,572 ns for 114,940
+ragged elements vs. 5,081,921 ns for 100,000 rectangular -- 56.9 vs. 50.8
 ns/element, an 11% difference), the same finding as jpype's own
 ragged-vs-rectangular parity (Section 5).
 
