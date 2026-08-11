@@ -1,4 +1,4 @@
-# JPype performance report, 2026-08-09
+# JPype performance report, 2026-08-09 (round 5 added 2026-08-10)
 
 ## 1. Scope and methodology
 
@@ -432,10 +432,10 @@ best-of-5.
 
 | size | jpype (pre-fix) | jpype (current, see below) | jpy | jep | pyjnius |
 |---:|---:|---:|---:|---:|---:|
-| 100 | 35,113 | 10,674 | 4,344 | 2,795 | 1,234 |
-| 1,000 | 423,319 | 156,215 | 40,029 | 23,566 | 10,436 |
-| 10,000 | 4,431,385 | 1,192,970 | 401,341 | 237,692 | 113,502 |
-| 100,000 | 50,298,764 | 16,182,181 | 5,487,530 | 3,712,665 | 1,142,328 |
+| 100 | 35,113 | 11,138 | 4,344 | 2,795 | 1,234 |
+| 1,000 | 423,319 | 102,331 | 40,029 | 23,566 | 10,436 |
+| 10,000 | 4,431,385 | 1,024,320 | 401,341 | 237,692 | 113,502 |
+| 100,000 | 50,298,764 | 11,443,363 | 5,487,530 | 3,712,665 | 1,142,328 |
 
 **Flat (1D), jpype vs. alternatives (int), `array->buffer`:**
 
@@ -456,14 +456,16 @@ better, as size grows.
 
 **Trends: this is still jpype's single largest problem spot, though the
 gap has narrowed substantially (see the fix history below).**
-`array->list` is now 2.5-3.9x slower than jpy and 3.8-6.6x slower than jep
-at every size -- down from the pre-fix 8.1-11.0x and 12.6-18.7x -- and
-jpype is still the only one of the four where `array->list` is *slower
-than its own `array->buffer`* -- by 5.6x at size 100 growing to 346x at
-size 100,000 (was 20x-1115x pre-fix). jpy and jep stay close to their own
-buffer numbers throughout (they don't have jpype's internal gap between
-the two paths). Only against pyjnius's `array->buffer` (the non-real one
-above) does jpype come out ahead at scale.
+`array->list` is now 2.1-2.6x slower than jpy and 3.1-4.3x slower than jep
+at every size -- down from the pre-fix 8.1-11.0x and 12.6-18.7x (round 4
+above still had it at 2.5-3.9x/3.8-6.6x; round 5 below narrowed it further)
+-- and jpype is still the only one of the four where `array->list` is
+*slower than its own `array->buffer`* -- by 5.8x at size 100 growing to
+245x at size 100,000 (was 20x-1115x pre-fix, 5.6x-346x after round 4). jpy
+and jep stay close to their own buffer numbers throughout (they don't have
+jpype's internal gap between the two paths). Only against pyjnius's
+`array->buffer` (the non-real one above) does jpype come out ahead at
+scale.
 
 **jpype's own `array->list` (pre-fix numbers -- superseded, kept for the
 `tolist()`/`buffer` comparison) vs. `tolist()` vs. `array->buffer`, by
@@ -476,26 +478,30 @@ element type** (jpype-only, flat 1D):
 | 10,000 | 4,431,385 | 4,356,234 | 3,447,790 | 3,498,659 | 1,324,523 | 706,303 | 6,688 | 12,189 |
 | 100,000 | 50,298,764 | 49,237,426 | 40,196,068 | 41,326,802 | 16,019,934 | 9,863,736 | 45,113 | 96,172 |
 
-**jpype's `list()`, current, by element type** (see "Fix landed" below):
+**jpype's `list()`/`tolist()`, current, by element type** (see "Fix
+landed" below; multi-dim not re-swept this round -- flat only, see the
+round-5 entry's coverage note):
 
-| size | list() int | list() long | list() float | list() double |
-|---:|---:|---:|---:|---:|
-| 100 | 10,674 | 10,626 | 9,091 | 9,237 |
-| 1,000 | 156,215 | 158,384 | 135,928 | 141,597 |
-| 10,000 | 1,192,970 | 1,206,027 | 990,014 | 1,016,304 |
-| 100,000 | 16,182,181 | 16,393,522 | 14,298,606 | 14,370,855 |
+| size | list() int | list() long | list() float | list() double | tolist() int | tolist() long | tolist() float | tolist() double |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 100 | 11,138 | 11,602 | 10,373 | 10,518 | 8,703 | 8,347 | 7,968 | 8,023 |
+| 1,000 | 102,331 | 108,616 | 91,493 | 94,288 | 80,369 | 73,121 | 65,981 | 66,098 |
+| 10,000 | 1,024,320 | 1,078,992 | 911,071 | 935,501 | 784,487 | 708,673 | 647,727 | 644,329 |
+| 100,000 | 11,443,363 | 12,218,063 | 10,681,402 | 10,860,732 | 9,738,113 | 8,752,710 | 8,034,715 | 8,191,833 |
 
-`list()` now lands within 1.21-1.44x of `tolist()` (int narrowest, double
-widest) at every size, roughly the same span as 1.17-1.51x the round
-before (int/double still the narrowest/widest, just each ~30-40% cheaper
-in absolute terms) -- see "Fix landed" below for what changed -- but
-still lands well behind `array->buffer`, since neither `list()` nor
-`tolist()` is a real bulk-*decode* path: boxing still happens one
-`PyObject` at a time either way, just cheaper per call now (see the
-round-4 entry below). Multi-dimensional pull shows a similar pattern at
-every depth (2-5): `list()` is now within 1.00-1.50x of `tolist()`, both
-still roughly an order of magnitude or more behind the buffer path. Full
-multi-dim numbers, jpype-only:
+`list()` now lands within 1.18-1.52x of `tolist()` (int narrowest, long
+widest -- round 4 had int narrowest/double widest at 1.21-1.44x; round 5
+below shifted which type is widest since it cuts a fixed per-instance
+cost that used to be a smaller fraction of long's larger total) -- see
+"Fix landed" below for what changed -- but still lands well behind
+`array->buffer`, since neither `list()` nor `tolist()` is a real
+bulk-*decode* path: boxing still happens one `PyObject` at a time either
+way, just cheaper per call now (see the round-4/round-5 entries below).
+Multi-dimensional pull was last measured at round 4's numbers (not
+re-swept this round -- see the round-5 entry's coverage note) and stood
+within 1.00-1.50x of `tolist()`, both roughly an order of magnitude or
+more behind the buffer path. Full multi-dim numbers, jpype-only (round 4,
+carried forward unchanged):
 
 | depth | list() int (pre-fix) | list() int (current, see below) | tolist() int | buffer int |
 |---:|---:|---:|---:|---:|
@@ -509,7 +515,7 @@ libraries** (jpy/jep/pyjnius now covered, not jpype-only):
 
 | library | int | long | float | double |
 |---|---:|---:|---:|---:|
-| jpype | 16,182,181 (1.0x) | 1.01x | 0.88x | 0.89x |
+| jpype | 11,443,363 (1.0x) | 1.07x | 0.93x | 0.95x |
 | jpy | 5,695,493 (1.0x) | 0.88x | 0.78x | 0.79x |
 | jep | 3,093,851 (1.0x) | 1.04x | 0.75x | 0.76x |
 | pyjnius | 1,168,938 (1.0x) | 1.92x | 1.02x | 2.07x |
@@ -519,12 +525,17 @@ alike -- this is not a jpype-specific quirk, it shows up everywhere except
 pyjnius, which instead shows long and double pulling ~2x *slower* than
 int/float (an inconsistent, not byte-width-explained pattern, flagged but
 not investigated further as a pyjnius-side finding). jpype's own
-float/double margin (12-17% faster than int) narrowed sharply this round
-(was 27-31%, jpy/jep sit at 21-25%) because int/long got cheaper while
-float/double didn't move -- see the round-4 fix below, which only touches
-the long-family boxing path that int/long/boolean route through; float
-already used a fixed-layout, single-allocation constructor
-(`newFloatFixed`) with nothing left to cut.
+float/double margin (now 5-7% faster than int) narrowed sharply again this
+round (round 4 had it at 12-17%; before round 4, 27-31%; jpy/jep sit at
+21-25%). Round 4 narrowed it by cutting int/long's boxing allocation cost
+without touching float's already-minimal `newFloatFixed` path; round 5
+below narrowed it *again*, in the other direction -- it removes a fixed
+per-instance GC-tracking cost that applied equally in absolute terms to
+all eight primitive leaf types, which shrinks as a *fraction* of the
+now-smaller int/long total more than it does float/double's
+already-smaller one, pulling the margin further down. jpype's gap to
+jpy/jep's own 21-25% margin is now the narrowest it's been across every
+round measured here.
 
 **Analysis, and fixes landed across four rounds.** The root cause as
 originally diagnosed here -- "no bulk path exists for `list(jarray)`, only
@@ -694,14 +705,63 @@ finding, originally attributed to jpype's own `convertLong()` step
 (confirmed by source: `JPIntType`/`JPLongType::convertToPythonObject`
 both call it, where `JPFloatType::convertToPythonObject` does a direct
 `tp_alloc` + `ob_fval` set instead). For `list()`, the margin is now
-12-17% (int narrowest, see the type-ratio table above) -- narrowed sharply
-this round (was 27-31%) since round 4 above removed most of the extra
-cost `convertLong()` was paying for int/long, without touching float's
-already-minimal path. `tolist()` shows a similarly narrowed margin
-(18-27% across sizes, e.g. size 100,000: int 12,918,718ns vs. double
-10,419,499ns; was 35-47%) for the same reason. **Call: minor, low
-priority** -- round 4 already captured the bulk of this gap; what
-remains is dwarfed by the `list()`-vs-`buffer` gap above.
+5-7% (int narrowest, see the type-ratio table above) -- narrowed by round
+4 (12-17%, from 27-31% before it) by removing most of the extra cost
+`convertLong()` was paying for int/long without touching float's
+already-minimal path, then narrowed *again* by round 5 below, which cuts
+a fixed per-instance cost shared by all eight primitive leaf types rather
+than one specific to `convertLong()`. `tolist()` shows the same pattern
+(now 8-18% across sizes, e.g. size 100,000: int 9,738,113ns vs. double
+8,191,833ns; was 18-27% after round 4, 35-47% before it) for the same
+reason. **Call: minor, low priority** -- rounds 4 and 5 already captured
+the bulk of this gap; what remains is dwarfed by the `list()`-vs-`buffer`
+gap above.
+
+**Round 5 (landed): stop tracking the eight primitive leaf types
+(`JBoolean`/`JByte`/`JChar`/`JInt`/`JShort`/`JLong`/`JFloat`/`JDouble`)
+with the cyclic garbage collector.** These were declared as ordinary
+Python `class JXxx(_jpype._JYyy, internal=True): pass` statements in
+`jpype/types.py`. CPython's `type_new` unconditionally sets
+`Py_TPFLAGS_HAVE_GC` on any heap type it creates, even one instantiated
+through jpype's internal metaclass, so all eight silently carried GC
+tracking that their non-GC family root types (`_JNumberLong` etc., built
+via `PyJPClass_FromSpecWithBases`, which bypasses `type_new` entirely)
+deliberately avoid. None of the eight can hold an arbitrary Python
+reference (`tp_dictoffset == 0`, inherited from their root) and so can
+never participate in a reference cycle -- every boxed array element
+pulled into Python was paying GC generation-0 tracking/untracking on
+allocation and deallocation for a case that structurally cannot occur.
+Fixed by building all eight the same way their family roots already are:
+a trivial `PyType_Spec` with no additional slots, through
+`PyJPClass_FromSpecWithBases`, instead of a `class` statement.
+`sizeof(JInt(5))` drops from 60 to 28 bytes, matching plain `int` exactly.
+
+**Result**: `list()` int[100,000] 16,182,181 -> 11,443,363ns (-29%),
+int[100] 10,674 -> 11,138ns (+4%, noise -- held steady across a 9-trial
+rerun; at this size only ~20 loop iterations run per trial, dominated by
+fixed per-call overhead the allocation-side fix doesn't touch).
+`tolist()` int[100,000] 12,918,718 -> 9,738,113ns (-25%). Unlike round 4
+(int/long/boolean only, via `convertLong()`), this round also moves
+float/double, which round 4 explicitly didn't touch: `list()`
+float[100,000] 14,298,606 -> 10,681,402ns (-25%), double[100,000]
+14,370,855 -> 10,860,732ns (-24%) -- see the type-ratio discussion above
+for how this further narrowed the float/double-vs-int/long margin.
+Separately, `gc.collect()` cost while N boxed values stay live no longer
+scales with N: an ad hoc measurement (not part of the scripted suite,
+not reflected in the tables above) showed a full collection pass with
+500,000 live boxed `JInt` instances reachable dropping from 29.1ms to
+5.7ms, flat regardless of N post-fix versus scaling with it pre-fix --
+this is a systemic effect on *every* collection anywhere in the process
+while boxed values are alive, not just an allocation-time saving, though
+it doesn't show up in any per-call ns/call table here. **Coverage note:
+flat (1D) only this round, all four element types -- multi-dim/ragged/
+shape sweeps were not rerun, since the fix is allocation-path-only and
+applies identically regardless of array shape; the multi-dim numbers in
+the tables above are still round 4's.** Full test suite green (1841
+passed, 173 skipped) after merging this work into the branch. **Call:
+landed, real win** -- narrows the `list()`/`tolist()` gap to jpy/jep
+further (see the trends paragraph above) and is the first fix in this
+report to move float/double's pull numbers at all.
 
 ## 8. Recent fixes already landed on this branch
 
@@ -763,7 +823,7 @@ remaining gap to act on:
 ## 9. Where to focus next (ranked)
 
 1. **`array->list` pull, plain `list(arr)`/iteration** (Section 7) --
-   substantially closed across four rounds. Round 1/2 landed a native
+   substantially closed across five rounds. Round 1/2 landed a native
    `PyJPArrayIter` iterator type (31-40% win, no laziness/correctness
    trade-off, and no lingering regression unlike the first attempt at a
    native `sq_item` + CPython's generic `PySeqIter`, which improved flat
@@ -779,12 +839,17 @@ remaining gap to act on:
    for boxing each element as the right `int` subtype (`JInt`/`JLong`/
    `JBoolean`) -- and replaced it with a direct single-allocation digit
    constructor, a further 14-27% win on `list()`/`tolist()` alike across
-   flat and multi-dim int/long. `list()` now lands within 1.14-1.24x of
-   `tolist()` (was 2-3x pre-round-3). Still 2.5-6.6x behind jpy/jep's own
-   `list()` numbers -- the remainder is jpype's irreducible per-JNI-call
+   flat and multi-dim int/long. Round 5 then found the remaining boxed
+   instances were still paying cyclic-GC tracking overhead they
+   structurally can never need, and removed it -- a further 24-29%
+   win on flat `list()`/`tolist()`, across *all four* element types this
+   time (round 4 was int/long-only). `list()` now lands within 1.18-1.52x
+   of `tolist()` (was 1.00-1.50x int-only pre-round-5, 2-3x pre-round-3).
+   Still 2.1-4.3x behind jpy/jep's own `list()` numbers (was 2.5-6.6x
+   after round 4) -- the remainder is jpype's irreducible per-JNI-call
    cost (one `Get<Type>ArrayRegion` plus one `PyObject` allocation per
-   element), not an iteration-protocol, frame-management, or boxing gap
-   anymore. Closing further means either giving up iteration laziness
+   element), not an iteration-protocol, frame-management, boxing, or GC
+   gap anymore. Closing further means either giving up iteration laziness
    (eager-bulk-via-`tolist()`, explicitly deferred), or a separate, broader
    look at reducing per-JNI-call cost below one call per element, which
    isn't scoped here.
@@ -800,12 +865,14 @@ remaining gap to act on:
    direction), but jpype's version is the largest of the three and the
    fix is mechanical, mirroring the existing int implementation. Not yet
    implemented.
-4. **`convertLong()` overhead on int/long pull** (Section 7) -- now 12-17%
-   for `list()`, 18-27% for `tolist()` (was 27-31%/35-47% before round 4
-   above removed the bulk of it). jpy and jep show the same direction and
-   a comparable magnitude for what remains, which argues this residual is
-   a shared CPython boxing cost, not a jpype-specific inefficiency worth
-   chasing further. Low priority.
+4. **float/double-vs-int/long boxing-cost margin on pull** (Section 7,
+   originally framed as `convertLong()` overhead specifically) -- now
+   5-7% for `list()`, 8-18% for `tolist()` (was 12-17%/18-27% after round
+   4, 27-31%/35-47% before it; round 5 above narrowed it again from the
+   GC-tracking side rather than `convertLong()`'s own cost). jpy and jep
+   show the same direction and a comparable magnitude for what remains,
+   which argues this residual is a shared CPython boxing cost, not a
+   jpype-specific inefficiency worth chasing further. Low priority.
 5. **Everything else** (Sections 2, 3, 5's `list->array` gap to jpy) is an
    architectural tradeoff jpype makes deliberately (element-level
    validation for correct overload disambiguation, general-purpose
@@ -1194,4 +1261,4 @@ CLAUDE.md, plus targeted regression tests for the correctness edge cases
 each fast path introduced (null arguments, covariant/subclass returns,
 mixed-type lists, boxed-type round trips, cache invalidation,
 non-contiguous numpy sources, ragged nested lists). Full `test/jpypetest`
-suite on this branch's final state: 1831 passed, 173 skipped, 0 failures.
+suite on this branch's final state: 1841 passed, 173 skipped, 0 failures.
