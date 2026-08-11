@@ -7,6 +7,15 @@ Latest Changes:
 
 - **1.7.2.dev0**
 
+  - ``JBoolean``/``JByte``/``JChar``/``JInt``/``JShort``/``JLong``/``JFloat``/
+    ``JDouble`` are no longer tracked by the cyclic garbage collector. They
+    were previously declared as ordinary Python ``class`` statements, which
+    unconditionally pick up GC tracking from CPython even when none of these
+    types can ever hold an arbitrary Python reference or participate in a
+    reference cycle; every boxed array element pulled into Python paid for
+    that bookkeeping on allocation and deallocation for no benefit. No
+    user-visible API change.
+
   - Fixed a random segmentation fault at JVM shutdown when Python tooling
     (such as pytest's built-in faulthandler plugin) restored pre-JVM signal
     handlers over HotSpot's, leaving safepoint polls in compiled code
