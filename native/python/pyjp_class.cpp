@@ -648,7 +648,11 @@ int PyJPClass_init(PyObject *self, PyObject *args, PyObject *kwargs)
 
 #if PY_VERSION_HEX < 0x03090000
 	// This was required at one point but I don't know what version it applied to.
-	if (PyObject_IsSubclass((PyObject*) type, (PyObject*) PyJPException_Type))
+	// PyJPException_Type is null while it is itself under construction (see
+	// PyJPObject_initType), which this type-init path runs through too -- guard
+	// against that self-referential bootstrap case rather than dereferencing null.
+	if (PyJPException_Type != nullptr &&
+			PyObject_IsSubclass((PyObject*) type, (PyObject*) PyJPException_Type))
 	{
 		type->tp_new = PyJPException_Type->tp_new;
 	}
@@ -982,6 +986,15 @@ static int PyJPClass_setHints(PyObject *self, PyObject *value, PyObject *closure
 
 PyObject* PyJPClass_instancecheck(PyTypeObject *self, PyObject *test)
 {
+	// Issue #1329: Check if JVM is running before creating JPJavaFrame
+	// This prevents crashes when isinstance() is called with JException
+	// after a failed JVM initialization
+	if (!JPContext_global->isRunning())
+	{
+		// Fall back to Python-only type checking when JVM is not running
+		return PyJPClass_subclasscheck(self, Py_TYPE(test));
+	}
+
 	// JInterface is a meta
 	if ((PyObject*) self == _JInterface)
 	{
