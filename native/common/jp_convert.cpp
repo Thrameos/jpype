@@ -569,3 +569,126 @@ JPRawTransferMode classifyRawTransfer(jconverter converter, JPPrimitiveType* pcl
 
 	return RAW_NONE;
 }
+
+bool classifyBufferSource(const char* format, int itemsize, JPBufferSource& out)
+{
+	if (format == nullptr)
+		format = "B";
+
+	// Same byte-order-prefix stripping as getConverter above.
+	bool reverse = false;
+	unsigned int x = 1;
+	bool little = *((char*) &x) == 1;
+	switch (format[0])
+	{
+		case '!':
+		case '>':
+			if (little)
+				reverse = true;
+			format++;
+			break;
+		case '<':
+			if (!little)
+				reverse = true;
+			format++;
+			break;
+		case '@':
+		case '=':
+			format++;
+		default:
+			break;
+	}
+
+	// Same itemsize==8 'l'/'L' -> 'q'/'Q' aliasing as getConverter above.
+	char base = format[0];
+	if (itemsize == 8 && base == 'l')
+		base = 'q';
+	if (itemsize == 8 && base == 'L')
+		base = 'Q';
+
+	out.swapped = reverse;
+	switch (base)
+	{
+		case '?':
+		case 'c':
+		case 'b':
+			out.kind = 'i';
+			out.size = 1;
+			return true;
+		case 'B':
+			out.kind = 'u';
+			out.size = 1;
+			return true;
+		case 'h':
+			out.kind = 'i';
+			out.size = 2;
+			return true;
+		case 'H':
+			out.kind = 'u';
+			out.size = 2;
+			return true;
+		case 'i':
+		case 'l':
+			out.kind = 'i';
+			out.size = 4;
+			return true;
+		case 'I':
+		case 'L':
+			out.kind = 'u';
+			out.size = 4;
+			return true;
+		case 'q':
+		case 'n':
+			out.kind = 'i';
+			out.size = 8;
+			return true;
+		case 'Q':
+		case 'N':
+			out.kind = 'u';
+			out.size = 8;
+			return true;
+		case 'f':
+			out.kind = 'f';
+			out.size = 4;
+			return true;
+		case 'd':
+			out.kind = 'f';
+			out.size = 8;
+			return true;
+		case 'e':
+			out.kind = 'f';
+			out.size = 2;
+			return true;
+		default:
+			return false;
+	}
+}
+
+bool tryFastBufferPush(JPJavaFrame &frame, JPPrimitiveType *pcls, jarray dest,
+		jsize start, jsize step, jsize length, PyObject *sequence)
+{
+	if (length <= 0 || !PyObject_CheckBuffer(sequence))
+		return false;
+
+	JPPyBuffer buffer(sequence, PyBUF_STRIDES | PyBUF_FORMAT);
+	if (!buffer.valid())
+	{
+		PyErr_Clear();
+		return false;
+	}
+	Py_buffer &view = buffer.getView();
+	if (view.ndim != 1 || view.shape[0] != length)
+		return false;
+
+	const char *format = view.format != nullptr ? view.format : "B";
+	Py_ssize_t vstep = view.strides != nullptr ? view.strides[0] : view.itemsize;
+	JPBufferSource src;
+	if (vstep <= 0 || !classifyBufferSource(format, (int) view.itemsize, src))
+		return false;
+
+	jobject directBuf = frame.NewDirectByteBuffer(view.buf,
+			(jlong) ((length - 1) * vstep + view.itemsize));
+	frame.fillFlatIntoArray(pcls->getTypeCode(), src.kind, src.size, (jboolean) src.swapped,
+			directBuf, length, (jint) vstep, dest, start, step);
+	return true;
+}

@@ -1256,6 +1256,49 @@ jobject JPJavaFrame::fillRaggedFromBuffer(char typeCode, jint dims, jobject buf)
 			context->m_Support_fillRaggedFromBufferID, v));
 }
 
+jobject JPJavaFrame::fillFlatFromBuffer(char typeCode, char srcKind, jint srcSize, jboolean swapped,
+		jobject buf, jint length, jint strideBytes)
+{
+	JPContext* context = getContext();
+	if (context->m_Support_fillFlatFromBufferID == nullptr)
+		return nullptr;
+	jvalue v[7];
+	v[0].c = (jchar) typeCode;
+	v[1].c = (jchar) srcKind;
+	v[2].i = srcSize;
+	v[3].z = swapped;
+	v[4].l = buf;
+	v[5].i = length;
+	v[6].i = strideBytes;
+	JAVA_RETURN(jobject, "JPJavaFrame::fillFlatFromBuffer",
+			CallStaticObjectMethodA(
+			context->m_SupportClass.get(),
+			context->m_Support_fillFlatFromBufferID, v));
+}
+
+void JPJavaFrame::fillFlatIntoArray(char typeCode, char srcKind, jint srcSize, jboolean swapped,
+		jobject buf, jint length, jint strideBytes,
+		jarray dest, jint destStart, jint destStep)
+{
+	JPContext* context = getContext();
+	if (context->m_Support_fillFlatIntoArrayID == nullptr)
+		return;
+	jvalue v[10];
+	v[0].c = (jchar) typeCode;
+	v[1].c = (jchar) srcKind;
+	v[2].i = srcSize;
+	v[3].z = swapped;
+	v[4].l = buf;
+	v[5].i = length;
+	v[6].i = strideBytes;
+	v[7].l = dest;
+	v[8].i = destStart;
+	v[9].i = destStep;
+	JAVA_CHECK("JPJavaFrame::fillFlatIntoArray",
+			m_Env->CallStaticVoidMethodA(context->m_SupportClass.get(),
+			context->m_Support_fillFlatIntoArrayID, v));
+}
+
 void JPJavaFrame::collectMultiArrayToBuffer(char typeCode, jobject collected, jobject buf)
 {
 	JPContext* context = getContext();

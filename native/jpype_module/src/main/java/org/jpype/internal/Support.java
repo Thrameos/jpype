@@ -572,6 +572,1130 @@ class Support
     return assemble(shape, flat);
   }
 
+  // Source kind codes for fillFlatFromBuffer -- deliberately not the same
+  // alphabet as typeCode (which names a *target* Java primitive): a source
+  // is fully described by signedness/float-ness plus width, not by which
+  // of Java's 8 primitive types it happens to resemble. Kept to 3 letters
+  // (signed/unsigned int, float -- half-precision is float at width 2)
+  // rather than one-per-width so the read helpers below don't need a
+  // combinatorial switch on both source and target type: every source
+  // reduces to a `long` (int kinds) or `double` (float kinds), and every
+  // target does one cast from that common intermediate, an O(kinds+targets)
+  // shape instead of O(kinds*targets).
+  private static final char SRC_SIGNED = 'i';
+  private static final char SRC_UNSIGNED = 'u';
+  private static final char SRC_FLOAT = 'f';
+
+  /**
+   * Flat (1-D) counterpart to {@link #fillFromBuffer} -- the fast path for
+   * {@code JPConversionBuffer} (a buffer-protocol object, chiefly numpy,
+   * passed as a Java method argument matching a flat primitive array
+   * parameter, e.g. {@code int[]}).
+   *
+   * Two things this does that the multi-dim buffer-handoff path doesn't
+   * need to: (1) takes an explicit {@code strideBytes} instead of requiring
+   * a C-contiguous source, so a non-contiguous source (a strided/sliced
+   * numpy column, `arr[::2]`, ...) still reaches this single-JNI-crossing
+   * path -- there is no reshape here (output is always flat), so there is
+   * no reason to demand contiguity the way the multi-dim case does; (2)
+   * does the full dtype coercion (float64->int32, int16->double, ...) here
+   * in Java rather than only handling the byte-identical "raw" cases and
+   * falling back to a per-element {@code converter()} call on the C++ side
+   * (`JPIntType::setArrayRange` and its 7 siblings) for everything else.
+   * Byte-order handling is already "free" here (one {@code ByteBuffer.order()}
+   * call covers the whole transfer, same as the multi-dim path), so
+   * widening/narrowing/int-float coercion is the only genuinely new
+   * per-element work versus a raw copy, and Java's own numeric cast
+   * operators do that as cheaply as hand-written C++ ever could.
+   *
+   * Uses {@code ByteBuffer}'s absolute positional get methods
+   * ({@code getInt(index)} etc., available since the buffer API's
+   * introduction, unlike the bulk absolute get added in Java 13) so a
+   * non-unit stride costs one extra multiply per element and nothing else
+   * -- still zero further JNI/reflection calls.
+   *
+   * @param typeCode primitive type signature character of the *target*
+   * array (Z/B/C/S/I/J/F/D).
+   * @param srcKind one of SRC_SIGNED/SRC_UNSIGNED/SRC_FLOAT -- the source
+   * element's own kind, as classified from the buffer's format string by
+   * the C++ caller (mirrors {@code getConverter}'s own format parsing, see
+   * {@code classifyBufferSource} in jp_convert.cpp).
+   * @param srcSize the source element's width in bytes (1/2/4/8 for
+   * int kinds, 4/8 for float, 2 for half-precision float).
+   * @param swapped whether the source's declared byte order differs from
+   * native.
+   * @param src a direct buffer spanning exactly the accessed source bytes.
+   * @param length the number of elements to read.
+   * @param strideBytes the byte distance between consecutive source
+   * elements; equal to {@code srcSize} for a contiguous source.
+   * @return the assembled flat array (e.g. {@code int[]}).
+   */
+  public static Object fillFlatFromBuffer(char typeCode, char srcKind, int srcSize, boolean swapped,
+          ByteBuffer src, int length, int strideBytes)
+  {
+    src.order(swapped ? swapped(ByteOrder.nativeOrder()) : ByteOrder.nativeOrder());
+
+    // Fast bulk path: the overwhelmingly common case (a numpy array whose
+    // dtype already matches the target primitive exactly, contiguous) --
+    // one bulk typed-buffer get instead of a per-element read+cast.
+    if (strideBytes == srcSize)
+    {
+      switch (typeCode)
+      {
+        case 'I':
+          if (srcKind == SRC_SIGNED && srcSize == 4)
+          {
+            int[] out = new int[length];
+            src.asIntBuffer().get(out, 0, length);
+            return out;
+          }
+          break;
+        case 'J':
+          if (srcKind == SRC_SIGNED && srcSize == 8)
+          {
+            long[] out = new long[length];
+            src.asLongBuffer().get(out, 0, length);
+            return out;
+          }
+          break;
+        case 'F':
+          if (srcKind == SRC_FLOAT && srcSize == 4)
+          {
+            float[] out = new float[length];
+            src.asFloatBuffer().get(out, 0, length);
+            return out;
+          }
+          break;
+        case 'D':
+          if (srcKind == SRC_FLOAT && srcSize == 8)
+          {
+            double[] out = new double[length];
+            src.asDoubleBuffer().get(out, 0, length);
+            return out;
+          }
+          break;
+        default:
+          break;
+      }
+    }
+
+    return srcKind == SRC_FLOAT
+            ? fillFlatFromFloatSrc(typeCode, srcSize, src, length, strideBytes)
+            : fillFlatFromIntSrc(typeCode, srcKind == SRC_UNSIGNED, srcSize, src, length, strideBytes);
+  }
+
+  /**
+   * Bulk-read every source element into a sign/zero-extended {@code
+   * long[]} in one pass -- the srcSize/unsignedSrc dispatch happens once
+   * here, not per element: it's fixed for the whole call, so branching on
+   * it inside a tight per-element loop would just be the same predictable
+   * branch taken length times for no benefit. Used for every integer
+   * target (Z/B/C/S/I/J); narrowing/widening to the eventual target
+   * happens afterward via a plain per-element cast over this array, which
+   * is the one loop left with per-element work (unavoidable -- it's the
+   * actual data-dependent part) but no per-element *branching*.
+   */
+  private static long[] readLongs(ByteBuffer src, int length, int strideBytes,
+          boolean unsignedSrc, int srcSize)
+  {
+    long[] out = new long[length];
+    switch (srcSize)
+    {
+      case 1:
+        if (unsignedSrc)
+          readBytesUnsignedUnrolled(src, out, length, strideBytes);
+        else
+          readBytesSignedUnrolled(src, out, length, strideBytes);
+        break;
+      case 2:
+        if (unsignedSrc)
+          readShortsUnsignedUnrolled(src, out, length, strideBytes);
+        else
+          readShortsSignedUnrolled(src, out, length, strideBytes);
+        break;
+      case 4:
+        if (unsignedSrc)
+          readIntsUnsignedUnrolled(src, out, length, strideBytes);
+        else
+          readIntsSignedUnrolled(src, out, length, strideBytes);
+        break;
+      default: // 8 bytes, always read as a plain signed long -- see
+        // readDoublesFromInt for why unsigned 64-bit needs separate
+        // handling only when the *target* is float/double.
+        readLongsSignedUnrolled(src, out, length, strideBytes);
+        break;
+    }
+    return out;
+  }
+
+  // ---- Unrolled ByteBuffer readers, 8 elements per pass -- each backs
+  // both readLongs and readDoublesFromInt (the widening int-to-double
+  // reads below reuse the same shape, differing only in the array element
+  // type and the sign-extension/mask applied), same loop-count-reduction
+  // rationale as the write side.
+
+  private static void readBytesSignedUnrolled(ByteBuffer src, long[] out, int length, int strideBytes)
+  {
+    int n8 = length - (length % 8);
+    int i = 0, off = 0;
+    for (; i < n8; i += 8, off += 8 * strideBytes)
+    {
+      out[i] = src.get(off);
+      out[i + 1] = src.get(off + strideBytes);
+      out[i + 2] = src.get(off + 2 * strideBytes);
+      out[i + 3] = src.get(off + 3 * strideBytes);
+      out[i + 4] = src.get(off + 4 * strideBytes);
+      out[i + 5] = src.get(off + 5 * strideBytes);
+      out[i + 6] = src.get(off + 6 * strideBytes);
+      out[i + 7] = src.get(off + 7 * strideBytes);
+    }
+    for (; i < length; i++, off += strideBytes)
+      out[i] = src.get(off);
+  }
+
+  private static void readBytesUnsignedUnrolled(ByteBuffer src, long[] out, int length, int strideBytes)
+  {
+    int n8 = length - (length % 8);
+    int i = 0, off = 0;
+    for (; i < n8; i += 8, off += 8 * strideBytes)
+    {
+      out[i] = src.get(off) & 0xFF;
+      out[i + 1] = src.get(off + strideBytes) & 0xFF;
+      out[i + 2] = src.get(off + 2 * strideBytes) & 0xFF;
+      out[i + 3] = src.get(off + 3 * strideBytes) & 0xFF;
+      out[i + 4] = src.get(off + 4 * strideBytes) & 0xFF;
+      out[i + 5] = src.get(off + 5 * strideBytes) & 0xFF;
+      out[i + 6] = src.get(off + 6 * strideBytes) & 0xFF;
+      out[i + 7] = src.get(off + 7 * strideBytes) & 0xFF;
+    }
+    for (; i < length; i++, off += strideBytes)
+      out[i] = src.get(off) & 0xFF;
+  }
+
+  private static void readShortsSignedUnrolled(ByteBuffer src, long[] out, int length, int strideBytes)
+  {
+    int n8 = length - (length % 8);
+    int i = 0, off = 0;
+    for (; i < n8; i += 8, off += 8 * strideBytes)
+    {
+      out[i] = src.getShort(off);
+      out[i + 1] = src.getShort(off + strideBytes);
+      out[i + 2] = src.getShort(off + 2 * strideBytes);
+      out[i + 3] = src.getShort(off + 3 * strideBytes);
+      out[i + 4] = src.getShort(off + 4 * strideBytes);
+      out[i + 5] = src.getShort(off + 5 * strideBytes);
+      out[i + 6] = src.getShort(off + 6 * strideBytes);
+      out[i + 7] = src.getShort(off + 7 * strideBytes);
+    }
+    for (; i < length; i++, off += strideBytes)
+      out[i] = src.getShort(off);
+  }
+
+  private static void readShortsUnsignedUnrolled(ByteBuffer src, long[] out, int length, int strideBytes)
+  {
+    int n8 = length - (length % 8);
+    int i = 0, off = 0;
+    for (; i < n8; i += 8, off += 8 * strideBytes)
+    {
+      out[i] = src.getShort(off) & 0xFFFF;
+      out[i + 1] = src.getShort(off + strideBytes) & 0xFFFF;
+      out[i + 2] = src.getShort(off + 2 * strideBytes) & 0xFFFF;
+      out[i + 3] = src.getShort(off + 3 * strideBytes) & 0xFFFF;
+      out[i + 4] = src.getShort(off + 4 * strideBytes) & 0xFFFF;
+      out[i + 5] = src.getShort(off + 5 * strideBytes) & 0xFFFF;
+      out[i + 6] = src.getShort(off + 6 * strideBytes) & 0xFFFF;
+      out[i + 7] = src.getShort(off + 7 * strideBytes) & 0xFFFF;
+    }
+    for (; i < length; i++, off += strideBytes)
+      out[i] = src.getShort(off) & 0xFFFF;
+  }
+
+  private static void readIntsSignedUnrolled(ByteBuffer src, long[] out, int length, int strideBytes)
+  {
+    int n8 = length - (length % 8);
+    int i = 0, off = 0;
+    for (; i < n8; i += 8, off += 8 * strideBytes)
+    {
+      out[i] = src.getInt(off);
+      out[i + 1] = src.getInt(off + strideBytes);
+      out[i + 2] = src.getInt(off + 2 * strideBytes);
+      out[i + 3] = src.getInt(off + 3 * strideBytes);
+      out[i + 4] = src.getInt(off + 4 * strideBytes);
+      out[i + 5] = src.getInt(off + 5 * strideBytes);
+      out[i + 6] = src.getInt(off + 6 * strideBytes);
+      out[i + 7] = src.getInt(off + 7 * strideBytes);
+    }
+    for (; i < length; i++, off += strideBytes)
+      out[i] = src.getInt(off);
+  }
+
+  private static void readIntsUnsignedUnrolled(ByteBuffer src, long[] out, int length, int strideBytes)
+  {
+    int n8 = length - (length % 8);
+    int i = 0, off = 0;
+    for (; i < n8; i += 8, off += 8 * strideBytes)
+    {
+      out[i] = src.getInt(off) & 0xFFFFFFFFL;
+      out[i + 1] = src.getInt(off + strideBytes) & 0xFFFFFFFFL;
+      out[i + 2] = src.getInt(off + 2 * strideBytes) & 0xFFFFFFFFL;
+      out[i + 3] = src.getInt(off + 3 * strideBytes) & 0xFFFFFFFFL;
+      out[i + 4] = src.getInt(off + 4 * strideBytes) & 0xFFFFFFFFL;
+      out[i + 5] = src.getInt(off + 5 * strideBytes) & 0xFFFFFFFFL;
+      out[i + 6] = src.getInt(off + 6 * strideBytes) & 0xFFFFFFFFL;
+      out[i + 7] = src.getInt(off + 7 * strideBytes) & 0xFFFFFFFFL;
+    }
+    for (; i < length; i++, off += strideBytes)
+      out[i] = src.getInt(off) & 0xFFFFFFFFL;
+  }
+
+  private static void readLongsSignedUnrolled(ByteBuffer src, long[] out, int length, int strideBytes)
+  {
+    int n8 = length - (length % 8);
+    int i = 0, off = 0;
+    for (; i < n8; i += 8, off += 8 * strideBytes)
+    {
+      out[i] = src.getLong(off);
+      out[i + 1] = src.getLong(off + strideBytes);
+      out[i + 2] = src.getLong(off + 2 * strideBytes);
+      out[i + 3] = src.getLong(off + 3 * strideBytes);
+      out[i + 4] = src.getLong(off + 4 * strideBytes);
+      out[i + 5] = src.getLong(off + 5 * strideBytes);
+      out[i + 6] = src.getLong(off + 6 * strideBytes);
+      out[i + 7] = src.getLong(off + 7 * strideBytes);
+    }
+    for (; i < length; i++, off += strideBytes)
+      out[i] = src.getLong(off);
+  }
+
+  /**
+   * Bulk-read every source element into a {@code double[]} in one pass,
+   * same srcSize/unsignedSrc-hoisting rationale as {@link #readLongs} --
+   * used only for a float/double *target*, where an unsigned 64-bit
+   * source needs real handling {@link #readLongs} can't provide: its
+   * magnitude can exceed {@code Long.MAX_VALUE}, so a plain {@code
+   * (double) readLongs(...)[i]} would reinterpret the bit pattern as
+   * negative. Every other combination (unsigned width < 8, or signed of
+   * any width) already fits a `long` with its true value intact, so a
+   * plain widening cast is exact there.
+   */
+  private static double unsignedLongBitsToDouble(long v)
+  {
+    // v's bit pattern is the true unsigned value; v >= 0 means it also
+    // fits as a non-negative signed long, so the plain cast is exact.
+    // v < 0 means the true value is 2^64 + v -- shift right one
+    // (unsigned) bit to halve it into signed range, convert, then
+    // reconstruct by doubling and adding back the dropped low bit.
+    return v >= 0 ? (double) v : ((double) (v >>> 1)) * 2.0 + (v & 1L);
+  }
+
+  /**
+   * Direct single-pass unrolled reads straight to {@code double}, one
+   * branch per srcSize/unsignedSrc combination -- deliberately does NOT
+   * delegate to {@link #readLongs} plus a widening pass: measured that
+   * shortcut costing a full extra array allocation and pass (int32->double
+   * slice assignment at 100,000 elements: ~210,000ns direct vs.
+   * ~280,000ns via readLongs+widen), so the mechanical duplication of the
+   * 7 branches below (as named helpers, same shape as {@link #readLongs}'s
+   * own byte/short/int/long readers) is paying for something real, not
+   * just tidiness.
+   */
+  private static double[] readDoublesFromInt(ByteBuffer src, int length, int strideBytes,
+          boolean unsignedSrc, int srcSize)
+  {
+    if (unsignedSrc && srcSize == 8)
+      return readUnsignedLongsAsDoublesUnrolled(src, length, strideBytes);
+    switch (srcSize)
+    {
+      case 1:
+        return unsignedSrc
+                ? readBytesUnsignedAsDoublesUnrolled(src, length, strideBytes)
+                : readBytesSignedAsDoublesUnrolled(src, length, strideBytes);
+      case 2:
+        return unsignedSrc
+                ? readShortsUnsignedAsDoublesUnrolled(src, length, strideBytes)
+                : readShortsSignedAsDoublesUnrolled(src, length, strideBytes);
+      case 4:
+        return unsignedSrc
+                ? readIntsUnsignedAsDoublesUnrolled(src, length, strideBytes)
+                : readIntsSignedAsDoublesUnrolled(src, length, strideBytes);
+      default: // 8 bytes, signed (unsigned already handled above)
+        return readLongsSignedAsDoublesUnrolled(src, length, strideBytes);
+    }
+  }
+
+  private static double[] readUnsignedLongsAsDoublesUnrolled(ByteBuffer src, int length, int strideBytes)
+  {
+    double[] out = new double[length];
+    int n8 = length - (length % 8);
+    int i = 0, off = 0;
+    for (; i < n8; i += 8, off += 8 * strideBytes)
+    {
+      out[i] = unsignedLongBitsToDouble(src.getLong(off));
+      out[i + 1] = unsignedLongBitsToDouble(src.getLong(off + strideBytes));
+      out[i + 2] = unsignedLongBitsToDouble(src.getLong(off + 2 * strideBytes));
+      out[i + 3] = unsignedLongBitsToDouble(src.getLong(off + 3 * strideBytes));
+      out[i + 4] = unsignedLongBitsToDouble(src.getLong(off + 4 * strideBytes));
+      out[i + 5] = unsignedLongBitsToDouble(src.getLong(off + 5 * strideBytes));
+      out[i + 6] = unsignedLongBitsToDouble(src.getLong(off + 6 * strideBytes));
+      out[i + 7] = unsignedLongBitsToDouble(src.getLong(off + 7 * strideBytes));
+    }
+    for (; i < length; i++, off += strideBytes)
+      out[i] = unsignedLongBitsToDouble(src.getLong(off));
+    return out;
+  }
+
+  private static double[] readBytesSignedAsDoublesUnrolled(ByteBuffer src, int length, int strideBytes)
+  {
+    double[] out = new double[length];
+    int n8 = length - (length % 8);
+    int i = 0, off = 0;
+    for (; i < n8; i += 8, off += 8 * strideBytes)
+    {
+      out[i] = src.get(off);
+      out[i + 1] = src.get(off + strideBytes);
+      out[i + 2] = src.get(off + 2 * strideBytes);
+      out[i + 3] = src.get(off + 3 * strideBytes);
+      out[i + 4] = src.get(off + 4 * strideBytes);
+      out[i + 5] = src.get(off + 5 * strideBytes);
+      out[i + 6] = src.get(off + 6 * strideBytes);
+      out[i + 7] = src.get(off + 7 * strideBytes);
+    }
+    for (; i < length; i++, off += strideBytes)
+      out[i] = src.get(off);
+    return out;
+  }
+
+  private static double[] readBytesUnsignedAsDoublesUnrolled(ByteBuffer src, int length, int strideBytes)
+  {
+    double[] out = new double[length];
+    int n8 = length - (length % 8);
+    int i = 0, off = 0;
+    for (; i < n8; i += 8, off += 8 * strideBytes)
+    {
+      out[i] = src.get(off) & 0xFF;
+      out[i + 1] = src.get(off + strideBytes) & 0xFF;
+      out[i + 2] = src.get(off + 2 * strideBytes) & 0xFF;
+      out[i + 3] = src.get(off + 3 * strideBytes) & 0xFF;
+      out[i + 4] = src.get(off + 4 * strideBytes) & 0xFF;
+      out[i + 5] = src.get(off + 5 * strideBytes) & 0xFF;
+      out[i + 6] = src.get(off + 6 * strideBytes) & 0xFF;
+      out[i + 7] = src.get(off + 7 * strideBytes) & 0xFF;
+    }
+    for (; i < length; i++, off += strideBytes)
+      out[i] = src.get(off) & 0xFF;
+    return out;
+  }
+
+  private static double[] readShortsSignedAsDoublesUnrolled(ByteBuffer src, int length, int strideBytes)
+  {
+    double[] out = new double[length];
+    int n8 = length - (length % 8);
+    int i = 0, off = 0;
+    for (; i < n8; i += 8, off += 8 * strideBytes)
+    {
+      out[i] = src.getShort(off);
+      out[i + 1] = src.getShort(off + strideBytes);
+      out[i + 2] = src.getShort(off + 2 * strideBytes);
+      out[i + 3] = src.getShort(off + 3 * strideBytes);
+      out[i + 4] = src.getShort(off + 4 * strideBytes);
+      out[i + 5] = src.getShort(off + 5 * strideBytes);
+      out[i + 6] = src.getShort(off + 6 * strideBytes);
+      out[i + 7] = src.getShort(off + 7 * strideBytes);
+    }
+    for (; i < length; i++, off += strideBytes)
+      out[i] = src.getShort(off);
+    return out;
+  }
+
+  private static double[] readShortsUnsignedAsDoublesUnrolled(ByteBuffer src, int length, int strideBytes)
+  {
+    double[] out = new double[length];
+    int n8 = length - (length % 8);
+    int i = 0, off = 0;
+    for (; i < n8; i += 8, off += 8 * strideBytes)
+    {
+      out[i] = src.getShort(off) & 0xFFFF;
+      out[i + 1] = src.getShort(off + strideBytes) & 0xFFFF;
+      out[i + 2] = src.getShort(off + 2 * strideBytes) & 0xFFFF;
+      out[i + 3] = src.getShort(off + 3 * strideBytes) & 0xFFFF;
+      out[i + 4] = src.getShort(off + 4 * strideBytes) & 0xFFFF;
+      out[i + 5] = src.getShort(off + 5 * strideBytes) & 0xFFFF;
+      out[i + 6] = src.getShort(off + 6 * strideBytes) & 0xFFFF;
+      out[i + 7] = src.getShort(off + 7 * strideBytes) & 0xFFFF;
+    }
+    for (; i < length; i++, off += strideBytes)
+      out[i] = src.getShort(off) & 0xFFFF;
+    return out;
+  }
+
+  private static double[] readIntsSignedAsDoublesUnrolled(ByteBuffer src, int length, int strideBytes)
+  {
+    double[] out = new double[length];
+    int n8 = length - (length % 8);
+    int i = 0, off = 0;
+    for (; i < n8; i += 8, off += 8 * strideBytes)
+    {
+      out[i] = src.getInt(off);
+      out[i + 1] = src.getInt(off + strideBytes);
+      out[i + 2] = src.getInt(off + 2 * strideBytes);
+      out[i + 3] = src.getInt(off + 3 * strideBytes);
+      out[i + 4] = src.getInt(off + 4 * strideBytes);
+      out[i + 5] = src.getInt(off + 5 * strideBytes);
+      out[i + 6] = src.getInt(off + 6 * strideBytes);
+      out[i + 7] = src.getInt(off + 7 * strideBytes);
+    }
+    for (; i < length; i++, off += strideBytes)
+      out[i] = src.getInt(off);
+    return out;
+  }
+
+  private static double[] readIntsUnsignedAsDoublesUnrolled(ByteBuffer src, int length, int strideBytes)
+  {
+    double[] out = new double[length];
+    int n8 = length - (length % 8);
+    int i = 0, off = 0;
+    for (; i < n8; i += 8, off += 8 * strideBytes)
+    {
+      out[i] = src.getInt(off) & 0xFFFFFFFFL;
+      out[i + 1] = src.getInt(off + strideBytes) & 0xFFFFFFFFL;
+      out[i + 2] = src.getInt(off + 2 * strideBytes) & 0xFFFFFFFFL;
+      out[i + 3] = src.getInt(off + 3 * strideBytes) & 0xFFFFFFFFL;
+      out[i + 4] = src.getInt(off + 4 * strideBytes) & 0xFFFFFFFFL;
+      out[i + 5] = src.getInt(off + 5 * strideBytes) & 0xFFFFFFFFL;
+      out[i + 6] = src.getInt(off + 6 * strideBytes) & 0xFFFFFFFFL;
+      out[i + 7] = src.getInt(off + 7 * strideBytes) & 0xFFFFFFFFL;
+    }
+    for (; i < length; i++, off += strideBytes)
+      out[i] = src.getInt(off) & 0xFFFFFFFFL;
+    return out;
+  }
+
+  private static double[] readLongsSignedAsDoublesUnrolled(ByteBuffer src, int length, int strideBytes)
+  {
+    double[] out = new double[length];
+    int n8 = length - (length % 8);
+    int i = 0, off = 0;
+    for (; i < n8; i += 8, off += 8 * strideBytes)
+    {
+      out[i] = src.getLong(off);
+      out[i + 1] = src.getLong(off + strideBytes);
+      out[i + 2] = src.getLong(off + 2 * strideBytes);
+      out[i + 3] = src.getLong(off + 3 * strideBytes);
+      out[i + 4] = src.getLong(off + 4 * strideBytes);
+      out[i + 5] = src.getLong(off + 5 * strideBytes);
+      out[i + 6] = src.getLong(off + 6 * strideBytes);
+      out[i + 7] = src.getLong(off + 7 * strideBytes);
+    }
+    for (; i < length; i++, off += strideBytes)
+      out[i] = src.getLong(off);
+    return out;
+  }
+
+  /**
+   * Bulk-read every source element into a {@code double[]} in one pass --
+   * the float-kind sibling of {@link #readDoublesFromInt}, srcSize
+   * (2 = half, 4 = float, 8 = double) dispatched once, not per element.
+   */
+  private static double[] readDoublesFromFloat(ByteBuffer src, int length, int strideBytes, int srcSize)
+  {
+    double[] out = new double[length];
+    int n8 = length - (length % 8);
+    int i = 0, off = 0;
+    switch (srcSize)
+    {
+      case 2:
+        for (; i < n8; i += 8, off += 8 * strideBytes)
+        {
+          out[i] = halfToFloat(src.getShort(off));
+          out[i + 1] = halfToFloat(src.getShort(off + strideBytes));
+          out[i + 2] = halfToFloat(src.getShort(off + 2 * strideBytes));
+          out[i + 3] = halfToFloat(src.getShort(off + 3 * strideBytes));
+          out[i + 4] = halfToFloat(src.getShort(off + 4 * strideBytes));
+          out[i + 5] = halfToFloat(src.getShort(off + 5 * strideBytes));
+          out[i + 6] = halfToFloat(src.getShort(off + 6 * strideBytes));
+          out[i + 7] = halfToFloat(src.getShort(off + 7 * strideBytes));
+        }
+        for (; i < length; i++, off += strideBytes)
+          out[i] = halfToFloat(src.getShort(off));
+        break;
+      case 4:
+        for (; i < n8; i += 8, off += 8 * strideBytes)
+        {
+          out[i] = src.getFloat(off);
+          out[i + 1] = src.getFloat(off + strideBytes);
+          out[i + 2] = src.getFloat(off + 2 * strideBytes);
+          out[i + 3] = src.getFloat(off + 3 * strideBytes);
+          out[i + 4] = src.getFloat(off + 4 * strideBytes);
+          out[i + 5] = src.getFloat(off + 5 * strideBytes);
+          out[i + 6] = src.getFloat(off + 6 * strideBytes);
+          out[i + 7] = src.getFloat(off + 7 * strideBytes);
+        }
+        for (; i < length; i++, off += strideBytes)
+          out[i] = src.getFloat(off);
+        break;
+      default:
+        for (; i < n8; i += 8, off += 8 * strideBytes)
+        {
+          out[i] = src.getDouble(off);
+          out[i + 1] = src.getDouble(off + strideBytes);
+          out[i + 2] = src.getDouble(off + 2 * strideBytes);
+          out[i + 3] = src.getDouble(off + 3 * strideBytes);
+          out[i + 4] = src.getDouble(off + 4 * strideBytes);
+          out[i + 5] = src.getDouble(off + 5 * strideBytes);
+          out[i + 6] = src.getDouble(off + 6 * strideBytes);
+          out[i + 7] = src.getDouble(off + 7 * strideBytes);
+        }
+        for (; i < length; i++, off += strideBytes)
+          out[i] = src.getDouble(off);
+        break;
+    }
+    return out;
+  }
+
+  // ---- Cast-and-store writers -- one unrolled loop per (source-array-kind,
+  // target-type) pair, each shared between the allocate-a-fresh-array path
+  // (fillFlatFromIntSrc/fillFlatFromFloatSrc, called with destStart=0,
+  // destStep=1 against a just-created array) and the write-into-an-existing
+  // -array path (fillFlatFromIntSrcInto/fillFlatFromFloatSrcInto). Named
+  // and separated out rather than left as inline case bodies repeated in
+  // both callers -- same loop shape, same cast, previously duplicated once
+  // per orchestrator.
+
+  private static void writeBooleansFromLongs(long[] vals, boolean[] dest, int destStart, int destStep)
+  {
+    int n = vals.length;
+    int n8 = n - (n % 8);
+    int i = 0, di = destStart;
+    for (; i < n8; i += 8, di += 8 * destStep)
+    {
+      dest[di] = vals[i] != 0;
+      dest[di + destStep] = vals[i + 1] != 0;
+      dest[di + 2 * destStep] = vals[i + 2] != 0;
+      dest[di + 3 * destStep] = vals[i + 3] != 0;
+      dest[di + 4 * destStep] = vals[i + 4] != 0;
+      dest[di + 5 * destStep] = vals[i + 5] != 0;
+      dest[di + 6 * destStep] = vals[i + 6] != 0;
+      dest[di + 7 * destStep] = vals[i + 7] != 0;
+    }
+    for (; i < n; i++, di += destStep)
+      dest[di] = vals[i] != 0;
+  }
+
+  private static void writeBytesFromLongs(long[] vals, byte[] dest, int destStart, int destStep)
+  {
+    int n = vals.length;
+    int n8 = n - (n % 8);
+    int i = 0, di = destStart;
+    for (; i < n8; i += 8, di += 8 * destStep)
+    {
+      dest[di] = (byte) vals[i];
+      dest[di + destStep] = (byte) vals[i + 1];
+      dest[di + 2 * destStep] = (byte) vals[i + 2];
+      dest[di + 3 * destStep] = (byte) vals[i + 3];
+      dest[di + 4 * destStep] = (byte) vals[i + 4];
+      dest[di + 5 * destStep] = (byte) vals[i + 5];
+      dest[di + 6 * destStep] = (byte) vals[i + 6];
+      dest[di + 7 * destStep] = (byte) vals[i + 7];
+    }
+    for (; i < n; i++, di += destStep)
+      dest[di] = (byte) vals[i];
+  }
+
+  private static void writeCharsFromLongs(long[] vals, char[] dest, int destStart, int destStep)
+  {
+    int n = vals.length;
+    int n8 = n - (n % 8);
+    int i = 0, di = destStart;
+    for (; i < n8; i += 8, di += 8 * destStep)
+    {
+      dest[di] = (char) vals[i];
+      dest[di + destStep] = (char) vals[i + 1];
+      dest[di + 2 * destStep] = (char) vals[i + 2];
+      dest[di + 3 * destStep] = (char) vals[i + 3];
+      dest[di + 4 * destStep] = (char) vals[i + 4];
+      dest[di + 5 * destStep] = (char) vals[i + 5];
+      dest[di + 6 * destStep] = (char) vals[i + 6];
+      dest[di + 7 * destStep] = (char) vals[i + 7];
+    }
+    for (; i < n; i++, di += destStep)
+      dest[di] = (char) vals[i];
+  }
+
+  private static void writeShortsFromLongs(long[] vals, short[] dest, int destStart, int destStep)
+  {
+    int n = vals.length;
+    int n8 = n - (n % 8);
+    int i = 0, di = destStart;
+    for (; i < n8; i += 8, di += 8 * destStep)
+    {
+      dest[di] = (short) vals[i];
+      dest[di + destStep] = (short) vals[i + 1];
+      dest[di + 2 * destStep] = (short) vals[i + 2];
+      dest[di + 3 * destStep] = (short) vals[i + 3];
+      dest[di + 4 * destStep] = (short) vals[i + 4];
+      dest[di + 5 * destStep] = (short) vals[i + 5];
+      dest[di + 6 * destStep] = (short) vals[i + 6];
+      dest[di + 7 * destStep] = (short) vals[i + 7];
+    }
+    for (; i < n; i++, di += destStep)
+      dest[di] = (short) vals[i];
+  }
+
+  private static void writeIntsFromLongs(long[] vals, int[] dest, int destStart, int destStep)
+  {
+    int n = vals.length;
+    int n8 = n - (n % 8);
+    int i = 0, di = destStart;
+    for (; i < n8; i += 8, di += 8 * destStep)
+    {
+      dest[di] = (int) vals[i];
+      dest[di + destStep] = (int) vals[i + 1];
+      dest[di + 2 * destStep] = (int) vals[i + 2];
+      dest[di + 3 * destStep] = (int) vals[i + 3];
+      dest[di + 4 * destStep] = (int) vals[i + 4];
+      dest[di + 5 * destStep] = (int) vals[i + 5];
+      dest[di + 6 * destStep] = (int) vals[i + 6];
+      dest[di + 7 * destStep] = (int) vals[i + 7];
+    }
+    for (; i < n; i++, di += destStep)
+      dest[di] = (int) vals[i];
+  }
+
+  private static void writeLongsFromLongs(long[] vals, long[] dest, int destStart, int destStep)
+  {
+    int n = vals.length;
+    int n8 = n - (n % 8);
+    int i = 0, di = destStart;
+    for (; i < n8; i += 8, di += 8 * destStep)
+    {
+      dest[di] = vals[i];
+      dest[di + destStep] = vals[i + 1];
+      dest[di + 2 * destStep] = vals[i + 2];
+      dest[di + 3 * destStep] = vals[i + 3];
+      dest[di + 4 * destStep] = vals[i + 4];
+      dest[di + 5 * destStep] = vals[i + 5];
+      dest[di + 6 * destStep] = vals[i + 6];
+      dest[di + 7 * destStep] = vals[i + 7];
+    }
+    for (; i < n; i++, di += destStep)
+      dest[di] = vals[i];
+  }
+
+  private static void writeBooleansFromDoubles(double[] vals, boolean[] dest, int destStart, int destStep)
+  {
+    int n = vals.length;
+    int n8 = n - (n % 8);
+    int i = 0, di = destStart;
+    for (; i < n8; i += 8, di += 8 * destStep)
+    {
+      dest[di] = vals[i] != 0;
+      dest[di + destStep] = vals[i + 1] != 0;
+      dest[di + 2 * destStep] = vals[i + 2] != 0;
+      dest[di + 3 * destStep] = vals[i + 3] != 0;
+      dest[di + 4 * destStep] = vals[i + 4] != 0;
+      dest[di + 5 * destStep] = vals[i + 5] != 0;
+      dest[di + 6 * destStep] = vals[i + 6] != 0;
+      dest[di + 7 * destStep] = vals[i + 7] != 0;
+    }
+    for (; i < n; i++, di += destStep)
+      dest[di] = vals[i] != 0;
+  }
+
+  private static void writeBytesFromDoubles(double[] vals, byte[] dest, int destStart, int destStep)
+  {
+    int n = vals.length;
+    int n8 = n - (n % 8);
+    int i = 0, di = destStart;
+    for (; i < n8; i += 8, di += 8 * destStep)
+    {
+      dest[di] = (byte) vals[i];
+      dest[di + destStep] = (byte) vals[i + 1];
+      dest[di + 2 * destStep] = (byte) vals[i + 2];
+      dest[di + 3 * destStep] = (byte) vals[i + 3];
+      dest[di + 4 * destStep] = (byte) vals[i + 4];
+      dest[di + 5 * destStep] = (byte) vals[i + 5];
+      dest[di + 6 * destStep] = (byte) vals[i + 6];
+      dest[di + 7 * destStep] = (byte) vals[i + 7];
+    }
+    for (; i < n; i++, di += destStep)
+      dest[di] = (byte) vals[i];
+  }
+
+  private static void writeCharsFromDoubles(double[] vals, char[] dest, int destStart, int destStep)
+  {
+    int n = vals.length;
+    int n8 = n - (n % 8);
+    int i = 0, di = destStart;
+    for (; i < n8; i += 8, di += 8 * destStep)
+    {
+      dest[di] = (char) vals[i];
+      dest[di + destStep] = (char) vals[i + 1];
+      dest[di + 2 * destStep] = (char) vals[i + 2];
+      dest[di + 3 * destStep] = (char) vals[i + 3];
+      dest[di + 4 * destStep] = (char) vals[i + 4];
+      dest[di + 5 * destStep] = (char) vals[i + 5];
+      dest[di + 6 * destStep] = (char) vals[i + 6];
+      dest[di + 7 * destStep] = (char) vals[i + 7];
+    }
+    for (; i < n; i++, di += destStep)
+      dest[di] = (char) vals[i];
+  }
+
+  private static void writeShortsFromDoubles(double[] vals, short[] dest, int destStart, int destStep)
+  {
+    int n = vals.length;
+    int n8 = n - (n % 8);
+    int i = 0, di = destStart;
+    for (; i < n8; i += 8, di += 8 * destStep)
+    {
+      dest[di] = (short) vals[i];
+      dest[di + destStep] = (short) vals[i + 1];
+      dest[di + 2 * destStep] = (short) vals[i + 2];
+      dest[di + 3 * destStep] = (short) vals[i + 3];
+      dest[di + 4 * destStep] = (short) vals[i + 4];
+      dest[di + 5 * destStep] = (short) vals[i + 5];
+      dest[di + 6 * destStep] = (short) vals[i + 6];
+      dest[di + 7 * destStep] = (short) vals[i + 7];
+    }
+    for (; i < n; i++, di += destStep)
+      dest[di] = (short) vals[i];
+  }
+
+  private static void writeIntsFromDoubles(double[] vals, int[] dest, int destStart, int destStep)
+  {
+    int n = vals.length;
+    int n8 = n - (n % 8);
+    int i = 0, di = destStart;
+    for (; i < n8; i += 8, di += 8 * destStep)
+    {
+      dest[di] = (int) vals[i];
+      dest[di + destStep] = (int) vals[i + 1];
+      dest[di + 2 * destStep] = (int) vals[i + 2];
+      dest[di + 3 * destStep] = (int) vals[i + 3];
+      dest[di + 4 * destStep] = (int) vals[i + 4];
+      dest[di + 5 * destStep] = (int) vals[i + 5];
+      dest[di + 6 * destStep] = (int) vals[i + 6];
+      dest[di + 7 * destStep] = (int) vals[i + 7];
+    }
+    for (; i < n; i++, di += destStep)
+      dest[di] = (int) vals[i];
+  }
+
+  private static void writeLongsFromDoubles(double[] vals, long[] dest, int destStart, int destStep)
+  {
+    int n = vals.length;
+    int n8 = n - (n % 8);
+    int i = 0, di = destStart;
+    for (; i < n8; i += 8, di += 8 * destStep)
+    {
+      dest[di] = (long) vals[i];
+      dest[di + destStep] = (long) vals[i + 1];
+      dest[di + 2 * destStep] = (long) vals[i + 2];
+      dest[di + 3 * destStep] = (long) vals[i + 3];
+      dest[di + 4 * destStep] = (long) vals[i + 4];
+      dest[di + 5 * destStep] = (long) vals[i + 5];
+      dest[di + 6 * destStep] = (long) vals[i + 6];
+      dest[di + 7 * destStep] = (long) vals[i + 7];
+    }
+    for (; i < n; i++, di += destStep)
+      dest[di] = (long) vals[i];
+  }
+
+  private static void writeFloatsFromDoubles(double[] vals, float[] dest, int destStart, int destStep)
+  {
+    int n = vals.length;
+    int n8 = n - (n % 8);
+    int i = 0, di = destStart;
+    for (; i < n8; i += 8, di += 8 * destStep)
+    {
+      dest[di] = (float) vals[i];
+      dest[di + destStep] = (float) vals[i + 1];
+      dest[di + 2 * destStep] = (float) vals[i + 2];
+      dest[di + 3 * destStep] = (float) vals[i + 3];
+      dest[di + 4 * destStep] = (float) vals[i + 4];
+      dest[di + 5 * destStep] = (float) vals[i + 5];
+      dest[di + 6 * destStep] = (float) vals[i + 6];
+      dest[di + 7 * destStep] = (float) vals[i + 7];
+    }
+    for (; i < n; i++, di += destStep)
+      dest[di] = (float) vals[i];
+  }
+
+  private static void writeDoublesFromDoubles(double[] vals, double[] dest, int destStart, int destStep)
+  {
+    int n = vals.length;
+    int n8 = n - (n % 8);
+    int i = 0, di = destStart;
+    for (; i < n8; i += 8, di += 8 * destStep)
+    {
+      dest[di] = vals[i];
+      dest[di + destStep] = vals[i + 1];
+      dest[di + 2 * destStep] = vals[i + 2];
+      dest[di + 3 * destStep] = vals[i + 3];
+      dest[di + 4 * destStep] = vals[i + 4];
+      dest[di + 5 * destStep] = vals[i + 5];
+      dest[di + 6 * destStep] = vals[i + 6];
+      dest[di + 7 * destStep] = vals[i + 7];
+    }
+    for (; i < n; i++, di += destStep)
+      dest[di] = vals[i];
+  }
+
+  private static Object fillFlatFromIntSrc(char typeCode, boolean unsignedSrc, int srcSize,
+          ByteBuffer src, int length, int strideBytes)
+  {
+    if (typeCode == 'F' || typeCode == 'D')
+    {
+      double[] vals = readDoublesFromInt(src, length, strideBytes, unsignedSrc, srcSize);
+      if (typeCode == 'D')
+        return vals;
+      float[] out = new float[length];
+      writeFloatsFromDoubles(vals, out, 0, 1);
+      return out;
+    }
+
+    long[] vals = readLongs(src, length, strideBytes, unsignedSrc, srcSize);
+    switch (typeCode)
+    {
+      case 'Z':
+      {
+        boolean[] out = new boolean[length];
+        writeBooleansFromLongs(vals, out, 0, 1);
+        return out;
+      }
+      case 'B':
+      {
+        byte[] out = new byte[length];
+        writeBytesFromLongs(vals, out, 0, 1);
+        return out;
+      }
+      case 'C':
+      {
+        char[] out = new char[length];
+        writeCharsFromLongs(vals, out, 0, 1);
+        return out;
+      }
+      case 'S':
+      {
+        short[] out = new short[length];
+        writeShortsFromLongs(vals, out, 0, 1);
+        return out;
+      }
+      case 'I':
+      {
+        int[] out = new int[length];
+        writeIntsFromLongs(vals, out, 0, 1);
+        return out;
+      }
+      case 'J':
+        return vals;
+      default:
+        throw new IllegalArgumentException("Unknown primitive type code: " + typeCode);
+    }
+  }
+
+  private static Object fillFlatFromFloatSrc(char typeCode, int srcSize,
+          ByteBuffer src, int length, int strideBytes)
+  {
+    double[] vals = readDoublesFromFloat(src, length, strideBytes, srcSize);
+    switch (typeCode)
+    {
+      case 'Z':
+      {
+        boolean[] out = new boolean[length];
+        writeBooleansFromDoubles(vals, out, 0, 1);
+        return out;
+      }
+      case 'B':
+      {
+        byte[] out = new byte[length];
+        writeBytesFromDoubles(vals, out, 0, 1);
+        return out;
+      }
+      case 'C':
+      {
+        char[] out = new char[length];
+        writeCharsFromDoubles(vals, out, 0, 1);
+        return out;
+      }
+      case 'S':
+      {
+        short[] out = new short[length];
+        writeShortsFromDoubles(vals, out, 0, 1);
+        return out;
+      }
+      case 'I':
+      {
+        int[] out = new int[length];
+        writeIntsFromDoubles(vals, out, 0, 1);
+        return out;
+      }
+      case 'J':
+      {
+        long[] out = new long[length];
+        writeLongsFromDoubles(vals, out, 0, 1);
+        return out;
+      }
+      case 'F':
+      {
+        float[] out = new float[length];
+        writeFloatsFromDoubles(vals, out, 0, 1);
+        return out;
+      }
+      case 'D':
+        return vals;
+      default:
+        throw new IllegalArgumentException("Unknown primitive type code: " + typeCode);
+    }
+  }
+
+  /**
+   * Write-into sibling of {@link #fillFlatFromBuffer} -- the fast path for
+   * {@code JPArray::setRange} (Python slice assignment, `javaArr[:] =
+   * numpy_array`) and `JPArray::clone`, neither of which allocates a fresh
+   * array the way an argument-conversion push does: both write into a
+   * specific range of an *existing* Java array, generally with its own
+   * destination start/step (a sliced/strided Java-array target). Writing
+   * directly into a statically-typed Java array here (`(int[]) dest` etc.)
+   * needs no JNI critical section at all -- it's the same plain array
+   * store the JIT would emit for any other Java code touching that array,
+   * unlike the C++ side's previous approach (`Get<Type>ArrayElements`,
+   * which the JNI spec permits to copy the whole array on entry and exit).
+   *
+   * @param dest the destination array, already cast to its true
+   * component type by the C++ caller's `typeCode` (an `int[]` for `'I'`,
+   * etc.) -- passed as `Object` since one native method covers all 8
+   * primitive types rather than 8 overloads.
+   * @param destStart the first destination index to write.
+   * @param destStep the destination stride in *elements* (not bytes,
+   * unlike `strideBytes` which describes the source) -- may be negative
+   * for a reversed destination slice; always safe as plain array indexing,
+   * with no address-arithmetic bounds concern the way a negative source
+   * stride would have against raw buffer memory.
+   */
+  public static void fillFlatIntoArray(char typeCode, char srcKind, int srcSize, boolean swapped,
+          ByteBuffer src, int length, int strideBytes, Object dest, int destStart, int destStep)
+  {
+    src.order(swapped ? swapped(ByteOrder.nativeOrder()) : ByteOrder.nativeOrder());
+
+    if (strideBytes == srcSize && destStep == 1)
+    {
+      switch (typeCode)
+      {
+        case 'I':
+          if (srcKind == SRC_SIGNED && srcSize == 4)
+          {
+            src.asIntBuffer().get((int[]) dest, destStart, length);
+            return;
+          }
+          break;
+        case 'J':
+          if (srcKind == SRC_SIGNED && srcSize == 8)
+          {
+            src.asLongBuffer().get((long[]) dest, destStart, length);
+            return;
+          }
+          break;
+        case 'F':
+          if (srcKind == SRC_FLOAT && srcSize == 4)
+          {
+            src.asFloatBuffer().get((float[]) dest, destStart, length);
+            return;
+          }
+          break;
+        case 'D':
+          if (srcKind == SRC_FLOAT && srcSize == 8)
+          {
+            src.asDoubleBuffer().get((double[]) dest, destStart, length);
+            return;
+          }
+          break;
+        default:
+          break;
+      }
+    }
+
+    if (srcKind == SRC_FLOAT)
+      fillFlatFromFloatSrcInto(typeCode, srcSize, src, length, strideBytes, dest, destStart, destStep);
+    else
+      fillFlatFromIntSrcInto(typeCode, srcKind == SRC_UNSIGNED, srcSize, src, length, strideBytes,
+              dest, destStart, destStep);
+  }
+
+  private static void fillFlatFromIntSrcInto(char typeCode, boolean unsignedSrc, int srcSize,
+          ByteBuffer src, int length, int strideBytes, Object dest, int destStart, int destStep)
+  {
+    if (typeCode == 'F' || typeCode == 'D')
+    {
+      double[] vals = readDoublesFromInt(src, length, strideBytes, unsignedSrc, srcSize);
+      if (typeCode == 'D')
+        writeDoublesFromDoubles(vals, (double[]) dest, destStart, destStep);
+      else
+        writeFloatsFromDoubles(vals, (float[]) dest, destStart, destStep);
+      return;
+    }
+
+    long[] vals = readLongs(src, length, strideBytes, unsignedSrc, srcSize);
+    switch (typeCode)
+    {
+      case 'Z':
+        writeBooleansFromLongs(vals, (boolean[]) dest, destStart, destStep);
+        return;
+      case 'B':
+        writeBytesFromLongs(vals, (byte[]) dest, destStart, destStep);
+        return;
+      case 'C':
+        writeCharsFromLongs(vals, (char[]) dest, destStart, destStep);
+        return;
+      case 'S':
+        writeShortsFromLongs(vals, (short[]) dest, destStart, destStep);
+        return;
+      case 'I':
+        writeIntsFromLongs(vals, (int[]) dest, destStart, destStep);
+        return;
+      case 'J':
+        writeLongsFromLongs(vals, (long[]) dest, destStart, destStep);
+        return;
+      default:
+        throw new IllegalArgumentException("Unknown primitive type code: " + typeCode);
+    }
+  }
+
+  private static void fillFlatFromFloatSrcInto(char typeCode, int srcSize,
+          ByteBuffer src, int length, int strideBytes, Object dest, int destStart, int destStep)
+  {
+    double[] vals = readDoublesFromFloat(src, length, strideBytes, srcSize);
+    switch (typeCode)
+    {
+      case 'Z':
+        writeBooleansFromDoubles(vals, (boolean[]) dest, destStart, destStep);
+        return;
+      case 'B':
+        writeBytesFromDoubles(vals, (byte[]) dest, destStart, destStep);
+        return;
+      case 'C':
+        writeCharsFromDoubles(vals, (char[]) dest, destStart, destStep);
+        return;
+      case 'S':
+        writeShortsFromDoubles(vals, (short[]) dest, destStart, destStep);
+        return;
+      case 'I':
+        writeIntsFromDoubles(vals, (int[]) dest, destStart, destStep);
+        return;
+      case 'J':
+        writeLongsFromDoubles(vals, (long[]) dest, destStart, destStep);
+        return;
+      case 'F':
+        writeFloatsFromDoubles(vals, (float[]) dest, destStart, destStep);
+        return;
+      case 'D':
+        writeDoublesFromDoubles(vals, (double[]) dest, destStart, destStep);
+        return;
+      default:
+        throw new IllegalArgumentException("Unknown primitive type code: " + typeCode);
+    }
+  }
+
   /**
    * Bulk-write a rectangular multi-dimensional primitive array's contents
    * into a caller-supplied direct buffer -- the pull-side half. `dest`'s

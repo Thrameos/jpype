@@ -559,6 +559,45 @@ public:
 		auto *acls = (JPArrayClass *) match.closure;
 		auto length = (jsize) PySequence_Length(match.object);
 		JPClass *ccls = acls->getComponentType();
+
+		// Fast path: hand the whole source buffer to Java in one JNI call
+		// (Support.fillFlatFromBuffer does the dtype coercion and any
+		// non-unit stride walk there) instead of pinning a freshly
+		// allocated destination array and running a per-element
+		// jconverter() loop back in C++ -- JPClass::setArrayRange's general
+		// path below, kept only for what this can't classify (an exotic
+		// buffer format, e.g. complex/structured dtypes) or a
+		// negative-stride source (a reversed numpy view), neither of which
+		// is worth the extra address-arithmetic to support here.
+		auto *pcls = dynamic_cast<JPPrimitiveType*>(ccls);
+		if (pcls != nullptr && length > 0 && PyObject_CheckBuffer(match.object))
+		{
+			JPPyBuffer buffer(match.object, PyBUF_STRIDES | PyBUF_FORMAT);
+			if (buffer.valid())
+			{
+				Py_buffer &view = buffer.getView();
+				if (view.ndim == 1)
+				{
+					const char *format = view.format != nullptr ? view.format : "B";
+					Py_ssize_t vstep = view.strides != nullptr ? view.strides[0] : view.itemsize;
+					JPBufferSource src;
+					if (vstep > 0 && classifyBufferSource(format, (int) view.itemsize, src))
+					{
+						jobject directBuf = frame.NewDirectByteBuffer(view.buf,
+								(jlong) ((length - 1) * vstep + view.itemsize));
+						jarray out = (jarray) frame.fillFlatFromBuffer(pcls->getTypeCode(),
+								src.kind, src.size, (jboolean) src.swapped,
+								directBuf, length, (jint) vstep);
+						res.l = frame.keep(out);
+						return res;
+					}
+				}
+			} else
+			{
+				PyErr_Clear();
+			}
+		}
+
 		jarray array = ccls->newArrayOf(frame, (jsize) length);
 		ccls->setArrayRange(frame, array, 0, length, 1, match.object);
 		res.l = frame.keep(array);

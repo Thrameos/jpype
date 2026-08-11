@@ -170,6 +170,9 @@ void JPByteType::setArrayRange(JPJavaFrame& frame, jarray a,
 		jsize start, jsize length, jsize step, PyObject* sequence)
 {
 	JP_TRACE_IN("JPByteType::setArrayRange");
+	if (tryFastBufferPush(frame, this, a, start, step, length, sequence))
+		return;
+
 	JPPrimitiveArrayAccessor<array_t, type_t*> accessor(frame, a,
 			&JPJavaFrame::GetByteArrayElements, &JPJavaFrame::ReleaseByteArrayElements);
 

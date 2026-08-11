@@ -184,6 +184,33 @@ enum JPRawTransferMode
 extern JPRawTransferMode classifyRawTransfer(jconverter converter, JPPrimitiveType* pcls,
 		const char* format, int itemsize, const char* code);
 
+/**
+ * A buffer-protocol source element's kind/width/byte-order, as classified
+ * from a Py_buffer's format string -- the source-side counterpart to
+ * JPRawTransferMode, but describing the source itself rather than its
+ * relationship to one particular target type. Used by JPConversionBuffer's
+ * 1D fast path (jp_classhints.cpp) to hand dtype coercion to
+ * Support.fillFlatFromBuffer instead of doing it element-by-element in
+ * C++ via a jconverter.
+ */
+struct JPBufferSource
+{
+	char kind; // 'i' signed int, 'u' unsigned int, 'f' float (incl. half at size==2)
+	int size;  // element width in bytes
+	bool swapped; // byte order differs from native
+};
+
+/**
+ * Classify format/itemsize the same way getConverter (jp_convert.cpp)
+ * parses its `from` argument -- same byte-order-prefix stripping, same
+ * itemsize==8 'l'/'L' -> 'q'/'Q' aliasing -- but only far enough to
+ * describe the source, not to pick a target-specific converter. Returns
+ * false for anything getConverter itself wouldn't recognize (complex,
+ * structured/record dtypes, ...); callers fall back to the general
+ * per-element converter path in that case, same as before this existed.
+ */
+extern bool classifyBufferSource(const char* format, int itemsize, JPBufferSource& out);
+
 // Members
 class JPMethod;
 class JPMethodDispatch;
@@ -250,5 +277,26 @@ static inline JPPyObject JPPyTuple_Pack(T... args) {
 
 // Primitives classes
 #include "jp_primitivetype.h"
+
+/**
+ * Shared fast path for JPClass::setArrayRange's 8 primitive overrides
+ * (JPIntType::setArrayRange etc., jp_<type>type.cpp) -- covers both
+ * JPArray::setRange (Python slice assignment, `javaArr[:] = numpy_array`)
+ * and JPArray::clone (jp_array.cpp), the two call sites that write into an
+ * *existing* array at an arbitrary destination start/step and therefore
+ * can't go through JPConversionBuffer's argument-conversion dispatch
+ * (jp_classhints.cpp), which always allocates a fresh array. Tries the
+ * same single-JNI-call buffer-handoff (Support.fillFlatIntoArray) used by
+ * JPConversionBuffer's own fast path; returns false (nothing done, caller
+ * falls back to its existing per-element loop) whenever the source isn't
+ * ndim==1, isn't a recognized numeric format, or has a non-positive
+ * stride (a reversed numpy view) -- same scope limits as
+ * JPConversionBuffer's fast path, for the same reason (not worth the
+ * extra base-address arithmetic). Does not validate length itself --
+ * false on a mismatch (view.shape[0] != length) is fine, since the
+ * caller's own fallback path already raises the right error for that.
+ */
+extern bool tryFastBufferPush(JPJavaFrame &frame, JPPrimitiveType *pcls, jarray dest,
+		jsize start, jsize step, jsize length, PyObject *sequence);
 
 #endif // _JPYPE_H_

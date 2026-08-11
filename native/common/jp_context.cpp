@@ -406,6 +406,12 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 	m_Support_fillRaggedFromBufferID = frame.GetStaticMethodID(supportClass,
 			"fillRaggedFromBuffer",
 			"(CILjava/nio/ByteBuffer;)Ljava/lang/Object;");
+	m_Support_fillFlatFromBufferID = frame.GetStaticMethodID(supportClass,
+			"fillFlatFromBuffer",
+			"(CCIZLjava/nio/ByteBuffer;II)Ljava/lang/Object;");
+	m_Support_fillFlatIntoArrayID = frame.GetStaticMethodID(supportClass,
+			"fillFlatIntoArray",
+			"(CCIZLjava/nio/ByteBuffer;IILjava/lang/Object;II)V");
 
 	m_Context_CreateExceptionID = frame.GetMethodID(contextClass, "createException",
 			"(JJ)Ljava/lang/Exception;");

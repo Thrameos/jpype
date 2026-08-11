@@ -230,6 +230,8 @@ private:
 	jmethodID m_Support_fillFromBufferID{};
 	jmethodID m_Support_collectToBufferID{};
 	jmethodID m_Support_fillRaggedFromBufferID{};
+	jmethodID m_Support_fillFlatFromBufferID{};
+	jmethodID m_Support_fillFlatIntoArrayID{};
 
 	// Java Functions
 	jmethodID m_Object_ToStringID{};

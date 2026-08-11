@@ -59,7 +59,7 @@ found in this checkout, not a design gap like jpy's row above.
 | Feature | jpype | jpy | jep | pyjnius |
 |---|---|---|---|---|
 | Class hints / custom conversions (`@JConversion`) | Yes (54 tests) | No | No | No |
-| Buffer-protocol (numpy) array push, flat 1D | Yes, bulk path, value-correct across ~14 source formats (see dtype matrix below) | Yes, via a separate argument-matching fast path, not `jpy.array()` itself -- **but with no dtype check: silently bit-reinterprets same-width dtype mismatches, see dtype matrix below** | Yes, genuine bulk path, but a closed 8-dtype allowlist (no `float16`) | **No, rejected unconditionally** (`"Expecting a python list/tuple"`) |
+| Buffer-protocol (numpy) array push, flat 1D | Yes, bulk path, value-correct across ~14 source formats (see dtype matrix below); as of this round, the dtype coercion itself runs in Java (`Support.fillFlatFromBuffer`) via a single JNI call, matching or beating jpy/jep at 100,000 elements on `long`/`float`/`double` (see `RESULTS.md` Section 4) -- previously the argument-conversion route (as opposed to the explicit `pushFrom` API) never took this fast path at all | Yes, via a separate argument-matching fast path, not `jpy.array()` itself -- **but with no dtype check: silently bit-reinterprets same-width dtype mismatches, see dtype matrix below** | Yes, genuine bulk path, but a closed 8-dtype allowlist (no `float16`) | **No, rejected unconditionally** (`"Expecting a python list/tuple"`) |
 | Buffer-protocol (numpy) array push, multi-dimensional (`int[][]`+) | Yes, bulk path (this session's follow-on) | No (`TypeError`, falls back to slower per-element path) | No (`TypeError: Error matching ndarray.dtype...`) | **No** (same blanket rejection as 1D) |
 | Per-class `findJavaConversion` caching w/ invalidation | Yes (this session) | N/A -- already unconditionally cheap per call | N/A -- short-circuits on arity before any per-arg work | Not applicable the same way; no equivalent caching opportunity found |
 
@@ -176,17 +176,22 @@ confirmed both by source and by this run -- every transposed
 multi-dimensional case pushed correctly, same cost as the contiguous
 case).
 
-jpype handles a non-contiguous source correctly at every depth (this
-session's own non-contiguous-buffer fast-path fix, see
-`project/benchmark/RESULTS.md`).
+jpype handles a non-contiguous source correctly at every depth, and as of
+this round the flat (1D) case reaches the same single-JNI-call bulk path
+as a contiguous source instead of a slower fallback -- `int[100000]`
+non-contiguous column slice: 80,715ns, essentially tied with jep's own
+non-contiguous number below, and *cheaper* than jpype's own contiguous
+push used to be pre-fix (249,364ns). See `project/benchmark/RESULTS.md`
+Section 4/8 for the fix and full numbers.
 
 **jep handles the flat (1D) case correctly, through its real numpy fast
-path** -- confirmed by running `project/benchmark/jep/array_noncontig.py`:
-a non-contiguous column slice pushes successfully at every size and
-type, landing close to jep's own contiguous `buffer->array` numbers
-(e.g. `int[100000]`: 74,850ns non-contiguous vs. jep's contiguous
-`array_flat.py` push numbers in the same range) -- jep's numpy fast path
-does not require contiguity the way jpy's flat buffer-argument path does.
+path** -- confirmed by actually running `project/benchmark/jep/array_noncontig.py`
+against this branch's harness this round (not just cited from a prior
+session): a non-contiguous column slice pushes successfully at every size
+and type, landing close to jep's own contiguous `buffer->array` numbers
+(`int[100000]`: 75,448ns non-contiguous vs. ~51,150ns contiguous,
+`array_flat.py`, this round) -- jep's numpy fast path does not require
+contiguity the way jpy's flat buffer-argument path does.
 **jep has no automatic multi-dimensional numpy push at all** (established
 earlier in this doc), so the ND/transposed case has no automatic path to
 test contiguity-handling on either -- the benchmark instead measures the

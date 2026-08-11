@@ -216,6 +216,22 @@ public:
 	// the array's static nesting depth.
 	jobject fillRaggedFromBuffer(char typeCode, jint dims, jobject buf);
 
+	// Flat (1D) buffer-handoff push -- JPConversionBuffer's fast path
+	// (jp_classhints.cpp). Unlike fillMultiArrayFromBuffer, dtype coercion
+	// (srcKind/srcSize/swapped) and a non-unit strideBytes are handled
+	// directly on the Java side, so this covers both a raw reinterpret and
+	// a genuine coercing/non-contiguous push in the same single JNI call.
+	jobject fillFlatFromBuffer(char typeCode, char srcKind, jint srcSize, jboolean swapped,
+			jobject buf, jint length, jint strideBytes);
+
+	// Write-into sibling of fillFlatFromBuffer -- writes directly into an
+	// existing Java array's [destStart, destStart+destStep*length) range
+	// (JPArray::setRange/clone's fast path, jp_convert.cpp's
+	// tryFastBufferPush) instead of allocating and returning a fresh one.
+	void fillFlatIntoArray(char typeCode, char srcKind, jint srcSize, jboolean swapped,
+			jobject buf, jint length, jint strideBytes,
+			jarray dest, jint destStart, jint destStep);
+
 	jobject newArrayInstance(jclass c, jintArray dims);
 	jthrowable getCause(jthrowable th);
 	jstring getMessage(jthrowable th);

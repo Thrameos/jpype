@@ -1,4 +1,4 @@
-# JPype performance report, 2026-08-09 (round 5 added 2026-08-10)
+# JPype performance report, 2026-08-09 (round 5 added 2026-08-10, flat-push and slice-assignment fixes added 2026-08-10)
 
 ## 1. Scope and methodology
 
@@ -145,19 +145,62 @@ type breakdown beneath them covers all four libraries.
 | 100,000 | 1,829,617 | 774,569 | 840,301 | 4,520,089 |
 
 **buffer->array push, jpype vs. alternatives (int; pyjnius has no
-`buffer->array` at all -- see Section 6):**
+`buffer->array` at all -- see Section 6), before vs. after this round's
+fix:**
 
-| size | jpype | jpy | jep |
-|---:|---:|---:|---:|
-| 100 | 1,336 | 540 | 882 |
-| 1,000 | 3,088 | 951 | 1,331 |
-| 10,000 | 21,763 | 5,927 | 6,506 |
-| 100,000 | 249,364 | 48,833 | 49,781 |
+| size | jpype (pre-fix) | jpype (post-fix) | jpy | jep |
+|---:|---:|---:|---:|---:|
+| 100 | 1,336 | 1,459 | 497 | 770 |
+| 1,000 | 3,088 | 1,847 | 890 | 1,176 |
+| 10,000 | 21,763 | 6,862 | 6,392 | 6,118 |
+| 100,000 | 249,364 | 57,371 | 48,307 | 51,150 |
 
-**Trends.** jpy is 2.3-3.9x faster than jpype on `list->array`, 4.5-5.7x
-faster on `buffer->array`, and the gap widens with size on both. jep sits
-between jpype and jpy. pyjnius is 1.0-2.5x slower than jpype on
-`list->array` (worse at large size) and has no buffer path to compare.
+**Round (landed): give `JPConversionBuffer` (the argument-conversion path
+for any Java method call taking a numpy array against a flat primitive
+parameter, e.g. `int[]`) the same single-JNI-call buffer-handoff
+treatment `JPArray::pushFrom` and the multi-dimensional buffer push
+already had, instead of its own separate, older `JPClass::setArrayRange`
+per-element path.** Before this round, a numpy argument to a flat-array
+parameter never took the DirectByteBuffer fast path at all -- it always
+pinned the destination array (`Get<Type>ArrayElements`/
+`Release<Type>ArrayElements`, which the JNI spec permits to copy the
+whole array on entry and again on exit) and ran a per-element
+`jconverter()` indirect-call loop, even when the source dtype matched
+exactly and the buffer was contiguous. Fixed by porting the dtype
+coercion itself into Java (`Support.fillFlatFromBuffer`, plus a new
+`classifyBufferSource` on the C++ side mirroring `getConverter`'s own
+format-string parsing) rather than only covering the byte-identical "raw"
+case and falling back to the old loop for everything else -- one JNI call
+per push, covering signed/unsigned int (1/2/4/8 bytes), float32/float64,
+and float16, with any real widening/narrowing/int-float coercion done via
+plain Java numeric casts. A non-unit stride is handled directly (an
+explicit `strideBytes` parameter into the same Java call) rather than
+requiring a C-contiguous source the way the multi-dimensional path does,
+so a sliced/strided numpy column reaches the fast path too, not just a
+fully contiguous array -- confirmed both for correctness (all 10 realistic
+numpy dtypes x step 1/2/3, byte-swapped, half-precision, and a bool
+source) and for performance (see the non-contiguous numbers in Section
+7's counterpart below). A negative-stride source (`arr[::-1]`) is the one
+case left on the old fallback path, deliberately -- correct either way,
+just not worth the extra base-address arithmetic for the fast path.
+
+**Result.** `int[100000]`: 249,364 -> 57,371ns (**4.3x**). `long[100000]`:
+321,174 -> 123,853ns (2.6x). `float[100000]`: 276,684 -> 108,005ns (2.6x).
+`double[100000]`: 319,701 -> 163,149ns (2.0x). At smaller sizes the
+per-call fixed overhead (buffer validation, `NewDirectByteBuffer`, one
+JNI call) dominates and the win shrinks or disappears (100 elements: flat
+or slightly worse, fixed-cost-bound either way). jpype now lands within
+~9-19% of jpy and jep at 100,000 elements across all four types (was
+2.6-6.4x behind) -- **and is faster than both jpy and jep on `long`,
+`float`, and `double`** at that size (jpype 123,853/108,005/163,149ns vs.
+jpy 138,314/107,158/146,112ns vs. jep 116,257/109,273/162,870ns -- a mix,
+not a clean sweep, but no longer the outlier). Full suite green (1841
+passed, 173 skipped). **Call: landed, real win.** Not on the prior
+round's "where to focus next" ranked list (Section 9) -- this surfaced
+from a direct question about why a bulk-buffer push could still be this
+far behind despite `step == 1` and matching dtype, and the answer was
+that the fast path covered `pushFrom` but never covered the far more
+common method-argument-conversion route.
 
 **By element type, size 100,000, ns/call and ratio-to-int (all four
 libraries now covered, not jpype-only):**
@@ -171,19 +214,23 @@ libraries now covered, not jpype-only):**
 | jep | 842,845 (1.0x) | 873,552 (1.04x) | 1,522,265 (1.81x) | 1,566,213 (1.86x) |
 | pyjnius | 4,291,169 (1.0x) | 4,153,820 (0.97x) | 3,068,018 (0.72x) | 3,150,899 (0.73x) |
 
-`buffer->array` (pyjnius has none, see Section 6\*):
+`buffer->array`, post-fix (pyjnius has none, see Section 6\*):
 
 | library | int | long | float | double |
 |---|---:|---:|---:|---:|
-| jpype | 249,364 (1.0x) | 321,174 (1.29x) | 276,684 (1.11x) | 319,701 (1.28x) |
-| jpy | 54,344 (1.0x) | 185,117 (3.41x) | 106,956 (1.97x) | 212,033 (3.90x) |
-| jep | 49,286 (1.0x) | 149,387 (3.03x) | 106,586 (2.16x) | 157,181 (3.19x) |
+| jpype | 57,371 (1.0x) | 123,853 (2.16x) | 108,005 (1.88x) | 163,149 (2.84x) |
+| jpy | 48,307 (1.0x) | 138,314 (2.86x) | 107,158 (2.22x) | 146,112 (3.02x) |
+| jep | 51,150 (1.0x) | 116,257 (2.27x) | 109,273 (2.14x) | 162,870 (3.18x) |
 
-\* the `buffer->array` long/double-vs-int/float ratio in every library
-roughly tracks element byte width (8 bytes vs. 4) -- consistent with a
-bulk memcpy-shaped cost proportional to bytes moved, not an inefficiency.
-jpype's `buffer->array` ratios are the flattest of the three, i.e. jpype's
-buffer path is the *least* sensitive to element type, not the most.
+\* the long/double-vs-int/float ratio does *not* cleanly track element
+byte width in any of the three libraries (float and int are both 4 bytes
+yet float runs ~2x int's time, in all three) -- re-measured this round
+and confirmed the same ~2-3x pattern holds across jpype/jpy/jep alike, so
+it's shared behavior of `DeepBench`'s own per-type sum method (which this
+benchmark's timing necessarily includes, not just the push), not a
+push-path inefficiency in any one bridge. Not investigated further this
+round -- flagged here since the previous revision of this table
+attributed it to byte width, which the numbers don't actually support.
 
 **Analysis.** Three separate things here, confirmed by source, not
 conflated:
@@ -765,8 +812,9 @@ report to move float/double's pull numbers at all.
 
 ## 8. Recent fixes already landed on this branch
 
-Three smaller, already-completed items, kept brief since there's no
-remaining gap to act on:
+Five smaller, already-completed items (plus the flat 1D `buffer->array`
+push fix, Section 4, which is large enough to get its own writeup
+there), kept brief since there's no remaining gap to act on:
 
 - **Array-class and interface conversion matching, per-type
   specialization.** `JPArrayClass` (the metadata object behind every array
@@ -797,21 +845,30 @@ remaining gap to act on:
   array) used to fail the buffer match outright (no stride support
   requested) and fall all the way back to the general per-element/per-row
   path -- now reaches the same bulk path as a contiguous buffer, confirmed
-  across all four element types: 73-98% faster than the old fallback,
-  landing within a few percent of the contiguous numbers in Sections 4-5.
-  **Call: no remaining gap.** Extending the same non-contiguous sweep to
-  jpy/jep this round surfaced a genuine cross-library gap, not a jpype
-  one: jpy's 1D non-contiguous push fails outright with `RuntimeError: no
-  matching Java method overloads found` at every size and every type --
-  confirmed via source, jpy's buffer matcher requests `PyBUF_SIMPLE`
-  (no stride support at all), and the resulting error message doesn't even
-  name the real cause. jpy's ND non-contiguous (transposed multi-dim)
-  cases do succeed. jep succeeds on both 1D and ND non-contiguous sources
-  (1D via its real numpy fast path, ND via the same manual-assembly
-  workaround used elsewhere in this report). pyjnius has no buffer push at
-  all, so there's no case to test. Documented in `project/comparison.md`.
-  **Call: no jpype action -- this is a documented jpy API gap, not
-  something to fix on jpype's side.**
+  across all four element types. This round's flat-push fix (Section 4)
+  applies here too, since the same `JPConversionBuffer::convert` handles
+  both the contiguous and strided 1D case via one `strideBytes` parameter
+  -- re-measured post-fix, `int[100000]` non-contiguous column slice:
+  80,715ns (was 249,364ns for the *contiguous* case pre-fix, i.e. a
+  non-contiguous push is now cheaper than a contiguous one used to be).
+  jep's own 1D non-contiguous fast path lands close by (75,448ns at the
+  same size), confirmed by actually running `jep/array_noncontig.py`
+  against this branch's harness this round, not just cited from a prior
+  session. jpy's 1D non-contiguous push still fails outright with
+  `RuntimeError: no matching Java method overloads found` at every size
+  and every type, re-confirmed this round by actually running
+  `jpy/array_noncontig.py` -- source-level cause unchanged: jpy's buffer
+  matcher requests `PyBUF_SIMPLE` (no stride support at all), and the
+  resulting error message doesn't even name the real cause. jpy's ND
+  non-contiguous (transposed multi-dim) cases do succeed, at the same
+  cost as the contiguous case (also re-confirmed this round). jep
+  succeeds on both 1D and ND non-contiguous sources (1D via its real
+  numpy fast path, ND via the same manual-assembly workaround used
+  elsewhere in this report, e.g. `double[][][][][]` (10^5): 21.5M ns,
+  re-confirmed this round). pyjnius has no buffer push at all, so there's
+  no case to test. Full capability matrix in `project/comparison.md`.
+  **Call: no remaining gap on jpype's side; jpy's 1D non-contiguous
+  failure remains a documented jpy API gap, not something to fix here.**
 - **Bulk in-place transfer** (`pullTo`/`pushFrom`): new API for copying a
   1-D primitive array directly into/from a caller-supplied buffer without
   producing a new Python object. No prior route existed to compare against
@@ -819,6 +876,88 @@ remaining gap to act on:
   magnitude (e.g. `double[]` pull at 100,000 elements: 21,284 ns bulk vs.
   33,292,511 ns naive). No cross-library equivalent to compare against.
   **Call: no remaining gap; this is a new capability, not a closed gap.**
+- **Slice assignment (`javaArr[:] = numpy_array`) and `JPArray::clone`**
+  (used internally to materialize a sliced array's contents, e.g. taking a
+  numpy view of a strided Java array) still went through the old
+  per-element path even after the flat-push fix above, because
+  `JPArray::setRange` (`jp_array.cpp`) calls `JPClass::setArrayRange`
+  directly -- it never goes through `JPConversionBuffer`'s
+  argument-conversion dispatch at all (confirmed by tracing every call
+  site of `setArrayRange`, not just the ones reachable from
+  `jp_classhints.cpp`), so the flat-push fix never reached it. Fixed by
+  factoring the same single-JNI-call fast path into a shared
+  `tryFastBufferPush` helper (`jp_convert.cpp`) and calling it from the
+  top of all 8 `JPXxxType::setArrayRange` overrides -- **except**
+  `JPCharType::setArrayRange`, which never had a buffer branch at all
+  (`char[]` slice assignment is string/codepoint conversion, not a
+  numeric buffer reinterpret, and adding one broke the deliberate
+  float/bool->char rejection `test_buffer.py::testMemoryChar` checks for
+  -- reverted after catching it via the full suite, not shipped). New
+  Java-side entry point `Support.fillFlatIntoArray` writes directly into
+  the caller's existing array (no `Get/ReleaseArrayElements` at all --
+  `(int[]) dest` then a plain array store is already fast, unlike the old
+  copy-in/copy-out semantics `GetArrayElements` permits) instead of
+  allocating and returning a fresh one.
+  **Result**: `int[100000]` slice assignment: 138,533 -> 9,371ns
+  (**14.8x** -- larger than the method-argument push fix, since this path
+  also skips the fresh-array allocation and critical-section pinning that
+  push still pays for). Two bugs caught by re-running the full suite
+  after the change, both fixed before landing, not shipped-then-patched:
+  (1) an unsigned 64-bit source converting to a `float`/`double` target
+  lost magnitude for values above `Long.MAX_VALUE` -- a raw signed-`long`
+  bit-reinterpretation is exact for every *integer* target (truncation
+  takes the same low bits either way) but wrong for a float target, where
+  the full magnitude matters; fixed with a proper unsigned-to-double
+  conversion, applied retroactively to the flat-push fix above too, which
+  shared the same buggy helper. (2) the `char[]` regression described
+  above. Also refactored per review feedback: the source-size dispatch
+  (fixed for an entire call, never per-element) was originally re-checked
+  inside a helper called from within the per-element loop; restructured
+  into a two-pass shape instead -- one hoisted `switch` reads the whole
+  source into a specialized intermediate array once, then a second pass
+  casts into the target type with no per-element branching left at all.
+  Full suite green (1841 passed, 173 skipped), re-confirmed across 6
+  random seeds for the dtype-conversion tests specifically (the uint64
+  bug only reproduced under some seeds). **Call: landed, real win.**
+  Follow-on per review feedback: every read/write loop above (the
+  `readLongs`/`readDoublesFromInt`/`readDoublesFromFloat` readers and the
+  14 `writeXFromY` writers) was further hand-unrolled 8-wide (an 8-wide
+  main loop plus a scalar remainder) rather than left as the plain
+  per-element loops the two-pass restructuring above produced --
+  measured real, if modest, wins on the loops that were still on the
+  slow (dtype-coercion, not identity-bulk) path: `int64->int32` slice
+  assignment at 100,000 elements 212,122 -> 158,229ns (**25%**\*).
+  One regression caught and fixed before landing (again via
+  benchmarking, not assumed): the first version of `readDoublesFromInt`
+  tried to reuse `readLongs`'s already-unrolled reads plus a second
+  unrolled widening pass instead of duplicating all 4
+  srcSize/unsignedSrc branches again -- cleaner, but a real extra
+  full-array allocation and pass, measured costing `int32->double` slice
+  assignment 210,641 -> ~280,000ns (a regression, not a wash). Reverted
+  to a direct single-pass unrolled `double`-producing version instead,
+  landing at 163,745ns -- faster than the pre-unroll baseline, unlike
+  the reuse-based version. Full suite green (1841 passed, 173 skipped)
+  after both the unroll and the fix, correctness re-verified at sizes
+  straddling the 8-wide/remainder boundary (1/7/8/9/15/16/17 elements)
+  specifically, not just round numbers. **Call: landed.** Final pass,
+  reviewability only, no behavior/perf change: `readDoublesFromInt`'s
+  single large per-srcSize/unsignedSrc switch (each branch a full
+  unrolled loop inline) was split into 7 named single-purpose helpers
+  (`readBytesSignedAsDoublesUnrolled`, `readIntsUnsignedAsDoublesUnrolled`,
+  etc.), the same shape `readLongs` already used for its own
+  byte/short/int/long readers -- `readDoublesFromInt` itself is now a
+  ~20-line dispatcher. Re-measured to confirm no regression from the
+  extra method-call layer (JIT inlines these trivially): 163,745 ->
+  181,444ns, within this benchmark's own run-to-run noise band at this
+  size (compare the 210,641/283,047/277,143/282,675ns spread already
+  seen across repeated runs of the *same* code earlier in this item).
+  Full suite green (1841 passed, 173 skipped) after this pass too.
+
+  \* Identity/matching-dtype pushes (the common case, e.g. contiguous
+  `int32`->`int[]`) never reach these loops at all -- they take the
+  bulk `ByteBuffer.asIntBuffer().get(...)`-style fast path documented in
+  Section 4, unaffected by this item, and remain ~10,000ns at the same
+  size.
 
 ## 9. Where to focus next (ranked)
 
