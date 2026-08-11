@@ -482,6 +482,65 @@ PyType_Spec numberBooleanSpec = {
 }
 #endif
 
+// Concrete leaf classes (JByte/JShort/JInt/JLong/JFloat/JDouble/JBoolean)
+// used to be plain Python `class JXxx(_jpype._JYyy, internal=True): pass`
+// statements in jpype/types.py. CPython's type_new unconditionally sets
+// Py_TPFLAGS_HAVE_GC on any heap type it creates -- even one instantiated
+// through this metaclass -- so every one of those classes silently picked
+// up GC tracking that their non-GC family root (built via
+// PyJPClass_FromSpecWithBases, bypassing type_new) deliberately avoids.
+// None of them can ever hold an arbitrary Python reference (tp_dictoffset
+// is 0, inherited from the root), so they can provably never participate
+// in a reference cycle -- the GC bookkeeping was pure per-instance
+// allocation/deallocation overhead. Building them the same way as their
+// root, with no additional slots, gets them the same non-GC treatment.
+static PyType_Slot leafSlots[] = {
+	{0}
+};
+
+// Dotted names, like the family roots, even though these are leaves: if
+// spec->name has no dot, CPython's own type-from-spec machinery (seeing no
+// pre-existing "__module__" in the freshly built tp_dict) raises a
+// DeprecationWarning ("builtin type JInt has no __module__ attribute")
+// instead of silently defaulting one -- so a dot has to be there at
+// creation time to keep that quiet. tp_name (and hence repr(), which
+// prints tp_name verbatim -- see PyJPClass_repr) is fixed back up to the
+// plain name below, after creation, alongside the __module__ override.
+static PyType_Spec byteSpec = {"_jpype.JByte", 0, 0, Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, leafSlots};
+static PyType_Spec shortSpec = {"_jpype.JShort", 0, 0, Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, leafSlots};
+static PyType_Spec intSpec = {"_jpype.JInt", 0, 0, Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, leafSlots};
+static PyType_Spec longSpec = {"_jpype.JLong", 0, 0, Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, leafSlots};
+static PyType_Spec floatSpec = {"_jpype.JFloat", 0, 0, Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, leafSlots};
+static PyType_Spec doubleSpec = {"_jpype.JDouble", 0, 0, Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, leafSlots};
+static PyType_Spec booleanLeafSpec = {"_jpype.JBoolean", 0, 0, Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, leafSlots};
+
+// Builds one of the leaf types above as a single-inheritance child of
+// `base`, registers it into the module under `attrName`, and restores both
+// tp_name and __module__ to what these classes had as ordinary
+// jpype/types.py class statements ("JInt" / "jpype.types") -- see the spec
+// table comment above for tp_name, and PyJPClass_FromSpecWithBases always
+// baking in __module__ "_jpype" (right for the family roots, genuinely
+// defined in this file, but not for these leaves).
+static PyTypeObject* PyJPNumber_createLeaf(PyType_Spec *spec, PyTypeObject *base,
+		Py_ssize_t offset, PyObject *module, const char *attrName)
+{
+	JPPyObject bases = JPPyTuple_Pack(base);
+	auto *type = (PyTypeObject*) PyJPClass_FromSpecWithBases(spec, bases.get(), offset);
+	JP_PY_CHECK(); // GCOVR_EXCL_LINE
+	// Types built through PyJPClass_FromSpecWithBases are permanent for the
+	// JVM's session (never deallocated), so replacing tp_name with a static
+	// string here -- distinct from the heap-allocated buffer type_dealloc
+	// would otherwise free via _ht_tpname -- is safe: that buffer is simply
+	// never freed, exactly like every other permanent resource this family
+	// of types already holds onto for the process lifetime.
+	type->tp_name = attrName;
+	PyDict_SetItemString(type->tp_dict, "__module__", PyUnicode_FromString("jpype.types"));
+	JP_PY_CHECK(); // GCOVR_EXCL_LINE
+	PyModule_AddObject(module, attrName, (PyObject*) type);
+	JP_PY_CHECK(); // GCOVR_EXCL_LINE
+	return type;
+}
+
 void PyJPNumber_initType(PyObject* module)
 {
 	// Long/Boolean keep no per-instance storage at all any more (see
@@ -515,6 +574,18 @@ void PyJPNumber_initType(PyObject* module)
 	PyJPClass_SetJValueFn(PyJPNumberBool_Type, &longJValue);
 	PyModule_AddObject(module, "_JBoolean", (PyObject*) PyJPNumberBool_Type);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
+
+	// The eight concrete leaves. Each shares its root's sentinel offset
+	// (identical layout, no new fields), and each inherits longJValue/
+	// tp_jvalue from its root via the tp_base walk in
+	// PyJPClass_GetJValueFn -- nothing extra to wire up here.
+	PyJPNumber_createLeaf(&byteSpec, PyJPNumberLong_Type, longOffset, module, "JByte");
+	PyJPNumber_createLeaf(&shortSpec, PyJPNumberLong_Type, longOffset, module, "JShort");
+	PyJPNumber_createLeaf(&intSpec, PyJPNumberLong_Type, longOffset, module, "JInt");
+	PyJPNumber_createLeaf(&longSpec, PyJPNumberLong_Type, longOffset, module, "JLong");
+	PyJPNumber_createLeaf(&floatSpec, PyJPNumberFloat_Type, offsetof (struct PyJPFloat, extra), module, "JFloat");
+	PyJPNumber_createLeaf(&doubleSpec, PyJPNumberFloat_Type, offsetof (struct PyJPFloat, extra), module, "JDouble");
+	PyJPNumber_createLeaf(&booleanLeafSpec, PyJPNumberBool_Type, longOffset, module, "JBoolean");
 }
 
 JPPyObject PyJPNumber_create(JPJavaFrame &frame, JPPyObject& wrapper, const JPValue& value)
