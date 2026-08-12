@@ -185,18 +185,21 @@ them covers all four libraries.
 
 ### 4.1 `list->array` push (method argument)
 
-jpype's column below reflects the `JPConversionList`/`JPConversionTuple`
-quality-check fast path added after this table was first measured (see
-4.5's interpretation for what changed and why); jpy/jep/pyjnius are
-unchanged from the prior edition (not re-run this pass -- no code in
-those libraries was touched).
+jpype's column below reflects both the `JPConversionList`/
+`JPConversionTuple` quality-check fast path and this session's
+`setArrayRange` value-extraction fast path (tuple loop plus int-widening
+acceptance for float/double, and `JPConversionList`/`JPConversionTuple`
+now own their `convert()` directly instead of delegating -- see 4.5's
+interpretation for what changed and why); jpy/jep/pyjnius are unchanged
+from the prior edition (not re-run this pass -- no code in those
+libraries was touched).
 
 | size | jpype | jpy | jep | pyjnius |
 |---:|---:|---:|---:|---:|
-| 100 | 1,240 | 1,186 | 2,492 | 3,017 |
-| 1,000 | 4,911 | 8,142 | 14,645 | 26,054 |
-| 10,000 | 41,428 | 76,972 | 136,955 | 275,144 |
-| 100,000 | 415,493 | 791,520 | 1,328,300 | 4,653,195 |
+| 100 | 1,213 | 1,186 | 2,492 | 3,017 |
+| 1,000 | 4,689 | 8,142 | 14,645 | 26,054 |
+| 10,000 | 39,100 | 76,972 | 136,955 | 275,144 |
+| 100,000 | 378,957 | 791,520 | 1,328,300 | 4,653,195 |
 
 ### 4.2 `buffer->array` push (method argument)
 
@@ -304,7 +307,7 @@ earlier edition of this report conflated with the matched-type case.
 
 | library | int | long | float | double |
 |---|---:|---:|---:|---:|
-| jpype | 415,493 (1.0x) | 446,772 (1.08x) | 186,541 (0.45x) | 272,819 (0.66x) |
+| jpype | 378,957 (1.0x) | 476,322 (1.26x) | 219,050 (0.58x) | 285,434 (0.75x) |
 | jpy | 791,520 (1.0x) | 848,558 (1.07x) | 731,562 (0.92x) | 805,252 (1.02x) |
 | jep | 1,328,300 (1.0x) | 1,301,621 (0.98x) | 1,006,701 (0.76x) | 952,065 (0.72x) |
 | pyjnius | 4,653,195 (1.0x) | 4,228,499 (0.91x) | 3,021,846 (0.65x) | 3,484,234 (0.75x) |
@@ -315,7 +318,7 @@ matched-type input):
 
 | library | float | double | float vs. matched-type float | double vs. matched-type double |
 |---|---:|---:|---:|---:|
-| jpype | 1,878,035 | 1,993,312 | 10.07x | 7.31x |
+| jpype | 389,276 | 438,896 | 1.78x | 1.54x |
 | jpy | 1,174,941 | 1,235,077 | 1.61x | 1.53x |
 | jep | 2,726,655 | 2,740,411 | 2.71x | 2.88x |
 | pyjnius | 2,939,610 | 4,273,681 | 0.97x | 1.23x |
@@ -356,57 +359,58 @@ report's `buffer->array` benchmarks exercise):
   times. jpype still does more work than jpy per list -- it's now just
   cheap enough not to lose the race doing it.
 - **`list->array`, matched-type int vs. long/float/double, within
-  jpype**: all four types land within 0.45-1.08x of int (long 1.08x,
-  float 0.45x, double 0.66x). Two independent fast paths compound here:
+  jpype**: all four types land within 0.58-1.26x of int (long 1.26x,
+  float 0.58x, double 0.75x). Two independent fast paths compound here:
   `setArrayRange` (the actual per-element value-extraction pass, run
   after a match has already been chosen) has its own `PyList_CheckExact`
-  fast loop -- `PyList_GET_ITEM` plus a direct `PyLong`/`PyFloat` read --
-  in all four of `jp_inttype.cpp`/`jp_longtype.cpp`/`jp_floattype.cpp`/
-  `jp_doubletype.cpp`, unchanged from the previous edition; and the
-  quality-check pass (`matches()`, which runs first, to decide overload
-  eligibility) now goes through `JPConversionList`/`JPConversionTuple`'s
-  own cached loop described above. An intermediate edition of this
-  optimization used a `fastElementCheck` raw-type-check override called
-  once per element instead -- superseded and removed once
-  `JPClass::sequenceCheck`'s generic, `cacheable`-gated version made it
-  redundant. This parity is real, but it is specifically a
-  matched-Python-type result -- it says both fast paths work, not that
+  /`PyTuple_CheckExact` fast loops -- `PyList_GET_ITEM`/`PyTuple_GET_ITEM`
+  plus a direct `PyLong`/`PyFloat` read -- in all four of
+  `jp_inttype.cpp`/`jp_longtype.cpp`/`jp_floattype.cpp`/
+  `jp_doubletype.cpp` (the tuple loops and float/double's `PyLong`-
+  widening branch are new this session); and the quality-check pass
+  (`matches()`, which runs first, to decide overload eligibility) goes
+  through `JPConversionList`/`JPConversionTuple`'s own cached loop, which
+  now also owns its `convert()` directly (`match.conversion = this`)
+  rather than delegating to the generic `sequenceConversion`. An
+  intermediate edition of this optimization used a `fastElementCheck`
+  raw-type-check override called once per element instead -- superseded
+  and removed once `JPClass::sequenceCheck`'s generic, `cacheable`-gated
+  version made it redundant. This parity is real, but it is specifically
+  a matched-Python-type result -- it says both fast paths work, not that
   `list->array` is type-insensitive in general (see the widening table).
-- **`list->array`, widening from int, within jpype (7.3-10.1x vs.
-  matched-type, up from 2.4-2.5x in the previous edition)**: the ratio
-  got *worse*, not better -- expected, not a regression. The quality-
-  check pass's fast loop accepts `PyLong_CheckExact(obj) ||
-  PyIndex_Check(obj)`, which does match a plain Python int being pushed
-  into a `double[]`/`float[]` (a valid widening conversion), so that
-  pass got just as cheap for widening as for matched-type. But
-  `setArrayRange`'s own fast loop (the value-extraction pass) still
-  requires an exact `PyFloat`/`PyDouble` element and falls straight to
-  the general per-element path for an int list regardless, unchanged
-  from before. So the absolute widening cost barely moved (float:
-  4,301,929 -> 1,878,035ns, ~2.3x faster, from the cheaper quality-check
-  pass alone) while the matched-type cost fell much further (float:
-  1,736,646 -> 186,541ns, ~9.3x faster, both passes now cheap) -- the
-  ratio between them necessarily widened even though every number here
-  got faster in absolute terms. Closing the ratio further would need
-  `setArrayRange`'s fast loop to also accept a `PyLong` element for a
-  float/double target -- not attempted here.
+- **`list->array`, widening from int, within jpype (1.5-1.8x vs.
+  matched-type, down from 7.3-10.1x in the previous edition)**: closing
+  this ratio was this session's main follow-up target. `setArrayRange`'s
+  fast loops for float/double now accept a `PyLong_CheckExact` element
+  alongside `PyFloat_CheckExact` (via `PyLong_AsDouble`), mirroring the
+  quality-check pass's own widening acceptance, so an int list/tuple
+  pushed into a `double[]`/`float[]` stays on the fast loop for the whole
+  sequence instead of falling to the general per-element path. Absolute
+  widening cost fell accordingly (float: 1,878,035 -> 389,276ns, ~4.8x
+  faster; double: 1,993,312 -> 438,896ns, ~4.5x faster), while the
+  matched-type numbers moved much less this round (both fast loops were
+  already in place for matched types before this session's changes) --
+  so the ratio between them closed from ~7-10x back down to ~1.5-1.8x,
+  in the same range as jpy's own widening penalty (see below). The
+  remaining gap over 1.0x is the `PyLong_CheckExact`/`PyLong_AsDouble`
+  branch itself plus the fact that a widening element never satisfies
+  the loop's *first* check (`PyFloat_CheckExact`), unlike the
+  matched-type case.
 - **`list->array` type parity, cross-library, matched-type**: float/
-  double land at or below int/long's cost in every library (0.45-1.08x
-  overall), not above it -- jpype's float ratio (0.45x) is now the
+  double land at or below int/long's cost in every library (0.58-1.26x
+  overall), not above it -- jpype's float ratio (0.58x) remains the
   widest lead of any library at this size, ahead of pyjnius's previous
   widest (0.65x); jpy and jep still track closer to parity (0.72-1.07x).
-- **`list->array`, widening from int, cross-library**: jpy (1.5-1.6x)
-  and jep (2.7-2.9x) show the same directional penalty jpype now shows
-  at far larger magnitude (7.3-10.1x, see above) -- none of the three
-  libraries' float/double fast paths accept a Python int element without
-  falling back, but jpype's matched-type path improved so much this
-  session that the *relative* gap to its own widening path grew even as
-  the *absolute* widening cost fell. pyjnius is again the exception
-  (0.97x and 1.23x) -- it doesn't show a widening penalty at all,
-  consistent with its float/double lead in the matched-type table;
-  whatever pyjnius does for float/double array construction isn't
-  type-checking the Python element the way the other three libraries'
-  fast paths do.
+- **`list->array`, widening from int, cross-library**: jpype's widening
+  penalty (1.5-1.8x) now lands in the same range as jpy's (1.5-1.6x),
+  both well below jep's (2.7-2.9x) -- all three still show *some*
+  directional penalty, since none of their float/double fast paths treat
+  a Python int element as free, but jpype's is no longer the outlier it
+  was in the previous edition. pyjnius is again the exception (0.97x and
+  1.23x) -- it doesn't show a widening penalty at all, consistent with
+  its float/double lead in the matched-type table; whatever pyjnius does
+  for float/double array construction isn't type-checking the Python
+  element the way the other three libraries' fast paths do.
 - **`buffer->array` type ratios**: now that Java-side per-type summation
   cost is out of the timed call (see Section 1's push methodology note --
   an earlier edition of this report measured `sum{Type}Array` here and
@@ -938,13 +942,14 @@ rows in ms/call):
 competitive with jpy/jep at every size (e.g. int @100,000: GraalPy
 4,511,797 ns vs. jpy 791,520, jep 1,328,300 (Section 4.1) -- GraalPy is
 3.4-5.7x slower here, in the same ballpark as pyjnius). jpype has since
-moved out of that ballpark on `list->array` specifically (415,493ns at
-this size, Section 4.5's `JPConversionList`/`JPConversionTuple` fast
-path) -- GraalPy is now 10.9x slower than jpype there, well past the
-3.4-5.7x range the other three libraries occupy; jpype's `array->list`
-pull is untouched by that change and still lands in the same 2-6x
-ballpark as jpy/jep. The other two rows are not in the same ballpark as
-anything else in this report:
+moved out of that ballpark on `list->array` specifically (378,957ns at
+this size, Section 4.5's `JPConversionList`/`JPConversionTuple`
+quality-check fast path plus this session's `setArrayRange`
+value-extraction fast path) -- GraalPy is now 11.9x slower than jpype
+there, well past the 3.4-5.7x range the other three libraries occupy;
+jpype's `array->list` pull is untouched by that change and still lands
+in the same 2-6x ballpark as jpy/jep. The other two rows are not in the
+same ballpark as anything else in this report:
 
 - **`buffer->array` (manual)**: 250-300x slower per element than
   GraalPy's own `list->array` (e.g. int @100,000: 1,270.2 ms vs. 4.51
