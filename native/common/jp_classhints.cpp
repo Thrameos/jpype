@@ -1036,51 +1036,44 @@ public:
 		match.cacheable = false;
 		match.type = JPMatch::_implicit;
 
-		// Sequence-wide fast path: a single {type, quality} slot, checked
-		// first via a bare pointer compare before anything else runs. A
-		// run of same-typed elements (the overwhelmingly common case --
-		// homogeneous lists, numpy scalar sequences, etc.) costs one
-		// Py_TYPE() + one pointer compare per element after the first, no
-		// virtual call and no JPMatch construction at all. Only a type
-		// switch pays for fastElementCheck (still no JPMatch), and only a
-		// type fastElementCheck doesn't recognize pays for the full
-		// findJavaConversion probe -- so a mixed list only pays full price
-		// for its genuinely-new types, not per element.
-		PyTypeObject *cachedType = nullptr;
-		JPMatch::Type cachedQuality = JPMatch::_none;
+		// Whole-sequence fast path, opt-in per component type (see
+		// JPClass::fastSequenceCheck). Only a type that has verified its
+		// own match quality is a pure function of Py_TYPE(item) -- never
+		// the value -- can safely claim this, so the scanning loop (and
+		// any type-run caching within it) is specialized per concrete
+		// JPClass rather than assumed generically here for every array's
+		// component type.
+		if (componentType->fastSequenceCheck(match, seq, length))
+		{
+			match.closure = cls;
+			match.conversion = sequenceConversion;
+			return match.type;
+		}
+
 		for (jlong i = 0; i < length && match.type > JPMatch::_none; i++)
 		{
 			// This is a special case.  Sequences produce new references
 			// so we must hold the reference in a container while
 			// the match is caching it.
 			JPPyObject item = seq[i];
-			PyObject *obj = item.get();
-			PyTypeObject *itemType = Py_TYPE(obj);
-
-			if (itemType == cachedType)
-			{
-				if (cachedQuality < match.type)
-					match.type = cachedQuality;
-				continue;
-			}
 
 			// Fast path: a raw type check standing in for a known quality,
 			// skipping JPMatch construction and the general
-			// findJavaConversion dispatch entirely. On a hit, (re)fills the
-			// single cache slot so every subsequent element of this same
-			// type takes the bare-compare branch above instead of coming
-			// back through here.
+			// findJavaConversion dispatch entirely. Falls through to the
+			// general path (unchanged) the moment an element doesn't
+			// qualify -- so a homogeneous list (the common case) never
+			// touches the slow path at all, and a mixed list only pays
+			// full price from the first non-conforming element onward, not
+			// for the whole list.
 			JPMatch::Type fastQuality;
-			if (componentType->fastElementCheck(obj, fastQuality))
+			if (componentType->fastElementCheck(item.get(), fastQuality))
 			{
-				cachedType = itemType;
-				cachedQuality = fastQuality;
 				if (fastQuality < match.type)
 					match.type = fastQuality;
 				continue;
 			}
 
-			JPMatch imatch(match.frame, obj);
+			JPMatch imatch(match.frame, item.get());
 			componentType->findJavaConversion(imatch);
 			if (imatch.type < match.type)
 				match.type = imatch.type;

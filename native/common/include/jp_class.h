@@ -19,6 +19,8 @@
 #include "jp_conversioncache.h"
 #include "jp_modifier.h"
 
+class JPPySequence;
+
 class JPClass : public JPResource
 {
 public:
@@ -150,6 +152,33 @@ public:
 	 * quality level.
 	 */
 	virtual bool fastElementCheck(PyObject* obj, JPMatch::Type& quality) const
+	{
+		return false;
+	}
+
+	/**
+	 * Whole-sequence fast path for JPConversionSequence (jp_classhints.cpp,
+	 * the list -> 1D array conversion): given the sequence and its length,
+	 * attempt to compute the entire match quality using only cheap C-API
+	 * checks, in a single virtual call.
+	 *
+	 * This is deliberately a whole-sequence entry point, not a per-element
+	 * one -- the scanning loop itself (including any type-run caching) is
+	 * specialized per concrete JPClass, not shared/generic code in
+	 * jp_classhints.cpp, per this project's usual specialize-per-type
+	 * convention. A homogeneous run of same-typed elements should cost
+	 * this one vtable dispatch total, not one per element and not one per
+	 * type transition.
+	 *
+	 * Returns false ("no opinion") without touching match.type if this
+	 * class has no specialized scanner; the caller then falls back to the
+	 * general per-element findJavaConversion path. A class that does
+	 * implement this is expected to always return true -- any element it
+	 * can't classify cheaply, it resolves itself (e.g. via
+	 * findJavaConversion on just that element), so there is no "partial
+	 * fast path, fall back to reprocessing everything" case.
+	 */
+	virtual bool fastSequenceCheck(JPMatch& match, JPPySequence& seq, jlong length)
 	{
 		return false;
 	}

@@ -141,6 +141,56 @@ bool JPIntType::fastElementCheck(PyObject* obj, JPMatch::Type& quality) const
 	return true;
 }
 
+bool JPIntType::fastSequenceCheck(JPMatch& match, JPPySequence& seq, jlong length)
+{
+	// Whole-sequence fast path for JPConversionSequence (jp_classhints.cpp).
+	// A single {PyTypeObject*} slot for the whole scan, checked first via
+	// a bare Py_TYPE(item) == cachedType pointer compare -- intConversion's
+	// own matches() (JPConversionLong<JPIntType>, jp_primitive_accessor.h)
+	// determines quality purely from PyLong_CheckExact/PyIndex_Check, never
+	// from the object's value, so caching by Py_TYPE alone is exactly as
+	// correct as re-probing every element of that type. Only one slot is
+	// needed (not one per quality level) because both the exact and
+	// index-check branches resolve to the same _implicit floor.
+	//
+	// A tagged Java value (e.g. an actual JInt) could in principle resolve
+	// to a higher quality than _implicit via jintConversion (checked ahead
+	// of intConversion in findJavaConversionImpl), but
+	// JPConversionSequence::matches()'s running match.type starts at
+	// _implicit and can only be lowered, never raised, so that distinction
+	// is unobservable at the sequence level -- _implicit is always the
+	// correct answer for any element this fast check accepts.
+	//
+	// Any element that isn't exact-int or index-like (a string, a float,
+	// something needing a real widening/unboxing decision, ...) is
+	// resolved on the spot via the general findJavaConversion path for
+	// just that one element -- there is no "bail out, caller reprocesses
+	// the whole sequence" case, so this always returns true.
+	match.type = JPMatch::_implicit;
+	PyTypeObject *cachedType = nullptr;
+	for (jlong i = 0; i < length && match.type > JPMatch::_none; i++)
+	{
+		JPPyObject item = seq[i];
+		PyObject *obj = item.get();
+		PyTypeObject *itemType = Py_TYPE(obj);
+
+		if (itemType == cachedType)
+			continue;
+
+		if (PyLong_CheckExact(obj) || PyIndex_Check(obj))
+		{
+			cachedType = itemType;
+			continue;
+		}
+
+		JPMatch imatch(match.frame, obj);
+		findJavaConversion(imatch);
+		if (imatch.type < match.type)
+			match.type = imatch.type;
+	}
+	return true;
+}
+
 void JPIntType::getConversionInfo(JPConversionInfo &info)
 {
 	JPJavaFrame frame = JPJavaFrame::outer();
