@@ -53,6 +53,12 @@ class JPStackInfo;
 // a failure to convert it to an exception.
 #define JP_PY_CHECK() { if (PyErr_Occurred() != 0) JP_RAISE_PYTHON();  } // GCOVR_EXCL_LINE
 
+// Use after a CPython C-API call whose *only* failure signal is a NULL
+// return (the common case) -- unlike JP_PY_CHECK(), only calls
+// PyErr_Occurred() when obj is actually NULL, since a real API contract
+// never returns non-NULL with an exception left pending.
+#define JP_PY_CHECK_NULL(obj) { if ((obj) == nullptr) { JP_PY_CHECK(); } }
+
 #ifdef __cplusplus
 extern "C"
 {

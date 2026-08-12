@@ -292,7 +292,7 @@ static PyObject * PyJPChar_new(PyTypeObject *type, PyObject *pyargs, PyObject * 
 	}
 
 	PyObject *self = PyJPChar_Create(type, fromJPValue(jv));
-	JP_PY_CHECK();
+	JP_PY_CHECK_NULL(self);
 	PyJPValue_assignJavaSlot(frame, self, jv);
 	return self;
 	JP_PY_CATCH(nullptr);  // GCOVR_EXCL_LINE

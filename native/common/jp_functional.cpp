@@ -115,7 +115,7 @@ public:
 		JP_TRACE_IN("JPConversionFunctional::convert");
 		JPJavaFrame frame = JPJavaFrame::inner();
 		auto *self = (PyJPProxy*) PyJPProxy_Type->tp_alloc(PyJPProxy_Type, 0);
-		JP_PY_CHECK();
+		JP_PY_CHECK_NULL(self);
 		JPClassList cl;
 		cl.push_back(cls);
 		self->m_Proxy = new JPProxyFunctional(self, cl);

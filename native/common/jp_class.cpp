@@ -409,7 +409,7 @@ JPPyObject JPClass::convertToPythonObject(JPJavaFrame& frame, jvalue value, bool
 		if (allocType == nullptr)
 			allocType = type;
 		PyObject *obj2 = allocType->tp_alloc(allocType, 0);
-		JP_PY_CHECK();
+		JP_PY_CHECK_NULL(obj2);
 
 		if (allocType != type)
 		{

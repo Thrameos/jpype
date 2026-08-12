@@ -58,6 +58,12 @@ clean:
 	rm -f Makefile cmake_install.cmake  # In case it used Unix Makefiles
 	# Remove build products
 	rm -f _jpype.so org.jpype.jar $(SENTINEL)
+	# Remove ant's own incremental build dir and compiled test-harness
+	# classes -- ant's timestamp-based incremental compilation can skip
+	# recompiling after a branch switch/checkout, silently leaving a stale
+	# jar mismatched against a freshly-rebuilt native .so.
+	rm -rf native/build test/classes
+	find test/harness -name "*.class" -delete
 	# Recursive cleanup
 	find . -name "*.pyc" -delete
 	find . -name "__pycache__" -type d -exec rm -rf {} +

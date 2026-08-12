@@ -171,7 +171,8 @@ void JPArray::pullTo(PyObject* dest)
 
 	JPJavaFrame frame = JPJavaFrame::outer();
 	JPPyBuffer buffer(dest, PyBUF_WRITABLE | PyBUF_STRIDES | PyBUF_FORMAT);
-	JP_PY_CHECK();
+	if (!buffer.valid())
+		JP_PY_CHECK();
 	Py_buffer& view = buffer.getView();
 
 	Py_ssize_t total = 1;
@@ -207,7 +208,8 @@ void JPArray::pushFrom(PyObject* src)
 
 	JPJavaFrame frame = JPJavaFrame::outer();
 	JPPyBuffer buffer(src, PyBUF_STRIDES | PyBUF_FORMAT);
-	JP_PY_CHECK();
+	if (!buffer.valid())
+		JP_PY_CHECK();
 	Py_buffer& view = buffer.getView();
 
 	Py_ssize_t total = 1;
