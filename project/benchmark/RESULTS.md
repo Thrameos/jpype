@@ -571,15 +571,20 @@ this report, not a real bulk path.
 
 **`list->array`, 2D, ns/element by shape and type (for comparison):**
 
+jpype's numbers reflect this session's `setArrayRange`/`JPConversionList`
+value-extraction fast path (see Section 4.1's note and Section 5's same
+caveat -- this table's nested-list rows recurse through the identical
+machinery); jpy/jep/pyjnius are unchanged (untouched code, not re-run).
+
 | shape (rows x cols) | int | long | float | double |
 |---|---:|---:|---:|---:|
-| 3 x 100,000 | 32.76 | 34.59 | 31.66 | 35.16 |
-| 10 x 10,000 | 31.89 | 32.33 | 31.43 | 31.53 |
-| 100 x 1,000 | 31.92 | 31.52 | 31.11 | 31.38 |
-| 1,000 x 100 | 32.25 | 32.46 | 32.06 | 32.79 |
-| 1,000 x 1,000 | 32.87 | 37.55 | 31.46 | 33.38 |
-| 10,000 x 10 | 41.42 | 42.08 | 41.08 | 43.63 |
-| **100,000 x 3** | **67.93** | 74.04 | 67.83 | 72.70 |
+| 3 x 100,000 | 31.39 | 31.50 | 28.75 | 31.60 |
+| 10 x 10,000 | 30.87 | 28.57 | 28.31 | 28.79 |
+| 100 x 1,000 | 30.27 | 28.85 | 28.49 | 29.52 |
+| 1,000 x 100 | 30.75 | 30.15 | 28.90 | 30.15 |
+| 1,000 x 1,000 | 29.81 | 31.38 | 29.70 | 31.58 |
+| 10,000 x 10 | 39.67 | 39.77 | 38.46 | 39.25 |
+| **100,000 x 3** | **64.14** | 67.11 | 63.58 | 69.89 |
 
 **Cross-library confirmation, int, ns/element at the two extreme 2D
 shapes (`3x100000` = few long rows, `100000x3` = many short rows, same
@@ -589,7 +594,7 @@ shapes (`3x100000` = few long rows, `100000x3` = many short rows, same
 
 | library | 3x100000 | 100000x3 | ratio |
 |---|---:|---:|---:|
-| jpype | 32.76 | 67.93 | 2.1x |
+| jpype | 31.39 | 64.14 | 2.0x |
 | jpy | 8.01 | 35.56 | 4.4x |
 | jep | 13.61 | 163.63 | 12.0x |
 | pyjnius | 30.55 | 83.37 | 2.7x |
@@ -621,7 +626,7 @@ of a slower baseline that barely moved when the push-methodology fix
 (Section 1) landed, meaning jpy's 2D buffer numbers were already
 conversion-dominated, not summation-dominated, unlike jpype's smallest
 shapes. jep's real (non-manual) `list->array` ratio (12.0x) is markedly
-worse than jpype's (2.1x) or jpy's (4.4x).
+worse than jpype's (2.0x) or jpy's (4.4x).
 
 `JPConversionMultiArrayBuffer`'s array-build step pays one JNI
 sub-array allocation per outer-dimension row on top of the bulk
