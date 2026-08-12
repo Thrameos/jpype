@@ -1036,13 +1036,12 @@ public:
 		match.cacheable = false;
 		match.type = JPMatch::_implicit;
 
-		// Whole-sequence fast path, opt-in per component type (see
-		// JPClass::fastSequenceCheck). Only a type that has verified its
-		// own match quality is a pure function of Py_TYPE(item) -- never
-		// the value -- can safely claim this, so the scanning loop (and
-		// any type-run caching within it) is specialized per concrete
-		// JPClass rather than assumed generically here for every array's
-		// component type.
+		// Whole-sequence fast path (see JPClass::fastSequenceCheck):
+		// generic and safe for every component type, since it only trusts
+		// its own per-type cache slot when the ordinary findJavaConversion
+		// reports the result cacheable -- the same flag already used (and
+		// set correctly by every JPConversion::matches()) for
+		// findJavaConversion's own per-class cache.
 		if (componentType->fastSequenceCheck(match, seq, length))
 		{
 			match.closure = cls;

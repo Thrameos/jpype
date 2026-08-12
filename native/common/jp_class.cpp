@@ -485,6 +485,49 @@ JPMatch::Type JPClass::findJavaConversion(JPMatch &match)
 	JP_TRACE_OUT;
 }
 
+bool JPClass::fastSequenceCheck(JPMatch& match, JPPySequence& seq, jlong length)
+{
+	JP_TRACE_IN("JPClass::fastSequenceCheck");
+	// See the declaration in jp_class.h for the full rationale: a single
+	// {PyTypeObject*, quality} slot for the whole scan, filled from the
+	// ordinary findJavaConversion() on a miss and trusted for later
+	// same-typed elements only when that call reported cacheable -- the
+	// same flag findJavaConversion()'s own per-class cache already keys
+	// on, set correctly by every JPConversion::matches() already, so this
+	// needs no per-type knowledge to stay correct for any JPClass.
+	match.type = JPMatch::_implicit;
+	// nullptr doubles as the "nothing cached yet" sentinel -- Py_TYPE(obj)
+	// is never null for a real object, so no separate bool is needed to
+	// distinguish an empty slot from a real cached type.
+	PyTypeObject *cachedType = nullptr;
+	JPMatch::Type cachedQuality = JPMatch::_none;
+	for (jlong i = 0; i < length && match.type > JPMatch::_none; i++)
+	{
+		JPPyObject item = seq[i];
+		PyObject *obj = item.get();
+		PyTypeObject *itemType = Py_TYPE(obj);
+
+		if (itemType == cachedType)
+		{
+			if (cachedQuality < match.type)
+				match.type = cachedQuality;
+			continue;
+		}
+
+		JPMatch imatch(match.frame, obj);
+		findJavaConversion(imatch);
+		if (imatch.cacheable)
+		{
+			cachedType = itemType;
+			cachedQuality = imatch.type;
+		}
+		if (imatch.type < match.type)
+			match.type = imatch.type;
+	}
+	return true;
+	JP_TRACE_OUT;
+}
+
 PyObject* JPClass::getHints()
 {
 	PyObject* out = m_Hints.get();

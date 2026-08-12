@@ -159,29 +159,31 @@ public:
 	/**
 	 * Whole-sequence fast path for JPConversionSequence (jp_classhints.cpp,
 	 * the list -> 1D array conversion): given the sequence and its length,
-	 * attempt to compute the entire match quality using only cheap C-API
-	 * checks, in a single virtual call.
+	 * compute the entire match quality in a single call.
 	 *
-	 * This is deliberately a whole-sequence entry point, not a per-element
-	 * one -- the scanning loop itself (including any type-run caching) is
-	 * specialized per concrete JPClass, not shared/generic code in
-	 * jp_classhints.cpp, per this project's usual specialize-per-type
-	 * convention. A homogeneous run of same-typed elements should cost
-	 * this one vtable dispatch total, not one per element and not one per
-	 * type transition.
+	 * The default implementation (jp_class.cpp) is generic and correct for
+	 * every JPClass, not a per-type assumption: it keeps a single
+	 * {PyTypeObject*, quality} slot for the whole scan, filled on a cache
+	 * miss by calling the ordinary findJavaConversion() for that one
+	 * element -- and reuses the slot for later same-typed elements only
+	 * when that call reported match.cacheable. cacheable is the same flag
+	 * findJavaConversion()'s own per-class JPConversionCache already keys
+	 * on, and every JPConversion::matches() implementation already sets it
+	 * correctly (e.g. JPConversionAsChar clears it because a char[]
+	 * element's quality depends on string length, not just Py_TYPE) -- so
+	 * trusting it here needs no per-type auditing to stay correct. A
+	 * homogeneous run of same-typed elements costs one findJavaConversion
+	 * call total (the first), then a bare Py_TYPE()+pointer compare per
+	 * element after that; a genuinely mixed/uncacheable sequence just pays
+	 * the ordinary per-element cost, same as if this fast path didn't
+	 * exist.
 	 *
-	 * Returns false ("no opinion") without touching match.type if this
-	 * class has no specialized scanner; the caller then falls back to the
-	 * general per-element findJavaConversion path. A class that does
-	 * implement this is expected to always return true -- any element it
-	 * can't classify cheaply, it resolves itself (e.g. via
-	 * findJavaConversion on just that element), so there is no "partial
-	 * fast path, fall back to reprocessing everything" case.
+	 * Always returns true; a subclass could still override this to return
+	 * false ("no opinion", untouched match.type) to opt out in favor of
+	 * the caller's general per-element fastElementCheck/findJavaConversion
+	 * fallback, but none currently do.
 	 */
-	virtual bool fastSequenceCheck(JPMatch& match, JPPySequence& seq, jlong length)
-	{
-		return false;
-	}
+	virtual bool fastSequenceCheck(JPMatch& match, JPPySequence& seq, jlong length);
 
 	/** Clear this class's cached findJavaConversion() results.
 	 *
