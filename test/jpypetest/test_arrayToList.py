@@ -105,3 +105,76 @@ class ArrayToListTestCase(common.JPypeTestCase):
         strs = JArray(JString)(3)
         strs[0] = "x"
         self.assertEqual(strs.tolist(), ["x", None, None])
+
+    def testDefaultReturnsPlainPythonTypes(self):
+        for jtype, pytype in [(JBoolean, bool), (JByte, int), (JShort, int),
+                               (JInt, int), (JLong, int)]:
+            with self.subTest(jtype=jtype):
+                ja = JArray(jtype)([1, 0, 1])
+                out = ja.tolist()
+                self.assertTrue(all(type(x) is pytype for x in out))
+
+        for jtype in (JFloat, JDouble):
+            with self.subTest(jtype=jtype):
+                ja = JArray(jtype)([1.5, 2.5])
+                out = ja.tolist()
+                self.assertTrue(all(type(x) is float for x in out))
+
+        ja = JArray(JChar)("hi")
+        self.assertTrue(all(type(x) is str for x in ja.tolist()))
+
+    def testDtypeJDouble(self):
+        ja = JArray(JInt)([1, 2, 3])
+        out = ja.tolist(dtype=JDouble)
+        self.assertTrue(all(isinstance(x, JDouble) for x in out))
+        self.assertEqual(list(out), [1.0, 2.0, 3.0])
+
+    def testDtypeJInt(self):
+        ja = JArray(JDouble)([1.5, 2.7])
+        out = ja.tolist(dtype=JInt)
+        self.assertTrue(all(isinstance(x, JInt) for x in out))
+        self.assertEqual(list(out), [1, 2])
+
+    def testDtypeInt(self):
+        ja = JArray(JDouble)([1.5, 2.7])
+        out = ja.tolist(dtype=int)
+        self.assertTrue(all(type(x) is int for x in out))
+        self.assertEqual(out, [1, 2])
+
+    def testDtypeFloat(self):
+        ja = JArray(JInt)([1, 2, 3])
+        out = ja.tolist(dtype=float)
+        self.assertTrue(all(type(x) is float for x in out))
+        self.assertEqual(out, [1.0, 2.0, 3.0])
+
+    def testDtypeIdentityStillWrapped(self):
+        # dtype matching the array's own component type still forces
+        # wrapped output (a no-op cast, but boxing is still requested).
+        ja = JArray(JInt)([1, 2, 3])
+        out = ja.tolist(dtype=JInt)
+        self.assertTrue(all(isinstance(x, JInt) for x in out))
+
+    def testDtypeWithSlices(self):
+        values = list(range(20))
+        ja = JArray(JInt)(values)
+        out = ja[::2].tolist(dtype=JDouble)
+        self.assertEqual(list(out), [float(x) for x in values[::2]])
+
+    def testDtypeMultiDim(self):
+        rows, cols = 2, 3
+        mat = JArray(JInt, 2)(rows)
+        for r in range(rows):
+            mat[r] = JArray(JInt)([r * cols + c for c in range(cols)])
+        out = mat.tolist(dtype=float)
+        expected = [[float(r * cols + c) for c in range(cols)] for r in range(rows)]
+        self.assertEqual(out, expected)
+
+    def testDtypeRejectsBoolean(self):
+        ja = JArray(JBoolean)([True, False])
+        with self.assertRaises(TypeError):
+            ja.tolist(dtype=int)
+
+    def testDtypeRejectsInvalidType(self):
+        ja = JArray(JInt)([1, 2, 3])
+        with self.assertRaises(TypeError):
+            ja.tolist(dtype=str)

@@ -13,6 +13,7 @@
 
    See NOTICE file for details.
  *****************************************************************************/
+#include <cctype>
 #include <vector>
 #include "jpype.h"
 #include "pyjp.h"
@@ -44,8 +45,48 @@ PyObject *JPPrimitiveType::convertLong(PyTypeObject* wrapper, long long value)
 	return PyJPNumber_longFromLongLong(wrapper, value);
 }
 
+namespace
+{
+
+// Box a jvalue (already converted into dstCode's native representation)
+// as a plain Python object -- no Java-value tagging, no wrapper class.
+// This is the "dtype=None"/"dtype=int"/"dtype=float" case.
+PyObject *boxPlain(char dstCode, jvalue v)
+{
+	switch (dstCode)
+	{
+		case 'Z': return PyBool_FromLong(v.z);
+		case 'B': return PyLong_FromLong(v.b);
+		case 'C': return PyUnicode_FromOrdinal(v.c);
+		case 'S': return PyLong_FromLong(v.s);
+		case 'I': return PyLong_FromLong(v.i);
+		case 'J': return PyLong_FromLongLong(v.j);
+		case 'F': return PyFloat_FromDouble(v.f);
+		default:  return PyFloat_FromDouble(v.d); // 'D'
+	}
+}
+
+// One adaptor, resolved once per getArrayRange() call from (srcCode,
+// dtype, wrap) and then invoked unconditionally for every element --
+// no per-element branching on dtype or typeCode. `caster` performs the
+// numeric cast (identity when dtype is this type itself); `adapt` only
+// decides plain-vs-wrapped boxing of the cast result.
+using JPListAdaptor = PyObject* (*)(JPJavaFrame&, JPPrimitiveType*, jconverter, const void*);
+
+PyObject *adaptPlain(JPJavaFrame& frame, JPPrimitiveType* dstType, jconverter caster, const void* src)
+{
+	return boxPlain(dstType->getTypeCode(), caster(const_cast<void*>(src)));
+}
+
+PyObject *adaptWrap(JPJavaFrame& frame, JPPrimitiveType* dstType, jconverter caster, const void* src)
+{
+	return dstType->convertToPythonObject(frame, caster(const_cast<void*>(src)), false).keep();
+}
+
+} // namespace
+
 JPPyObject JPPrimitiveType::getArrayRange(JPJavaFrame& frame, jarray a,
-		jsize start, jsize step, jsize len)
+		jsize start, jsize step, jsize len, JPPrimitiveType* dtype, bool wrap)
 {
 	JPPyObject list = JPPyObject::call(PyList_New(len));
 	if (len == 0)
@@ -53,6 +94,19 @@ JPPyObject JPPrimitiveType::getArrayRange(JPJavaFrame& frame, jarray a,
 
 	Py_ssize_t itemsize = getItemSize();
 	char typeCode = getTypeCode();
+
+	if (dtype != nullptr && typeCode == 'Z')
+		JP_RAISE(PyExc_TypeError, "dtype is not supported for boolean arrays");
+
+	JPPrimitiveType* dstType = (dtype != nullptr) ? dtype : this;
+	bool doWrap = (dtype != nullptr) && wrap;
+
+	char toCode[2] = { (char) tolower(dstType->getTypeCode()), '\0' };
+	jconverter caster = getConverter(getBufferFormat(), (int) itemsize, toCode);
+	if (caster == nullptr)
+		JP_RAISE(PyExc_TypeError, "no conversion available for the requested dtype");
+
+	JPListAdaptor adapt = doWrap ? &adaptWrap : &adaptPlain;
 
 	// A GetPrimitiveArrayCritical pin held across this whole per-element
 	// PyObject-allocation loop is the wrong tool even though it measures
@@ -74,19 +128,7 @@ JPPyObject JPPrimitiveType::getArrayRange(JPJavaFrame& frame, jarray a,
 		for (jsize i = 0; i < len; ++i)
 		{
 			const char *src = base + (jlong) i * itemsize;
-			jvalue v;
-			switch (typeCode)
-			{
-				case 'Z': v.z = *(const jboolean*) src; break;
-				case 'B': v.b = *(const jbyte*) src; break;
-				case 'C': v.c = *(const jchar*) src; break;
-				case 'S': v.s = *(const jshort*) src; break;
-				case 'I': v.i = *(const jint*) src; break;
-				case 'J': v.j = *(const jlong*) src; break;
-				case 'F': v.f = *(const jfloat*) src; break;
-				default: v.d = *(const jdouble*) src; break; // 'D'
-			}
-			PyList_SET_ITEM(list.get(), i, convertToPythonObject(frame, v, false).keep());
+			PyList_SET_ITEM(list.get(), i, adapt(frame, dstType, caster, src));
 		}
 		return list;
 	}
@@ -99,19 +141,7 @@ JPPyObject JPPrimitiveType::getArrayRange(JPJavaFrame& frame, jarray a,
 	for (jsize i = 0; i < len; ++i)
 	{
 		const char *src = base + (start + (jlong) i * step) * itemsize;
-		jvalue v;
-		switch (typeCode)
-		{
-			case 'Z': v.z = *(const jboolean*) src; break;
-			case 'B': v.b = *(const jbyte*) src; break;
-			case 'C': v.c = *(const jchar*) src; break;
-			case 'S': v.s = *(const jshort*) src; break;
-			case 'I': v.i = *(const jint*) src; break;
-			case 'J': v.j = *(const jlong*) src; break;
-			case 'F': v.f = *(const jfloat*) src; break;
-			default: v.d = *(const jdouble*) src; break; // 'D'
-		}
-		PyList_SET_ITEM(list.get(), i, convertToPythonObject(frame, v, false).keep());
+		PyList_SET_ITEM(list.get(), i, adapt(frame, dstType, caster, src));
 	}
 
 	JP_TRACE_JAVA("ReleasePrimitiveArrayCritical", mem);

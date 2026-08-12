@@ -80,8 +80,16 @@ public:
 	 * redundant JNI round trips. Works uniformly for every primitive type
 	 * via getTypeCode()/getItemSize(), so it lives here rather than as a
 	 * per-type override.
+	 *
+	 * @param dtype Target primitive type for a forced cast (see
+	 * getConverter/jconverter), or nullptr to use this type itself (no
+	 * cast). @param wrap If true, box each element as a tagged wrapper
+	 * instance of dtype (as convertToPythonObject would); if false,
+	 * return a plain Python int/float/bool/str. Ignored when dtype is
+	 * nullptr, which is always plain.
 	 */
-	JPPyObject getArrayRange(JPJavaFrame& frame, jarray a, jsize start, jsize step, jsize len);
+	JPPyObject getArrayRange(JPJavaFrame& frame, jarray a, jsize start, jsize step, jsize len,
+			JPPrimitiveType* dtype = nullptr, bool wrap = false);
 } ;
 
 #endif

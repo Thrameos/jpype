@@ -19,6 +19,7 @@
 #include "jp_javaframe.h"
 
 class JPArray;
+class JPPrimitiveType;
 
 class JPArrayView
 {
@@ -151,9 +152,15 @@ public:
 	 * Java array so a multi-dim primitive array produces genuinely nested
 	 * Python lists rather than a list of JArray wrapper objects.
 	 *
+	 * @param dtype Target primitive type for a forced cast, or nullptr to
+	 * use this array's own component type (no cast). Only meaningful for
+	 * primitive arrays; ignored once recursion reaches an Object[] level.
+	 * @param wrap If true, box each element as a tagged wrapper instance
+	 * of dtype (e.g. JInt); if false, return a plain Python int/float/
+	 * bool/str. Ignored when dtype is nullptr (always plain in that case).
 	 * @return a new Python list.
 	 */
-	JPPyObject toList();
+	JPPyObject toList(JPPrimitiveType* dtype = nullptr, bool wrap = false);
 
 	bool       isSlice() const
 	{

@@ -584,12 +584,56 @@ static const char *pushFrom_doc =
 		"component type (a converting fallback handles that case). Only\n"
 		"valid for arrays of primitives.\n";
 
-static PyObject *PyJPArray_toList(PyJPArray *self, PyObject *Py_UNUSED(ignored))
+namespace
 {
+
+// dtype=None (or omitted): dstType == nullptr means "this array's own
+// component type, plain output" -- resolved per-array in JPArray::toList.
+// dtype=int/float: plain output cast to Java long/double.
+// dtype=JByte..JDouble: wrapped output (tagged instance) cast to that type.
+struct DtypeSpec
+{
+	JPPrimitiveType* type = nullptr;
+	bool wrap = false;
+};
+
+DtypeSpec parseDtypeArg(PyObject* dtype_obj, JPContext* context)
+{
+	if (dtype_obj == nullptr || dtype_obj == Py_None)
+		return DtypeSpec{};
+
+	if (dtype_obj == (PyObject*) &PyLong_Type)
+		return DtypeSpec{context->_long, false};
+	if (dtype_obj == (PyObject*) &PyFloat_Type)
+		return DtypeSpec{context->_double, false};
+
+	if (PyType_Check(dtype_obj))
+	{
+		JPClass* jc = PyJPClass_getJPClass(dtype_obj);
+		auto* prim = dynamic_cast<JPPrimitiveType*>(jc);
+		if (prim != nullptr && jc != context->_boolean && jc != context->_char)
+			return DtypeSpec{prim, true};
+	}
+
+	JP_RAISE(PyExc_TypeError, "dtype must be int, float, or a jpype primitive "
+			"numeric type (JByte, JShort, JInt, JLong, JFloat, JDouble)");
+}
+
+} // namespace
+
+static PyObject *PyJPArray_toList(PyJPArray *self, PyObject *args, PyObject *kwargs)
+{
+	static const char *kwlist[] = {"dtype", nullptr};
+	PyObject *dtype_obj = nullptr;
+	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O:tolist", (char**) kwlist, &dtype_obj))
+		return nullptr;
+
 	JP_PY_TRY("PyJPArray_toList");
 	if (self->m_Array == nullptr)
 		JP_RAISE(PyExc_ValueError, "Null array");
-	return self->m_Array->toList().keep();
+	JPJavaFrame frame = JPJavaFrame::outer();
+	DtypeSpec spec = parseDtypeArg(dtype_obj, frame.getContext());
+	return self->m_Array->toList(spec.type, spec.wrap).keep();
 	JP_PY_CATCH(nullptr);
 }
 
@@ -600,7 +644,16 @@ static const char *toList_doc =
 		"critical section for the whole array rather than one JNI call per\n"
 		"element via ``list(arr)``); multi-dimensional primitive arrays\n"
 		"produce genuinely nested lists. For an array of objects, elements\n"
-		"are boxed individually, same as ``list(arr)``.\n";
+		"are boxed individually, same as ``list(arr)``.\n"
+		"\n"
+		"By default, primitive arrays return plain Python types (int,\n"
+		"float, bool, str). ``dtype`` requests a forced cast (NumPy-style):\n"
+		"\n"
+		"    - ``int``/``float``: plain Python type, cast to that kind.\n"
+		"    - ``JByte``/``JShort``/``JInt``/``JLong``/``JFloat``/``JDouble``:\n"
+		"      a tagged wrapper instance of that type, cast to it.\n"
+		"\n"
+		"``dtype`` is not supported for ``JBoolean``/``JChar`` arrays.\n";
 
 static const char *length_doc =
 		"Get the length of a Java array\n"
@@ -612,7 +665,7 @@ static PyMethodDef arrayMethods[] = {
 	{"__getitem__", (PyCFunction) (&PyJPArray_getItem), METH_O | METH_COEXIST, ""},
 	{"pullTo", (PyCFunction) (&PyJPArray_pullTo), METH_O, (pullTo_doc)},
 	{"pushFrom", (PyCFunction) (&PyJPArray_pushFrom), METH_O, (pushFrom_doc)},
-	{"tolist", (PyCFunction) (&PyJPArray_toList), METH_NOARGS, (toList_doc)},
+	{"tolist", (PyCFunction) (&PyJPArray_toList), METH_VARARGS | METH_KEYWORDS, (toList_doc)},
 	{nullptr},
 };
 

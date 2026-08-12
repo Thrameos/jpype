@@ -249,26 +249,27 @@ void JPArray::pushFrom(PyObject* src)
 	JP_TRACE_OUT;
 }
 
-JPPyObject JPArray::toList()
+JPPyObject JPArray::toList(JPPrimitiveType* dtype, bool wrap)
 {
 	JP_TRACE_IN("JPArray::toList");
 	auto *compType = dynamic_cast<JPPrimitiveType*>(m_Class->getComponentType());
 	if (compType != nullptr)
 	{
 		JPJavaFrame frame = JPJavaFrame::outer();
-		return compType->getArrayRange(frame, m_Object.get(), m_Start, m_Step, m_Length);
+		return compType->getArrayRange(frame, m_Object.get(), m_Start, m_Step, m_Length, dtype, wrap);
 	}
 
 	// Object[] or a nested array class -- no bulk read possible (each
 	// element can be a distinct runtime type), but recurse into any
 	// nested Java array so multi-dim primitive arrays still come out as
-	// genuinely nested Python lists.
+	// genuinely nested Python lists. dtype/wrap pass through unchanged so
+	// they apply once recursion reaches the primitive leaf level.
 	JPPyObject list = JPPyObject::call(PyList_New(m_Length));
 	for (jsize i = 0; i < m_Length; ++i)
 	{
 		JPPyObject item = getItem(i);
 		if (item.get() != nullptr && PyObject_IsInstance(item.get(), (PyObject*) PyJPArray_Type))
-			item = ((PyJPArray*) item.get())->m_Array->toList();
+			item = ((PyJPArray*) item.get())->m_Array->toList(dtype, wrap);
 		PyList_SET_ITEM(list.get(), i, item.keep());
 	}
 	return list;

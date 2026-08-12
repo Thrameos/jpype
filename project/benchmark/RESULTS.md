@@ -75,6 +75,20 @@ in Sections 4-6 as directional at the last significant figure, not as a
 precise measurement -- the qualitative pattern (which type is cheaper, by
 roughly how much) is the reliable part.
 
+**Known issue: cross-session staleness (pending a full refresh).** Every
+library's numbers in this report were captured in separate sessions,
+potentially on different machine states (thermal, load, JIT/JVM warmup) --
+verified concretely for pyjnius while investigating 7.2's `tolist()`
+numbers: a fresh same-session pyjnius `array_flat.py` run came back
+1.15-1.52x slower, uniformly across every size, than the pyjnius numbers
+already recorded in this report, with no code change on pyjnius's side.
+Any jpype-vs-other-library ratio in this report should be treated as
+approximate until every library is re-measured together in one sitting --
+a full refresh is planned; until then, treat cross-library gaps quoted
+anywhere below as order-of-magnitude, not precise, and prefer this
+report's *within-jpype* comparisons (e.g. 7.2's plain vs. wrapped
+`tolist()`), which don't depend on any other library's session state.
+
 ## 2. Scalars, boxing, strings, object identity
 
 **Methodology.** Single-call round trips: a static method call
@@ -635,32 +649,104 @@ attributes jpy's general speed lead to.
 
 ### 7.2 jpype's own `list()` vs. `tolist()` vs. `array->buffer`, by element type
 
+`tolist()` used to unconditionally box every element as a tagged wrapper
+instance (`JInt`/`JDouble`/etc, via `convertToPythonObject` -- the same
+per-element cost `list()` pays). It now defaults to a plain Python
+`int`/`float`/`bool`/`str` (a bare `PyLong_From*`/`PyFloat_FromDouble`/
+`PyBool_FromLong`/`PyUnicode_FromOrdinal`, no wrapper allocation, no
+Java-slot tagging) and takes an optional `dtype` argument
+(`int`/`float`/`JByte`/`JShort`/`JInt`/`JLong`/`JFloat`/`JDouble`) for
+callers that explicitly want the old wrapped behavior or a forced numeric
+cast (NumPy-`astype`-style). See
+`project/benchmark/jpype/array_to_list_dtype.py` for the dedicated
+benchmark behind 7.2's second table below. The numbers in this
+section's first table are the new default's (plain) cost -- see that
+second table for what the pre-change (wrapped) cost still is via
+`dtype=<same type>`.
+
 | size | list() int | list() long | list() float | list() double | tolist() int | tolist() long | tolist() float | tolist() double |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 100 | 9,753 | 10,139 | 10,287 | 10,411 | 7,759 | 6,916 | 7,696 | 7,658 |
-| 1,000 | 84,508 | 88,827 | 90,874 | 92,289 | 63,279 | 55,696 | 63,153 | 63,093 |
-| 10,000 | 843,648 | 871,045 | 895,955 | 916,370 | 611,811 | 543,112 | 620,346 | 620,752 |
-| 100,000 | 9,906,480 | 10,312,611 | 10,568,598 | 10,816,051 | 7,560,779 | 7,205,120 | 7,714,589 | 7,669,728 |
+| 100 | 10,813 | 12,194 | 10,608 | 10,874 | 2,884 | 3,860 | 2,435 | 2,450 |
+| 1,000 | 99,582 | 88,675 | 94,824 | 95,160 | 13,758 | 18,691 | 13,412 | 12,948 |
+| 10,000 | 950,307 | 994,453 | 938,463 | 915,998 | 188,030 | 219,852 | 139,248 | 132,032 |
+| 100,000 | 11,300,005 | 15,655,079 | 11,648,796 | 11,131,318 | 3,662,680 | 5,365,635 | 1,447,187 | 1,488,217 |
 
-**Interpretation.** `list()` lands within 1.03-1.60x of `tolist()`
-across sizes and types (int narrowest at small sizes, long widest) --
-neither is a real bulk-*decode* path, boxing happens one `PyObject` at a
-time either way, `list()` simply pays additional Python-iterator-protocol
-overhead on top. Both remain well behind `array->buffer` (7.1) for the
-same reason.
+**Interpretation.** Plain-default `tolist()` is now 2.9-8.1x faster than
+`list()` -- long is narrowest at every size (2.9-4.7x; its plain-boxing
+cost scales slightly worse than the other three types, visible directly
+in the dtype table below), float/double widest at 100,000 (7.5-8.1x) but
+mid-pack at smaller sizes, where int/long's ratio actually peaks at 1,000
+(7.2-7.4x) then narrows again -- not a clean monotonic trend with size in
+either direction, likely allocator/cache effects rather than anything
+architectural. A materially different relationship than before this
+change, when `list()` and
+`tolist()` were within 1.03-1.60x of each other (both paying the same
+per-element wrapper-construction cost, `list()` simply adding
+Python-iterator-protocol overhead on top; that comparison, and its old
+numbers, now live in the `dtype=<same type>` column of the table below
+instead). `tolist()` remains behind `array->buffer` (7.1) at every size --
+still one `PyObject` allocation per element rather than a direct buffer
+handoff -- but the gap has narrowed sharply now that the per-element cost
+lost its wrapper-construction overhead.
+
+**dtype: plain (new default) vs. wrapped vs. forced cast.**
+`tolist(dtype=<same type>)` is an identity cast that still requests
+wrapped output -- it reproduces the pre-change unconditional-wrapping
+cost exactly (same `convertToPythonObject` call `tolist()` used to make
+for every element), so it's the "before" column below.
+`tolist(dtype=<a different numeric kind>)` forces a real cast (e.g.
+`int[]` read as `float`, `double[]` read as `int`) but still returns
+plain output -- included to check whether the cast itself costs anything
+once boxing is already free of the wrapper allocation.
+
+| type, size 10,000 | list() (naive) | tolist() plain (new default) | tolist(dtype=same) wrapped (≈ old default) | tolist(dtype=cross) forced cast, plain |
+|---|---:|---:|---:|---:|
+| int (→ float) | 985,038 | 222,726 | 736,693 | 118,991 |
+| long (→ float) | 934,905 | 201,905 | 650,795 | 135,206 |
+| float (→ int) | 951,935 | 117,900 | 646,818 | 112,099 |
+| double (→ int) | 931,536 | 123,386 | 672,475 | 115,803 |
+
+**Interpretation.** Plain `tolist()` is 3.2-5.5x faster than the wrapped
+(`dtype=<same type>`) cost it replaced as the default -- consistent with
+the flat-table comparison above, and the mechanism is exactly the one
+7.1 attributes jpype's `array->list` cost to: a wrapper instance is a
+genuinely heavier object than a plain `int`/`float`, and removing that
+allocation removes most of the per-element cost, since decoding the raw
+value out of the pinned/copied array memory is the same either way.
+Forced-cast-to-a-different-type is not more expensive than the plain
+identity case -- if anything cheaper: float/double cast to plain `int`
+is within a few percent of their own plain-identity cost (112,099 vs.
+117,900ns; 115,803 vs. 123,386ns -- consistent with "the cast itself is
+essentially free next to the boxing cost, which dominates either way").
+int/long cast to plain `float` are 33-47% *faster* than their own
+plain-identity cost (118,991 vs. 222,726ns; 135,206 vs. 201,905ns), which
+is a real, not noise-sized, gap in the other direction -- plausibly
+`PyFloat_FromDouble`'s fixed-size allocation (fed from a freelist) being
+cheaper than `PyLong_FromLong`'s variable-length-digit-array allocation
+for values outside CPython's small-int cache, which is what `makeIntArray`/
+`makeLongArray`'s value range produces; not root-caused further here.
+`list()` is only
+1.3-1.5x slower than wrapped `tolist()` at this size -- both pay the same
+per-element wrapper cost, `list()` just adds iterator-protocol overhead
+on top, same as the flat-table interpretation above -- but 4.4-8.5x
+slower than plain/forced-cast `tolist()`, since `list()`'s own
+per-element path wasn't touched by this change and still always wraps.
 
 **Multi-dimensional** (jpype-only, int):
 
-| depth | list() | tolist() | buffer |
+| depth | list() | tolist() (plain, new default) | buffer |
 |---:|---:|---:|---:|
-| 2 | 17,921 | 17,392 | 3,558 |
-| 3 | 176,029 | 171,559 | 8,980 |
-| 4 | 1,848,088 | 1,783,278 | 62,000 |
-| 5 | 20,961,567 | 18,375,404 | 650,395 |
+| 2 | 21,487 | 14,034 | 4,383 |
+| 3 | 200,918 | 124,990 | 12,310 |
+| 4 | 2,151,241 | 1,429,522 | 79,193 |
+| 5 | 26,118,281 | 16,662,291 | 820,557 |
 
-`list()` stands within 1.03-1.14x of `tolist()` at every depth, both
-roughly an order of magnitude or more behind the buffer path -- the
-same pattern as the flat case.
+`tolist()`'s plain default is now 1.5-1.6x faster than `list()` at every
+depth (previously 1.03-1.14x, both paying the same wrapper cost) -- the
+same shift as the flat case, just smaller in magnitude since each level
+of nesting adds a fixed per-row Python-list-build cost around the
+leaf-array boxing that dominates the flat case. Both remain roughly an
+order of magnitude or more behind the buffer path.
 
 ### 7.3 `array->list` pull, type ratio to int, size 100,000
 
