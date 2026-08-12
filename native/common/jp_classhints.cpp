@@ -768,9 +768,9 @@ static inline size_t raggedItemSize(char typeCode)
 	return (typeCode == 'I' || typeCode == 'F') ? sizeof (jint) : sizeof (jlong);
 }
 
-// Fast, exact-type-only leaf check -- mirrors the exact-type-only fast
-// paths of JPIntType/JPLongType/JPFloatType/JPDoubleType::fastElementCheck.
-// Anything that doesn't pass
+// Fast, exact-type-only leaf check -- the same raw-type-check shape used
+// by JPClass::sequenceCheck's own fast path (jp_class.cpp). Anything that
+// doesn't pass
 // (a bool, a numpy scalar, an __index__ object, a plain Python int handed
 // to a float[]/double[] target, ...) fails the *whole* match for this
 // conversion (see matchRaggedNode below) and falls through to
@@ -1034,49 +1034,17 @@ public:
 		// From here the result depends on the sequence's element types, not
 		// just Py_TYPE(object) -- e.g. a list of ints vs a list of strings.
 		match.cacheable = false;
-		match.type = JPMatch::_implicit;
 
-		// Whole-sequence fast path (see JPClass::fastSequenceCheck):
-		// generic and safe for every component type, since it only trusts
-		// its own per-type cache slot when the ordinary findJavaConversion
-		// reports the result cacheable -- the same flag already used (and
-		// set correctly by every JPConversion::matches()) for
-		// findJavaConversion's own per-class cache.
-		if (componentType->fastSequenceCheck(match, seq, length))
-		{
-			match.closure = cls;
-			match.conversion = sequenceConversion;
-			return match.type;
-		}
-
-		for (jlong i = 0; i < length && match.type > JPMatch::_none; i++)
-		{
-			// This is a special case.  Sequences produce new references
-			// so we must hold the reference in a container while
-			// the match is caching it.
-			JPPyObject item = seq[i];
-
-			// Fast path: a raw type check standing in for a known quality,
-			// skipping JPMatch construction and the general
-			// findJavaConversion dispatch entirely. Falls through to the
-			// general path (unchanged) the moment an element doesn't
-			// qualify -- so a homogeneous list (the common case) never
-			// touches the slow path at all, and a mixed list only pays
-			// full price from the first non-conforming element onward, not
-			// for the whole list.
-			JPMatch::Type fastQuality;
-			if (componentType->fastElementCheck(item.get(), fastQuality))
-			{
-				if (fastQuality < match.type)
-					match.type = fastQuality;
-				continue;
-			}
-
-			JPMatch imatch(match.frame, item.get());
-			componentType->findJavaConversion(imatch);
-			if (imatch.type < match.type)
-				match.type = imatch.type;
-		}
+		// See JPClass::sequenceCheck: generic and safe for every component
+		// type, since it only trusts its own per-type cache slot when the
+		// ordinary findJavaConversion reports the result cacheable -- the
+		// same flag already used (and set correctly by every
+		// JPConversion::matches()) for findJavaConversion's own per-class
+		// cache. (A plain list/tuple never reaches here at all --
+		// JPConversionList/JPConversionTuple below peel those off earlier
+		// in each array class's chain, with their own sequenceCheckList/
+		// Tuple that avoid seq[i]'s PySequence_GetItem entirely.)
+		componentType->sequenceCheck(match, seq, length);
 		match.closure = cls;
 		match.conversion = sequenceConversion;
 		return match.type;
@@ -1107,6 +1075,89 @@ public:
 		return res;
 	}
 } _sequenceConversion;
+
+// list -> 1D array, specialized so the quality-check loop never branches
+// on container type per element (see JPClass::sequenceCheckList).
+// Tried ahead of sequenceConversion in each array class's chain; falls
+// through (returns _none) for anything that isn't PyList_CheckExact, so
+// sequenceConversion remains the correct general fallback for everything
+// else (tuples are peeled off by JPConversionTuple below, a custom
+// Sequence subclass or a range falls all the way to sequenceConversion).
+// Shares sequenceConversion's own convert() -- match.conversion is set to
+// sequenceConversion here, not this class, since the actual value push
+// (JPClass::setArrayRange) already has its own PyList_CheckExact fast
+// path per primitive type and doesn't care which matcher succeeded.
+class JPConversionList : public JPConversion
+{
+public:
+
+	JPMatch::Type matches(JPClass *cls, JPMatch &match) override
+	{
+		JP_TRACE_IN("JPConversionList::matches");
+		if (!PyList_CheckExact(match.object))
+			return match.type = JPMatch::_none;
+		auto *acls = dynamic_cast<JPArrayClass*>( cls);
+		JPClass *componentType = acls->getComponentType();
+		jlong length = PyList_GET_SIZE(match.object);
+		match.cacheable = false;
+		componentType->sequenceCheckList(match, match.object, length);
+		match.closure = cls;
+		match.conversion = sequenceConversion;
+		return match.type;
+		JP_TRACE_OUT;
+	}
+
+	void getInfo(JPClass *cls, JPConversionInfo &info) override
+	{
+		// No entry of its own -- sequenceConversion's getInfo already
+		// advertises "Sequence" (list included) for documentation
+		// purposes; this class only exists to speed up matching, not to
+		// broaden what's accepted.
+	}
+
+	jvalue convert(JPMatch &match) override
+	{
+		// Never actually reached -- matches() above sets match.conversion
+		// to sequenceConversion, not this, so sequenceConversion::convert()
+		// is what really runs. Present only to satisfy JPConversion's pure
+		// virtual.
+		return sequenceConversion->convert(match);  // GCOVR_EXCL_LINE
+	}
+} _listConversion;
+
+// tuple -> 1D array, the PyTuple_CheckExact counterpart to
+// JPConversionList above -- see there for the full rationale.
+class JPConversionTuple : public JPConversion
+{
+public:
+
+	JPMatch::Type matches(JPClass *cls, JPMatch &match) override
+	{
+		JP_TRACE_IN("JPConversionTuple::matches");
+		if (!PyTuple_CheckExact(match.object))
+			return match.type = JPMatch::_none;
+		auto *acls = dynamic_cast<JPArrayClass*>( cls);
+		JPClass *componentType = acls->getComponentType();
+		jlong length = PyTuple_GET_SIZE(match.object);
+		match.cacheable = false;
+		componentType->sequenceCheckTuple(match, match.object, length);
+		match.closure = cls;
+		match.conversion = sequenceConversion;
+		return match.type;
+		JP_TRACE_OUT;
+	}
+
+	void getInfo(JPClass *cls, JPConversionInfo &info) override
+	{
+		// See JPConversionList::getInfo.
+	}
+
+	jvalue convert(JPMatch &match) override
+	{
+		// See JPConversionList::convert -- also never actually reached.
+		return sequenceConversion->convert(match);  // GCOVR_EXCL_LINE
+	}
+} _tupleConversion;
 
 class JPConversionNull : public JPConversion
 {
@@ -1606,6 +1657,8 @@ JPConversion *bufferConversion = &_bufferConversion;
 JPConversion *multiArrayBufferConversion = &_multiArrayBufferConversion;
 JPConversion *raggedSequenceConversion = &_raggedSequenceConversion;
 JPConversion *sequenceConversion = &_sequenceConversion;
+JPConversion *listConversion = &_listConversion;
+JPConversion *tupleConversion = &_tupleConversion;
 JPConversion *nullConversion = &_nullConversion;
 JPConversion *classConversion = &_classConversion;
 JPConversion *objectConversion = &_objectConversion;

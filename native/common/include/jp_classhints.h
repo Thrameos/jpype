@@ -123,6 +123,8 @@ extern JPConversion *bufferConversion;
 extern JPConversion *multiArrayBufferConversion;
 extern JPConversion *raggedSequenceConversion;
 extern JPConversion *sequenceConversion;
+extern JPConversion *listConversion;
+extern JPConversion *tupleConversion;
 
 // True for the leaf primitive type codes raggedSequenceConversion
 // supports (I/J/F/D -- see jp_classhints.cpp for why). Checked by

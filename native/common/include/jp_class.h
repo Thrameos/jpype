@@ -135,31 +135,9 @@ public:
 	JPMatch::Type findJavaConversion(JPMatch& match);
 
 	/**
-	 * Cheap, type-only check for whether a single Python object matches
-	 * this class at some known quality, without going through the general
-	 * findJavaConversion dispatch (JPMatch construction, cache lookup,
-	 * matches() chain).
-	 *
-	 * Used by JPConversionSequence (jp_classhints.cpp) to fast-path the
-	 * common case of a homogeneous list of one recognized element type
-	 * (e.g. plain `int` for int[]): it tries this first, per element, and
-	 * only falls back to the general path (unchanged, fully correct) from
-	 * the point where an element doesn't satisfy it -- so a mixed list
-	 * only ever pays full price for its non-conforming tail, not the whole
-	 * list, and a fully homogeneous list never constructs a JPMatch at
-	 * all. Returns false (no opinion, always safe) by default; only worth
-	 * overriding where a raw C-API type check can stand in for a known
-	 * quality level.
-	 */
-	virtual bool fastElementCheck(PyObject* obj, JPMatch::Type& quality) const
-	{
-		return false;
-	}
-
-	/**
-	 * Whole-sequence fast path for JPConversionSequence (jp_classhints.cpp,
+	 * Whole-sequence quality check for JPConversionSequence (jp_classhints.cpp,
 	 * the list -> 1D array conversion): given the sequence and its length,
-	 * compute the entire match quality in a single call.
+	 * compute the entire match quality (into match.type) in a single call.
 	 *
 	 * The default implementation (jp_class.cpp) is generic and correct for
 	 * every JPClass, not a per-type assumption: it keeps a single
@@ -174,16 +152,28 @@ public:
 	 * trusting it here needs no per-type auditing to stay correct. A
 	 * homogeneous run of same-typed elements costs one findJavaConversion
 	 * call total (the first), then a bare Py_TYPE()+pointer compare per
-	 * element after that; a genuinely mixed/uncacheable sequence just pays
-	 * the ordinary per-element cost, same as if this fast path didn't
-	 * exist.
-	 *
-	 * Always returns true; a subclass could still override this to return
-	 * false ("no opinion", untouched match.type) to opt out in favor of
-	 * the caller's general per-element fastElementCheck/findJavaConversion
-	 * fallback, but none currently do.
+	 * element after that.
 	 */
-	virtual bool fastSequenceCheck(JPMatch& match, JPPySequence& seq, jlong length);
+	virtual void sequenceCheck(JPMatch& match, JPPySequence& seq, jlong length);
+
+	/**
+	 * Same algorithm as sequenceCheck, specialized for the two concrete
+	 * container types that dominate real usage (JPConversionList/
+	 * JPConversionTuple, jp_classhints.cpp, tried ahead of the general
+	 * JPConversionSequence in each array class's conversion chain).
+	 *
+	 * These exist so the per-element loop itself never branches on
+	 * container type: PyList_GET_ITEM/PyTuple_GET_ITEM index straight into
+	 * the container's backing array with a borrowed reference, no
+	 * PySequence_GetItem protocol dispatch and no refcount traffic --
+	 * cheaper than sequenceCheck's seq[i] on every single element, not
+	 * just once. Splitting into three unconditional entry points (rather
+	 * than one that branches on container type inside the loop) is the
+	 * same specialize-don't-runtime-dispatch shape used throughout this
+	 * codebase's conversion chains.
+	 */
+	virtual void sequenceCheckList(JPMatch& match, PyObject* listObj, jlong length);
+	virtual void sequenceCheckTuple(JPMatch& match, PyObject* tupleObj, jlong length);
 
 	/** Clear this class's cached findJavaConversion() results.
 	 *

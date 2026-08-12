@@ -485,9 +485,44 @@ JPMatch::Type JPClass::findJavaConversion(JPMatch &match)
 	JP_TRACE_OUT;
 }
 
-bool JPClass::fastSequenceCheck(JPMatch& match, JPPySequence& seq, jlong length)
+namespace
 {
-	JP_TRACE_IN("JPClass::fastSequenceCheck");
+
+// Shared by sequenceCheck/sequenceCheckList/sequenceCheckTuple below:
+// given one already-fetched element, either take the bare-compare fast
+// path against the running {cachedType, cachedQuality} slot, or fall to
+// findJavaConversion and (re)fill that slot when the result is cacheable.
+// Factored out so the three container-specific loops share this logic
+// textually instead of tripling it -- each loop itself still stays
+// branch-free per element, since only the *indexing* operation differs
+// between them, not this step.
+inline void sequenceCheckStep(JPClass *self, JPMatch &match, PyObject *obj,
+		PyTypeObject *&cachedType, JPMatch::Type &cachedQuality)
+{
+	PyTypeObject *itemType = Py_TYPE(obj);
+	if (itemType == cachedType)
+	{
+		if (cachedQuality < match.type)
+			match.type = cachedQuality;
+		return;
+	}
+
+	JPMatch imatch(match.frame, obj);
+	self->findJavaConversion(imatch);
+	if (imatch.cacheable)
+	{
+		cachedType = itemType;
+		cachedQuality = imatch.type;
+	}
+	if (imatch.type < match.type)
+		match.type = imatch.type;
+}
+
+} // namespace
+
+void JPClass::sequenceCheck(JPMatch& match, JPPySequence& seq, jlong length)
+{
+	JP_TRACE_IN("JPClass::sequenceCheck");
 	// See the declaration in jp_class.h for the full rationale: a single
 	// {PyTypeObject*, quality} slot for the whole scan, filled from the
 	// ordinary findJavaConversion() on a miss and trusted for later
@@ -495,6 +530,10 @@ bool JPClass::fastSequenceCheck(JPMatch& match, JPPySequence& seq, jlong length)
 	// same flag findJavaConversion()'s own per-class cache already keys
 	// on, set correctly by every JPConversion::matches() already, so this
 	// needs no per-type knowledge to stay correct for any JPClass.
+	//
+	// This is the general path (used when the sequence isn't a plain list
+	// or tuple -- see sequenceCheckList/Tuple for those), so element
+	// access still goes through seq[i]'s ordinary PySequence_GetItem.
 	match.type = JPMatch::_implicit;
 	// nullptr doubles as the "nothing cached yet" sentinel -- Py_TYPE(obj)
 	// is never null for a real object, so no separate bool is needed to
@@ -504,27 +543,43 @@ bool JPClass::fastSequenceCheck(JPMatch& match, JPPySequence& seq, jlong length)
 	for (jlong i = 0; i < length && match.type > JPMatch::_none; i++)
 	{
 		JPPyObject item = seq[i];
-		PyObject *obj = item.get();
-		PyTypeObject *itemType = Py_TYPE(obj);
-
-		if (itemType == cachedType)
-		{
-			if (cachedQuality < match.type)
-				match.type = cachedQuality;
-			continue;
-		}
-
-		JPMatch imatch(match.frame, obj);
-		findJavaConversion(imatch);
-		if (imatch.cacheable)
-		{
-			cachedType = itemType;
-			cachedQuality = imatch.type;
-		}
-		if (imatch.type < match.type)
-			match.type = imatch.type;
+		sequenceCheckStep(this, match, item.get(), cachedType, cachedQuality);
 	}
-	return true;
+	JP_TRACE_OUT;
+}
+
+void JPClass::sequenceCheckList(JPMatch& match, PyObject* listObj, jlong length)
+{
+	JP_TRACE_IN("JPClass::sequenceCheckList");
+	// Same algorithm as sequenceCheck (see there for the cacheable
+	// rationale), but for a PyList_CheckExact object specifically:
+	// PyList_GET_ITEM indexes straight into the list's backing array with
+	// a borrowed reference (valid for the object's lifetime, no
+	// PySequence_GetItem protocol dispatch, no refcount churn per
+	// element).
+	match.type = JPMatch::_implicit;
+	PyTypeObject *cachedType = nullptr;
+	JPMatch::Type cachedQuality = JPMatch::_none;
+	for (jlong i = 0; i < length && match.type > JPMatch::_none; i++)
+	{
+		PyObject *obj = PyList_GET_ITEM(listObj, (Py_ssize_t) i);
+		sequenceCheckStep(this, match, obj, cachedType, cachedQuality);
+	}
+	JP_TRACE_OUT;
+}
+
+void JPClass::sequenceCheckTuple(JPMatch& match, PyObject* tupleObj, jlong length)
+{
+	JP_TRACE_IN("JPClass::sequenceCheckTuple");
+	// Same as sequenceCheckList, for a PyTuple_CheckExact object.
+	match.type = JPMatch::_implicit;
+	PyTypeObject *cachedType = nullptr;
+	JPMatch::Type cachedQuality = JPMatch::_none;
+	for (jlong i = 0; i < length && match.type > JPMatch::_none; i++)
+	{
+		PyObject *obj = PyTuple_GET_ITEM(tupleObj, (Py_ssize_t) i);
+		sequenceCheckStep(this, match, obj, cachedType, cachedQuality);
+	}
 	JP_TRACE_OUT;
 }
 

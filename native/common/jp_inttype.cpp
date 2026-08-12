@@ -121,26 +121,6 @@ JPMatch::Type JPIntType::findJavaConversionImpl(JPMatch &match)
 	JP_TRACE_OUT;
 }
 
-bool JPIntType::fastElementCheck(PyObject* obj, JPMatch::Type& quality) const
-{
-	// Matches intConversion's (JPConversionLong<JPIntType>) own test
-	// exactly -- PyLong_CheckExact/PyIndex_Check are themselves Py_TYPE
-	// slot checks, so this is exactly as correct as the general path for
-	// this case, just without constructing a JPMatch or going through the
-	// cache. A tagged Java value (e.g. an actual JInt) could in principle
-	// resolve to a higher quality than _implicit via jintConversion
-	// (checked ahead of intConversion in findJavaConversionImpl), but
-	// JPConversionSequence::matches() clamps the whole sequence's result
-	// to _implicit regardless (its running match.type starts at
-	// _implicit and can only be lowered), so that distinction is
-	// unobservable here -- _implicit is always the correct answer for
-	// any element that would not have been rejected outright.
-	if (!PyLong_CheckExact(obj) && !PyIndex_Check(obj))
-		return false;
-	quality = JPMatch::_implicit;
-	return true;
-}
-
 void JPIntType::getConversionInfo(JPConversionInfo &info)
 {
 	JPJavaFrame frame = JPJavaFrame::outer();
@@ -361,6 +341,8 @@ JPMatch::Type JPArrayClassInt::findJavaConversionImpl(JPMatch &match)
 	if (nullConversion->matches(this, match)
 			|| objectConversion->matches(this, match)
 			|| bufferConversion->matches(this, match)
+			|| listConversion->matches(this, match)
+			|| tupleConversion->matches(this, match)
 			|| sequenceConversion->matches(this, match)
 			|| hintsConversion->matches(this, match)
 			)

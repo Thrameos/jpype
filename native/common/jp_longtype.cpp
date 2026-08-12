@@ -121,16 +121,6 @@ JPMatch::Type JPLongType::findJavaConversionImpl(JPMatch &match)
 	JP_TRACE_OUT;
 }
 
-bool JPLongType::fastElementCheck(PyObject* obj, JPMatch::Type& quality) const
-{
-	// Matches longConversion's (JPConversionLong<JPLongType>) exact-type
-	// branch above -- see JPIntType::fastElementCheck for the same pattern.
-	if (!PyLong_CheckExact(obj))
-		return false;
-	quality = JPMatch::_implicit;
-	return true;
-}
-
 void JPLongType::getConversionInfo(JPConversionInfo &info)
 {
 	JPJavaFrame frame = JPJavaFrame::outer();
@@ -336,6 +326,8 @@ JPMatch::Type JPArrayClassLong::findJavaConversionImpl(JPMatch &match)
 	if (nullConversion->matches(this, match)
 			|| objectConversion->matches(this, match)
 			|| bufferConversion->matches(this, match)
+			|| listConversion->matches(this, match)
+			|| tupleConversion->matches(this, match)
 			|| sequenceConversion->matches(this, match)
 			|| hintsConversion->matches(this, match)
 			)

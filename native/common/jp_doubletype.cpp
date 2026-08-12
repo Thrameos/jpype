@@ -139,18 +139,6 @@ JPMatch::Type JPDoubleType::findJavaConversionImpl(JPMatch &match)
 	JP_TRACE_OUT;
 }
 
-bool JPDoubleType::fastElementCheck(PyObject* obj, JPMatch::Type& quality) const
-{
-	// Matches asDoubleExactConversion's PyFloat_CheckExact branch above --
-	// see JPIntType::fastElementCheck for the same pattern. Unlike float,
-	// double is a lossless widening of a Python float, so this earns
-	// _exact, not _implicit.
-	if (!PyFloat_CheckExact(obj))
-		return false;
-	quality = JPMatch::_exact;
-	return true;
-}
-
 void JPDoubleType::getConversionInfo(JPConversionInfo &info)
 {
 	JPJavaFrame frame = JPJavaFrame::outer();
@@ -354,6 +342,8 @@ JPMatch::Type JPArrayClassDouble::findJavaConversionImpl(JPMatch &match)
 	if (nullConversion->matches(this, match)
 			|| objectConversion->matches(this, match)
 			|| bufferConversion->matches(this, match)
+			|| listConversion->matches(this, match)
+			|| tupleConversion->matches(this, match)
 			|| sequenceConversion->matches(this, match)
 			|| hintsConversion->matches(this, match)
 			)

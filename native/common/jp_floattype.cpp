@@ -126,20 +126,6 @@ JPMatch::Type JPFloatType::findJavaConversionImpl(JPMatch &match)
 	JP_TRACE_OUT;
 }
 
-bool JPFloatType::fastElementCheck(PyObject* obj, JPMatch::Type& quality) const
-{
-	// Matches asFloatConversion's (JPConversionAsFloat<JPFloatType>)
-	// PyNumber_Check branch for an exact Python float -- see
-	// JPIntType::fastElementCheck for the same pattern. Unlike double,
-	// float has no dedicated exact-match conversion (narrowing a 64-bit
-	// Python float into a 32-bit Java float is always lossy), so this is
-	// _implicit, not _exact.
-	if (!PyFloat_CheckExact(obj))
-		return false;
-	quality = JPMatch::_implicit;
-	return true;
-}
-
 void JPFloatType::getConversionInfo(JPConversionInfo &info)
 {
 	JPJavaFrame frame = JPJavaFrame::outer();
@@ -347,6 +333,8 @@ JPMatch::Type JPArrayClassFloat::findJavaConversionImpl(JPMatch &match)
 	if (nullConversion->matches(this, match)
 			|| objectConversion->matches(this, match)
 			|| bufferConversion->matches(this, match)
+			|| listConversion->matches(this, match)
+			|| tupleConversion->matches(this, match)
 			|| sequenceConversion->matches(this, match)
 			|| hintsConversion->matches(this, match)
 			)

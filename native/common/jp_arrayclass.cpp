@@ -63,6 +63,8 @@ JPMatch::Type JPArrayClass::findJavaConversionImpl(JPMatch &match)
 	// matched.
 	if (nullConversion->matches(this, match)
 			|| objectConversion->matches(this, match)
+			|| listConversion->matches(this, match)
+			|| tupleConversion->matches(this, match)
 			|| sequenceConversion->matches(this, match)
 			|| hintsConversion->matches(this, match)
 			)
