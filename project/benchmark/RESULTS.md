@@ -436,12 +436,19 @@ reproducibility). ns/call, best-of-5.
 
 **`list->array` push (int, rectangular):**
 
+jpype's column reflects this session's `setArrayRange`/`JPConversionList`
+value-extraction fast path (Section 4.1's note) -- a nested-list row
+recurses through the same `JPConversionList` machinery, so it's affected
+too even though this table measures a different benchmark script
+(`array_multidim.py`, not `array_shape.py`); jpy/jep/pyjnius are
+unchanged (untouched code, not re-run).
+
 | depth | jpype | jpy | jep | pyjnius |
 |---:|---:|---:|---:|---:|
-| 2 | 5,393 | 2,009 | 7,154 | 4,866 |
-| 3 | 45,925 | 17,306 | 65,772 | 42,665 |
-| 4 | 438,572 | 168,455 | 641,714 | 432,587 |
-| 5 | 4,282,564 | 1,747,970 | 6,495,953 | 5,133,107 |
+| 2 | 5,011 | 2,009 | 7,154 | 4,866 |
+| 3 | 41,945 | 17,306 | 65,772 | 42,665 |
+| 4 | 407,965 | 168,455 | 641,714 | 432,587 |
+| 5 | 4,002,289 | 1,747,970 | 6,495,953 | 5,133,107 |
 
 **`buffer->array` push (int; jep has no automatic multi-dim buffer
 path):**
@@ -462,20 +469,20 @@ within 2-10% of each other at every depth):
 
 | depth | int | long | float | double |
 |---:|---:|---:|---:|---:|
-| 2 | 5,393 | 5,284 | 5,484 | 5,515 |
-| 3 | 45,925 | 45,498 | 48,045 | 49,414 |
-| 4 | 438,572 | 438,923 | 445,475 | 454,450 |
-| 5 | 4,282,564 | 4,356,063 | 4,460,878 | 4,705,742 |
+| 2 | 5,011 | 5,109 | 5,045 | 5,123 |
+| 3 | 41,945 | 42,295 | 43,486 | 43,859 |
+| 4 | 407,965 | 410,586 | 417,018 | 416,999 |
+| 5 | 4,002,289 | 4,038,062 | 4,077,299 | 4,216,606 |
 
 **jpype, ragged vs. rectangular** (int; ragged `n` is the tree's actual
 element count, not exactly 10\*\*depth):
 
 | depth | rectangular | ragged (n) |
 |---:|---:|---:|
-| 2 | 5,393 | 3,429 (n=53) |
-| 3 | 45,925 | 48,899 (n=1,034) |
-| 4 | 438,572 | 374,519 (n=8,073) |
-| 5 | 4,282,564 | 5,269,898 (n=114,940) |
+| 2 | 5,011 | 3,176 (n=53) |
+| 3 | 41,945 | 46,793 (n=1,034) |
+| 4 | 407,965 | 349,377 (n=8,073) |
+| 5 | 4,002,289 | 5,080,600 (n=114,940) |
 
 **Ragged push, type parity across all four libraries** (depth 5,
 n=114,940 elements; long/float/double shown as a ratio to that library's
@@ -483,21 +490,46 @@ own int column):
 
 | library | int | long | float | double |
 |---|---:|---:|---:|---:|
-| jpype | 5,269,898 | 1.04x | 1.08x | 1.08x |
+| jpype | 5,080,600 | 0.99x | 1.00x | 1.05x |
 | jpy | 2,032,404 | 1.07x | 1.01x | 1.05x |
 | jep | 7,897,254 | 1.03x | 0.95x | 0.95x |
 | pyjnius | 6,371,139 | 1.06x | 1.38x | 1.40x |
 
 **Interpretation.**
 
-- **`list->array` vs. jpy** (~2.4-2.7x, roughly constant with depth):
+- **`list->array` vs. jpy** (~2.3-2.5x, roughly constant with depth):
   same element-validation tradeoff as Section 4.
 - **`list->array` vs. jep/pyjnius**: jpype already wins at every depth.
 - **`buffer->array` vs. jpy/jep**: jpype is *faster* at every depth, and
   the gap widens with depth in jpype's favor (2.8x ahead of jpy at depth
   2, 9.2x ahead at depth 5) -- jpype is the only one of the three with a
   real bulk multi-dimensional buffer path.
-- **Type parity within jpype, depth >= 2**: all four types within 2-10%
+- **jpy's `buffer->array` being *slower* than its own `list->array`
+  here (2.65-3.1x, roughly constant with depth) is real, reproduced on
+  a fresh run, and confirmed by source, not a stale/noisy number** --
+  `JType_CreateJavaArray` (jpy_jtype.c) has no numpy-aware branch
+  anywhere in its per-element recursion, so a numpy source pays two
+  compounding costs a nested Python list doesn't at every recursion
+  level: (1) `PySequence_GetItem` on a numpy sub-array falls through to
+  `mp_subscript` (numpy's own `__getitem__`), which constructs a new
+  ndarray view object per row, measured ~56-60ns costlier per call than
+  a list's direct `sq_item` slot read; (2) the leaf-level conversion
+  (`JPy_AS_JINT`, effectively `PyLong_AsLong`) receives a `numpy.int32`
+  scalar rather than a native Python `int`, routing through numpy's
+  `__index__` protocol instead of CPython's native-int fast path,
+  measured ~39ns costlier per leaf element. Leaf calls (10^depth)
+  dominate over row-level calls (10+100+...+10^(depth-1)) at every
+  depth measured, so (2) is the larger of the two effects. Combining
+  both, scaled by each depth's actual row/leaf call counts, predicts
+  the measured buffer-minus-list gap to within 20-34% at every depth
+  (a Python-level microbenchmark isn't an exact proxy for jpy's C-level
+  per-call cost, so some overshoot is expected) -- consistent scaling
+  across three orders of magnitude, not a coincidence at one data
+  point. This makes jpy the mirror image of jpype here: jpype has a
+  real bulk multi-dimensional buffer path so `buffer->array` is its
+  fast row, while jpy has none, so feeding it a numpy source instead of
+  a plain list is a pure loss.
+- **Type parity within jpype, depth >= 2**: all four types within 2-6%
   of each other at every depth, matching the flat-push matched-type
   parity in Section 4.5 -- this sweep's nested lists use a genuine
   Python `float` at float/double leaves (`leaf = float if label in

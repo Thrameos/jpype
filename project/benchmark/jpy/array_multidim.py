@@ -16,11 +16,24 @@ rows of the same name:
   - push, "list->array"/"buffer->array": DeepBench.void{2,3,4,5}D{Type}Array
     on a nested list or a numpy array respectively -- jpy's general
     per-element recursion (`JType_CreateJavaArray`, jpy_jtype.c) handles
-    a numpy sub-array exactly like any other Python sequence, so expect
-    near-identical cost between the two rows (no numpy-specific branch
-    exists for anything but a flat 1D target -- see array_flat.py). This
-    is still true type-by-type, not just for int: nothing in jpy's
-    per-element recursion is type-specific either.
+    a numpy sub-array through the exact same code path as any other
+    Python sequence (no numpy-specific branch exists for anything but a
+    flat 1D target -- see array_flat.py), but that does *not* mean
+    near-identical cost between the two rows -- measured (RESULTS.md
+    Section 5), `buffer->array` here is consistently 2.65-3.1x *slower*
+    than `list->array`, not close to it. Same code path, different
+    underlying object costs: `PySequence_GetItem` on a numpy sub-array
+    falls through to `mp_subscript` (numpy's own `__getitem__`), which
+    builds a new ndarray view object per row instead of a list's direct
+    `sq_item` slot read, and leaf-level conversion
+    (`JPy_AS_JINT`/`PyLong_AsLong`) receives a `numpy.int32` scalar
+    rather than a native Python `int`, routing through numpy's
+    `__index__` protocol instead of CPython's native-int fast path --
+    both add real per-call cost on top of the shared recursion, and the
+    leaf-level one dominates since leaf calls (10^depth) outnumber
+    row-level calls at every depth. This is still true type-by-type,
+    not just for int: nothing in jpy's per-element recursion is
+    type-specific either, so the same two costs apply uniformly.
   - pull, "array->list"/"array->buffer": jpy only registers a
     getbufferproc for 1D primitive-leaf array types (jpy_jobj.c:
     tp_as_buffer only set when isPrimitiveArray) -- an int[][]-and-deeper
