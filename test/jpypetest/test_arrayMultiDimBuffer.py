@@ -170,17 +170,20 @@ class ArrayMultiDimBufferTestCase(common.JPypeTestCase):
     def testPull2D(self):
         ja = self.DeepBench.make2DIntArray(5)
         arr = np.asarray(ja)
-        expected = np.array([[i * 5 + j for j in range(5)] for i in range(5)], dtype=np.int32)
+        # Cross-check against tolist() -- an independently-tested,
+        # differently-implemented element-wise conversion path (see
+        # test_arrayToList.py) -- rather than a hardcoded fill formula,
+        # since DeepBench.make2DIntArray's own fill (see DeepBench.java) is
+        # an implementation detail free to change independently of this test.
+        expected = np.array(ja.tolist(), dtype=np.int32)
         np.testing.assert_array_equal(arr, expected)
 
     def testPull4D(self):
         ja = self.DeepBench.make4DIntArray(4)
         arr = np.asarray(ja)
         self.assertEqual(arr.shape, (4, 4, 4, 4))
-        self.assertEqual(arr[1, 2, 3, 0], ((1 * 4 + 2) * 4 + 3) * 4 + 0)
-        self.assertEqual(int(arr.sum()), int(sum(
-            ((i * 4 + j) * 4 + k) * 4 + l
-            for i in range(4) for j in range(4) for k in range(4) for l in range(4))))
+        expected = np.array(ja.tolist(), dtype=np.int32)
+        np.testing.assert_array_equal(arr, expected)
 
     # ---- large scale: crosses the internal parallel-vs-serial threshold ----
     # (Support.PARALLEL_THRESHOLD_ELEMENTS == 1_000_000; these sizes are
@@ -195,12 +198,10 @@ class ArrayMultiDimBufferTestCase(common.JPypeTestCase):
         n = 110  # 110**3 ~= 1.33M elements
         ja = self.DeepBench.make3DIntArray(n)
         arr = np.asarray(ja)
-        self.assertEqual(arr[5, 6, 7], (5 * n + 6) * n + 7)
-        self.assertEqual(arr[n - 1, n - 1, n - 1], ((n - 1) * n + (n - 1)) * n + (n - 1))
-        expected_sum = sum(
-            (i * n + j) * n + k
-            for i in range(n) for j in range(n) for k in range(n))
-        self.assertEqual(int(arr.sum()), expected_sum)
+        # Cross-check against tolist() -- see testPull2D's comment on why
+        # this doesn't hardcode DeepBench.make3DIntArray's fill formula.
+        expected = np.array(ja.tolist(), dtype=np.int32)
+        np.testing.assert_array_equal(arr, expected)
 
     # ---- double, to confirm the fast path isn't int-only ----
 
