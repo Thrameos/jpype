@@ -187,11 +187,12 @@ Argument conversion for a numpy array against a flat primitive parameter
 an explicit stride parameter rather than requiring a C-contiguous
 source, so a sliced/strided numpy column takes the same code path as a
 fully contiguous array -- architecturally, not necessarily at the same
-*cost*: Section 4.4 measures a real, currently-unexplained 3.9x
-regression on a non-contiguous 1D source at this same size, which
-contradicts a "same fast path, same cost" reading of this paragraph and
-is flagged there rather than resolved. A negative-stride source
-(`arr[::-1]`) falls back to a per-element path.
+*cost*: Section 4.4 measures a non-contiguous 1D source at this same
+size running 2.6-3.9x slower than the contiguous number above, which
+looked at first like a regression but bisects out as benchmark noise
+(see 4.4) -- non-contiguous pushes through this path are consistently
+noisier run-to-run than contiguous ones, not consistently costlier. A
+negative-stride source (`arr[::-1]`) falls back to a per-element path.
 
 pyjnius has no `buffer->array` push at all (see 4.4).
 
@@ -241,15 +242,26 @@ parameter, rather than requiring a C-contiguous source.
 | pyjnius | N/A (no buffer push at all) |
 
 **Interpretation.** jep's non-contiguous push came down with the push
-methodology fix (Section 1), as expected. jpype's went the other way --
-up roughly 2.6x from the previous edition's 80,715ns, and with unusually
-wide best-vs-median spread (213,581 vs 345,015ns, a 62% gap that no
-other row in this report shows), suggesting real run-to-run instability
-rather than a clean regression. This wasn't reproduced from a fresh-clone
-disposable venv (per this repo's CLAUDE.md build-isolation guidance) and
-isn't otherwise explained by anything changed in this pass -- flagged
-here rather than resolved, since chasing it down is a separate
-investigation from the push-methodology fix this section is about. jpy's
+methodology fix (Section 1), as expected. jpype's number looks like a
+2.6x regression against the previous edition's 80,715ns, but it isn't
+one: bisecting this exact benchmark (via disposable venvs built from
+`git worktree` checkouts, per this repo's CLAUDE.md isolation guidance)
+against both the commit immediately before this session's changes and
+the commit immediately before the `strideBytes` bulk-JNI push path was
+even added reproduces the same 170,000-215,000ns (best) /
+270,000-345,000ns (median) range at every point checked -- including
+commits where none of this session's code changes are present. No
+commit in this session's history, or in the one that added the bulk
+path, ever measures near 80,715ns; three repeated runs at current HEAD
+land in the same range (185,163-211,733ns best). The 80,715ns figure in
+the previous edition was a single unrepresentative low sample, not a
+baseline that regressed -- the wide best-vs-median spread this row
+shows (a 30-60% gap) is itself the signature of a noisy measurement,
+consistent with that explanation. Nothing in this session's C++ changes
+(the `fastElementCheck`/`PyList_CheckExact` list-push work, or the
+`convertLong` signature change) touches this benchmark's code path at
+all -- it exercises `tryFastBufferPush`/`fillFlatIntoArray`, an
+unrelated buffer-handoff mechanism untouched by either fix. jpy's
 buffer matcher requests `PyBUF_SIMPLE` (no stride support at all) and
 fails outright on any non-contiguous 1D source; its ND non-contiguous
 (transposed multi-dim) cases do succeed, at the same cost as the

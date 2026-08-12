@@ -16,6 +16,7 @@
 package jpype.benchmark;
 
 import java.util.List;
+import java.util.Random;
 
 // Cross-library benchmark harness for deeper conversion-chain paths than
 // project/benchmark/bench_*.py's simple Math.max/Integer/String cases:
@@ -25,6 +26,39 @@ import java.util.List;
 // the hint-list scan this session's work targeted).
 public class DeepBench
 {
+
+  // Fixed-seed, precomputed once at class load -- so make*IntArray/
+  // make*LongArray's own fill loop stays a cheap bulk copy/index-read
+  // inside the timed pull benchmark (same shape of cost as the sequential
+  // a[i]=i it replaces), while the values themselves are spread across the
+  // full int/long range instead of 0..n-1. Sequential 0..n-1 sits almost
+  // entirely inside CPython's small-int cache (-5..256) for the n=100 row,
+  // so any library boxing pulled elements via plain PyLong_FromLong (not
+  // jpype's tagged JInt/JLong, which always allocates fresh regardless of
+  // value) would get that row nearly for free -- not representative of
+  // real, non-cached integer data. float/double aren't cached this way in
+  // CPython, so their make*Array fill is left sequential.
+  private static final int RANDOM_POOL_SIZE = 100_000;
+  private static final int[] RANDOM_INT_POOL = makeRandomIntPool(RANDOM_POOL_SIZE, 0x5EEDL);
+  private static final long[] RANDOM_LONG_POOL = makeRandomLongPool(RANDOM_POOL_SIZE, 0x5EEDL);
+
+  private static int[] makeRandomIntPool(int size, long seed)
+  {
+    Random r = new Random(seed);
+    int[] pool = new int[size];
+    for (int i = 0; i < size; i++)
+      pool[i] = r.nextInt();
+    return pool;
+  }
+
+  private static long[] makeRandomLongPool(int size, long seed)
+  {
+    Random r = new Random(seed);
+    long[] pool = new long[size];
+    for (int i = 0; i < size; i++)
+      pool[i] = r.nextLong();
+    return pool;
+  }
 
   public static class T0
   {
@@ -341,50 +375,53 @@ public class DeepBench
   public static int[] makeIntArray(int n)
   {
     int[] a = new int[n];
-    for (int i = 0; i < n; i++)
-      a[i] = i;
+    System.arraycopy(RANDOM_INT_POOL, 0, a, 0, n);
     return a;
   }
 
   public static int[][] make2DIntArray(int n)
   {
     int[][] a = new int[n][n];
+    int idx = 0;
     for (int i = 0; i < n; i++)
       for (int j = 0; j < n; j++)
-        a[i][j] = i * n + j;
+        a[i][j] = RANDOM_INT_POOL[idx++ % RANDOM_POOL_SIZE];
     return a;
   }
 
   public static int[][][] make3DIntArray(int n)
   {
     int[][][] a = new int[n][n][n];
+    int idx = 0;
     for (int i = 0; i < n; i++)
       for (int j = 0; j < n; j++)
         for (int k = 0; k < n; k++)
-          a[i][j][k] = (i * n + j) * n + k;
+          a[i][j][k] = RANDOM_INT_POOL[idx++ % RANDOM_POOL_SIZE];
     return a;
   }
 
   public static int[][][][] make4DIntArray(int n)
   {
     int[][][][] a = new int[n][n][n][n];
+    int idx = 0;
     for (int i = 0; i < n; i++)
       for (int j = 0; j < n; j++)
         for (int k = 0; k < n; k++)
           for (int l = 0; l < n; l++)
-            a[i][j][k][l] = ((i * n + j) * n + k) * n + l;
+            a[i][j][k][l] = RANDOM_INT_POOL[idx++ % RANDOM_POOL_SIZE];
     return a;
   }
 
   public static int[][][][][] make5DIntArray(int n)
   {
     int[][][][][] a = new int[n][n][n][n][n];
+    int idx = 0;
     for (int i = 0; i < n; i++)
       for (int j = 0; j < n; j++)
         for (int k = 0; k < n; k++)
           for (int l = 0; l < n; l++)
             for (int m = 0; m < n; m++)
-              a[i][j][k][l][m] = (((i * n + j) * n + k) * n + l) * n + m;
+              a[i][j][k][l][m] = RANDOM_INT_POOL[idx++ % RANDOM_POOL_SIZE];
     return a;
   }
 
@@ -462,50 +499,53 @@ public class DeepBench
   public static long[] makeLongArray(int n)
   {
     long[] a = new long[n];
-    for (int i = 0; i < n; i++)
-      a[i] = i;
+    System.arraycopy(RANDOM_LONG_POOL, 0, a, 0, n);
     return a;
   }
 
   public static long[][] make2DLongArray(int n)
   {
     long[][] a = new long[n][n];
+    int idx = 0;
     for (int i = 0; i < n; i++)
       for (int j = 0; j < n; j++)
-        a[i][j] = i * n + j;
+        a[i][j] = RANDOM_LONG_POOL[idx++ % RANDOM_POOL_SIZE];
     return a;
   }
 
   public static long[][][] make3DLongArray(int n)
   {
     long[][][] a = new long[n][n][n];
+    int idx = 0;
     for (int i = 0; i < n; i++)
       for (int j = 0; j < n; j++)
         for (int k = 0; k < n; k++)
-          a[i][j][k] = (i * n + j) * n + k;
+          a[i][j][k] = RANDOM_LONG_POOL[idx++ % RANDOM_POOL_SIZE];
     return a;
   }
 
   public static long[][][][] make4DLongArray(int n)
   {
     long[][][][] a = new long[n][n][n][n];
+    int idx = 0;
     for (int i = 0; i < n; i++)
       for (int j = 0; j < n; j++)
         for (int k = 0; k < n; k++)
           for (int l = 0; l < n; l++)
-            a[i][j][k][l] = ((i * n + j) * n + k) * n + l;
+            a[i][j][k][l] = RANDOM_LONG_POOL[idx++ % RANDOM_POOL_SIZE];
     return a;
   }
 
   public static long[][][][][] make5DLongArray(int n)
   {
     long[][][][][] a = new long[n][n][n][n][n];
+    int idx = 0;
     for (int i = 0; i < n; i++)
       for (int j = 0; j < n; j++)
         for (int k = 0; k < n; k++)
           for (int l = 0; l < n; l++)
             for (int m = 0; m < n; m++)
-              a[i][j][k][l][m] = (((i * n + j) * n + k) * n + l) * n + m;
+              a[i][j][k][l][m] = RANDOM_LONG_POOL[idx++ % RANDOM_POOL_SIZE];
     return a;
   }
 
