@@ -257,17 +257,42 @@ void JPDoubleType::setArrayRange(JPJavaFrame& frame, jarray a,
 	jsize index = start;
 	Py_ssize_t i = 0;
 
-	// Fast path: a plain list of exact floats, avoiding PySequence_GetItem's
-	// generic protocol dispatch in favor of PyList_GET_ITEM. See
-	// JPIntType::setArrayRange for the same pattern.
+	// Fast path: a plain list/tuple of exact floats (or ints, widening).
+	// See JPFloatType::setArrayRange for the same pattern (this type just
+	// stores the double directly, no narrowing cast needed).
 	if (PyList_CheckExact(sequence))
 	{
 		for (; i < length; ++i, index += step)
 		{
 			PyObject *item = PyList_GET_ITEM(sequence, i);
-			if (!PyFloat_CheckExact(item))
+			double v;
+			if (PyFloat_CheckExact(item))
+				v = PyFloat_AS_DOUBLE(item);
+			else if (PyLong_CheckExact(item))
+			{
+				v = PyLong_AsDouble(item);
+				if (v == -1.0 && PyErr_Occurred())
+					JP_PY_CHECK();
+			} else
 				break;
-			val[index] = (type_t) PyFloat_AS_DOUBLE(item);
+			val[index] = (type_t) v;
+		}
+	} else if (PyTuple_CheckExact(sequence))
+	{
+		for (; i < length; ++i, index += step)
+		{
+			PyObject *item = PyTuple_GET_ITEM(sequence, i);
+			double v;
+			if (PyFloat_CheckExact(item))
+				v = PyFloat_AS_DOUBLE(item);
+			else if (PyLong_CheckExact(item))
+			{
+				v = PyLong_AsDouble(item);
+				if (v == -1.0 && PyErr_Occurred())
+					JP_PY_CHECK();
+			} else
+				break;
+			val[index] = (type_t) v;
 		}
 	}
 

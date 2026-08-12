@@ -254,6 +254,19 @@ void JPLongType::setArrayRange(JPJavaFrame& frame, jarray a,
 				JP_PY_CHECK();
 			val[index] = (type_t) v;
 		}
+	} else if (PyTuple_CheckExact(sequence))
+	{
+		// Tuple counterpart of the list fast path above.
+		for (; i < length; ++i, index += step)
+		{
+			PyObject *item = PyTuple_GET_ITEM(sequence, i);
+			if (!PyLong_CheckExact(item))
+				break;
+			jlong v = PyLong_AsLongLong(item);
+			if (v == -1)
+				JP_PY_CHECK();
+			val[index] = (type_t) v;
+		}
 	}
 
 	if (i < length)

@@ -283,15 +283,45 @@ void JPBooleanType::setArrayRange(JPJavaFrame& frame, jarray a,
 		}
 	}
 
-	// Use sequence API
-	JPPySequence seq = JPPySequence::use(sequence);
 	jsize index = start;
-	for (Py_ssize_t i = 0; i < length; ++i, index += step)
+	Py_ssize_t i = 0;
+
+	// Fast path: a plain list/tuple of exact bools, avoiding
+	// PySequence_GetItem's generic protocol dispatch and PyObject_IsTrue's
+	// generic truthiness call in favor of a direct Py_True identity check.
+	// See JPIntType::setArrayRange for the same container-access pattern.
+	if (PyList_CheckExact(sequence))
 	{
-		int v = PyObject_IsTrue(seq[i].get());
-		if (v == -1)
-			JP_PY_CHECK();
-		val[index] = v;
+		for (; i < length; ++i, index += step)
+		{
+			PyObject *item = PyList_GET_ITEM(sequence, i);
+			if (!PyBool_Check(item))
+				break;
+			val[index] = (type_t) (item == Py_True);
+		}
+	} else if (PyTuple_CheckExact(sequence))
+	{
+		for (; i < length; ++i, index += step)
+		{
+			PyObject *item = PyTuple_GET_ITEM(sequence, i);
+			if (!PyBool_Check(item))
+				break;
+			val[index] = (type_t) (item == Py_True);
+		}
+	}
+
+	if (i < length)
+	{
+		// General sequence API, continuing from wherever the fast path
+		// above left off.
+		JPPySequence seq = JPPySequence::use(sequence);
+		for (; i < length; ++i, index += step)
+		{
+			int v = PyObject_IsTrue(seq[i].get());
+			if (v == -1)
+				JP_PY_CHECK();
+			val[index] = v;
+		}
 	}
 	accessor.commit();
 	JP_TRACE_OUT;

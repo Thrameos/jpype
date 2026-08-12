@@ -222,13 +222,39 @@ void JPCharType::setArrayRange(JPJavaFrame& frame, jarray a,
 			&JPJavaFrame::GetCharArrayElements, &JPJavaFrame::ReleaseCharArrayElements);
 
 	type_t* val = accessor.get();
-	JPPySequence seq = JPPySequence::use(sequence);
 	jsize index = start;
-	for (Py_ssize_t i = 0; i < length; ++i, index += step)
+
+	// Fast path: a plain list/tuple, avoiding PySequence_GetItem's generic
+	// protocol dispatch in favor of PyList_GET_ITEM/PyTuple_GET_ITEM. No
+	// per-element type/length branch needed beyond what asCharUTF16
+	// already does -- matches()/sequenceCheck already validated every
+	// element converts (length-1 string or JChar), so this is purely a
+	// container-access optimization, not a widened-acceptance one.
+	if (PyList_CheckExact(sequence))
 	{
-		jchar v = JPPyString::asCharUTF16(seq[i].get());
-		JP_PY_CHECK();
-		val[index] = (type_t) v;
+		for (Py_ssize_t i = 0; i < length; ++i, index += step)
+		{
+			jchar v = JPPyString::asCharUTF16(PyList_GET_ITEM(sequence, i));
+			JP_PY_CHECK();
+			val[index] = (type_t) v;
+		}
+	} else if (PyTuple_CheckExact(sequence))
+	{
+		for (Py_ssize_t i = 0; i < length; ++i, index += step)
+		{
+			jchar v = JPPyString::asCharUTF16(PyTuple_GET_ITEM(sequence, i));
+			JP_PY_CHECK();
+			val[index] = (type_t) v;
+		}
+	} else
+	{
+		JPPySequence seq = JPPySequence::use(sequence);
+		for (Py_ssize_t i = 0; i < length; ++i, index += step)
+		{
+			jchar v = JPPyString::asCharUTF16(seq[i].get());
+			JP_PY_CHECK();
+			val[index] = (type_t) v;
+		}
 	}
 	accessor.commit();
 	JP_TRACE_OUT;

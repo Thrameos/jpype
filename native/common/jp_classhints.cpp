@@ -1083,10 +1083,11 @@ public:
 // sequenceConversion remains the correct general fallback for everything
 // else (tuples are peeled off by JPConversionTuple below, a custom
 // Sequence subclass or a range falls all the way to sequenceConversion).
-// Shares sequenceConversion's own convert() -- match.conversion is set to
-// sequenceConversion here, not this class, since the actual value push
-// (JPClass::setArrayRange) already has its own PyList_CheckExact fast
-// path per primitive type and doesn't care which matcher succeeded.
+// Owns its own convert() -- PyList_GET_SIZE instead of PySequence_Length,
+// otherwise identical to sequenceConversion::convert(); setArrayRange
+// itself still resolves PyList_CheckExact/PyTuple_CheckExact internally
+// since it's also reached directly from JPArray::setArrayRange and array
+// construction, which never go through this class at all.
 class JPConversionList : public JPConversion
 {
 public:
@@ -1102,7 +1103,7 @@ public:
 		match.cacheable = false;
 		componentType->sequenceCheckList(match, match.object, length);
 		match.closure = cls;
-		match.conversion = sequenceConversion;
+		match.conversion = this;
 		return match.type;
 		JP_TRACE_OUT;
 	}
@@ -1117,11 +1118,15 @@ public:
 
 	jvalue convert(JPMatch &match) override
 	{
-		// Never actually reached -- matches() above sets match.conversion
-		// to sequenceConversion, not this, so sequenceConversion::convert()
-		// is what really runs. Present only to satisfy JPConversion's pure
-		// virtual.
-		return sequenceConversion->convert(match);  // GCOVR_EXCL_LINE
+		JPJavaFrame frame(*match.frame);
+		jvalue res;
+		auto *acls = (JPArrayClass *) match.closure;
+		auto length = (jsize) PyList_GET_SIZE(match.object);
+		JPClass *ccls = acls->getComponentType();
+		jarray array = ccls->newArrayOf(frame, length);
+		ccls->setArrayRange(frame, array, 0, length, 1, match.object);
+		res.l = frame.keep(array);
+		return res;
 	}
 } _listConversion;
 
@@ -1142,7 +1147,7 @@ public:
 		match.cacheable = false;
 		componentType->sequenceCheckTuple(match, match.object, length);
 		match.closure = cls;
-		match.conversion = sequenceConversion;
+		match.conversion = this;
 		return match.type;
 		JP_TRACE_OUT;
 	}
@@ -1154,8 +1159,16 @@ public:
 
 	jvalue convert(JPMatch &match) override
 	{
-		// See JPConversionList::convert -- also never actually reached.
-		return sequenceConversion->convert(match);  // GCOVR_EXCL_LINE
+		// See JPConversionList::convert.
+		JPJavaFrame frame(*match.frame);
+		jvalue res;
+		auto *acls = (JPArrayClass *) match.closure;
+		auto length = (jsize) PyTuple_GET_SIZE(match.object);
+		JPClass *ccls = acls->getComponentType();
+		jarray array = ccls->newArrayOf(frame, length);
+		ccls->setArrayRange(frame, array, 0, length, 1, match.object);
+		res.l = frame.keep(array);
+		return res;
 	}
 } _tupleConversion;
 

@@ -243,17 +243,45 @@ void JPFloatType::setArrayRange(JPJavaFrame& frame, jarray a,
 	jsize index = start;
 	Py_ssize_t i = 0;
 
-	// Fast path: a plain list of exact floats, avoiding PySequence_GetItem's
-	// generic protocol dispatch in favor of PyList_GET_ITEM. See
-	// JPIntType::setArrayRange for the same pattern.
+	// Fast path: a plain list/tuple of exact floats (or ints, widening),
+	// avoiding PySequence_GetItem's generic protocol dispatch in favor of
+	// PyList_GET_ITEM/PyTuple_GET_ITEM. See JPIntType::setArrayRange for
+	// the same container-access pattern; the PyLong_CheckExact branch
+	// mirrors matches()'s own widening acceptance so an int list/tuple
+	// pushed into a float[]/double[] doesn't fall all the way through to
+	// the general per-element path just because it isn't already floats.
 	if (PyList_CheckExact(sequence))
 	{
 		for (; i < length; ++i, index += step)
 		{
 			PyObject *item = PyList_GET_ITEM(sequence, i);
-			if (!PyFloat_CheckExact(item))
+			double v;
+			if (PyFloat_CheckExact(item))
+				v = PyFloat_AS_DOUBLE(item);
+			else if (PyLong_CheckExact(item))
+			{
+				v = PyLong_AsDouble(item);
+				if (v == -1.0 && PyErr_Occurred())
+					JP_PY_CHECK();
+			} else
 				break;
-			double v = PyFloat_AS_DOUBLE(item);
+			val[index] = (type_t) v;
+		}
+	} else if (PyTuple_CheckExact(sequence))
+	{
+		for (; i < length; ++i, index += step)
+		{
+			PyObject *item = PyTuple_GET_ITEM(sequence, i);
+			double v;
+			if (PyFloat_CheckExact(item))
+				v = PyFloat_AS_DOUBLE(item);
+			else if (PyLong_CheckExact(item))
+			{
+				v = PyLong_AsDouble(item);
+				if (v == -1.0 && PyErr_Occurred())
+					JP_PY_CHECK();
+			} else
+				break;
 			val[index] = (type_t) v;
 		}
 	}
