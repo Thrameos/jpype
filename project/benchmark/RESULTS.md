@@ -260,7 +260,7 @@ parameter, rather than requiring a C-contiguous source.
 | library | `int[100000]`, non-contiguous column slice |
 |---|---:|
 | jpype | 213,581 (best), 345,015 (median) |
-| jep | 60,201 |
+| jep | 63,958 (best), 73,858 (median) |
 | jpy | fails (`RuntimeError: no matching Java method overloads found`) |
 | pyjnius | N/A (no buffer push at all) |
 
