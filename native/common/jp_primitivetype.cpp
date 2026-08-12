@@ -43,7 +43,7 @@ PyObject *JPPrimitiveType::convertLong(PyTypeObject* wrapper, PyLongObject* tmp)
 }
 
 JPPyObject JPPrimitiveType::getArrayRange(JPJavaFrame& frame, jarray a,
-		jsize start, jsize step, jsize len)
+		jsize start, jsize step, jsize len, JPClass* dtype)
 {
 	JPPyObject list = JPPyObject::call(PyList_New(len));
 	if (len == 0)
@@ -51,6 +51,56 @@ JPPyObject JPPrimitiveType::getArrayRange(JPJavaFrame& frame, jarray a,
 
 	Py_ssize_t itemsize = getItemSize();
 	char typeCode = getTypeCode();
+
+	// If dtype is specified, we need to perform a forced cast to the target type
+	// and return plain Python types (like NumPy's astype()).
+	// When dtype=None (nullptr), we return plain Python types based on source type.
+	JPContext *context = JPContext_global;
+
+	// Handle dtype values:
+	// - nullptr: no dtype specified, return plain Python based on source type
+	// - context->_int: dtype=int (Python int), cast to int, return plain Python int
+	// - context->_double: dtype=float (Python float), cast to float, return plain Python float
+	// - JPPrimitiveType*: dtype=JType (JInt, JDouble, etc.), cast to JType, return plain Python based on target
+	// - JPBoxedType*: dtype=boxed type (java.lang.Double), cast to target primitive, return plain Python based on target
+
+	JPPrimitiveType* targetPrimitive = nullptr;
+	char targetCode = 0;
+
+	if (dtype != nullptr && dtype != context->_int && dtype != context->_double)
+	{
+		// Check if it's a primitive type
+		targetPrimitive = dynamic_cast<JPPrimitiveType*>(dtype);
+		if (targetPrimitive == nullptr)
+		{
+			// Check if it's a boxed primitive type (e.g., java.lang.Double)
+			auto* boxedType = dynamic_cast<JPBoxedType*>(dtype);
+			if (boxedType != nullptr)
+			{
+				targetPrimitive = boxedType->getPrimitive();
+			}
+		}
+		if (targetPrimitive != nullptr)
+		{
+			targetCode = targetPrimitive->getTypeCode();
+		}
+	}
+
+	// Determine target type code for conversion
+	char convertCode = typeCode;
+	bool plainOutput = true;
+	if (dtype == context->_int)
+	{
+		convertCode = 'I';
+	}
+	else if (dtype == context->_double)
+	{
+		convertCode = 'D';
+	}
+	else if (targetPrimitive != nullptr)
+	{
+		convertCode = targetCode;
+	}
 
 	// A GetPrimitiveArrayCritical pin held across this whole per-element
 	// PyObject-allocation loop is the wrong tool even though it measures

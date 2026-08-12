@@ -17,6 +17,7 @@
 # *****************************************************************************
 import _jpype
 from . import _jcustomizer
+from typing import Optional, Union, List, Type
 from collections.abc import Sequence
 
 

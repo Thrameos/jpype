@@ -105,3 +105,67 @@ class ArrayToListTestCase(common.JPypeTestCase):
         strs = JArray(JString)(3)
         strs[0] = "x"
         self.assertEqual(strs.tolist(), ["x", None, None])
+
+    def testDefaultReturnsPlainPythonTypes(self):
+        """Test that default tolist() returns plain Python types."""
+        # Integer types
+        for jtype, pytype in [(JBoolean, bool), (JByte, int), (JShort, int),
+                              (JInt, int), (JLong, int)]:
+            with self.subTest(jtype=jtype):
+                ja = JArray(jtype)([1, 0, 1])
+                out = ja.tolist()
+                self.assertIsInstance(out, list)
+                self.assertTrue(all(isinstance(x, pytype) for x in out))
+
+        # Float types
+        for jtype, pytype in [(JFloat, float), (JDouble, float)]:
+            with self.subTest(jtype=jtype):
+                ja = JArray(jtype)([1.5, 2.5])
+                out = ja.tolist()
+                self.assertTrue(all(isinstance(x, pytype) for x in out))
+
+    def testDtypeJDouble(self):
+        """Test dtype=JDouble returns JDouble wrappers."""
+        ja = JArray(JInt)([1, 2, 3])
+        out = ja.tolist(dtype=JDouble)
+        self.assertTrue(all(isinstance(x, JDouble) for x in out))
+        self.assertEqual([x for x in out], [1.0, 2.0, 3.0])
+
+    def testDtypeJInt(self):
+        """Test dtype=JInt returns JInt wrappers."""
+        ja = JArray(JDouble)([1.5, 2.7])
+        out = ja.tolist(dtype=JInt)
+        self.assertTrue(all(isinstance(x, JInt) for x in out))
+        self.assertEqual([x for x in out], [1, 2])
+
+    def testDtypeInt(self):
+        """Test dtype=int returns plain Python ints."""
+        ja = JArray(JDouble)([1.5, 2.7])
+        out = ja.tolist(dtype=int)
+        self.assertTrue(all(isinstance(x, int) for x in out))
+        self.assertEqual(out, [1, 2])
+
+    def testDtypeFloat(self):
+        """Test dtype=float returns plain Python floats."""
+        ja = JArray(JInt)([1, 2, 3])
+        out = ja.tolist(dtype=float)
+        self.assertTrue(all(isinstance(x, float) for x in out))
+        self.assertEqual(out, [1.0, 2.0, 3.0])
+
+    def testDtypeWithSlices(self):
+        """Test dtype works with sliced arrays."""
+        values = list(range(20))
+        ja = JArray(JInt)(values)
+        out = ja[::2].tolist(dtype=JDouble)
+        self.assertEqual([x for x in out], [float(x) for x in values[::2]])
+
+    def testMultiDimPlain(self):
+        """Test multi-dim returns nested lists of plain Python types."""
+        rows, cols = 2, 3
+        mat = JArray(JInt, 2)(rows)
+        for r in range(rows):
+            mat[r] = JArray(JInt)([r * cols + c for c in range(cols)])
+
+        out = mat.tolist()
+        expected = [[r * cols + c for c in range(cols)] for r in range(rows)]
+        self.assertEqual(out, expected)

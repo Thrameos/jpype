@@ -78,8 +78,24 @@ public:
 	 * redundant JNI round trips. Works uniformly for every primitive type
 	 * via getTypeCode()/getItemSize(), so it lives here rather than as a
 	 * per-type override.
+	 *
+	 * If dtype is nullptr, returns plain Python types (int, float, bool, str)
+	 * for maximum performance. If dtype is specified, elements are wrapped
+	 * in the specified type (forced cast if different from array type).
 	 */
-	JPPyObject getArrayRange(JPJavaFrame& frame, jarray a, jsize start, jsize step, jsize len);
+	JPPyObject getArrayRange(JPJavaFrame& frame, jarray a, jsize start, jsize step, jsize len,
+			JPClass* dtype = nullptr);
 } ;
+
+/**
+ * Convert a jvalue from one primitive type to another (forced cast).
+ * Used by tolist() when dtype differs from the array's component type.
+ *
+ * @param srcCode source type code ('Z', 'B', 'C', 'S', 'I', 'J', 'F', 'D')
+ * @param srcVal source value
+ * @param dstCode destination type code
+ * @return converted value
+ */
+jvalue convertPrimitiveValue(char srcCode, jvalue srcVal, char dstCode);
 
 #endif

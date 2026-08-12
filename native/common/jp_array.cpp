@@ -249,14 +249,15 @@ void JPArray::pushFrom(PyObject* src)
 	JP_TRACE_OUT;
 }
 
-JPPyObject JPArray::toList()
+JPPyObject JPArray::toList(JPClass* dtype)
 {
 	JP_TRACE_IN("JPArray::toList");
 	auto *compType = dynamic_cast<JPPrimitiveType*>(m_Class->getComponentType());
 	if (compType != nullptr)
 	{
 		JPJavaFrame frame = JPJavaFrame::outer();
-		return compType->getArrayRange(frame, m_Object.get(), m_Start, m_Step, m_Length);
+		JPPyObject result = compType->getArrayRange(frame, m_Object.get(), m_Start, m_Step, m_Length, dtype);
+		return result;
 	}
 
 	// Object[] or a nested array class -- no bulk read possible (each
@@ -268,7 +269,7 @@ JPPyObject JPArray::toList()
 	{
 		JPPyObject item = getItem(i);
 		if (item.get() != nullptr && PyObject_IsInstance(item.get(), (PyObject*) PyJPArray_Type))
-			item = ((PyJPArray*) item.get())->m_Array->toList();
+			item = ((PyJPArray*) item.get())->m_Array->toList(dtype);
 		PyList_SET_ITEM(list.get(), i, item.keep());
 	}
 	return list;

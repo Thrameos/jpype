@@ -151,9 +151,13 @@ public:
 	 * Java array so a multi-dim primitive array produces genuinely nested
 	 * Python lists rather than a list of JArray wrapper objects.
 	 *
-	 * @return a new Python list.
+	 * @param dtype Optional type wrapper for elements. If nullptr, returns
+		 * plain Python types (int, float, bool, str) for maximum
+		 * performance. If specified, elements are wrapped in the
+		 * specified type (forced cast if different from array type).
+		 * @return a new Python list.
 	 */
-	JPPyObject toList();
+	JPPyObject toList(JPClass* dtype = nullptr);
 
 	bool       isSlice() const
 	{
