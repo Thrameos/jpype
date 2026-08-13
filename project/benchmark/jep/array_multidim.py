@@ -83,7 +83,7 @@ import csv
 import time
 
 
-def timeit(fn, n=200_000, warmup=1000, trials=5):
+def timeit(fn, n=200_000, warmup=1000, trials=7):
     for _ in range(warmup):
         fn()
     samples = []
@@ -227,8 +227,8 @@ def build_manual(np_sub, depth, label, identityfn):
 
 
 def calls_for(total_elements):
-    n = max(20, 5_000_000 // total_elements)
-    warmup = max(5, n // 10)
+    n = max(30, 6_000_000 // total_elements)
+    warmup = max(6, n // 8)
     return n, warmup
 
 

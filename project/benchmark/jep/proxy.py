@@ -19,7 +19,7 @@ import sys
 import time
 
 
-def timeit(fn, n=200_000, warmup=1000, trials=5):
+def timeit(fn, n=200_000, warmup=1000, trials=7):
     for _ in range(warmup):
         fn()
     samples = []

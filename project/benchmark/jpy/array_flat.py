@@ -60,8 +60,8 @@ csv_log = CsvLog(
 
 
 def calls_for(total_elements):
-    n = max(20, 5_000_000 // total_elements)
-    warmup = max(5, n // 10)
+    n = max(30, 6_000_000 // total_elements)
+    warmup = max(6, n // 8)
     return n, warmup
 
 

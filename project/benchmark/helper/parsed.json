@@ -1,0 +1,6442 @@
+{
+ "jpype": {
+  "strings": [
+   {
+    "label": "new String + toString",
+    "best": 1048.7,
+    "median": 1093.8,
+    "ns_per_element": null
+   }
+  ],
+  "int": [
+   {
+    "label": "Math.max(int,int)",
+    "best": 682.4,
+    "median": 696.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "new Integer(int)",
+    "best": 803.6,
+    "median": 831.9,
+    "ns_per_element": null
+   }
+  ],
+  "array_to_list_dtype": [
+   {
+    "label": "list(arr) int[100]",
+    "best": 11577.0,
+    "median": 11687.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist() int[100], plain",
+    "best": 3035.5,
+    "median": 3196.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=int) int[100], wrapped (~= old default)",
+    "best": 8663.8,
+    "median": 8917.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=float) int[100], forced cast, plain",
+    "best": 2602.9,
+    "median": 2728.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list(arr) int[1000]",
+    "best": 100199.8,
+    "median": 102574.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist() int[1000], plain",
+    "best": 14270.9,
+    "median": 16780.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=int) int[1000], wrapped (~= old default)",
+    "best": 70601.8,
+    "median": 71571.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=float) int[1000], forced cast, plain",
+    "best": 13206.4,
+    "median": 14799.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "list(arr) int[10000]",
+    "best": 996342.2,
+    "median": 1020313.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist() int[10000], plain",
+    "best": 183772.2,
+    "median": 199519.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=int) int[10000], wrapped (~= old default)",
+    "best": 681139.5,
+    "median": 702533.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=float) int[10000], forced cast, plain",
+    "best": 127085.0,
+    "median": 137227.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list(arr) int[100000]",
+    "best": 11765756.5,
+    "median": 12025315.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist() int[100000], plain",
+    "best": 2866821.9,
+    "median": 2913248.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=int) int[100000], wrapped (~= old default)",
+    "best": 9121523.4,
+    "median": 10066382.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=float) int[100000], forced cast, plain",
+    "best": 1312820.5,
+    "median": 1542880.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "list(arr) long[100]",
+    "best": 9832.9,
+    "median": 10089.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist() long[100], plain",
+    "best": 3212.9,
+    "median": 3278.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=long) long[100], wrapped (~= old default)",
+    "best": 7740.4,
+    "median": 7893.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=float) long[100], forced cast, plain",
+    "best": 2823.0,
+    "median": 2850.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "list(arr) long[1000]",
+    "best": 86876.0,
+    "median": 88803.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist() long[1000], plain",
+    "best": 17456.9,
+    "median": 18404.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=long) long[1000], wrapped (~= old default)",
+    "best": 59391.4,
+    "median": 62526.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=float) long[1000], forced cast, plain",
+    "best": 15786.4,
+    "median": 16045.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "list(arr) long[10000]",
+    "best": 880338.7,
+    "median": 915420.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist() long[10000], plain",
+    "best": 186668.3,
+    "median": 189571.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=long) long[10000], wrapped (~= old default)",
+    "best": 580723.5,
+    "median": 596333.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=float) long[10000], forced cast, plain",
+    "best": 146188.6,
+    "median": 151927.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "list(arr) long[100000]",
+    "best": 11854535.4,
+    "median": 12937252.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist() long[100000], plain",
+    "best": 5723378.2,
+    "median": 5914423.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=long) long[100000], wrapped (~= old default)",
+    "best": 9593036.4,
+    "median": 9872932.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=float) long[100000], forced cast, plain",
+    "best": 1547741.1,
+    "median": 1776395.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list(arr) float[100]",
+    "best": 10323.0,
+    "median": 10609.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist() float[100], plain",
+    "best": 2366.5,
+    "median": 2394.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=float) float[100], wrapped (~= old default)",
+    "best": 7952.8,
+    "median": 8259.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=int) float[100], forced cast, plain",
+    "best": 2361.9,
+    "median": 2388.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list(arr) float[1000]",
+    "best": 91094.7,
+    "median": 95959.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist() float[1000], plain",
+    "best": 12989.7,
+    "median": 14521.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=float) float[1000], wrapped (~= old default)",
+    "best": 62260.0,
+    "median": 66634.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=int) float[1000], forced cast, plain",
+    "best": 11475.1,
+    "median": 11822.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "list(arr) float[10000]",
+    "best": 885817.2,
+    "median": 906615.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist() float[10000], plain",
+    "best": 121664.9,
+    "median": 133014.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=float) float[10000], wrapped (~= old default)",
+    "best": 609658.1,
+    "median": 648887.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=int) float[10000], forced cast, plain",
+    "best": 113944.2,
+    "median": 126416.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list(arr) float[100000]",
+    "best": 10650928.2,
+    "median": 10998146.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist() float[100000], plain",
+    "best": 1258367.7,
+    "median": 1357426.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=float) float[100000], wrapped (~= old default)",
+    "best": 6106305.4,
+    "median": 6176063.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=int) float[100000], forced cast, plain",
+    "best": 1951151.2,
+    "median": 2585659.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list(arr) double[100]",
+    "best": 10330.7,
+    "median": 10544.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist() double[100], plain",
+    "best": 2440.7,
+    "median": 2549.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=double) double[100], wrapped (~= old default)",
+    "best": 7835.5,
+    "median": 7972.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=int) double[100], forced cast, plain",
+    "best": 2420.5,
+    "median": 2495.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "list(arr) double[1000]",
+    "best": 92739.1,
+    "median": 94306.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist() double[1000], plain",
+    "best": 14315.2,
+    "median": 14864.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=double) double[1000], wrapped (~= old default)",
+    "best": 62683.1,
+    "median": 65955.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=int) double[1000], forced cast, plain",
+    "best": 13142.3,
+    "median": 13396.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "list(arr) double[10000]",
+    "best": 897298.0,
+    "median": 917878.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist() double[10000], plain",
+    "best": 127222.1,
+    "median": 137994.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=double) double[10000], wrapped (~= old default)",
+    "best": 619674.5,
+    "median": 630412.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=int) double[10000], forced cast, plain",
+    "best": 119141.4,
+    "median": 127054.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "list(arr) double[100000]",
+    "best": 10859805.8,
+    "median": 10986809.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist() double[100000], plain",
+    "best": 1410884.1,
+    "median": 1538261.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=double) double[100000], wrapped (~= old default)",
+    "best": 6943983.3,
+    "median": 7958978.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "tolist(dtype=int) double[100000], forced cast, plain",
+    "best": 2743430.5,
+    "median": 2788946.8,
+    "ns_per_element": null
+   }
+  ],
+  "double": [
+   {
+    "label": "Math.sqrt(double)",
+    "best": 722.7,
+    "median": 754.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "new Double(double)",
+    "best": 943.9,
+    "median": 986.4,
+    "ns_per_element": null
+   }
+  ],
+  "proxy": [
+   {
+    "label": "proxy callback (established), int arg",
+    "best": 2596.9,
+    "median": 2626.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "proxy callback (established), Object arg",
+    "best": 2459.2,
+    "median": 2566.7,
+    "ns_per_element": null
+   }
+  ],
+  "array_noncontig": [
+   {
+    "label": "buffer->array int[100], column slice",
+    "best": 1224.9,
+    "median": 1423.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[1000], column slice",
+    "best": 1873.1,
+    "median": 2739.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[10000], column slice",
+    "best": 8659.1,
+    "median": 17189.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[100000], column slice",
+    "best": 64187.6,
+    "median": 91577.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][](10^2), transposed",
+    "best": 2630.0,
+    "median": 2944.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][][](10^3), transposed",
+    "best": 14601.4,
+    "median": 16303.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][][][](10^4), transposed",
+    "best": 142063.8,
+    "median": 153414.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][][][][](10^5), transposed",
+    "best": 1450439.6,
+    "median": 1495410.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[100], column slice",
+    "best": 1285.9,
+    "median": 1321.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[1000], column slice",
+    "best": 2273.0,
+    "median": 3045.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[10000], column slice",
+    "best": 12662.2,
+    "median": 22165.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[100000], column slice",
+    "best": 127900.1,
+    "median": 153225.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][](10^2), transposed",
+    "best": 2689.1,
+    "median": 2816.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][][](10^3), transposed",
+    "best": 15333.1,
+    "median": 16946.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][][][](10^4), transposed",
+    "best": 146160.3,
+    "median": 155518.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][][][][](10^5), transposed",
+    "best": 1526884.5,
+    "median": 1562690.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[100], column slice",
+    "best": 1233.7,
+    "median": 1273.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[1000], column slice",
+    "best": 1818.8,
+    "median": 1985.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[10000], column slice",
+    "best": 8210.1,
+    "median": 8508.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[100000], column slice",
+    "best": 65916.0,
+    "median": 79855.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][](10^2), transposed",
+    "best": 2704.3,
+    "median": 2802.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][][](10^3), transposed",
+    "best": 15443.8,
+    "median": 16370.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][][][](10^4), transposed",
+    "best": 146328.3,
+    "median": 155890.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][][][][](10^5), transposed",
+    "best": 1498161.3,
+    "median": 1546524.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[100], column slice",
+    "best": 1230.1,
+    "median": 1286.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[1000], column slice",
+    "best": 2215.1,
+    "median": 2337.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[10000], column slice",
+    "best": 12915.9,
+    "median": 13272.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[100000], column slice",
+    "best": 125987.8,
+    "median": 135434.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][](10^2), transposed",
+    "best": 2609.0,
+    "median": 2783.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][][](10^3), transposed",
+    "best": 14821.0,
+    "median": 15217.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][][][](10^4), transposed",
+    "best": 150749.0,
+    "median": 157522.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][][][][](10^5), transposed",
+    "best": 1485240.7,
+    "median": 1671323.3,
+    "ns_per_element": null
+   }
+  ],
+  "classhints": [
+   {
+    "label": "match@1/400",
+    "best": 666.1,
+    "median": 670.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "match@5/400",
+    "best": 662.6,
+    "median": 672.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "match@20/400",
+    "best": 655.3,
+    "median": 660.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "match@100/400",
+    "best": 657.7,
+    "median": 661.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "match@200/400",
+    "best": 654.0,
+    "median": 665.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "match@400/400",
+    "best": 657.7,
+    "median": 660.0,
+    "ns_per_element": null
+   }
+  ],
+  "array_multidim": [
+   {
+    "label": "list->array int[][](10^2), fresh",
+    "best": 5340.8,
+    "median": 5720.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[][][](10^3), fresh",
+    "best": 46336.4,
+    "median": 48477.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[][][][](10^4), fresh",
+    "best": 424799.5,
+    "median": 452073.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[][][][][](10^5), fresh",
+    "best": 4447629.1,
+    "median": 4826833.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array(np.array()) int[][](10^2), fresh",
+    "best": 5250.8,
+    "median": 5429.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array(np.array()) int[][][](10^3), fresh",
+    "best": 36381.9,
+    "median": 37314.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array(np.array()) int[][][][](10^4), fresh",
+    "best": 355624.8,
+    "median": 383733.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array(np.array()) int[][][][][](10^5), fresh",
+    "best": 3583411.1,
+    "median": 3777130.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][](10^2), fresh",
+    "best": 1990.9,
+    "median": 2154.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][][](10^3), fresh",
+    "best": 6447.6,
+    "median": 7781.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][][][](10^4), fresh",
+    "best": 67735.2,
+    "median": 70326.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][][][][](10^5), fresh",
+    "best": 598102.6,
+    "median": 614975.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[][](10^2)",
+    "best": 19887.7,
+    "median": 20474.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[][][](10^3)",
+    "best": 202320.1,
+    "median": 206290.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[][][][](10^4)",
+    "best": 2168734.1,
+    "median": 2229935.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[][][][][](10^5)",
+    "best": 24815710.6,
+    "median": 25792993.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() int[][](10^2)",
+    "best": 13822.8,
+    "median": 14665.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() int[][][](10^3)",
+    "best": 125866.6,
+    "median": 135063.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() int[][][][](10^4)",
+    "best": 1505630.6,
+    "median": 1540264.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() int[][][][][](10^5)",
+    "best": 16604123.7,
+    "median": 16983268.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[][](10^2)",
+    "best": 3688.0,
+    "median": 3850.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[][][](10^3)",
+    "best": 9559.2,
+    "median": 10995.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[][][][](10^4)",
+    "best": 70212.5,
+    "median": 79866.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[][][][][](10^5)",
+    "best": 728157.8,
+    "median": 818206.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[][](10^2), fresh",
+    "best": 5266.7,
+    "median": 5363.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[][][](10^3), fresh",
+    "best": 44730.2,
+    "median": 47860.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[][][][](10^4), fresh",
+    "best": 431487.9,
+    "median": 444155.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[][][][][](10^5), fresh",
+    "best": 4352847.0,
+    "median": 4581756.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array(np.array()) long[][](10^2), fresh",
+    "best": 5293.5,
+    "median": 5582.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array(np.array()) long[][][](10^3), fresh",
+    "best": 37202.6,
+    "median": 42628.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array(np.array()) long[][][][](10^4), fresh",
+    "best": 356706.5,
+    "median": 377878.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array(np.array()) long[][][][][](10^5), fresh",
+    "best": 3383160.2,
+    "median": 3625267.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][](10^2), fresh",
+    "best": 2005.9,
+    "median": 2052.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][][](10^3), fresh",
+    "best": 6570.5,
+    "median": 8152.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][][][](10^4), fresh",
+    "best": 61872.8,
+    "median": 74397.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][][][][](10^5), fresh",
+    "best": 579343.9,
+    "median": 705960.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[][](10^2)",
+    "best": 19419.0,
+    "median": 19861.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[][][](10^3)",
+    "best": 189451.6,
+    "median": 192989.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[][][][](10^4)",
+    "best": 2033693.8,
+    "median": 2062391.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[][][][][](10^5)",
+    "best": 24752357.2,
+    "median": 25071883.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() long[][](10^2)",
+    "best": 13398.0,
+    "median": 13996.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() long[][][](10^3)",
+    "best": 128859.8,
+    "median": 130037.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() long[][][][](10^4)",
+    "best": 1467614.6,
+    "median": 1536098.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() long[][][][][](10^5)",
+    "best": 16483659.1,
+    "median": 17195926.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[][](10^2)",
+    "best": 3733.7,
+    "median": 4004.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[][][](10^3)",
+    "best": 10134.0,
+    "median": 11210.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[][][][](10^4)",
+    "best": 66622.3,
+    "median": 80095.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[][][][][](10^5)",
+    "best": 744971.7,
+    "median": 849427.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[][](10^2), fresh",
+    "best": 5361.3,
+    "median": 5535.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[][][](10^3), fresh",
+    "best": 44453.8,
+    "median": 46662.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[][][][](10^4), fresh",
+    "best": 429595.9,
+    "median": 440732.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[][][][][](10^5), fresh",
+    "best": 4423151.2,
+    "median": 4594139.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array(np.array()) float[][](10^2), fresh",
+    "best": 6217.9,
+    "median": 6547.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array(np.array()) float[][][](10^3), fresh",
+    "best": 50226.5,
+    "median": 52663.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array(np.array()) float[][][][](10^4), fresh",
+    "best": 412947.4,
+    "median": 451373.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array(np.array()) float[][][][][](10^5), fresh",
+    "best": 4255365.6,
+    "median": 4724975.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][](10^2), fresh",
+    "best": 2009.1,
+    "median": 2119.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][][](10^3), fresh",
+    "best": 7253.1,
+    "median": 7892.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][][][](10^4), fresh",
+    "best": 69393.6,
+    "median": 77810.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][][][][](10^5), fresh",
+    "best": 573295.9,
+    "median": 733621.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[][](10^2)",
+    "best": 19054.3,
+    "median": 20780.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[][][](10^3)",
+    "best": 194455.6,
+    "median": 202431.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[][][][](10^4)",
+    "best": 2042988.2,
+    "median": 2060325.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[][][][][](10^5)",
+    "best": 23537117.5,
+    "median": 25607777.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() float[][](10^2)",
+    "best": 12654.7,
+    "median": 13133.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() float[][][](10^3)",
+    "best": 123782.2,
+    "median": 127322.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() float[][][][](10^4)",
+    "best": 1394190.4,
+    "median": 1439066.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() float[][][][][](10^5)",
+    "best": 14598909.4,
+    "median": 16022376.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[][](10^2)",
+    "best": 3783.0,
+    "median": 4270.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[][][](10^3)",
+    "best": 10754.5,
+    "median": 16364.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[][][][](10^4)",
+    "best": 72492.9,
+    "median": 74004.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[][][][][](10^5)",
+    "best": 620962.3,
+    "median": 828920.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[][](10^2), fresh",
+    "best": 5628.4,
+    "median": 6008.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[][][](10^3), fresh",
+    "best": 51993.9,
+    "median": 58479.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[][][][](10^4), fresh",
+    "best": 464044.4,
+    "median": 577773.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[][][][][](10^5), fresh",
+    "best": 5383438.2,
+    "median": 6091845.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array(np.array()) double[][](10^2), fresh",
+    "best": 5818.7,
+    "median": 5907.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array(np.array()) double[][][](10^3), fresh",
+    "best": 44778.3,
+    "median": 47347.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array(np.array()) double[][][][](10^4), fresh",
+    "best": 408127.2,
+    "median": 431396.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array(np.array()) double[][][][][](10^5), fresh",
+    "best": 4263673.5,
+    "median": 4441923.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][](10^2), fresh",
+    "best": 2121.5,
+    "median": 2255.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][][](10^3), fresh",
+    "best": 7959.7,
+    "median": 9203.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][][][](10^4), fresh",
+    "best": 68960.2,
+    "median": 75154.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][][][][](10^5), fresh",
+    "best": 587639.4,
+    "median": 608335.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[][](10^2)",
+    "best": 19854.2,
+    "median": 20560.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[][][](10^3)",
+    "best": 199660.5,
+    "median": 205706.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[][][][](10^4)",
+    "best": 2106412.0,
+    "median": 2153144.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[][][][][](10^5)",
+    "best": 23046632.0,
+    "median": 23295411.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() double[][](10^2)",
+    "best": 12775.6,
+    "median": 12796.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() double[][][](10^3)",
+    "best": 122531.2,
+    "median": 127903.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() double[][][][](10^4)",
+    "best": 1389116.8,
+    "median": 1445211.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() double[][][][][](10^5)",
+    "best": 13554977.7,
+    "median": 14138292.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[][](10^2)",
+    "best": 3828.9,
+    "median": 3932.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[][][](10^3)",
+    "best": 10106.4,
+    "median": 12300.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[][][][](10^4)",
+    "best": 73214.0,
+    "median": 75835.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[][][][][](10^5)",
+    "best": 637274.0,
+    "median": 773224.9,
+    "ns_per_element": null
+   }
+  ],
+  "array_flat": [
+   {
+    "label": "list->array int[100], fresh",
+    "best": 1231.1,
+    "median": 1317.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[1000], fresh",
+    "best": 4835.8,
+    "median": 4901.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[10000], fresh",
+    "best": 38323.5,
+    "median": 46176.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[100000], fresh",
+    "best": 382357.7,
+    "median": 387492.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[100], fresh",
+    "best": 1125.3,
+    "median": 1215.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[1000], fresh",
+    "best": 1503.3,
+    "median": 1565.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[10000], fresh",
+    "best": 5369.4,
+    "median": 5464.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[100000], fresh",
+    "best": 50463.6,
+    "median": 66411.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[100]",
+    "best": 10468.1,
+    "median": 10558.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[1000]",
+    "best": 95366.0,
+    "median": 97361.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[10000]",
+    "best": 954093.0,
+    "median": 983071.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[100000]",
+    "best": 11227930.0,
+    "median": 11383733.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() int[100]",
+    "best": 2797.8,
+    "median": 2826.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() int[1000]",
+    "best": 13563.3,
+    "median": 13852.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() int[10000]",
+    "best": 177806.4,
+    "median": 182336.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() int[100000]",
+    "best": 3412266.1,
+    "median": 3561836.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[100]",
+    "best": 1832.1,
+    "median": 1940.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[1000]",
+    "best": 2356.3,
+    "median": 2397.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[10000]",
+    "best": 6606.4,
+    "median": 7037.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[100000]",
+    "best": 47587.8,
+    "median": 59553.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[100], fresh",
+    "best": 1282.4,
+    "median": 1300.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[1000], fresh",
+    "best": 5305.6,
+    "median": 5437.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[10000], fresh",
+    "best": 43349.3,
+    "median": 59580.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[100000], fresh",
+    "best": 447456.0,
+    "median": 495333.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[100], fresh",
+    "best": 1140.7,
+    "median": 1182.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[1000], fresh",
+    "best": 1895.9,
+    "median": 2012.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[10000], fresh",
+    "best": 9900.9,
+    "median": 10388.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[100000], fresh",
+    "best": 87888.1,
+    "median": 109757.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[100]",
+    "best": 9410.8,
+    "median": 9549.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[1000]",
+    "best": 82218.3,
+    "median": 83985.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[10000]",
+    "best": 837322.1,
+    "median": 857132.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[100000]",
+    "best": 10766003.6,
+    "median": 11322326.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() long[100]",
+    "best": 3112.6,
+    "median": 3182.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() long[1000]",
+    "best": 18333.6,
+    "median": 18918.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() long[10000]",
+    "best": 177391.9,
+    "median": 181647.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() long[100000]",
+    "best": 4223804.6,
+    "median": 4321366.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[100]",
+    "best": 1963.0,
+    "median": 2136.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[1000]",
+    "best": 3003.0,
+    "median": 3397.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[10000]",
+    "best": 13324.7,
+    "median": 14197.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[100000]",
+    "best": 115647.3,
+    "median": 128158.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[100], fresh",
+    "best": 1070.7,
+    "median": 1086.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[1000], fresh",
+    "best": 3096.0,
+    "median": 3370.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[10000], fresh",
+    "best": 22423.3,
+    "median": 23622.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[100000], fresh",
+    "best": 201059.1,
+    "median": 208449.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[100], widening from int",
+    "best": 1260.4,
+    "median": 1357.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[1000], widening from int",
+    "best": 4811.5,
+    "median": 5034.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[10000], widening from int",
+    "best": 40098.3,
+    "median": 42140.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[100000], widening from int",
+    "best": 373891.3,
+    "median": 389215.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[100], fresh",
+    "best": 1197.4,
+    "median": 1341.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[1000], fresh",
+    "best": 1574.4,
+    "median": 1639.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[10000], fresh",
+    "best": 5591.6,
+    "median": 5973.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[100000], fresh",
+    "best": 40158.6,
+    "median": 54690.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[100]",
+    "best": 10228.4,
+    "median": 10487.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[1000]",
+    "best": 92252.5,
+    "median": 95818.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[10000]",
+    "best": 909845.0,
+    "median": 933189.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[100000]",
+    "best": 10602681.3,
+    "median": 10955427.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() float[100]",
+    "best": 2374.3,
+    "median": 2447.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() float[1000]",
+    "best": 12849.9,
+    "median": 13364.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() float[10000]",
+    "best": 122391.3,
+    "median": 128192.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() float[100000]",
+    "best": 1218574.0,
+    "median": 1424917.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[100]",
+    "best": 1872.2,
+    "median": 1889.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[1000]",
+    "best": 2455.4,
+    "median": 2574.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[10000]",
+    "best": 7122.9,
+    "median": 7339.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[100000]",
+    "best": 47517.4,
+    "median": 50266.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[100], fresh",
+    "best": 1112.1,
+    "median": 1212.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[1000], fresh",
+    "best": 3859.2,
+    "median": 3961.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[10000], fresh",
+    "best": 28631.8,
+    "median": 30410.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[100000], fresh",
+    "best": 284053.8,
+    "median": 331357.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[100], widening from int",
+    "best": 1318.8,
+    "median": 1441.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[1000], widening from int",
+    "best": 5381.6,
+    "median": 6340.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[10000], widening from int",
+    "best": 44205.5,
+    "median": 52664.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[100000], widening from int",
+    "best": 451801.8,
+    "median": 506119.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[100], fresh",
+    "best": 1257.1,
+    "median": 1407.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[1000], fresh",
+    "best": 3042.5,
+    "median": 3166.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[10000], fresh",
+    "best": 15837.4,
+    "median": 21166.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[100000], fresh",
+    "best": 134341.1,
+    "median": 164281.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[100]",
+    "best": 11099.9,
+    "median": 11504.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[1000]",
+    "best": 94933.6,
+    "median": 99086.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[10000]",
+    "best": 946430.2,
+    "median": 1003673.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[100000]",
+    "best": 11524400.6,
+    "median": 12545543.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() double[100]",
+    "best": 2574.3,
+    "median": 2813.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() double[1000]",
+    "best": 14114.3,
+    "median": 15356.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() double[10000]",
+    "best": 132811.9,
+    "median": 143190.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list.tolist() double[100000]",
+    "best": 1408407.0,
+    "median": 1727896.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[100]",
+    "best": 1953.4,
+    "median": 2005.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[1000]",
+    "best": 2963.7,
+    "median": 3080.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[10000]",
+    "best": 12968.4,
+    "median": 13830.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[100000]",
+    "best": 103899.4,
+    "median": 127135.6,
+    "ns_per_element": null
+   }
+  ],
+  "arraytransfer": [
+   {
+    "label": "pullTo double[1000]",
+    "best": 508.6,
+    "median": 514.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "naive per-element double[1000]",
+    "best": 116937.3,
+    "median": 120167.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "pullTo double[100000]",
+    "best": 21387.2,
+    "median": 21768.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "naive per-element double[100000]",
+    "best": 11633287.3,
+    "median": 11709011.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "pullTo double[1000000]",
+    "best": 551543.1,
+    "median": 657123.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "pushFrom double[1000]",
+    "best": 646.3,
+    "median": 653.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "naive per-element double[1000]",
+    "best": 308451.4,
+    "median": 312965.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "pushFrom double[100000]",
+    "best": 21504.7,
+    "median": 28886.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "naive per-element double[100000]",
+    "best": 31029909.5,
+    "median": 31659448.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "pushFrom double[1000000]",
+    "best": 706653.9,
+    "median": 806370.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "pushFrom byteswapped double[1000]",
+    "best": 5369.8,
+    "median": 5395.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "pushFrom float16 double[1000]",
+    "best": 6108.5,
+    "median": 6357.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "pushFrom byteswapped double[100000]",
+    "best": 487453.6,
+    "median": 497273.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "pushFrom float16 double[100000]",
+    "best": 556525.6,
+    "median": 560656.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "pushFrom byteswapped double[1000000]",
+    "best": 4938962.5,
+    "median": 5082903.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "pushFrom float16 double[1000000]",
+    "best": 5659187.2,
+    "median": 5927585.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "direct-buffer-shared double[1000]",
+    "best": 1541.8,
+    "median": 1567.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "direct-buffer-shared double[100000]",
+    "best": 30352.5,
+    "median": 31129.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "direct-buffer-shared double[1000000]",
+    "best": 314875.8,
+    "median": 367182.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "slice_python double[1000]",
+    "best": 797.2,
+    "median": 803.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "slice_javaArray double[1000]",
+    "best": 4092.5,
+    "median": 4186.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "slice_python double[100000]",
+    "best": 10749.6,
+    "median": 11954.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "slice_javaArray double[100000]",
+    "best": 216203.6,
+    "median": 217757.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "slice_python double[1000000]",
+    "best": 111768.4,
+    "median": 116824.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "slice_javaArray double[1000000]",
+    "best": 2254214.1,
+    "median": 2349232.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "multidim_bulk 10x10",
+    "best": 2926.8,
+    "median": 3232.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "multidim_looped 10x10",
+    "best": 18059.6,
+    "median": 18348.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "multidim_bulk 300x300",
+    "best": 42439.4,
+    "median": 44198.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "multidim_looped 300x300",
+    "best": 9734138.2,
+    "median": 10072888.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "multidim_bulk 1000x1000",
+    "best": 1339531.8,
+    "median": 1695126.2,
+    "ns_per_element": null
+   }
+  ],
+  "array_ragged": [
+   {
+    "label": "ragged list->array int[][](~10^2), fresh",
+    "best": 3357.5,
+    "median": 3481.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array int[][][](~10^3), fresh",
+    "best": 47012.5,
+    "median": 48959.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array int[][][][](~10^4), fresh",
+    "best": 361552.6,
+    "median": 374003.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array int[][][][][](~10^5), fresh",
+    "best": 5108331.5,
+    "median": 5251771.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array long[][](~10^2), fresh",
+    "best": 3335.8,
+    "median": 3470.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array long[][][](~10^3), fresh",
+    "best": 48310.5,
+    "median": 53482.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array long[][][][](~10^4), fresh",
+    "best": 357438.4,
+    "median": 364271.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array long[][][][][](~10^5), fresh",
+    "best": 5592193.9,
+    "median": 5740193.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array float[][](~10^2), fresh",
+    "best": 3352.9,
+    "median": 3413.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array float[][][](~10^3), fresh",
+    "best": 51949.8,
+    "median": 56996.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array float[][][][](~10^4), fresh",
+    "best": 371130.2,
+    "median": 383168.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array float[][][][][](~10^5), fresh",
+    "best": 5225836.0,
+    "median": 5440325.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array double[][](~10^2), fresh",
+    "best": 3437.0,
+    "median": 3512.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array double[][][](~10^3), fresh",
+    "best": 48359.1,
+    "median": 52770.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array double[][][][](~10^4), fresh",
+    "best": 368714.9,
+    "median": 374291.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array double[][][][][](~10^5), fresh",
+    "best": 5284581.1,
+    "median": 5404388.3,
+    "ns_per_element": null
+   }
+  ],
+  "dispatch": [
+   {
+    "label": "overload x16, monomorphic",
+    "best": 612.3,
+    "median": 618.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "overload x16, polymorphic",
+    "best": 790.1,
+    "median": 800.7,
+    "ns_per_element": null
+   }
+  ],
+  "array_shape": [
+   {
+    "label": "list->array int[10][10000]",
+    "best": 2960890.2,
+    "median": 3149367.0,
+    "ns_per_element": 29.61
+   },
+   {
+    "label": "list->array int[100][1000]",
+    "best": 2915323.9,
+    "median": 3106822.1,
+    "ns_per_element": 29.15
+   },
+   {
+    "label": "list->array int[1000][100]",
+    "best": 3037152.5,
+    "median": 3107600.1,
+    "ns_per_element": 30.37
+   },
+   {
+    "label": "list->array int[10000][10]",
+    "best": 4040162.6,
+    "median": 4283358.0,
+    "ns_per_element": 40.4
+   },
+   {
+    "label": "list->array int[3][100000]",
+    "best": 9216003.1,
+    "median": 9428774.8,
+    "ns_per_element": 30.72
+   },
+   {
+    "label": "list->array int[100000][3]",
+    "best": 19652844.0,
+    "median": 20322704.1,
+    "ns_per_element": 65.51
+   },
+   {
+    "label": "list->array int[1000][1000]",
+    "best": 30719558.1,
+    "median": 31679492.4,
+    "ns_per_element": 30.72
+   },
+   {
+    "label": "buffer->array int[10][10000]",
+    "best": 62126.2,
+    "median": 81285.1,
+    "ns_per_element": 0.62
+   },
+   {
+    "label": "buffer->array int[100][1000]",
+    "best": 64948.9,
+    "median": 112644.9,
+    "ns_per_element": 0.65
+   },
+   {
+    "label": "buffer->array int[1000][100]",
+    "best": 90275.4,
+    "median": 105606.2,
+    "ns_per_element": 0.9
+   },
+   {
+    "label": "buffer->array int[10000][10]",
+    "best": 534350.8,
+    "median": 560064.3,
+    "ns_per_element": 5.34
+   },
+   {
+    "label": "buffer->array int[3][100000]",
+    "best": 129719.5,
+    "median": 148260.0,
+    "ns_per_element": 0.43
+   },
+   {
+    "label": "buffer->array int[100000][3]",
+    "best": 5194846.2,
+    "median": 5592539.2,
+    "ns_per_element": 17.32
+   },
+   {
+    "label": "buffer->array int[1000][1000]",
+    "best": 530987.5,
+    "median": 579486.2,
+    "ns_per_element": 0.53
+   },
+   {
+    "label": "list->array int[1000][10][10]",
+    "best": 4041021.2,
+    "median": 4237248.3,
+    "ns_per_element": 40.41
+   },
+   {
+    "label": "list->array int[10][10][1000]",
+    "best": 2905372.7,
+    "median": 2960341.0,
+    "ns_per_element": 29.05
+   },
+   {
+    "label": "buffer->array int[1000][10][10]",
+    "best": 585716.7,
+    "median": 626298.9,
+    "ns_per_element": 5.86
+   },
+   {
+    "label": "buffer->array int[10][10][1000]",
+    "best": 62044.4,
+    "median": 66336.0,
+    "ns_per_element": 0.62
+   },
+   {
+    "label": "list->array long[10][10000]",
+    "best": 2906522.6,
+    "median": 2968127.1,
+    "ns_per_element": 29.07
+   },
+   {
+    "label": "list->array long[100][1000]",
+    "best": 2923999.2,
+    "median": 2994792.7,
+    "ns_per_element": 29.24
+   },
+   {
+    "label": "list->array long[1000][100]",
+    "best": 3077487.3,
+    "median": 3128801.4,
+    "ns_per_element": 30.77
+   },
+   {
+    "label": "list->array long[10000][10]",
+    "best": 4011671.2,
+    "median": 4133074.2,
+    "ns_per_element": 40.12
+   },
+   {
+    "label": "list->array long[3][100000]",
+    "best": 9464591.6,
+    "median": 9976068.6,
+    "ns_per_element": 31.55
+   },
+   {
+    "label": "list->array long[100000][3]",
+    "best": 20808892.1,
+    "median": 21535718.3,
+    "ns_per_element": 69.36
+   },
+   {
+    "label": "list->array long[1000][1000]",
+    "best": 35942820.2,
+    "median": 39175533.6,
+    "ns_per_element": 35.94
+   },
+   {
+    "label": "buffer->array long[10][10000]",
+    "best": 113826.0,
+    "median": 425282.9,
+    "ns_per_element": 1.14
+   },
+   {
+    "label": "buffer->array long[100][1000]",
+    "best": 104039.5,
+    "median": 137141.1,
+    "ns_per_element": 1.04
+   },
+   {
+    "label": "buffer->array long[1000][100]",
+    "best": 139714.5,
+    "median": 169966.6,
+    "ns_per_element": 1.4
+   },
+   {
+    "label": "buffer->array long[10000][10]",
+    "best": 551534.7,
+    "median": 602599.5,
+    "ns_per_element": 5.52
+   },
+   {
+    "label": "buffer->array long[3][100000]",
+    "best": 343508.8,
+    "median": 2166496.2,
+    "ns_per_element": 1.15
+   },
+   {
+    "label": "buffer->array long[100000][3]",
+    "best": 6297851.5,
+    "median": 6567680.1,
+    "ns_per_element": 20.99
+   },
+   {
+    "label": "buffer->array long[1000][1000]",
+    "best": 966547.0,
+    "median": 1343450.7,
+    "ns_per_element": 0.97
+   },
+   {
+    "label": "list->array long[1000][10][10]",
+    "best": 4398865.2,
+    "median": 4526038.6,
+    "ns_per_element": 43.99
+   },
+   {
+    "label": "list->array long[10][10][1000]",
+    "best": 2944613.0,
+    "median": 3029043.5,
+    "ns_per_element": 29.45
+   },
+   {
+    "label": "buffer->array long[1000][10][10]",
+    "best": 597333.3,
+    "median": 624908.3,
+    "ns_per_element": 5.97
+   },
+   {
+    "label": "buffer->array long[10][10][1000]",
+    "best": 104896.4,
+    "median": 185247.3,
+    "ns_per_element": 1.05
+   },
+   {
+    "label": "list->array float[10][10000]",
+    "best": 2881037.4,
+    "median": 3112041.3,
+    "ns_per_element": 28.81
+   },
+   {
+    "label": "list->array float[100][1000]",
+    "best": 2882450.1,
+    "median": 3002766.3,
+    "ns_per_element": 28.82
+   },
+   {
+    "label": "list->array float[1000][100]",
+    "best": 2988267.1,
+    "median": 3121109.1,
+    "ns_per_element": 29.88
+   },
+   {
+    "label": "list->array float[10000][10]",
+    "best": 3921652.6,
+    "median": 3955281.1,
+    "ns_per_element": 39.22
+   },
+   {
+    "label": "list->array float[3][100000]",
+    "best": 8818460.4,
+    "median": 9027091.8,
+    "ns_per_element": 29.39
+   },
+   {
+    "label": "list->array float[100000][3]",
+    "best": 19389310.7,
+    "median": 20057916.2,
+    "ns_per_element": 64.63
+   },
+   {
+    "label": "list->array float[1000][1000]",
+    "best": 30025427.0,
+    "median": 30541462.0,
+    "ns_per_element": 30.03
+   },
+   {
+    "label": "buffer->array float[10][10000]",
+    "best": 50218.1,
+    "median": 58535.8,
+    "ns_per_element": 0.5
+   },
+   {
+    "label": "buffer->array float[100][1000]",
+    "best": 52974.2,
+    "median": 68269.4,
+    "ns_per_element": 0.53
+   },
+   {
+    "label": "buffer->array float[1000][100]",
+    "best": 93158.4,
+    "median": 101480.8,
+    "ns_per_element": 0.93
+   },
+   {
+    "label": "buffer->array float[10000][10]",
+    "best": 489567.0,
+    "median": 512004.3,
+    "ns_per_element": 4.9
+   },
+   {
+    "label": "buffer->array float[3][100000]",
+    "best": 130297.9,
+    "median": 148833.5,
+    "ns_per_element": 0.43
+   },
+   {
+    "label": "buffer->array float[100000][3]",
+    "best": 5391135.3,
+    "median": 5608710.5,
+    "ns_per_element": 17.97
+   },
+   {
+    "label": "buffer->array float[1000][1000]",
+    "best": 506895.7,
+    "median": 553801.4,
+    "ns_per_element": 0.51
+   },
+   {
+    "label": "list->array float[1000][10][10]",
+    "best": 4155853.8,
+    "median": 4236963.1,
+    "ns_per_element": 41.56
+   },
+   {
+    "label": "list->array float[10][10][1000]",
+    "best": 2904753.1,
+    "median": 2975222.9,
+    "ns_per_element": 29.05
+   },
+   {
+    "label": "buffer->array float[1000][10][10]",
+    "best": 578827.6,
+    "median": 580890.9,
+    "ns_per_element": 5.79
+   },
+   {
+    "label": "buffer->array float[10][10][1000]",
+    "best": 53954.8,
+    "median": 61809.4,
+    "ns_per_element": 0.54
+   },
+   {
+    "label": "list->array double[10][10000]",
+    "best": 2934488.7,
+    "median": 3048193.8,
+    "ns_per_element": 29.34
+   },
+   {
+    "label": "list->array double[100][1000]",
+    "best": 2975151.7,
+    "median": 3129688.6,
+    "ns_per_element": 29.75
+   },
+   {
+    "label": "list->array double[1000][100]",
+    "best": 3111911.2,
+    "median": 3196621.8,
+    "ns_per_element": 31.12
+   },
+   {
+    "label": "list->array double[10000][10]",
+    "best": 4079347.5,
+    "median": 4138695.1,
+    "ns_per_element": 40.79
+   },
+   {
+    "label": "list->array double[3][100000]",
+    "best": 9462699.5,
+    "median": 9691934.0,
+    "ns_per_element": 31.54
+   },
+   {
+    "label": "list->array double[100000][3]",
+    "best": 20417841.9,
+    "median": 21293609.4,
+    "ns_per_element": 68.06
+   },
+   {
+    "label": "list->array double[1000][1000]",
+    "best": 30774763.8,
+    "median": 32255451.3,
+    "ns_per_element": 30.77
+   },
+   {
+    "label": "buffer->array double[10][10000]",
+    "best": 97938.1,
+    "median": 111152.2,
+    "ns_per_element": 0.98
+   },
+   {
+    "label": "buffer->array double[100][1000]",
+    "best": 110922.5,
+    "median": 141640.1,
+    "ns_per_element": 1.11
+   },
+   {
+    "label": "buffer->array double[1000][100]",
+    "best": 143358.8,
+    "median": 181689.6,
+    "ns_per_element": 1.43
+   },
+   {
+    "label": "buffer->array double[10000][10]",
+    "best": 522030.1,
+    "median": 633656.1,
+    "ns_per_element": 5.22
+   },
+   {
+    "label": "buffer->array double[3][100000]",
+    "best": 364717.9,
+    "median": 458763.2,
+    "ns_per_element": 1.22
+   },
+   {
+    "label": "buffer->array double[100000][3]",
+    "best": 7190348.7,
+    "median": 8249938.1,
+    "ns_per_element": 23.97
+   },
+   {
+    "label": "buffer->array double[1000][1000]",
+    "best": 1080872.8,
+    "median": 1391223.7,
+    "ns_per_element": 1.08
+   },
+   {
+    "label": "list->array double[1000][10][10]",
+    "best": 4260642.9,
+    "median": 4424949.9,
+    "ns_per_element": 42.61
+   },
+   {
+    "label": "list->array double[10][10][1000]",
+    "best": 2987911.4,
+    "median": 3191302.9,
+    "ns_per_element": 29.88
+   },
+   {
+    "label": "buffer->array double[1000][10][10]",
+    "best": 628892.9,
+    "median": 644753.8,
+    "ns_per_element": 6.29
+   },
+   {
+    "label": "buffer->array double[10][10][1000]",
+    "best": 116227.4,
+    "median": 135607.2,
+    "ns_per_element": 1.16
+   }
+  ],
+  "object": [
+   {
+    "label": "Object identity",
+    "best": 983.6,
+    "median": 1028.5,
+    "ns_per_element": null
+   }
+  ]
+ },
+ "jpy": {
+  "strings": [
+   {
+    "label": "new String + toString",
+    "best": 1010.3,
+    "median": 1021.7,
+    "ns_per_element": null
+   }
+  ],
+  "int": [
+   {
+    "label": "Math.max(int,int)",
+    "best": 362.6,
+    "median": 368.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "new Integer(int)",
+    "best": 477.8,
+    "median": 489.2,
+    "ns_per_element": null
+   }
+  ],
+  "double": [
+   {
+    "label": "Math.sqrt(double)",
+    "best": 418.7,
+    "median": 428.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "new Double(double)",
+    "best": 526.7,
+    "median": 534.7,
+    "ns_per_element": null
+   }
+  ],
+  "array_noncontig": [
+   {
+    "label": "buffer->array int[][](10^2), transposed",
+    "best": 5652.4,
+    "median": 6171.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][][](10^3), transposed",
+    "best": 55991.2,
+    "median": 58420.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][][][](10^4), transposed",
+    "best": 571821.4,
+    "median": 596314.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][][][][](10^5), transposed",
+    "best": 5904846.6,
+    "median": 6211998.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][](10^2), transposed",
+    "best": 5474.2,
+    "median": 5841.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][][](10^3), transposed",
+    "best": 54551.5,
+    "median": 57967.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][][][](10^4), transposed",
+    "best": 559800.8,
+    "median": 594008.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][][][][](10^5), transposed",
+    "best": 5726589.1,
+    "median": 6007591.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][](10^2), transposed",
+    "best": 5642.3,
+    "median": 5813.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][][](10^3), transposed",
+    "best": 54951.1,
+    "median": 55164.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][][][](10^4), transposed",
+    "best": 532072.5,
+    "median": 582302.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][][][][](10^5), transposed",
+    "best": 5546980.6,
+    "median": 6172812.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][](10^2), transposed",
+    "best": 5315.7,
+    "median": 5622.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][][](10^3), transposed",
+    "best": 50789.0,
+    "median": 54641.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][][][](10^4), transposed",
+    "best": 491133.8,
+    "median": 536351.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][][][][](10^5), transposed",
+    "best": 4963799.6,
+    "median": 5250348.8,
+    "ns_per_element": null
+   }
+  ],
+  "array_multidim": [
+   {
+    "label": "list->array int[][](10^2), fresh",
+    "best": 2200.0,
+    "median": 2506.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[][][](10^3), fresh",
+    "best": 17668.0,
+    "median": 19813.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[][][][](10^4), fresh",
+    "best": 171389.3,
+    "median": 185711.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[][][][][](10^5), fresh",
+    "best": 1757120.9,
+    "median": 1782010.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][](10^2), fresh",
+    "best": 5729.9,
+    "median": 6077.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][][](10^3), fresh",
+    "best": 55185.4,
+    "median": 59497.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][][][](10^4), fresh",
+    "best": 566533.5,
+    "median": 598430.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][][][][](10^5), fresh",
+    "best": 5683387.7,
+    "median": 5910392.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[][](10^2)",
+    "best": 9962.9,
+    "median": 11072.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[][][](10^3)",
+    "best": 99842.5,
+    "median": 105232.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[][][][](10^4)",
+    "best": 1137774.5,
+    "median": 1164857.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[][][][][](10^5)",
+    "best": 13614374.9,
+    "median": 14142791.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[][](10^2)",
+    "best": 7854.4,
+    "median": 8121.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[][][](10^3)",
+    "best": 77504.2,
+    "median": 80824.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[][][][](10^4)",
+    "best": 891446.0,
+    "median": 926288.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[][][][][](10^5)",
+    "best": 10713915.3,
+    "median": 11240353.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[][](10^2), fresh",
+    "best": 2217.1,
+    "median": 2415.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[][][](10^3), fresh",
+    "best": 18803.9,
+    "median": 19980.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[][][][](10^4), fresh",
+    "best": 188723.3,
+    "median": 193842.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[][][][][](10^5), fresh",
+    "best": 1890663.5,
+    "median": 2041022.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][](10^2), fresh",
+    "best": 5585.0,
+    "median": 5682.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][][](10^3), fresh",
+    "best": 54900.7,
+    "median": 56461.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][][][](10^4), fresh",
+    "best": 554750.0,
+    "median": 591864.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][][][][](10^5), fresh",
+    "best": 5660921.9,
+    "median": 6152913.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[][](10^2)",
+    "best": 10197.7,
+    "median": 11319.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[][][](10^3)",
+    "best": 105041.5,
+    "median": 111697.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[][][][](10^4)",
+    "best": 1092113.7,
+    "median": 1119014.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[][][][][](10^5)",
+    "best": 11879789.6,
+    "median": 12934238.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[][](10^2)",
+    "best": 8304.4,
+    "median": 8465.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[][][](10^3)",
+    "best": 76791.6,
+    "median": 79099.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[][][][](10^4)",
+    "best": 894228.1,
+    "median": 913901.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[][][][][](10^5)",
+    "best": 10543403.6,
+    "median": 11112499.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[][](10^2), fresh",
+    "best": 2072.1,
+    "median": 2109.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[][][](10^3), fresh",
+    "best": 17508.7,
+    "median": 18031.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[][][][](10^4), fresh",
+    "best": 173231.1,
+    "median": 179293.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[][][][][](10^5), fresh",
+    "best": 1758766.0,
+    "median": 1916914.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][](10^2), fresh",
+    "best": 5736.6,
+    "median": 5820.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][][](10^3), fresh",
+    "best": 54725.7,
+    "median": 57595.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][][][](10^4), fresh",
+    "best": 541806.4,
+    "median": 553222.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][][][][](10^5), fresh",
+    "best": 5440141.1,
+    "median": 5900608.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[][](10^2)",
+    "best": 9385.7,
+    "median": 9398.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[][][](10^3)",
+    "best": 91323.2,
+    "median": 95750.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[][][][](10^4)",
+    "best": 1015685.0,
+    "median": 1024001.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[][][][][](10^5)",
+    "best": 10975680.1,
+    "median": 11704875.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[][](10^2)",
+    "best": 8328.5,
+    "median": 8571.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[][][](10^3)",
+    "best": 76139.8,
+    "median": 79847.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[][][][](10^4)",
+    "best": 884744.8,
+    "median": 931901.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[][][][][](10^5)",
+    "best": 10522195.7,
+    "median": 10763494.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[][](10^2), fresh",
+    "best": 2207.8,
+    "median": 2239.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[][][](10^3), fresh",
+    "best": 18116.2,
+    "median": 18698.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[][][][](10^4), fresh",
+    "best": 179378.2,
+    "median": 208824.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[][][][][](10^5), fresh",
+    "best": 1882706.9,
+    "median": 1972101.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][](10^2), fresh",
+    "best": 5450.3,
+    "median": 5696.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][][](10^3), fresh",
+    "best": 51095.3,
+    "median": 54611.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][][][](10^4), fresh",
+    "best": 511132.5,
+    "median": 535420.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][][][][](10^5), fresh",
+    "best": 5219316.9,
+    "median": 5312668.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[][](10^2)",
+    "best": 9891.5,
+    "median": 10656.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[][][](10^3)",
+    "best": 97719.7,
+    "median": 102959.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[][][][](10^4)",
+    "best": 1037737.6,
+    "median": 1071339.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[][][][][](10^5)",
+    "best": 11476721.4,
+    "median": 12086523.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[][](10^2)",
+    "best": 8192.3,
+    "median": 8418.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[][][](10^3)",
+    "best": 79990.8,
+    "median": 84388.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[][][][](10^4)",
+    "best": 906593.8,
+    "median": 982310.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[][][][][](10^5)",
+    "best": 10900139.0,
+    "median": 11836470.4,
+    "ns_per_element": null
+   }
+  ],
+  "array_flat": [
+   {
+    "label": "list->array int[100], fresh",
+    "best": 1182.8,
+    "median": 1424.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[1000], fresh",
+    "best": 8074.1,
+    "median": 8324.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[10000], fresh",
+    "best": 76675.7,
+    "median": 79425.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[100000], fresh",
+    "best": 781784.3,
+    "median": 798947.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[100], fresh",
+    "best": 437.5,
+    "median": 447.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[1000], fresh",
+    "best": 809.8,
+    "median": 857.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[10000], fresh",
+    "best": 5309.6,
+    "median": 5988.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[100000], fresh",
+    "best": 43509.7,
+    "median": 59051.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[100]",
+    "best": 5182.5,
+    "median": 5451.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[1000]",
+    "best": 46138.3,
+    "median": 48060.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[10000]",
+    "best": 489233.4,
+    "median": 502384.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[100000]",
+    "best": 6576668.7,
+    "median": 6957418.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[100]",
+    "best": 973.3,
+    "median": 1001.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[1000]",
+    "best": 1424.1,
+    "median": 1484.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[10000]",
+    "best": 6408.6,
+    "median": 6715.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[100000]",
+    "best": 48005.6,
+    "median": 52230.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[100], fresh",
+    "best": 1209.8,
+    "median": 1255.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[1000], fresh",
+    "best": 8689.2,
+    "median": 8849.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[10000], fresh",
+    "best": 82353.0,
+    "median": 85286.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[100000], fresh",
+    "best": 824832.2,
+    "median": 838557.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[100], fresh",
+    "best": 466.9,
+    "median": 480.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[1000], fresh",
+    "best": 1167.6,
+    "median": 1354.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[10000], fresh",
+    "best": 9115.8,
+    "median": 10654.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[100000], fresh",
+    "best": 72482.7,
+    "median": 92327.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[100]",
+    "best": 5377.9,
+    "median": 5855.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[1000]",
+    "best": 48159.6,
+    "median": 50416.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[10000]",
+    "best": 483063.6,
+    "median": 494307.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[100000]",
+    "best": 7442960.8,
+    "median": 7649512.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[100]",
+    "best": 999.0,
+    "median": 1021.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[1000]",
+    "best": 2023.1,
+    "median": 2104.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[10000]",
+    "best": 11844.9,
+    "median": 12731.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[100000]",
+    "best": 116314.5,
+    "median": 134436.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[100], fresh",
+    "best": 1110.1,
+    "median": 1124.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[1000], fresh",
+    "best": 7625.5,
+    "median": 7731.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[10000], fresh",
+    "best": 72344.0,
+    "median": 73584.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[100000], fresh",
+    "best": 724712.6,
+    "median": 736516.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[100], widening from int",
+    "best": 1588.5,
+    "median": 1645.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[1000], widening from int",
+    "best": 11961.8,
+    "median": 12294.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[10000], widening from int",
+    "best": 115582.9,
+    "median": 127326.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[100000], widening from int",
+    "best": 1187625.3,
+    "median": 1218826.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[100], fresh",
+    "best": 441.1,
+    "median": 447.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[1000], fresh",
+    "best": 760.6,
+    "median": 842.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[10000], fresh",
+    "best": 4917.3,
+    "median": 5221.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[100000], fresh",
+    "best": 41541.4,
+    "median": 44666.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[100]",
+    "best": 4528.9,
+    "median": 4713.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[1000]",
+    "best": 42159.9,
+    "median": 44637.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[10000]",
+    "best": 439691.8,
+    "median": 460840.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[100000]",
+    "best": 4459721.7,
+    "median": 4719730.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[100]",
+    "best": 970.9,
+    "median": 987.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[1000]",
+    "best": 1473.2,
+    "median": 1503.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[10000]",
+    "best": 6215.3,
+    "median": 6448.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[100000]",
+    "best": 47486.9,
+    "median": 54763.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[100], fresh",
+    "best": 1189.9,
+    "median": 1233.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[1000], fresh",
+    "best": 8429.9,
+    "median": 8658.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[10000], fresh",
+    "best": 81607.1,
+    "median": 82679.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[100000], fresh",
+    "best": 807684.0,
+    "median": 838969.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[100], widening from int",
+    "best": 1654.5,
+    "median": 1751.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[1000], widening from int",
+    "best": 13096.1,
+    "median": 13234.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[10000], widening from int",
+    "best": 123519.5,
+    "median": 128460.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[100000], widening from int",
+    "best": 1266424.5,
+    "median": 1319849.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[100], fresh",
+    "best": 462.7,
+    "median": 495.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[1000], fresh",
+    "best": 1142.0,
+    "median": 1204.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[10000], fresh",
+    "best": 8922.1,
+    "median": 9580.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[100000], fresh",
+    "best": 72875.6,
+    "median": 81661.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[100]",
+    "best": 4730.3,
+    "median": 4822.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[1000]",
+    "best": 45414.7,
+    "median": 50122.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[10000]",
+    "best": 456468.9,
+    "median": 484163.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[100000]",
+    "best": 4912456.2,
+    "median": 5241388.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[100]",
+    "best": 1057.7,
+    "median": 1124.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[1000]",
+    "best": 2271.8,
+    "median": 2949.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[10000]",
+    "best": 13311.1,
+    "median": 15446.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[100000]",
+    "best": 132296.4,
+    "median": 165402.2,
+    "ns_per_element": null
+   }
+  ],
+  "array_ragged": [
+   {
+    "label": "ragged list->array int[][](~10^2), fresh",
+    "best": 1530.7,
+    "median": 1745.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array int[][][](~10^3), fresh",
+    "best": 18822.8,
+    "median": 19245.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array int[][][][](~10^4), fresh",
+    "best": 149402.4,
+    "median": 157369.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array int[][][][][](~10^5), fresh",
+    "best": 2139732.4,
+    "median": 2192238.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array long[][](~10^2), fresh",
+    "best": 1483.3,
+    "median": 1538.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array long[][][](~10^3), fresh",
+    "best": 19790.3,
+    "median": 20575.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array long[][][][](~10^4), fresh",
+    "best": 156158.4,
+    "median": 161018.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array long[][][][][](~10^5), fresh",
+    "best": 2259730.3,
+    "median": 2337918.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array float[][](~10^2), fresh",
+    "best": 1382.3,
+    "median": 1446.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array float[][][](~10^3), fresh",
+    "best": 18061.7,
+    "median": 18508.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array float[][][][](~10^4), fresh",
+    "best": 145386.9,
+    "median": 148588.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array float[][][][][](~10^5), fresh",
+    "best": 2280682.6,
+    "median": 2312063.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array double[][](~10^2), fresh",
+    "best": 1483.3,
+    "median": 1606.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array double[][][](~10^3), fresh",
+    "best": 19950.0,
+    "median": 21096.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array double[][][][](~10^4), fresh",
+    "best": 151441.1,
+    "median": 159075.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array double[][][][][](~10^5), fresh",
+    "best": 2217598.8,
+    "median": 2389657.3,
+    "ns_per_element": null
+   }
+  ],
+  "dispatch": [
+   {
+    "label": "overload x16, monomorphic",
+    "best": 543.2,
+    "median": 566.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "overload x16, polymorphic",
+    "best": 546.4,
+    "median": 554.4,
+    "ns_per_element": null
+   }
+  ],
+  "array_shape": [
+   {
+    "label": "list->array int[10][10000]",
+    "best": 806917.6,
+    "median": 912438.3,
+    "ns_per_element": 8.07
+   },
+   {
+    "label": "list->array int[100][1000]",
+    "best": 830006.1,
+    "median": 859616.4,
+    "ns_per_element": 8.3
+   },
+   {
+    "label": "list->array int[1000][100]",
+    "best": 866335.1,
+    "median": 894040.4,
+    "ns_per_element": 8.66
+   },
+   {
+    "label": "list->array int[10000][10]",
+    "best": 1649006.8,
+    "median": 1727896.0,
+    "ns_per_element": 16.49
+   },
+   {
+    "label": "list->array int[3][100000]",
+    "best": 2490969.5,
+    "median": 2765570.2,
+    "ns_per_element": 8.3
+   },
+   {
+    "label": "list->array int[100000][3]",
+    "best": 11588373.6,
+    "median": 12714953.1,
+    "ns_per_element": 38.63
+   },
+   {
+    "label": "list->array int[1000][1000]",
+    "best": 8584725.9,
+    "median": 9044810.2,
+    "ns_per_element": 8.58
+   },
+   {
+    "label": "buffer->array int[10][10000]",
+    "best": 3957170.7,
+    "median": 4624439.6,
+    "ns_per_element": 39.57
+   },
+   {
+    "label": "buffer->array int[100][1000]",
+    "best": 4028383.2,
+    "median": 4576502.9,
+    "ns_per_element": 40.28
+   },
+   {
+    "label": "buffer->array int[1000][100]",
+    "best": 4154658.1,
+    "median": 4609661.5,
+    "ns_per_element": 41.55
+   },
+   {
+    "label": "buffer->array int[10000][10]",
+    "best": 5977025.8,
+    "median": 6350085.1,
+    "ns_per_element": 59.77
+   },
+   {
+    "label": "buffer->array int[3][100000]",
+    "best": 12919031.2,
+    "median": 15353861.0,
+    "ns_per_element": 43.06
+   },
+   {
+    "label": "buffer->array int[100000][3]",
+    "best": 30331460.8,
+    "median": 31161882.5,
+    "ns_per_element": 101.1
+   },
+   {
+    "label": "buffer->array int[1000][1000]",
+    "best": 39452891.7,
+    "median": 40195541.9,
+    "ns_per_element": 39.45
+   },
+   {
+    "label": "list->array int[1000][10][10]",
+    "best": 1745310.5,
+    "median": 1888351.9,
+    "ns_per_element": 17.45
+   },
+   {
+    "label": "list->array int[10][10][1000]",
+    "best": 798483.2,
+    "median": 821919.3,
+    "ns_per_element": 7.98
+   },
+   {
+    "label": "buffer->array int[1000][10][10]",
+    "best": 5810657.3,
+    "median": 6085117.9,
+    "ns_per_element": 58.11
+   },
+   {
+    "label": "buffer->array int[10][10][1000]",
+    "best": 3859042.5,
+    "median": 3963493.1,
+    "ns_per_element": 38.59
+   },
+   {
+    "label": "list->array long[10][10000]",
+    "best": 821601.8,
+    "median": 838760.8,
+    "ns_per_element": 8.22
+   },
+   {
+    "label": "list->array long[100][1000]",
+    "best": 826780.8,
+    "median": 842191.3,
+    "ns_per_element": 8.27
+   },
+   {
+    "label": "list->array long[1000][100]",
+    "best": 890543.8,
+    "median": 901281.0,
+    "ns_per_element": 8.91
+   },
+   {
+    "label": "list->array long[10000][10]",
+    "best": 1759386.5,
+    "median": 1892468.0,
+    "ns_per_element": 17.59
+   },
+   {
+    "label": "list->array long[3][100000]",
+    "best": 2584783.7,
+    "median": 2664802.7,
+    "ns_per_element": 8.62
+   },
+   {
+    "label": "list->array long[100000][3]",
+    "best": 12470530.5,
+    "median": 12744454.2,
+    "ns_per_element": 41.57
+   },
+   {
+    "label": "list->array long[1000][1000]",
+    "best": 8898200.2,
+    "median": 9254870.2,
+    "ns_per_element": 8.9
+   },
+   {
+    "label": "buffer->array long[10][10000]",
+    "best": 3772217.6,
+    "median": 3941730.6,
+    "ns_per_element": 37.72
+   },
+   {
+    "label": "buffer->array long[100][1000]",
+    "best": 3738746.2,
+    "median": 3899168.8,
+    "ns_per_element": 37.39
+   },
+   {
+    "label": "buffer->array long[1000][100]",
+    "best": 3873069.2,
+    "median": 3983940.1,
+    "ns_per_element": 38.73
+   },
+   {
+    "label": "buffer->array long[10000][10]",
+    "best": 5560335.4,
+    "median": 5713042.2,
+    "ns_per_element": 55.6
+   },
+   {
+    "label": "buffer->array long[3][100000]",
+    "best": 11171590.4,
+    "median": 11350693.8,
+    "ns_per_element": 37.24
+   },
+   {
+    "label": "buffer->array long[100000][3]",
+    "best": 28768097.4,
+    "median": 29908431.2,
+    "ns_per_element": 95.89
+   },
+   {
+    "label": "buffer->array long[1000][1000]",
+    "best": 38238768.7,
+    "median": 38429985.4,
+    "ns_per_element": 38.24
+   },
+   {
+    "label": "list->array long[1000][10][10]",
+    "best": 1872494.9,
+    "median": 1886024.9,
+    "ns_per_element": 18.72
+   },
+   {
+    "label": "list->array long[10][10][1000]",
+    "best": 823259.8,
+    "median": 842163.8,
+    "ns_per_element": 8.23
+   },
+   {
+    "label": "buffer->array long[1000][10][10]",
+    "best": 5680074.4,
+    "median": 5906577.1,
+    "ns_per_element": 56.8
+   },
+   {
+    "label": "buffer->array long[10][10][1000]",
+    "best": 3947928.7,
+    "median": 4043022.6,
+    "ns_per_element": 39.48
+   },
+   {
+    "label": "list->array float[10][10000]",
+    "best": 731309.2,
+    "median": 814459.5,
+    "ns_per_element": 7.31
+   },
+   {
+    "label": "list->array float[100][1000]",
+    "best": 754980.7,
+    "median": 772401.5,
+    "ns_per_element": 7.55
+   },
+   {
+    "label": "list->array float[1000][100]",
+    "best": 795978.5,
+    "median": 812945.4,
+    "ns_per_element": 7.96
+   },
+   {
+    "label": "list->array float[10000][10]",
+    "best": 1609817.1,
+    "median": 1701864.0,
+    "ns_per_element": 16.1
+   },
+   {
+    "label": "list->array float[3][100000]",
+    "best": 2333876.3,
+    "median": 2447727.1,
+    "ns_per_element": 7.78
+   },
+   {
+    "label": "list->array float[100000][3]",
+    "best": 11620500.5,
+    "median": 11899526.2,
+    "ns_per_element": 38.74
+   },
+   {
+    "label": "list->array float[1000][1000]",
+    "best": 8092993.9,
+    "median": 8310555.8,
+    "ns_per_element": 8.09
+   },
+   {
+    "label": "buffer->array float[10][10000]",
+    "best": 3472437.9,
+    "median": 3586892.6,
+    "ns_per_element": 34.72
+   },
+   {
+    "label": "buffer->array float[100][1000]",
+    "best": 3536411.8,
+    "median": 3681473.5,
+    "ns_per_element": 35.36
+   },
+   {
+    "label": "buffer->array float[1000][100]",
+    "best": 3630979.2,
+    "median": 3714658.3,
+    "ns_per_element": 36.31
+   },
+   {
+    "label": "buffer->array float[10000][10]",
+    "best": 5130371.1,
+    "median": 5595646.8,
+    "ns_per_element": 51.3
+   },
+   {
+    "label": "buffer->array float[3][100000]",
+    "best": 10414712.7,
+    "median": 10912361.7,
+    "ns_per_element": 34.72
+   },
+   {
+    "label": "buffer->array float[100000][3]",
+    "best": 27795668.1,
+    "median": 28760732.6,
+    "ns_per_element": 92.65
+   },
+   {
+    "label": "buffer->array float[1000][1000]",
+    "best": 35873353.3,
+    "median": 36864208.5,
+    "ns_per_element": 35.87
+   },
+   {
+    "label": "list->array float[1000][10][10]",
+    "best": 1754333.5,
+    "median": 1781654.2,
+    "ns_per_element": 17.54
+   },
+   {
+    "label": "list->array float[10][10][1000]",
+    "best": 759979.0,
+    "median": 834657.0,
+    "ns_per_element": 7.6
+   },
+   {
+    "label": "buffer->array float[1000][10][10]",
+    "best": 5542827.7,
+    "median": 5769947.5,
+    "ns_per_element": 55.43
+   },
+   {
+    "label": "buffer->array float[10][10][1000]",
+    "best": 3508462.4,
+    "median": 3628017.3,
+    "ns_per_element": 35.08
+   },
+   {
+    "label": "list->array double[10][10000]",
+    "best": 829131.1,
+    "median": 841660.6,
+    "ns_per_element": 8.29
+   },
+   {
+    "label": "list->array double[100][1000]",
+    "best": 823039.2,
+    "median": 859044.5,
+    "ns_per_element": 8.23
+   },
+   {
+    "label": "list->array double[1000][100]",
+    "best": 867200.1,
+    "median": 904669.1,
+    "ns_per_element": 8.67
+   },
+   {
+    "label": "list->array double[10000][10]",
+    "best": 1696825.5,
+    "median": 1754784.3,
+    "ns_per_element": 16.97
+   },
+   {
+    "label": "list->array double[3][100000]",
+    "best": 2670880.0,
+    "median": 2864406.7,
+    "ns_per_element": 8.9
+   },
+   {
+    "label": "list->array double[100000][3]",
+    "best": 12117989.4,
+    "median": 12545366.1,
+    "ns_per_element": 40.39
+   },
+   {
+    "label": "list->array double[1000][1000]",
+    "best": 8884806.2,
+    "median": 9020636.7,
+    "ns_per_element": 8.88
+   },
+   {
+    "label": "buffer->array double[10][10000]",
+    "best": 3283245.5,
+    "median": 3301883.8,
+    "ns_per_element": 32.83
+   },
+   {
+    "label": "buffer->array double[100][1000]",
+    "best": 3252639.5,
+    "median": 3424560.6,
+    "ns_per_element": 32.53
+   },
+   {
+    "label": "buffer->array double[1000][100]",
+    "best": 3401469.9,
+    "median": 3438875.0,
+    "ns_per_element": 34.01
+   },
+   {
+    "label": "buffer->array double[10000][10]",
+    "best": 5092549.1,
+    "median": 5227664.7,
+    "ns_per_element": 50.93
+   },
+   {
+    "label": "buffer->array double[3][100000]",
+    "best": 10026085.9,
+    "median": 10436545.6,
+    "ns_per_element": 33.42
+   },
+   {
+    "label": "buffer->array double[100000][3]",
+    "best": 27661543.7,
+    "median": 28427747.3,
+    "ns_per_element": 92.21
+   },
+   {
+    "label": "buffer->array double[1000][1000]",
+    "best": 33215731.7,
+    "median": 33937134.7,
+    "ns_per_element": 33.22
+   },
+   {
+    "label": "list->array double[1000][10][10]",
+    "best": 1833218.9,
+    "median": 1870317.6,
+    "ns_per_element": 18.33
+   },
+   {
+    "label": "list->array double[10][10][1000]",
+    "best": 827488.7,
+    "median": 862912.6,
+    "ns_per_element": 8.27
+   },
+   {
+    "label": "buffer->array double[1000][10][10]",
+    "best": 4965956.1,
+    "median": 5214238.4,
+    "ns_per_element": 49.66
+   },
+   {
+    "label": "buffer->array double[10][10][1000]",
+    "best": 3117623.3,
+    "median": 3367595.3,
+    "ns_per_element": 31.18
+   }
+  ],
+  "object": [
+   {
+    "label": "Object identity",
+    "best": 736.8,
+    "median": 766.4,
+    "ns_per_element": null
+   }
+  ]
+ },
+ "jep": {
+  "dispatch.stdout": [],
+  "array_multidim.stdout": [],
+  "double.stdout": [],
+  "array_flat.stdout": [],
+  "array_noncontig.stdout": [],
+  "object.stdout": [],
+  "strings.stdout": [],
+  "array_shape.stdout": [],
+  "array_ragged.stdout": [],
+  "proxy.stdout": [],
+  "int.stdout": [],
+  "array_multidim": [
+   {
+    "label": "list->array int[][](10^2), fresh",
+    "best": 6912.5,
+    "median": 7019.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[][][](10^3), fresh",
+    "best": 64825.2,
+    "median": 65398.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[][][][](10^4), fresh",
+    "best": 629210.2,
+    "median": 637481.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[][][][][](10^5), fresh",
+    "best": 6280016.2,
+    "median": 6354866.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][](10^2), manual per-row",
+    "best": 19389.4,
+    "median": 19439.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][][](10^3), manual per-row",
+    "best": 190406.9,
+    "median": 191047.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][][][](10^4), manual per-row",
+    "best": 1901580.8,
+    "median": 1937248.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][][][][](10^5), manual per-row",
+    "best": 19048905.1,
+    "median": 19183735.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[][](10^2)",
+    "best": 13526.2,
+    "median": 14672.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[][][](10^3)",
+    "best": 129101.8,
+    "median": 155173.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[][][][](10^4)",
+    "best": 1466528.3,
+    "median": 1480937.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[][][][][](10^5)",
+    "best": 16390342.4,
+    "median": 18469689.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[][](10^2)",
+    "best": 17294.8,
+    "median": 18408.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[][][](10^3)",
+    "best": 175356.1,
+    "median": 191976.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[][][][](10^4)",
+    "best": 2036880.2,
+    "median": 2088355.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[][][][][](10^5)",
+    "best": 26164084.7,
+    "median": 26346167.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[][](10^2), fresh",
+    "best": 6949.4,
+    "median": 8029.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[][][](10^3), fresh",
+    "best": 64071.8,
+    "median": 64851.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[][][][](10^4), fresh",
+    "best": 630475.1,
+    "median": 729974.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[][][][][](10^5), fresh",
+    "best": 6349566.9,
+    "median": 6419127.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][](10^2), manual per-row",
+    "best": 20529.4,
+    "median": 20639.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][][](10^3), manual per-row",
+    "best": 199726.2,
+    "median": 204409.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][][][](10^4), manual per-row",
+    "best": 1969514.4,
+    "median": 1988561.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][][][][](10^5), manual per-row",
+    "best": 19832079.3,
+    "median": 20279582.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[][](10^2)",
+    "best": 14147.3,
+    "median": 14806.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[][][](10^3)",
+    "best": 133857.2,
+    "median": 141921.1,
+    "ns_per_element": null
+   }
+  ],
+  "dispatch": [
+   {
+    "label": "overload x16, monomorphic",
+    "best": 4782.9,
+    "median": 4928.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "overload x16, polymorphic",
+    "best": 5145.7,
+    "median": 5454.4,
+    "ns_per_element": null
+   }
+  ],
+  "array_noncontig": [
+   {
+    "label": "buffer->array int[100], column slice",
+    "best": 1246.6,
+    "median": 1405.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[1000], column slice",
+    "best": 1926.1,
+    "median": 1963.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[10000], column slice",
+    "best": 8504.0,
+    "median": 9456.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[100000], column slice",
+    "best": 67996.8,
+    "median": 91347.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][](10^2), transposed, manual per-row",
+    "best": 25512.3,
+    "median": 25793.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][][](10^3), transposed, manual per-row",
+    "best": 248265.2,
+    "median": 254217.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][][][](10^4), transposed, manual per-row",
+    "best": 2493938.8,
+    "median": 2562023.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[][][][][](10^5), transposed, manual per-row",
+    "best": 24911884.9,
+    "median": 25248023.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[100], column slice",
+    "best": 1296.5,
+    "median": 1310.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[1000], column slice",
+    "best": 2540.2,
+    "median": 2583.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[10000], column slice",
+    "best": 14861.4,
+    "median": 16627.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[100000], column slice",
+    "best": 134890.7,
+    "median": 177600.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][](10^2), transposed, manual per-row",
+    "best": 25654.0,
+    "median": 26533.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][][](10^3), transposed, manual per-row",
+    "best": 254678.5,
+    "median": 259297.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][][][](10^4), transposed, manual per-row",
+    "best": 2486914.6,
+    "median": 2556051.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[][][][][](10^5), transposed, manual per-row",
+    "best": 26296872.0,
+    "median": 26605225.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[100], column slice",
+    "best": 1254.4,
+    "median": 1397.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[1000], column slice",
+    "best": 1965.6,
+    "median": 2022.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[10000], column slice",
+    "best": 8312.8,
+    "median": 8549.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[100000], column slice",
+    "best": 68367.1,
+    "median": 70869.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][](10^2), transposed, manual per-row",
+    "best": 25521.5,
+    "median": 26128.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][][](10^3), transposed, manual per-row",
+    "best": 248772.0,
+    "median": 268673.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][][][](10^4), transposed, manual per-row",
+    "best": 2494275.4,
+    "median": 2548773.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[][][][][](10^5), transposed, manual per-row",
+    "best": 24792662.5,
+    "median": 26884468.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[100], column slice",
+    "best": 1281.2,
+    "median": 1307.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[1000], column slice",
+    "best": 2485.1,
+    "median": 2617.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[10000], column slice",
+    "best": 14846.4,
+    "median": 16636.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[100000], column slice",
+    "best": 134718.2,
+    "median": 167570.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][](10^2), transposed, manual per-row",
+    "best": 24907.2,
+    "median": 25640.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][][](10^3), transposed, manual per-row",
+    "best": 247473.3,
+    "median": 251393.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][][][](10^4), transposed, manual per-row",
+    "best": 2498462.5,
+    "median": 2561064.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[][][][][](10^5), transposed, manual per-row",
+    "best": 25427444.9,
+    "median": 25796190.9,
+    "ns_per_element": null
+   }
+  ],
+  "array_ragged": [
+   {
+    "label": "ragged list->array int[][](~10^2), fresh",
+    "best": 4800.8,
+    "median": 5013.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array int[][][](~10^3), fresh",
+    "best": 71090.5,
+    "median": 73053.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array int[][][][](~10^4), fresh",
+    "best": 563822.3,
+    "median": 583281.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array int[][][][][](~10^5), fresh",
+    "best": 8147248.9,
+    "median": 8356995.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array long[][](~10^2), fresh",
+    "best": 4768.5,
+    "median": 4914.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array long[][][](~10^3), fresh",
+    "best": 70841.6,
+    "median": 74307.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array long[][][][](~10^4), fresh",
+    "best": 569073.7,
+    "median": 572925.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array long[][][][][](~10^5), fresh",
+    "best": 8136513.4,
+    "median": 8368777.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array float[][](~10^2), fresh",
+    "best": 4538.6,
+    "median": 4629.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array float[][][](~10^3), fresh",
+    "best": 66084.9,
+    "median": 67341.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array float[][][][](~10^4), fresh",
+    "best": 530688.2,
+    "median": 543102.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array float[][][][][](~10^5), fresh",
+    "best": 7884050.0,
+    "median": 8169711.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array double[][](~10^2), fresh",
+    "best": 4695.5,
+    "median": 4817.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array double[][][](~10^3), fresh",
+    "best": 67851.5,
+    "median": 71510.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array double[][][][](~10^4), fresh",
+    "best": 532166.2,
+    "median": 547128.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array double[][][][][](~10^5), fresh",
+    "best": 7744838.2,
+    "median": 8306476.5,
+    "ns_per_element": null
+   }
+  ],
+  "array_flat": [
+   {
+    "label": "list->array int[100], fresh",
+    "best": 2492.9,
+    "median": 2658.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[1000], fresh",
+    "best": 14740.0,
+    "median": 15755.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[10000], fresh",
+    "best": 136221.5,
+    "median": 139932.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[100000], fresh",
+    "best": 1371269.2,
+    "median": 1452845.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[100], fresh",
+    "best": 818.2,
+    "median": 905.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[1000], fresh",
+    "best": 1213.2,
+    "median": 1390.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[10000], fresh",
+    "best": 5620.9,
+    "median": 6078.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array int[100000], fresh",
+    "best": 42612.8,
+    "median": 100253.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[100]",
+    "best": 5016.6,
+    "median": 5223.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[1000]",
+    "best": 40935.9,
+    "median": 43787.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[10000]",
+    "best": 419283.7,
+    "median": 433990.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[100000]",
+    "best": 5848729.7,
+    "median": 6057918.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[100]",
+    "best": 8995.7,
+    "median": 9118.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[1000]",
+    "best": 73585.8,
+    "median": 75738.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[10000]",
+    "best": 757976.7,
+    "median": 796447.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[100000]",
+    "best": 9408453.1,
+    "median": 9750894.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[100], fresh",
+    "best": 2456.0,
+    "median": 2588.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[1000], fresh",
+    "best": 14246.5,
+    "median": 14881.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[10000], fresh",
+    "best": 136267.3,
+    "median": 148120.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[100000], fresh",
+    "best": 1380915.3,
+    "median": 1444300.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[100], fresh",
+    "best": 885.9,
+    "median": 1005.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[1000], fresh",
+    "best": 1764.8,
+    "median": 1948.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[10000], fresh",
+    "best": 11513.6,
+    "median": 12647.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array long[100000], fresh",
+    "best": 103775.2,
+    "median": 132719.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[100]",
+    "best": 5452.2,
+    "median": 5984.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[1000]",
+    "best": 38752.6,
+    "median": 41742.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[10000]",
+    "best": 368904.1,
+    "median": 378955.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[100000]",
+    "best": 6322216.7,
+    "median": 6428270.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[100]",
+    "best": 9485.7,
+    "median": 9772.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[1000]",
+    "best": 78725.4,
+    "median": 82990.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[10000]",
+    "best": 788202.3,
+    "median": 801225.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[100000]",
+    "best": 10729171.3,
+    "median": 11422190.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[100], fresh",
+    "best": 2107.8,
+    "median": 2416.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[1000], fresh",
+    "best": 11485.3,
+    "median": 12931.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[10000], fresh",
+    "best": 102599.2,
+    "median": 112169.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[100000], fresh",
+    "best": 1013266.8,
+    "median": 1041472.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[100], widening from int",
+    "best": 3931.8,
+    "median": 4246.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[1000], widening from int",
+    "best": 31456.0,
+    "median": 32836.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[10000], widening from int",
+    "best": 303601.8,
+    "median": 311477.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[100000], widening from int",
+    "best": 2911070.0,
+    "median": 3104581.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[100], fresh",
+    "best": 842.2,
+    "median": 877.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[1000], fresh",
+    "best": 1249.1,
+    "median": 1297.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[10000], fresh",
+    "best": 5840.6,
+    "median": 6439.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array float[100000], fresh",
+    "best": 46642.7,
+    "median": 49722.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[100]",
+    "best": 4332.1,
+    "median": 4477.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[1000]",
+    "best": 44973.9,
+    "median": 45819.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[10000]",
+    "best": 431904.2,
+    "median": 444523.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[100000]",
+    "best": 4282514.9,
+    "median": 4616436.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[100]",
+    "best": 7423.4,
+    "median": 7824.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[1000]",
+    "best": 68721.1,
+    "median": 70848.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[10000]",
+    "best": 693028.3,
+    "median": 731052.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[100000]",
+    "best": 7084413.3,
+    "median": 7193187.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[100], fresh",
+    "best": 1993.2,
+    "median": 2320.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[1000], fresh",
+    "best": 10736.6,
+    "median": 11084.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[10000], fresh",
+    "best": 94815.6,
+    "median": 98799.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[100000], fresh",
+    "best": 1038433.6,
+    "median": 1129330.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[100], widening from int",
+    "best": 4001.6,
+    "median": 4169.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[1000], widening from int",
+    "best": 30740.2,
+    "median": 32056.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[10000], widening from int",
+    "best": 286372.0,
+    "median": 299109.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[100000], widening from int",
+    "best": 2802420.2,
+    "median": 3094555.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[100], fresh",
+    "best": 911.5,
+    "median": 927.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[1000], fresh",
+    "best": 1829.7,
+    "median": 1884.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[10000], fresh",
+    "best": 11827.2,
+    "median": 12437.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "buffer->array double[100000], fresh",
+    "best": 104318.2,
+    "median": 110264.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[100]",
+    "best": 4259.3,
+    "median": 4622.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[1000]",
+    "best": 43017.2,
+    "median": 46783.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[10000]",
+    "best": 436006.3,
+    "median": 449008.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[100000]",
+    "best": 4366728.4,
+    "median": 4876916.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[100]",
+    "best": 7474.0,
+    "median": 7723.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[1000]",
+    "best": 68611.1,
+    "median": 70895.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[10000]",
+    "best": 684507.9,
+    "median": 699615.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[100000]",
+    "best": 7028567.1,
+    "median": 7416402.5,
+    "ns_per_element": null
+   }
+  ],
+  "proxy": [
+   {
+    "label": "proxy callback (established), int arg",
+    "best": 2439.9,
+    "median": 2696.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "proxy callback (established), Object arg",
+    "best": 5158.6,
+    "median": 5316.0,
+    "ns_per_element": null
+   }
+  ],
+  "double": [
+   {
+    "label": "Math.sqrt(double)",
+    "best": 687.7,
+    "median": 715.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "new Double(double)",
+    "best": 1453.6,
+    "median": 1534.8,
+    "ns_per_element": null
+   }
+  ],
+  "array_shape": [
+   {
+    "label": "list->array int[10][10000]",
+    "best": 1402788.7,
+    "median": 1506100.5,
+    "ns_per_element": 14.03
+   },
+   {
+    "label": "list->array int[100][1000]",
+    "best": 1417742.2,
+    "median": 1462173.2,
+    "ns_per_element": 14.18
+   },
+   {
+    "label": "list->array int[1000][100]",
+    "best": 1836152.7,
+    "median": 1875528.6,
+    "ns_per_element": 18.36
+   },
+   {
+    "label": "list->array int[10000][10]",
+    "best": 6145126.8,
+    "median": 6226865.2,
+    "ns_per_element": 61.45
+   },
+   {
+    "label": "list->array int[3][100000]",
+    "best": 4207551.4,
+    "median": 4353426.9,
+    "ns_per_element": 14.03
+   },
+   {
+    "label": "list->array int[100000][3]",
+    "best": 50941097.2,
+    "median": 51638162.6,
+    "ns_per_element": 169.8
+   },
+   {
+    "label": "list->array int[1000][1000]",
+    "best": 14795683.5,
+    "median": 15382899.8,
+    "ns_per_element": 14.8
+   },
+   {
+    "label": "buffer->array int[10][10000], manual per-row",
+    "best": 93492.7,
+    "median": 106945.7,
+    "ns_per_element": 0.93
+   },
+   {
+    "label": "buffer->array int[100][1000], manual per-row",
+    "best": 251686.2,
+    "median": 255541.4,
+    "ns_per_element": 2.52
+   },
+   {
+    "label": "buffer->array int[1000][100], manual per-row",
+    "best": 1914964.0,
+    "median": 1958306.5,
+    "ns_per_element": 19.15
+   },
+   {
+    "label": "buffer->array int[10000][10], manual per-row",
+    "best": 18634800.9,
+    "median": 18768170.8,
+    "ns_per_element": 186.35
+   },
+   {
+    "label": "buffer->array int[3][100000], manual per-row",
+    "best": 255591.5,
+    "median": 284539.4,
+    "ns_per_element": 0.85
+   },
+   {
+    "label": "buffer->array int[100000][3], manual per-row",
+    "best": 186524993.9,
+    "median": 193162776.9,
+    "ns_per_element": 621.75
+   },
+   {
+    "label": "buffer->array int[1000][1000], manual per-row",
+    "best": 3161567.3,
+    "median": 3247585.0,
+    "ns_per_element": 3.16
+   },
+   {
+    "label": "list->array int[1000][10][10]",
+    "best": 6499517.9,
+    "median": 6752938.8,
+    "ns_per_element": 65.0
+   },
+   {
+    "label": "list->array int[10][10][1000]",
+    "best": 1412371.7,
+    "median": 1470229.5,
+    "ns_per_element": 14.12
+   },
+   {
+    "label": "buffer->array int[1000][10][10], manual per-row",
+    "best": 19691718.6,
+    "median": 20106799.6,
+    "ns_per_element": 196.92
+   },
+   {
+    "label": "buffer->array int[10][10][1000], manual per-row",
+    "best": 260366.2,
+    "median": 265330.4,
+    "ns_per_element": 2.6
+   },
+   {
+    "label": "list->array long[10][10000]",
+    "best": 1275314.5,
+    "median": 1296706.7,
+    "ns_per_element": 12.75
+   },
+   {
+    "label": "list->array long[100][1000]",
+    "best": 1354411.9,
+    "median": 1457153.8,
+    "ns_per_element": 13.54
+   },
+   {
+    "label": "list->array long[1000][100]",
+    "best": 1738037.9,
+    "median": 1751232.9,
+    "ns_per_element": 17.38
+   },
+   {
+    "label": "list->array long[10000][10]",
+    "best": 5879173.1,
+    "median": 6065184.2,
+    "ns_per_element": 58.79
+   },
+   {
+    "label": "list->array long[3][100000]",
+    "best": 4047452.2,
+    "median": 4227886.8,
+    "ns_per_element": 13.49
+   },
+   {
+    "label": "list->array long[100000][3]",
+    "best": 51026318.7,
+    "median": 52049475.8,
+    "ns_per_element": 170.09
+   },
+   {
+    "label": "list->array long[1000][1000]",
+    "best": 13989271.8,
+    "median": 14251297.8,
+    "ns_per_element": 13.99
+   },
+   {
+    "label": "buffer->array long[10][10000], manual per-row",
+    "best": 152932.2,
+    "median": 161739.0,
+    "ns_per_element": 1.53
+   },
+   {
+    "label": "buffer->array long[100][1000], manual per-row",
+    "best": 315696.0,
+    "median": 323763.2,
+    "ns_per_element": 3.16
+   },
+   {
+    "label": "buffer->array long[1000][100], manual per-row",
+    "best": 1950474.7,
+    "median": 2009396.3,
+    "ns_per_element": 19.5
+   },
+   {
+    "label": "buffer->array long[10000][10], manual per-row",
+    "best": 18633418.0,
+    "median": 18855635.1,
+    "ns_per_element": 186.33
+   },
+   {
+    "label": "buffer->array long[3][100000], manual per-row",
+    "best": 500920.2,
+    "median": 540479.6,
+    "ns_per_element": 1.67
+   },
+   {
+    "label": "buffer->array long[100000][3], manual per-row",
+    "best": 185844048.8,
+    "median": 188151484.5,
+    "ns_per_element": 619.48
+   },
+   {
+    "label": "buffer->array long[1000][1000], manual per-row",
+    "best": 3644281.9,
+    "median": 3721491.7,
+    "ns_per_element": 3.64
+   },
+   {
+    "label": "list->array long[1000][10][10]",
+    "best": 6269827.3,
+    "median": 6489782.8,
+    "ns_per_element": 62.7
+   },
+   {
+    "label": "list->array long[10][10][1000]",
+    "best": 1349375.8,
+    "median": 1363825.3,
+    "ns_per_element": 13.49
+   },
+   {
+    "label": "buffer->array long[1000][10][10], manual per-row",
+    "best": 20119618.6,
+    "median": 20336072.1,
+    "ns_per_element": 201.2
+   },
+   {
+    "label": "buffer->array long[10][10][1000], manual per-row",
+    "best": 327111.7,
+    "median": 337051.4,
+    "ns_per_element": 3.27
+   },
+   {
+    "label": "list->array float[10][10000]",
+    "best": 994847.7,
+    "median": 1006856.4,
+    "ns_per_element": 9.95
+   },
+   {
+    "label": "list->array float[100][1000]",
+    "best": 1057161.1,
+    "median": 1142251.4,
+    "ns_per_element": 10.57
+   },
+   {
+    "label": "list->array float[1000][100]",
+    "best": 1430817.3,
+    "median": 1459675.8,
+    "ns_per_element": 14.31
+   },
+   {
+    "label": "list->array float[10000][10]",
+    "best": 5431721.7,
+    "median": 5525995.9,
+    "ns_per_element": 54.32
+   },
+   {
+    "label": "list->array float[3][100000]",
+    "best": 2962935.5,
+    "median": 3034186.6,
+    "ns_per_element": 9.88
+   },
+   {
+    "label": "list->array float[100000][3]",
+    "best": 48370083.4,
+    "median": 49807026.5,
+    "ns_per_element": 161.23
+   },
+   {
+    "label": "list->array float[1000][1000]",
+    "best": 10686076.2,
+    "median": 11000454.0,
+    "ns_per_element": 10.69
+   },
+   {
+    "label": "buffer->array float[10][10000], manual per-row",
+    "best": 82337.5,
+    "median": 90093.0,
+    "ns_per_element": 0.82
+   },
+   {
+    "label": "buffer->array float[100][1000], manual per-row",
+    "best": 251878.8,
+    "median": 260886.9,
+    "ns_per_element": 2.52
+   },
+   {
+    "label": "buffer->array float[1000][100], manual per-row",
+    "best": 1906661.5,
+    "median": 1961511.5,
+    "ns_per_element": 19.07
+   },
+   {
+    "label": "buffer->array float[10000][10], manual per-row",
+    "best": 18542174.9,
+    "median": 18810583.2,
+    "ns_per_element": 185.42
+   },
+   {
+    "label": "buffer->array float[3][100000], manual per-row",
+    "best": 193642.9,
+    "median": 218460.5,
+    "ns_per_element": 0.65
+   },
+   {
+    "label": "buffer->array float[100000][3], manual per-row",
+    "best": 180750135.7,
+    "median": 182390333.1,
+    "ns_per_element": 602.5
+   },
+   {
+    "label": "buffer->array float[1000][1000], manual per-row",
+    "best": 2599686.9,
+    "median": 2682544.6,
+    "ns_per_element": 2.6
+   },
+   {
+    "label": "list->array float[1000][10][10]",
+    "best": 5816735.9,
+    "median": 6048620.9,
+    "ns_per_element": 58.17
+   },
+   {
+    "label": "list->array float[10][10][1000]",
+    "best": 1056808.9,
+    "median": 1060986.0,
+    "ns_per_element": 10.57
+   },
+   {
+    "label": "buffer->array float[1000][10][10], manual per-row",
+    "best": 19310447.1,
+    "median": 19517335.4,
+    "ns_per_element": 193.1
+   },
+   {
+    "label": "buffer->array float[10][10][1000], manual per-row",
+    "best": 266479.4,
+    "median": 269827.4,
+    "ns_per_element": 2.66
+   },
+   {
+    "label": "list->array double[10][10000]",
+    "best": 929371.7,
+    "median": 958864.2,
+    "ns_per_element": 9.29
+   },
+   {
+    "label": "list->array double[100][1000]",
+    "best": 979936.2,
+    "median": 1016846.5,
+    "ns_per_element": 9.8
+   },
+   {
+    "label": "list->array double[1000][100]",
+    "best": 1371696.4,
+    "median": 1398698.2,
+    "ns_per_element": 13.72
+   },
+   {
+    "label": "list->array double[10000][10]",
+    "best": 5405954.7,
+    "median": 5472835.8,
+    "ns_per_element": 54.06
+   },
+   {
+    "label": "list->array double[3][100000]",
+    "best": 2870662.9,
+    "median": 2949622.5,
+    "ns_per_element": 9.57
+   },
+   {
+    "label": "list->array double[100000][3]",
+    "best": 47775906.6,
+    "median": 48018909.5,
+    "ns_per_element": 159.25
+   },
+   {
+    "label": "list->array double[1000][1000]",
+    "best": 9848049.6,
+    "median": 9897306.9,
+    "ns_per_element": 9.85
+   },
+   {
+    "label": "buffer->array double[10][10000], manual per-row",
+    "best": 152815.4,
+    "median": 164259.1,
+    "ns_per_element": 1.53
+   },
+   {
+    "label": "buffer->array double[100][1000], manual per-row",
+    "best": 317220.2,
+    "median": 322551.6,
+    "ns_per_element": 3.17
+   },
+   {
+    "label": "buffer->array double[1000][100], manual per-row",
+    "best": 1927975.0,
+    "median": 1957778.3,
+    "ns_per_element": 19.28
+   },
+   {
+    "label": "buffer->array double[10000][10], manual per-row",
+    "best": 18250163.5,
+    "median": 18362026.4,
+    "ns_per_element": 182.5
+   },
+   {
+    "label": "buffer->array double[3][100000], manual per-row",
+    "best": 443185.5,
+    "median": 508670.6,
+    "ns_per_element": 1.48
+   },
+   {
+    "label": "buffer->array double[100000][3], manual per-row",
+    "best": 182054472.6,
+    "median": 184116696.1,
+    "ns_per_element": 606.85
+   },
+   {
+    "label": "buffer->array double[1000][1000], manual per-row",
+    "best": 3638626.9,
+    "median": 3732045.4,
+    "ns_per_element": 3.64
+   },
+   {
+    "label": "list->array double[1000][10][10]",
+    "best": 5852637.4,
+    "median": 6198895.4,
+    "ns_per_element": 58.53
+   },
+   {
+    "label": "list->array double[10][10][1000]",
+    "best": 977538.4,
+    "median": 986775.4,
+    "ns_per_element": 9.78
+   },
+   {
+    "label": "buffer->array double[1000][10][10], manual per-row",
+    "best": 19276636.5,
+    "median": 19487778.5,
+    "ns_per_element": 192.77
+   },
+   {
+    "label": "buffer->array double[10][10][1000], manual per-row",
+    "best": 324968.9,
+    "median": 335357.9,
+    "ns_per_element": 3.25
+   }
+  ],
+  "int": [
+   {
+    "label": "Math.max(int,int)",
+    "best": 1344.5,
+    "median": 1382.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "new Integer(int)",
+    "best": 1383.1,
+    "median": 1437.6,
+    "ns_per_element": null
+   }
+  ],
+  "object": [
+   {
+    "label": "Object identity",
+    "best": 2134.8,
+    "median": 2280.9,
+    "ns_per_element": null
+   }
+  ],
+  "strings": [
+   {
+    "label": "new String + toString",
+    "best": 2615.7,
+    "median": 2768.6,
+    "ns_per_element": null
+   }
+  ]
+ },
+ "pyjnius": {
+  "strings": [
+   {
+    "label": "new String + toString",
+    "best": 23546.5,
+    "median": 24103.4,
+    "ns_per_element": null
+   }
+  ],
+  "int": [
+   {
+    "label": "Math.max(int,int)",
+    "best": 1323.3,
+    "median": 1405.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "new Integer(int)",
+    "best": 8014.2,
+    "median": 8782.8,
+    "ns_per_element": null
+   }
+  ],
+  "double": [
+   {
+    "label": "Math.sqrt(double)",
+    "best": 532.8,
+    "median": 553.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "new Double(double)",
+    "best": 7177.4,
+    "median": 7389.3,
+    "ns_per_element": null
+   }
+  ],
+  "proxy": [
+   {
+    "label": "proxy callback (established), int arg",
+    "best": 42586.6,
+    "median": 43283.9,
+    "ns_per_element": null
+   }
+  ],
+  "array_noncontig": [],
+  "array_multidim": [
+   {
+    "label": "list->array int[][](10^2), fresh",
+    "best": 4800.1,
+    "median": 5439.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[][][](10^3), fresh",
+    "best": 41345.6,
+    "median": 44162.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[][][][](10^4), fresh",
+    "best": 434759.5,
+    "median": 449838.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[][][][][](10^5), fresh",
+    "best": 5027203.1,
+    "median": 6003126.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[][](10^2)",
+    "best": 3439.6,
+    "median": 3859.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[][][](10^3)",
+    "best": 30064.7,
+    "median": 31773.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[][][][](10^4)",
+    "best": 498866.0,
+    "median": 544656.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[][][][][](10^5)",
+    "best": 7774809.1,
+    "median": 8049720.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[][](10^2)",
+    "best": 7591.6,
+    "median": 7948.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[][][](10^3)",
+    "best": 71190.1,
+    "median": 73098.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[][][][](10^4)",
+    "best": 950755.1,
+    "median": 976558.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[][][][][](10^5)",
+    "best": 13366826.1,
+    "median": 14160394.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[][](10^2), fresh",
+    "best": 4902.9,
+    "median": 5055.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[][][](10^3), fresh",
+    "best": 42052.3,
+    "median": 47557.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[][][][](10^4), fresh",
+    "best": 424177.8,
+    "median": 453135.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[][][][][](10^5), fresh",
+    "best": 5045930.8,
+    "median": 6359388.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[][](10^2)",
+    "best": 3571.3,
+    "median": 4004.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[][][](10^3)",
+    "best": 31426.7,
+    "median": 39231.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[][][][](10^4)",
+    "best": 474170.0,
+    "median": 499920.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[][][][][](10^5)",
+    "best": 9453776.4,
+    "median": 9823291.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[][](10^2)",
+    "best": 8444.9,
+    "median": 8786.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[][][](10^3)",
+    "best": 82091.8,
+    "median": 86505.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[][][][](10^4)",
+    "best": 982934.2,
+    "median": 1018403.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[][][][][](10^5)",
+    "best": 16391273.0,
+    "median": 17086160.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[][](10^2), fresh",
+    "best": 5294.8,
+    "median": 5891.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[][][](10^3), fresh",
+    "best": 53187.2,
+    "median": 56609.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[][][][](10^4), fresh",
+    "best": 551121.6,
+    "median": 588018.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[][][][][](10^5), fresh",
+    "best": 9268889.5,
+    "median": 12762527.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[][](10^2)",
+    "best": 2968.1,
+    "median": 3091.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[][][](10^3)",
+    "best": 29074.3,
+    "median": 32268.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[][][][](10^4)",
+    "best": 406225.2,
+    "median": 422008.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[][][][][](10^5)",
+    "best": 5072694.3,
+    "median": 7861443.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[][](10^2)",
+    "best": 6760.6,
+    "median": 7303.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[][][](10^3)",
+    "best": 64679.5,
+    "median": 66737.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[][][][](10^4)",
+    "best": 781383.8,
+    "median": 801735.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[][][][][](10^5)",
+    "best": 9744071.9,
+    "median": 10724211.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[][](10^2), fresh",
+    "best": 5430.6,
+    "median": 6119.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[][][](10^3), fresh",
+    "best": 54689.2,
+    "median": 61001.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[][][][](10^4), fresh",
+    "best": 564277.3,
+    "median": 583716.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[][][][][](10^5), fresh",
+    "best": 9254104.8,
+    "median": 13781429.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[][](10^2)",
+    "best": 3000.0,
+    "median": 3415.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[][][](10^3)",
+    "best": 28599.9,
+    "median": 29680.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[][][][](10^4)",
+    "best": 431080.3,
+    "median": 442760.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[][][][][](10^5)",
+    "best": 5539152.2,
+    "median": 6307480.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[][](10^2)",
+    "best": 6844.0,
+    "median": 6946.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[][][](10^3)",
+    "best": 62103.3,
+    "median": 72135.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[][][][](10^4)",
+    "best": 777766.0,
+    "median": 793972.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[][][][][](10^5)",
+    "best": 10888223.9,
+    "median": 12900431.5,
+    "ns_per_element": null
+   }
+  ],
+  "array_flat": [
+   {
+    "label": "list->array int[100], fresh",
+    "best": 3057.0,
+    "median": 3180.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[1000], fresh",
+    "best": 27115.5,
+    "median": 28530.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[10000], fresh",
+    "best": 280330.0,
+    "median": 292927.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array int[100000], fresh",
+    "best": 4673402.8,
+    "median": 4928021.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[100]",
+    "best": 1993.0,
+    "median": 2048.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[1000]",
+    "best": 12940.6,
+    "median": 15599.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[10000]",
+    "best": 167125.7,
+    "median": 181804.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list int[100000]",
+    "best": 1785406.9,
+    "median": 1815747.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[100]",
+    "best": 5358.5,
+    "median": 5509.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[1000]",
+    "best": 44621.2,
+    "median": 46469.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[10000]",
+    "best": 497007.5,
+    "median": 521769.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer int[100000]",
+    "best": 6640983.6,
+    "median": 6842228.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[100], fresh",
+    "best": 2899.8,
+    "median": 2979.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[1000], fresh",
+    "best": 26344.5,
+    "median": 27337.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[10000], fresh",
+    "best": 275971.0,
+    "median": 283943.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array long[100000], fresh",
+    "best": 5590921.7,
+    "median": 6177047.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[100]",
+    "best": 2168.2,
+    "median": 2310.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[1000]",
+    "best": 16236.9,
+    "median": 17246.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[10000]",
+    "best": 141594.5,
+    "median": 147352.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list long[100000]",
+    "best": 5623092.6,
+    "median": 5889254.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[100]",
+    "best": 6135.7,
+    "median": 6438.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[1000]",
+    "best": 52361.9,
+    "median": 54049.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[10000]",
+    "best": 554075.2,
+    "median": 585191.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer long[100000]",
+    "best": 9742539.6,
+    "median": 9900213.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[100], fresh",
+    "best": 3417.0,
+    "median": 3479.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[1000], fresh",
+    "best": 29008.8,
+    "median": 30110.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[10000], fresh",
+    "best": 283159.8,
+    "median": 295648.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[100000], fresh",
+    "best": 3323044.1,
+    "median": 3702993.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[100], widening from int",
+    "best": 3464.1,
+    "median": 4078.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[1000], widening from int",
+    "best": 28942.1,
+    "median": 30380.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[10000], widening from int",
+    "best": 285873.8,
+    "median": 310252.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array float[100000], widening from int",
+    "best": 3645481.8,
+    "median": 3863457.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[100]",
+    "best": 1607.1,
+    "median": 1621.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[1000]",
+    "best": 13191.5,
+    "median": 14373.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[10000]",
+    "best": 153483.8,
+    "median": 157733.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list float[100000]",
+    "best": 1194548.7,
+    "median": 1239760.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[100]",
+    "best": 4516.2,
+    "median": 4772.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[1000]",
+    "best": 38681.8,
+    "median": 41688.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[10000]",
+    "best": 371208.8,
+    "median": 388318.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer float[100000]",
+    "best": 3947891.0,
+    "median": 4765309.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[100], fresh",
+    "best": 3421.3,
+    "median": 3723.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[1000], fresh",
+    "best": 31133.7,
+    "median": 38583.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[10000], fresh",
+    "best": 292036.3,
+    "median": 304601.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[100000], fresh",
+    "best": 5077916.9,
+    "median": 5355571.2,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[100], widening from int",
+    "best": 3399.1,
+    "median": 3702.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[1000], widening from int",
+    "best": 29729.8,
+    "median": 30380.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[10000], widening from int",
+    "best": 299577.2,
+    "median": 316907.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "list->array double[100000], widening from int",
+    "best": 3729057.3,
+    "median": 4628427.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[100]",
+    "best": 1605.5,
+    "median": 1644.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[1000]",
+    "best": 14001.8,
+    "median": 14706.9,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[10000]",
+    "best": 121901.7,
+    "median": 128215.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->list double[100000]",
+    "best": 1705659.7,
+    "median": 1761931.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[100]",
+    "best": 4509.1,
+    "median": 4698.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[1000]",
+    "best": 39137.6,
+    "median": 39636.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[10000]",
+    "best": 369847.3,
+    "median": 381649.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "array->buffer double[100000]",
+    "best": 4170636.3,
+    "median": 4324321.7,
+    "ns_per_element": null
+   }
+  ],
+  "array_ragged": [
+   {
+    "label": "ragged list->array int[][](~10^2), fresh",
+    "best": 3170.7,
+    "median": 3280.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array int[][][](~10^3), fresh",
+    "best": 44417.1,
+    "median": 46143.4,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array int[][][][](~10^4), fresh",
+    "best": 352866.9,
+    "median": 382923.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array int[][][][][](~10^5), fresh",
+    "best": 5920601.7,
+    "median": 7069430.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array long[][](~10^2), fresh",
+    "best": 3174.7,
+    "median": 3322.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array long[][][](~10^3), fresh",
+    "best": 42263.1,
+    "median": 48769.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array long[][][][](~10^4), fresh",
+    "best": 352408.3,
+    "median": 404231.6,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array long[][][][][](~10^5), fresh",
+    "best": 5483143.7,
+    "median": 7246715.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array float[][](~10^2), fresh",
+    "best": 3206.2,
+    "median": 3543.1,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array float[][][](~10^3), fresh",
+    "best": 51978.4,
+    "median": 57175.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array float[][][][](~10^4), fresh",
+    "best": 443521.2,
+    "median": 463443.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array float[][][][][](~10^5), fresh",
+    "best": 10576595.8,
+    "median": 12990370.8,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array double[][](~10^2), fresh",
+    "best": 3369.3,
+    "median": 3431.3,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array double[][][](~10^3), fresh",
+    "best": 53670.1,
+    "median": 62482.7,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array double[][][][](~10^4), fresh",
+    "best": 463626.3,
+    "median": 480884.0,
+    "ns_per_element": null
+   },
+   {
+    "label": "ragged list->array double[][][][][](~10^5), fresh",
+    "best": 10166998.4,
+    "median": 13286980.9,
+    "ns_per_element": null
+   }
+  ],
+  "dispatch": [
+   {
+    "label": "overload x16, monomorphic",
+    "best": 4089.7,
+    "median": 4183.5,
+    "ns_per_element": null
+   },
+   {
+    "label": "overload x16, polymorphic",
+    "best": 4237.6,
+    "median": 4478.8,
+    "ns_per_element": null
+   }
+  ],
+  "array_shape": [
+   {
+    "label": "list->array int[10][10000]",
+    "best": 2915372.3,
+    "median": 3016026.2,
+    "ns_per_element": 29.15
+   },
+   {
+    "label": "list->array int[100][1000]",
+    "best": 2794703.6,
+    "median": 2963560.4,
+    "ns_per_element": 27.95
+   },
+   {
+    "label": "list->array int[1000][100]",
+    "best": 2241320.5,
+    "median": 2271871.6,
+    "ns_per_element": 22.41
+   },
+   {
+    "label": "list->array int[10000][10]",
+    "best": 4012715.9,
+    "median": 4090083.3,
+    "ns_per_element": 40.13
+   },
+   {
+    "label": "list->array int[3][100000]",
+    "best": 9705678.2,
+    "median": 9871725.2,
+    "ns_per_element": 32.35
+   },
+   {
+    "label": "list->array int[100000][3]",
+    "best": 26209036.8,
+    "median": 27713123.8,
+    "ns_per_element": 87.36
+   },
+   {
+    "label": "list->array int[1000][1000]",
+    "best": 32167686.4,
+    "median": 32206344.2,
+    "ns_per_element": 32.17
+   },
+   {
+    "label": "list->array int[1000][10][10]",
+    "best": 6011382.1,
+    "median": 6368341.4,
+    "ns_per_element": 60.11
+   },
+   {
+    "label": "list->array int[10][10][1000]",
+    "best": 2778888.2,
+    "median": 2902212.6,
+    "ns_per_element": 27.79
+   },
+   {
+    "label": "list->array long[10][10000]",
+    "best": 2884767.9,
+    "median": 3244005.7,
+    "ns_per_element": 28.85
+   },
+   {
+    "label": "list->array long[100][1000]",
+    "best": 2688466.8,
+    "median": 2931977.1,
+    "ns_per_element": 26.88
+   },
+   {
+    "label": "list->array long[1000][100]",
+    "best": 2215002.8,
+    "median": 2380396.1,
+    "ns_per_element": 22.15
+   },
+   {
+    "label": "list->array long[10000][10]",
+    "best": 4086736.9,
+    "median": 4210832.8,
+    "ns_per_element": 40.87
+   },
+   {
+    "label": "list->array long[3][100000]",
+    "best": 9942196.2,
+    "median": 10515102.5,
+    "ns_per_element": 33.14
+   },
+   {
+    "label": "list->array long[100000][3]",
+    "best": 26499032.2,
+    "median": 26760286.7,
+    "ns_per_element": 88.33
+   },
+   {
+    "label": "list->array long[1000][1000]",
+    "best": 30639332.8,
+    "median": 31203739.1,
+    "ns_per_element": 30.64
+   },
+   {
+    "label": "list->array long[1000][10][10]",
+    "best": 5337704.8,
+    "median": 6267548.2,
+    "ns_per_element": 53.38
+   },
+   {
+    "label": "list->array long[10][10][1000]",
+    "best": 2671343.8,
+    "median": 2904099.5,
+    "ns_per_element": 26.71
+   },
+   {
+    "label": "list->array float[10][10000]",
+    "best": 2789406.5,
+    "median": 2859414.7,
+    "ns_per_element": 27.89
+   },
+   {
+    "label": "list->array float[100][1000]",
+    "best": 2849780.0,
+    "median": 3055784.3,
+    "ns_per_element": 28.5
+   },
+   {
+    "label": "list->array float[1000][100]",
+    "best": 3208812.6,
+    "median": 3354469.4,
+    "ns_per_element": 32.09
+   },
+   {
+    "label": "list->array float[10000][10]",
+    "best": 5489579.8,
+    "median": 5576420.9,
+    "ns_per_element": 54.9
+   },
+   {
+    "label": "list->array float[3][100000]",
+    "best": 10136458.7,
+    "median": 10363374.5,
+    "ns_per_element": 33.79
+   },
+   {
+    "label": "list->array float[100000][3]",
+    "best": 32701461.5,
+    "median": 33042748.2,
+    "ns_per_element": 109.0
+   },
+   {
+    "label": "list->array float[1000][1000]",
+    "best": 33539870.5,
+    "median": 34082534.0,
+    "ns_per_element": 33.54
+   },
+   {
+    "label": "list->array float[1000][10][10]",
+    "best": 7109183.9,
+    "median": 7417596.4,
+    "ns_per_element": 71.09
+   },
+   {
+    "label": "list->array float[10][10][1000]",
+    "best": 3135424.9,
+    "median": 3352433.4,
+    "ns_per_element": 31.35
+   },
+   {
+    "label": "list->array double[10][10000]",
+    "best": 3060207.6,
+    "median": 3154398.3,
+    "ns_per_element": 30.6
+   },
+   {
+    "label": "list->array double[100][1000]",
+    "best": 3290929.1,
+    "median": 3382342.3,
+    "ns_per_element": 32.91
+   },
+   {
+    "label": "list->array double[1000][100]",
+    "best": 3586975.1,
+    "median": 3969657.7,
+    "ns_per_element": 35.87
+   },
+   {
+    "label": "list->array double[10000][10]",
+    "best": 6034980.5,
+    "median": 6490795.2,
+    "ns_per_element": 60.35
+   },
+   {
+    "label": "list->array double[3][100000]",
+    "best": 11272830.9,
+    "median": 11873177.7,
+    "ns_per_element": 37.58
+   },
+   {
+    "label": "list->array double[100000][3]",
+    "best": 32858975.8,
+    "median": 34679902.0,
+    "ns_per_element": 109.53
+   },
+   {
+    "label": "list->array double[1000][1000]",
+    "best": 35162136.4,
+    "median": 36803592.9,
+    "ns_per_element": 35.16
+   },
+   {
+    "label": "list->array double[1000][10][10]",
+    "best": 7900256.4,
+    "median": 8661136.0,
+    "ns_per_element": 79.0
+   },
+   {
+    "label": "list->array double[10][10][1000]",
+    "best": 3435077.9,
+    "median": 3553592.8,
+    "ns_per_element": 34.35
+   }
+  ],
+  "object": [
+   {
+    "label": "Object identity",
+    "best": 4095.6,
+    "median": 4244.3,
+    "ns_per_element": null
+   }
+  ]
+ }
+}

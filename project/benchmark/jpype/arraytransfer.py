@@ -33,8 +33,8 @@ def calls_for(total_elements):
     """Same scaling rule as array_flat.py -- keeps total elements moved
     per benchmark roughly bounded so 1,000,000-element rows don't take
     minutes, especially for the pure-Python-loop comparators below."""
-    n = max(5, 2_000_000 // total_elements)
-    warmup = max(2, n // 10)
+    n = max(10, 2_500_000 // total_elements)
+    warmup = max(3, n // 8)
     return n, warmup
 
 

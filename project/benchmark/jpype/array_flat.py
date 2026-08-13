@@ -61,8 +61,8 @@ def calls_for(total_elements):
     """Scales iteration count down as array size grows so total elements
     moved per benchmark stays roughly bounded -- a naive fixed n=200_000
     would take minutes at 100k elements."""
-    n = max(20, 5_000_000 // total_elements)
-    warmup = max(5, n // 10)
+    n = max(30, 6_000_000 // total_elements)
+    warmup = max(6, n // 8)
     return n, warmup
 
 
