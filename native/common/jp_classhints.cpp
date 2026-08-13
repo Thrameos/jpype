@@ -791,6 +791,32 @@ static inline bool isRaggedLeafElement(char typeCode, PyObject *obj)
 	}
 }
 
+// Which per-node element-access strategy matchRaggedNode/encodeRaggedNode
+// should use, decided once per node rather than re-derived per element.
+// list/tuple are the overwhelmingly common case (see nested_list()-style
+// builders throughout this codebase's own benchmarks and tests) and get
+// PyList_GET_ITEM/PyTuple_GET_ITEM -- index straight into the container's
+// backing array, borrowed reference, no protocol dispatch -- the same
+// specialization JPClass::sequenceCheckList/sequenceCheckTuple already use
+// for the flat (1D) push path (jp_class.h). Anything else (a range, a
+// numpy array passed as a sub-list, a user PySequence_Check-true type)
+// falls back to the generic JPPySequence-wrapped seq[i], unchanged from
+// before -- one node's worth of extra dispatch cost, not the whole
+// subtree's.
+enum class RaggedSeqKind
+{
+	LIST, TUPLE, GENERIC
+};
+
+static inline RaggedSeqKind raggedSeqKind(PyObject *node)
+{
+	if (PyList_CheckExact(node))
+		return RaggedSeqKind::LIST;
+	if (PyTuple_CheckExact(node))
+		return RaggedSeqKind::TUPLE;
+	return RaggedSeqKind::GENERIC;
+}
+
 // Depth-first pre-order walk mirroring the wire format's own encode()
 // shape exactly: one int32 length marker per node, uniformly at every
 // level including the outermost, then raw leaf values once
@@ -811,35 +837,86 @@ static inline bool isRaggedLeafElement(char typeCode, PyObject *obj)
 // that mismatch entirely and stays exactly in step with encode() below.
 static bool matchRaggedNode(PyObject *node, int remainingDepth, char typeCode, jlong &byteCount)
 {
-	if (!PySequence_Check(node) || JPPyString::check(node))
-		return false;
-	JPPySequence seq = JPPySequence::use(node);
-	jlong length = seq.size();
-	if (length == -1 && PyErr_Occurred())
+	RaggedSeqKind kind = raggedSeqKind(node);
+	jlong length;
+	if (kind == RaggedSeqKind::LIST)
+		length = PyList_GET_SIZE(node);
+	else if (kind == RaggedSeqKind::TUPLE)
+		length = PyTuple_GET_SIZE(node);
+	else
 	{
-		PyErr_Clear();
-		return false;
+		if (!PySequence_Check(node) || JPPyString::check(node))
+			return false;
+		JPPySequence seq = JPPySequence::use(node);
+		length = seq.size();
+		if (length == -1 && PyErr_Occurred())
+		{
+			PyErr_Clear();
+			return false;
+		}
 	}
 
 	jlong total = sizeof (jint); // this node's own length marker
 	if (remainingDepth == 1)
 	{
-		for (jlong i = 0; i < length; i++)
+		switch (kind)
 		{
-			JPPyObject item = seq[i];
-			if (!isRaggedLeafElement(typeCode, item.get()))
-				return false;
+			case RaggedSeqKind::LIST:
+				for (jlong i = 0; i < length; i++)
+					if (!isRaggedLeafElement(typeCode, PyList_GET_ITEM(node, i)))
+						return false;
+				break;
+			case RaggedSeqKind::TUPLE:
+				for (jlong i = 0; i < length; i++)
+					if (!isRaggedLeafElement(typeCode, PyTuple_GET_ITEM(node, i)))
+						return false;
+				break;
+			default:
+			{
+				JPPySequence seq = JPPySequence::use(node);
+				for (jlong i = 0; i < length; i++)
+				{
+					JPPyObject item = seq[i];
+					if (!isRaggedLeafElement(typeCode, item.get()))
+						return false;
+				}
+			}
 		}
 		total += length * (jlong) raggedItemSize(typeCode);
 	} else
 	{
-		for (jlong i = 0; i < length; i++)
+		switch (kind)
 		{
-			JPPyObject item = seq[i];
-			jlong childBytes = 0;
-			if (!matchRaggedNode(item.get(), remainingDepth - 1, typeCode, childBytes))
-				return false;
-			total += childBytes;
+			case RaggedSeqKind::LIST:
+				for (jlong i = 0; i < length; i++)
+				{
+					jlong childBytes = 0;
+					if (!matchRaggedNode(PyList_GET_ITEM(node, i), remainingDepth - 1, typeCode, childBytes))
+						return false;
+					total += childBytes;
+				}
+				break;
+			case RaggedSeqKind::TUPLE:
+				for (jlong i = 0; i < length; i++)
+				{
+					jlong childBytes = 0;
+					if (!matchRaggedNode(PyTuple_GET_ITEM(node, i), remainingDepth - 1, typeCode, childBytes))
+						return false;
+					total += childBytes;
+				}
+				break;
+			default:
+			{
+				JPPySequence seq = JPPySequence::use(node);
+				for (jlong i = 0; i < length; i++)
+				{
+					JPPyObject item = seq[i];
+					jlong childBytes = 0;
+					if (!matchRaggedNode(item.get(), remainingDepth - 1, typeCode, childBytes))
+						return false;
+					total += childBytes;
+				}
+			}
 		}
 	}
 	byteCount = total;
@@ -854,64 +931,108 @@ static bool matchRaggedNode(PyObject *node, int remainingDepth, char typeCode, j
 // matches()'s byteCount; offset is threaded through by reference so every
 // recursive call -- including successive siblings at the same level --
 // keeps writing forward from where the last one left off.
+// One leaf value's worth of encodeRaggedNode's old inline switch, factored
+// out so it can be shared by the list/tuple/generic specialized loops below
+// without tripling this switch.
+static inline void encodeRaggedLeaf(char typeCode, PyObject *item, char *buffer, size_t &offset)
+{
+	switch (typeCode)
+	{
+		case 'I':
+		{
+			long v = PyLong_AsLong(item);
+			if (v == -1)
+				JP_PY_CHECK();
+			*(jint*) (buffer + offset) = (jint) JPIntType::assertRange(v);
+			offset += sizeof (jint);
+			break;
+		}
+		case 'J':
+		{
+			jlong v = PyLong_AsLongLong(item);
+			if (v == -1)
+				JP_PY_CHECK();
+			*(jlong*) (buffer + offset) = v;
+			offset += sizeof (jlong);
+			break;
+		}
+		case 'F':
+		{
+			double v = PyFloat_AsDouble(item);
+			if (v == -1.)
+				JP_PY_CHECK();
+			*(jfloat*) (buffer + offset) = (jfloat) v;
+			offset += sizeof (jfloat);
+			break;
+		}
+		default: // 'D'
+		{
+			double v = PyFloat_AsDouble(item);
+			if (v == -1.)
+				JP_PY_CHECK();
+			*(jdouble*) (buffer + offset) = (jdouble) v;
+			offset += sizeof (jdouble);
+			break;
+		}
+	}
+}
+
 static void encodeRaggedNode(PyObject *node, int remainingDepth, char typeCode, char *buffer, size_t &offset)
 {
-	JPPySequence seq = JPPySequence::use(node);
-	jlong length = seq.size();
+	RaggedSeqKind kind = raggedSeqKind(node);
+	jlong length;
+	if (kind == RaggedSeqKind::LIST)
+		length = PyList_GET_SIZE(node);
+	else if (kind == RaggedSeqKind::TUPLE)
+		length = PyTuple_GET_SIZE(node);
+	else
+		length = JPPySequence::use(node).size();
 	*(jint*) (buffer + offset) = (jint) length;
 	offset += sizeof (jint);
 
 	if (remainingDepth == 1)
 	{
-		for (jlong i = 0; i < length; i++)
+		switch (kind)
 		{
-			JPPyObject item = seq[i];
-			switch (typeCode)
+			case RaggedSeqKind::LIST:
+				for (jlong i = 0; i < length; i++)
+					encodeRaggedLeaf(typeCode, PyList_GET_ITEM(node, i), buffer, offset);
+				break;
+			case RaggedSeqKind::TUPLE:
+				for (jlong i = 0; i < length; i++)
+					encodeRaggedLeaf(typeCode, PyTuple_GET_ITEM(node, i), buffer, offset);
+				break;
+			default:
 			{
-				case 'I':
+				JPPySequence seq = JPPySequence::use(node);
+				for (jlong i = 0; i < length; i++)
 				{
-					long v = PyLong_AsLong(item.get());
-					if (v == -1)
-						JP_PY_CHECK();
-					*(jint*) (buffer + offset) = (jint) JPIntType::assertRange(v);
-					offset += sizeof (jint);
-					break;
-				}
-				case 'J':
-				{
-					jlong v = PyLong_AsLongLong(item.get());
-					if (v == -1)
-						JP_PY_CHECK();
-					*(jlong*) (buffer + offset) = v;
-					offset += sizeof (jlong);
-					break;
-				}
-				case 'F':
-				{
-					double v = PyFloat_AsDouble(item.get());
-					if (v == -1.)
-						JP_PY_CHECK();
-					*(jfloat*) (buffer + offset) = (jfloat) v;
-					offset += sizeof (jfloat);
-					break;
-				}
-				default: // 'D'
-				{
-					double v = PyFloat_AsDouble(item.get());
-					if (v == -1.)
-						JP_PY_CHECK();
-					*(jdouble*) (buffer + offset) = (jdouble) v;
-					offset += sizeof (jdouble);
-					break;
+					JPPyObject item = seq[i];
+					encodeRaggedLeaf(typeCode, item.get(), buffer, offset);
 				}
 			}
 		}
 	} else
 	{
-		for (jlong i = 0; i < length; i++)
+		switch (kind)
 		{
-			JPPyObject item = seq[i];
-			encodeRaggedNode(item.get(), remainingDepth - 1, typeCode, buffer, offset);
+			case RaggedSeqKind::LIST:
+				for (jlong i = 0; i < length; i++)
+					encodeRaggedNode(PyList_GET_ITEM(node, i), remainingDepth - 1, typeCode, buffer, offset);
+				break;
+			case RaggedSeqKind::TUPLE:
+				for (jlong i = 0; i < length; i++)
+					encodeRaggedNode(PyTuple_GET_ITEM(node, i), remainingDepth - 1, typeCode, buffer, offset);
+				break;
+			default:
+			{
+				JPPySequence seq = JPPySequence::use(node);
+				for (jlong i = 0; i < length; i++)
+				{
+					JPPyObject item = seq[i];
+					encodeRaggedNode(item.get(), remainingDepth - 1, typeCode, buffer, offset);
+				}
+			}
 		}
 	}
 }
