@@ -1441,6 +1441,149 @@ class Support
       dest[di] = vals[i];
   }
 
+  // ---- Matched-width direct readers -- used only when the source
+  // element's own width already equals the target's (srcSize==4 for an
+  // 'I'/'F' target), so no widen-then-narrow round trip through
+  // readLongs/readDoublesFromFloat's long[]/double[] intermediate is
+  // needed at all. Without these, a non-contiguous but otherwise
+  // byte-identical source (e.g. a numpy int32 column slice into int[])
+  // paid two full passes and a wasted length-sized long[]/double[]
+  // allocation for zero actual coercion work -- see
+  // fillFlatFromIntSrc/fillFlatFromFloatSrc below for where these are
+  // selected. Source sign (unsignedSrc) doesn't matter for the int case:
+  // narrowing a widened long back to int would discard the same high
+  // bits a direct 4-byte read already omits, so both signed and
+  // unsigned 4-byte sources land on this same path.
+
+  private static void readIntsDirectUnrolled(ByteBuffer src, int[] out, int length, int strideBytes)
+  {
+    int n8 = length - (length % 8);
+    int i = 0, off = 0;
+    for (; i < n8; i += 8, off += 8 * strideBytes)
+    {
+      out[i] = src.getInt(off);
+      out[i + 1] = src.getInt(off + strideBytes);
+      out[i + 2] = src.getInt(off + 2 * strideBytes);
+      out[i + 3] = src.getInt(off + 3 * strideBytes);
+      out[i + 4] = src.getInt(off + 4 * strideBytes);
+      out[i + 5] = src.getInt(off + 5 * strideBytes);
+      out[i + 6] = src.getInt(off + 6 * strideBytes);
+      out[i + 7] = src.getInt(off + 7 * strideBytes);
+    }
+    for (; i < length; i++, off += strideBytes)
+      out[i] = src.getInt(off);
+  }
+
+  private static void readIntsDirectUnrolledInto(ByteBuffer src, int[] dest, int length, int strideBytes,
+          int destStart, int destStep)
+  {
+    int n8 = length - (length % 8);
+    int i = 0, off = 0, di = destStart;
+    for (; i < n8; i += 8, off += 8 * strideBytes, di += 8 * destStep)
+    {
+      dest[di] = src.getInt(off);
+      dest[di + destStep] = src.getInt(off + strideBytes);
+      dest[di + 2 * destStep] = src.getInt(off + 2 * strideBytes);
+      dest[di + 3 * destStep] = src.getInt(off + 3 * strideBytes);
+      dest[di + 4 * destStep] = src.getInt(off + 4 * strideBytes);
+      dest[di + 5 * destStep] = src.getInt(off + 5 * strideBytes);
+      dest[di + 6 * destStep] = src.getInt(off + 6 * strideBytes);
+      dest[di + 7 * destStep] = src.getInt(off + 7 * strideBytes);
+    }
+    for (; i < length; i++, off += strideBytes, di += destStep)
+      dest[di] = src.getInt(off);
+  }
+
+  private static void readFloatsDirectUnrolled(ByteBuffer src, float[] out, int length, int strideBytes)
+  {
+    int n8 = length - (length % 8);
+    int i = 0, off = 0;
+    for (; i < n8; i += 8, off += 8 * strideBytes)
+    {
+      out[i] = src.getFloat(off);
+      out[i + 1] = src.getFloat(off + strideBytes);
+      out[i + 2] = src.getFloat(off + 2 * strideBytes);
+      out[i + 3] = src.getFloat(off + 3 * strideBytes);
+      out[i + 4] = src.getFloat(off + 4 * strideBytes);
+      out[i + 5] = src.getFloat(off + 5 * strideBytes);
+      out[i + 6] = src.getFloat(off + 6 * strideBytes);
+      out[i + 7] = src.getFloat(off + 7 * strideBytes);
+    }
+    for (; i < length; i++, off += strideBytes)
+      out[i] = src.getFloat(off);
+  }
+
+  private static void readFloatsDirectUnrolledInto(ByteBuffer src, float[] dest, int length, int strideBytes,
+          int destStart, int destStep)
+  {
+    int n8 = length - (length % 8);
+    int i = 0, off = 0, di = destStart;
+    for (; i < n8; i += 8, off += 8 * strideBytes, di += 8 * destStep)
+    {
+      dest[di] = src.getFloat(off);
+      dest[di + destStep] = src.getFloat(off + strideBytes);
+      dest[di + 2 * destStep] = src.getFloat(off + 2 * strideBytes);
+      dest[di + 3 * destStep] = src.getFloat(off + 3 * strideBytes);
+      dest[di + 4 * destStep] = src.getFloat(off + 4 * strideBytes);
+      dest[di + 5 * destStep] = src.getFloat(off + 5 * strideBytes);
+      dest[di + 6 * destStep] = src.getFloat(off + 6 * strideBytes);
+      dest[di + 7 * destStep] = src.getFloat(off + 7 * strideBytes);
+    }
+    for (; i < length; i++, off += strideBytes, di += destStep)
+      dest[di] = src.getFloat(off);
+  }
+
+  // 'J'/'D' matched-width (srcSize==8) have no non-Into counterpart here:
+  // readLongsSignedUnrolled/readDoublesFromFloat's srcSize==8 branch
+  // already read straight into the array that becomes the return value
+  // for fillFlatFromIntSrc/fillFlatFromFloatSrc (case 'J'/'D' return that
+  // array as-is, no narrowing pass) -- nothing to shortcut there. The
+  // Into variants below are still worth it: fillFlatFromIntSrcInto/
+  // fillFlatFromFloatSrcInto's generic path allocates that same array
+  // and then copies it into dest with writeLongsFromLongs/
+  // writeDoublesFromDoubles, a wasted second pass an Into call can skip
+  // entirely by reading straight into dest.
+
+  private static void readLongsDirectUnrolledInto(ByteBuffer src, long[] dest, int length, int strideBytes,
+          int destStart, int destStep)
+  {
+    int n8 = length - (length % 8);
+    int i = 0, off = 0, di = destStart;
+    for (; i < n8; i += 8, off += 8 * strideBytes, di += 8 * destStep)
+    {
+      dest[di] = src.getLong(off);
+      dest[di + destStep] = src.getLong(off + strideBytes);
+      dest[di + 2 * destStep] = src.getLong(off + 2 * strideBytes);
+      dest[di + 3 * destStep] = src.getLong(off + 3 * strideBytes);
+      dest[di + 4 * destStep] = src.getLong(off + 4 * strideBytes);
+      dest[di + 5 * destStep] = src.getLong(off + 5 * strideBytes);
+      dest[di + 6 * destStep] = src.getLong(off + 6 * strideBytes);
+      dest[di + 7 * destStep] = src.getLong(off + 7 * strideBytes);
+    }
+    for (; i < length; i++, off += strideBytes, di += destStep)
+      dest[di] = src.getLong(off);
+  }
+
+  private static void readDoublesDirectUnrolledInto(ByteBuffer src, double[] dest, int length, int strideBytes,
+          int destStart, int destStep)
+  {
+    int n8 = length - (length % 8);
+    int i = 0, off = 0, di = destStart;
+    for (; i < n8; i += 8, off += 8 * strideBytes, di += 8 * destStep)
+    {
+      dest[di] = src.getDouble(off);
+      dest[di + destStep] = src.getDouble(off + strideBytes);
+      dest[di + 2 * destStep] = src.getDouble(off + 2 * strideBytes);
+      dest[di + 3 * destStep] = src.getDouble(off + 3 * strideBytes);
+      dest[di + 4 * destStep] = src.getDouble(off + 4 * strideBytes);
+      dest[di + 5 * destStep] = src.getDouble(off + 5 * strideBytes);
+      dest[di + 6 * destStep] = src.getDouble(off + 6 * strideBytes);
+      dest[di + 7 * destStep] = src.getDouble(off + 7 * strideBytes);
+    }
+    for (; i < length; i++, off += strideBytes, di += destStep)
+      dest[di] = src.getDouble(off);
+  }
+
   private static Object fillFlatFromIntSrc(char typeCode, boolean unsignedSrc, int srcSize,
           ByteBuffer src, int length, int strideBytes)
   {
@@ -1451,6 +1594,14 @@ class Support
         return vals;
       float[] out = new float[length];
       writeFloatsFromDoubles(vals, out, 0, 1);
+      return out;
+    }
+
+    // Matched-width fast path -- see the direct-reader block above.
+    if (typeCode == 'I' && srcSize == 4)
+    {
+      int[] out = new int[length];
+      readIntsDirectUnrolled(src, out, length, strideBytes);
       return out;
     }
 
@@ -1497,6 +1648,15 @@ class Support
   private static Object fillFlatFromFloatSrc(char typeCode, int srcSize,
           ByteBuffer src, int length, int strideBytes)
   {
+    // Matched-width fast path -- see the direct-reader block above
+    // fillFlatFromIntSrc.
+    if (typeCode == 'F' && srcSize == 4)
+    {
+      float[] out = new float[length];
+      readFloatsDirectUnrolled(src, out, length, strideBytes);
+      return out;
+    }
+
     double[] vals = readDoublesFromFloat(src, length, strideBytes, srcSize);
     switch (typeCode)
     {
@@ -1635,6 +1795,22 @@ class Support
       return;
     }
 
+    // Matched-width fast path -- see the direct-reader block above
+    // fillFlatFromIntSrc.
+    if (typeCode == 'I' && srcSize == 4)
+    {
+      readIntsDirectUnrolledInto(src, (int[]) dest, length, strideBytes, destStart, destStep);
+      return;
+    }
+
+    // Matched-width fast path -- see the direct-reader block above
+    // fillFlatFromIntSrc.
+    if (typeCode == 'J' && srcSize == 8)
+    {
+      readLongsDirectUnrolledInto(src, (long[]) dest, length, strideBytes, destStart, destStep);
+      return;
+    }
+
     long[] vals = readLongs(src, length, strideBytes, unsignedSrc, srcSize);
     switch (typeCode)
     {
@@ -1664,6 +1840,22 @@ class Support
   private static void fillFlatFromFloatSrcInto(char typeCode, int srcSize,
           ByteBuffer src, int length, int strideBytes, Object dest, int destStart, int destStep)
   {
+    // Matched-width fast path -- see the direct-reader block above
+    // fillFlatFromIntSrc.
+    if (typeCode == 'F' && srcSize == 4)
+    {
+      readFloatsDirectUnrolledInto(src, (float[]) dest, length, strideBytes, destStart, destStep);
+      return;
+    }
+
+    // Matched-width fast path -- see the direct-reader block above
+    // fillFlatFromIntSrc.
+    if (typeCode == 'D' && srcSize == 8)
+    {
+      readDoublesDirectUnrolledInto(src, (double[]) dest, length, strideBytes, destStart, destStep);
+      return;
+    }
+
     double[] vals = readDoublesFromFloat(src, length, strideBytes, srcSize);
     switch (typeCode)
     {
