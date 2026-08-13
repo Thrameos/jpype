@@ -2037,7 +2037,7 @@ class Support
   public static Object fillRaggedFromBuffer(char typeCode, int dims, ByteBuffer src)
   {
     src.order(ByteOrder.nativeOrder());
-    return readRaggedNode(typeCode, dims, src);
+    return readRaggedNode(typeCode, dims, src, raggedArrayClassesByDepth(typeCode, dims));
   }
 
   private static Class<?> raggedLeafClass(char typeCode)
@@ -2058,29 +2058,45 @@ class Support
   }
 
   /**
-   * The Class of a {@code depth}-dimensional array of typeCode's
-   * primitive (depth == 1 -&gt; e.g. {@code int[].class}, depth == 2 -&gt;
-   * {@code int[][].class}, ...) -- used to build the *container* one
-   * level up via Array.newInstance(componentClass, n), not read off an
+   * {@code classesByDepth[d]} is the Class of a {@code d}-dimensional
+   * array of typeCode's primitive ({@code classesByDepth[0]} is the
+   * primitive Class itself, e.g. {@code int.class}; {@code
+   * classesByDepth[1]} is {@code int[].class}, etc.) -- used by {@link
+   * #readRaggedNode} to build each container level via {@code
+   * Array.newInstance(componentClass, n)}, not read off an
    * already-materialized child (which would break on a legitimately
    * empty node, n == 0).
+   *
+   * Computed once per call to {@link #fillRaggedFromBuffer}, not once
+   * per node: the naive version of this (recomputing the Class for the
+   * current depth fresh at every node via its own {@code
+   * Array.newInstance(c, 0).getClass()} loop) paid a throwaway
+   * reflective array allocation per node per remaining depth level --
+   * thousands of redundant allocations at depth 5 with ~100,000 leaf
+   * elements, for a value that depends only on (typeCode, depth) and is
+   * identical across every node at that depth in the same call.
    */
-  private static Class<?> raggedArrayClass(char typeCode, int depth)
+  private static Class<?>[] raggedArrayClassesByDepth(char typeCode, int dims)
   {
+    Class<?>[] classesByDepth = new Class<?>[dims];
     Class<?> c = raggedLeafClass(typeCode);
-    for (int i = 0; i < depth; i++)
+    for (int d = 0; d < dims; d++)
+    {
+      classesByDepth[d] = c;
       c = Array.newInstance(c, 0).getClass();
-    return c;
+    }
+    return classesByDepth;
   }
 
-  private static Object readRaggedNode(char typeCode, int remainingDepth, ByteBuffer src)
+  private static Object readRaggedNode(char typeCode, int remainingDepth, ByteBuffer src,
+          Class<?>[] classesByDepth)
   {
     int n = src.getInt();
     if (remainingDepth == 1)
       return readRaggedLeaf(typeCode, n, src);
-    Object arr = Array.newInstance(raggedArrayClass(typeCode, remainingDepth - 1), n);
+    Object arr = Array.newInstance(classesByDepth[remainingDepth - 1], n);
     for (int i = 0; i < n; i++)
-      Array.set(arr, i, readRaggedNode(typeCode, remainingDepth - 1, src));
+      Array.set(arr, i, readRaggedNode(typeCode, remainingDepth - 1, src, classesByDepth));
     return arr;
   }
 
