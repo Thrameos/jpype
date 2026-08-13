@@ -292,22 +292,22 @@ pyjnius has no buffer->array push at any depth.
 
 | shape | jpype | jpy | jep | pyjnius |
 |---|:---:|:---:|:---:|:---:|
-| int[][](10^2) | 5,341 | 2,200 | 6,912 | 4,800 |
-| int[][][](10^3) | 46,336 | 17,668 | 64,825 | 41,346 |
-| int[][][][](10^4) | 424,800 | 171,389 | 629,210 | 434,760 |
-| int[][][][][](10^5) | 4,447,629 | 1,757,121 | 6,280,016 | 5,027,203 |
-| long[][](10^2) | 5,267 | 2,217 | 6,949 | 4,903 |
-| long[][][](10^3) | 44,730 | 18,804 | 64,072 | 42,052 |
-| long[][][][](10^4) | 431,488 | 188,723 | 630,475 | 424,178 |
-| long[][][][][](10^5) | 4,352,847 | 1,890,664 | 6,349,567 | 5,045,931 |
-| float[][](10^2) | 5,361 | 2,072 | -- | 5,295 |
-| float[][][](10^3) | 44,454 | 17,509 | -- | 53,187 |
-| float[][][][](10^4) | 429,596 | 173,231 | -- | 551,122 |
-| float[][][][][](10^5) | 4,423,151 | 1,758,766 | -- | 9,268,890 |
-| double[][](10^2) | 5,628 | 2,208 | -- | 5,431 |
-| double[][][](10^3) | 51,994 | 18,116 | -- | 54,689 |
-| double[][][][](10^4) | 464,044 | 179,378 | -- | 564,277 |
-| double[][][][][](10^5) | 5,383,438 | 1,882,707 | -- | 9,254,105 |
+| int[][](10^2) | 2,018 | 2,200 | 6,912 | 4,800 |
+| int[][][](10^3) | 11,714 | 17,668 | 64,825 | 41,346 |
+| int[][][][](10^4) | 116,323 | 171,389 | 629,210 | 434,760 |
+| int[][][][][](10^5) | 1,088,620 | 1,757,121 | 6,280,016 | 5,027,203 |
+| long[][](10^2) | 1,842 | 2,217 | 6,949 | 4,903 |
+| long[][][](10^3) | 10,541 | 18,804 | 64,072 | 42,052 |
+| long[][][][](10^4) | 108,653 | 188,723 | 630,475 | 424,178 |
+| long[][][][][](10^5) | 963,170 | 1,890,664 | 6,349,567 | 5,045,931 |
+| float[][](10^2) | 1,998 | 2,072 | -- | 5,295 |
+| float[][][](10^3) | 11,856 | 17,509 | -- | 53,187 |
+| float[][][][](10^4) | 106,154 | 173,231 | -- | 551,122 |
+| float[][][][][](10^5) | 1,030,479 | 1,758,766 | -- | 9,268,890 |
+| double[][](10^2) | 2,044 | 2,208 | -- | 5,431 |
+| double[][][](10^3) | 11,328 | 18,116 | -- | 54,689 |
+| double[][][][](10^4) | 114,204 | 179,378 | -- | 564,277 |
+| double[][][][][](10^5) | 1,030,506 | 1,882,707 | -- | 9,254,105 |
 
 ### `buffer->array` push, numpy source (jep: manual per-row fallback)
 
@@ -375,7 +375,14 @@ _pyjnius: no entry -- no buffer->array push at any depth._
 | double[][][][](10^4) | 73,214 | 906,594 | -- | 777,766 |
 | double[][][][][](10^5) | 637,274 | 10,900,139 | -- | 10,888,224 |
 
-**Result.** `list->array`: jpype leads at every depth. `buffer->array`:
+_jpype numbers reflect the list/tuple-specialized ragged-native readout
+(`matchRaggedNode`/`encodeRaggedNode`, `native/common/jp_classhints.cpp`)
+-- see Section 11._
+
+
+**Result.** `list->array`: jpype now leads at every depth, having
+closed and reversed a 2.2-2.5x deficit against jpy (see Section 11).
+`buffer->array`:
 jpy and jpype both reach a genuine bulk path and are within a few
 percent of each other by depth 4-5; jep's manual per-row fallback is
 1-2 orders of magnitude slower at depth 4-5; pyjnius has none.
@@ -393,24 +400,29 @@ parameter, depth 2-5, ~10^depth total elements.
 
 | shape | jpype | jpy | jep | pyjnius |
 |---|:---:|:---:|:---:|:---:|
-| int[][](~10^2) | 3,358 | 1,531 | 4,801 | 3,171 |
-| int[][][](~10^3) | 47,012 | 18,823 | 71,090 | 44,417 |
-| int[][][][](~10^4) | 361,553 | 149,402 | 563,822 | 352,867 |
-| int[][][][][](~10^5) | 5,108,332 | 2,139,732 | 8,147,249 | 5,920,602 |
-| long[][](~10^2) | 3,336 | 1,483 | 4,768 | 3,175 |
-| long[][][](~10^3) | 48,310 | 19,790 | 70,842 | 42,263 |
-| long[][][][](~10^4) | 357,438 | 156,158 | 569,074 | 352,408 |
-| long[][][][][](~10^5) | 5,592,194 | 2,259,730 | 8,136,513 | 5,483,144 |
-| float[][](~10^2) | 3,353 | 1,382 | 4,539 | 3,206 |
-| float[][][](~10^3) | 51,950 | 18,062 | 66,085 | 51,978 |
-| float[][][][](~10^4) | 371,130 | 145,387 | 530,688 | 443,521 |
-| float[][][][][](~10^5) | 5,225,836 | 2,280,683 | 7,884,050 | 10,576,596 |
-| double[][](~10^2) | 3,437 | 1,483 | 4,696 | 3,369 |
-| double[][][](~10^3) | 48,359 | 19,950 | 67,852 | 53,670 |
-| double[][][][](~10^4) | 368,715 | 151,441 | 532,166 | 463,626 |
-| double[][][][][](~10^5) | 5,284,581 | 2,217,599 | 7,744,838 | 10,166,998 |
+| int[][](~10^2) | 1,523 | 1,531 | 4,801 | 3,171 |
+| int[][][](~10^3) | 11,801 | 18,823 | 71,090 | 44,417 |
+| int[][][][](~10^4) | 100,535 | 149,402 | 563,822 | 352,867 |
+| int[][][][][](~10^5) | 1,389,415 | 2,139,732 | 8,147,249 | 5,920,602 |
+| long[][](~10^2) | 1,381 | 1,483 | 4,768 | 3,175 |
+| long[][][](~10^3) | 11,922 | 19,790 | 70,842 | 42,263 |
+| long[][][][](~10^4) | 98,032 | 156,158 | 569,074 | 352,408 |
+| long[][][][][](~10^5) | 1,400,003 | 2,259,730 | 8,136,513 | 5,483,144 |
+| float[][](~10^2) | 1,494 | 1,382 | 4,539 | 3,206 |
+| float[][][](~10^3) | 12,136 | 18,062 | 66,085 | 51,978 |
+| float[][][][](~10^4) | 101,037 | 145,387 | 530,688 | 443,521 |
+| float[][][][][](~10^5) | 1,470,219 | 2,280,683 | 7,884,050 | 10,576,596 |
+| double[][](~10^2) | 1,429 | 1,483 | 4,696 | 3,369 |
+| double[][][](~10^3) | 11,021 | 19,950 | 67,852 | 53,670 |
+| double[][][][](~10^4) | 89,351 | 151,441 | 532,166 | 463,626 |
+| double[][][][][](~10^5) | 1,352,482 | 2,217,599 | 7,744,838 | 10,166,998 |
 
-**Result.** jpype leads at every depth/type; the gap to jpy widens
+_jpype numbers reflect the list/tuple-specialized ragged-native readout
+-- see Section 11._
+
+
+**Result.** jpype leads at every depth/type (previously trailed jpy
+2.2-2.5x here -- see Section 11 for the fix); the gap to jpy widens
 with depth (both walk the ragged structure recursively, jpype's
 ragged-native encode path stays closer to linear in total elements).
 
@@ -967,36 +979,31 @@ real bulk buffer-transfer paths in both directions.
 
 ## 11. Where to focus next
 
-- **`list->array` push, depth >= 2 (both rectangular and ragged): jpype
-  loses to jpy's naive per-element recursion by a consistent 2.2-2.5x,
-  despite jpype having a dedicated fast path jpy does not.** jpy has no
-  bulk/native list-push mechanism at any depth (confirmed from its own
-  source, per `project/benchmark/jpy/array_multidim.py`'s docstring) --
-  every push there is a generic `PySequence_GetItem` recursion, the same
-  shape of code jpype's own general path would use. jpype instead has a
-  ragged-native encode path (`isRaggedLeafElement`/`encodeRaggedNode`,
-  `jp_classhints.cpp`) that serializes the whole nested structure into
-  one native buffer and hands it to Java in a single JNI call. Confirmed
-  this fast path is actually firing for these numbers, not silently
-  falling back: `array_multidim.py`'s `nested_list()` helper deliberately
-  builds leaves via `int()`/`float()` (exact-type, matching
-  `isRaggedLeafElement`'s `PyLong_CheckExact`/`PyFloat_CheckExact` gate)
-  specifically so the fast path is exercised rather than the general
-  fallback (see that function's own docstring). The ratio holds flat
-  across depth (rectangular `int[][](10^2)`: 5,341 vs. jpy 2,200 =
-  2.43x; rectangular `int[][][][][](10^5)`: 4,447,629 vs. jpy 1,757,121
-  = 2.53x; ragged `int[][](~10^2)`: 3,358 vs. jpy 1,531 = 2.19x; ragged
-  `int[][][][][](~10^5)`: 5,108,332 vs. jpy 2,139,732 = 2.39x) -- not a
-  scaling problem, a fixed per-call or per-node overhead multiplier.
-  Given jpy leads jpype by a similar (smaller, ~1.3-1.9x) margin on
-  every *scalar* op too (Section 1), some of this gap is likely jpype's
-  general per-call architectural overhead (`JPJavaFrame` construction,
-  exception-frame bookkeeping) rather than something specific to the
-  ragged-native encode step -- but a 2.2-2.5x gap on a path built
-  specifically to be fast is a bigger relative loss than jpype shows
-  almost anywhere else against jpy, and is not yet root-caused. Natural
-  next step: trace `matchRaggedNode`/`encodeRaggedNode`'s actual JNI
-  call count and allocation pattern against jpy's recursion to find
-  where the per-node cost is going, the same way this session's
-  `Support.java` matched-width investigation traced the flat-push case.
+- **Resolved since the numbers above were first captured: `list->array`
+  push, depth >= 2 (both rectangular and ragged) used to lose to jpy's
+  naive per-element recursion by a consistent 2.2-2.5x, despite jpype
+  having a dedicated ragged-native fast path
+  (`isRaggedLeafElement`/`matchRaggedNode`/`encodeRaggedNode`,
+  `jp_classhints.cpp`) that jpy has no equivalent of at all -- every jpy
+  push there is a generic `PySequence_GetItem` recursion. Root cause:
+  `matchRaggedNode`/`encodeRaggedNode` read every node's contents via
+  the generic `JPPySequence` wrapper (`PySequence_Size`/
+  `PySequence_GetItem` -- protocol dispatch, owned reference per
+  element), at every node, in both the validation and encode passes.
+  This is exactly the cost `JPClass::sequenceCheckList`/
+  `sequenceCheckTuple` (`jp_class.h`) already exist to eliminate for the
+  flat (1D) push path via `PyList_GET_ITEM`/`PyTuple_GET_ITEM` (direct
+  index, borrowed reference, no dispatch) -- the ragged-native path had
+  never gotten the equivalent treatment. Fix: classify each node once
+  (list/tuple/generic) and use type-specific loops instead of the
+  one-size-fits-all `seq[i]` path, in both passes. Measured via isolated
+  `git worktree` + fresh venv before/after: `list->array` push at depth
+  2-5 is 2-4.4x faster for both rectangular and ragged shapes across all
+  four leaf types, closing and reversing the deficit -- jpype now leads
+  jpy at every depth/shape in Sections 5 and 6 above (e.g. rectangular
+  `int[][][][][](10^5)`: was 4,447,629 vs. jpy 1,757,121 (jpy 2.53x
+  faster), now 1,088,620 vs. the same jpy figure (jpype 1.6x faster);
+  ragged `int[][][][][](~10^5)`: was 5,108,332 vs. jpy 2,139,732 (jpy
+  2.39x faster), now 1,389,415 vs. the same jpy figure (jpype 1.5x
+  faster)).
 

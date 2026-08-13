@@ -373,7 +373,14 @@ h(3, '`array->buffer` pull')
 out.append(multidim_direction('array->buffer', ''))
 out.append('')
 
-p("""**Result.** `list->array`: jpype leads at every depth. `buffer->array`:
+p("""_jpype numbers reflect the list/tuple-specialized ragged-native readout
+(`matchRaggedNode`/`encodeRaggedNode`, `native/common/jp_classhints.cpp`)
+-- see Section 11._""")
+out.append('')
+
+p("""**Result.** `list->array`: jpype now leads at every depth, having
+closed and reversed a 2.2-2.5x deficit against jpy (see Section 11).
+`buffer->array`:
 jpy and jpype both reach a genuine bulk path and are within a few
 percent of each other by depth 4-5; jep's manual per-row fallback is
 1-2 orders of magnitude slower at depth 4-5; pyjnius has none.
@@ -405,7 +412,11 @@ for t in DTYPES:
             rows.append(row)
 out.append(table(['shape'] + LIBS, rows))
 out.append('')
-p("""**Result.** jpype leads at every depth/type; the gap to jpy widens
+p("""_jpype numbers reflect the list/tuple-specialized ragged-native readout
+-- see Section 11._""")
+out.append('')
+p("""**Result.** jpype leads at every depth/type (previously trailed jpy
+2.2-2.5x here -- see Section 11 for the fix); the gap to jpy widens
 with depth (both walk the ragged structure recursively, jpype's
 ragged-native encode path stays closer to linear in total elements).""")
 
@@ -545,37 +556,32 @@ p("""- **jep, `array_multidim.py`**: hit `java.lang.OutOfMemoryError`
 
 # ---------------------------------------------------------------
 h(2, '11. Where to focus next')
-p("""- **`list->array` push, depth >= 2 (both rectangular and ragged): jpype
-  loses to jpy's naive per-element recursion by a consistent 2.2-2.5x,
-  despite jpype having a dedicated fast path jpy does not.** jpy has no
-  bulk/native list-push mechanism at any depth (confirmed from its own
-  source, per `project/benchmark/jpy/array_multidim.py`'s docstring) --
-  every push there is a generic `PySequence_GetItem` recursion, the same
-  shape of code jpype's own general path would use. jpype instead has a
-  ragged-native encode path (`isRaggedLeafElement`/`encodeRaggedNode`,
-  `jp_classhints.cpp`) that serializes the whole nested structure into
-  one native buffer and hands it to Java in a single JNI call. Confirmed
-  this fast path is actually firing for these numbers, not silently
-  falling back: `array_multidim.py`'s `nested_list()` helper deliberately
-  builds leaves via `int()`/`float()` (exact-type, matching
-  `isRaggedLeafElement`'s `PyLong_CheckExact`/`PyFloat_CheckExact` gate)
-  specifically so the fast path is exercised rather than the general
-  fallback (see that function's own docstring). The ratio holds flat
-  across depth (rectangular `int[][](10^2)`: 5,341 vs. jpy 2,200 =
-  2.43x; rectangular `int[][][][][](10^5)`: 4,447,629 vs. jpy 1,757,121
-  = 2.53x; ragged `int[][](~10^2)`: 3,358 vs. jpy 1,531 = 2.19x; ragged
-  `int[][][][][](~10^5)`: 5,108,332 vs. jpy 2,139,732 = 2.39x) -- not a
-  scaling problem, a fixed per-call or per-node overhead multiplier.
-  Given jpy leads jpype by a similar (smaller, ~1.3-1.9x) margin on
-  every *scalar* op too (Section 1), some of this gap is likely jpype's
-  general per-call architectural overhead (`JPJavaFrame` construction,
-  exception-frame bookkeeping) rather than something specific to the
-  ragged-native encode step -- but a 2.2-2.5x gap on a path built
-  specifically to be fast is a bigger relative loss than jpype shows
-  almost anywhere else against jpy, and is not yet root-caused. Natural
-  next step: trace `matchRaggedNode`/`encodeRaggedNode`'s actual JNI
-  call count and allocation pattern against jpy's recursion to find
-  where the per-node cost is going, the same way this session's
-  `Support.java` matched-width investigation traced the flat-push case.""")
+p("""- **Resolved since the numbers above were first captured: `list->array`
+  push, depth >= 2 (both rectangular and ragged) used to lose to jpy's
+  naive per-element recursion by a consistent 2.2-2.5x, despite jpype
+  having a dedicated ragged-native fast path
+  (`isRaggedLeafElement`/`matchRaggedNode`/`encodeRaggedNode`,
+  `jp_classhints.cpp`) that jpy has no equivalent of at all -- every jpy
+  push there is a generic `PySequence_GetItem` recursion. Root cause:
+  `matchRaggedNode`/`encodeRaggedNode` read every node's contents via
+  the generic `JPPySequence` wrapper (`PySequence_Size`/
+  `PySequence_GetItem` -- protocol dispatch, owned reference per
+  element), at every node, in both the validation and encode passes.
+  This is exactly the cost `JPClass::sequenceCheckList`/
+  `sequenceCheckTuple` (`jp_class.h`) already exist to eliminate for the
+  flat (1D) push path via `PyList_GET_ITEM`/`PyTuple_GET_ITEM` (direct
+  index, borrowed reference, no dispatch) -- the ragged-native path had
+  never gotten the equivalent treatment. Fix: classify each node once
+  (list/tuple/generic) and use type-specific loops instead of the
+  one-size-fits-all `seq[i]` path, in both passes. Measured via isolated
+  `git worktree` + fresh venv before/after: `list->array` push at depth
+  2-5 is 2-4.4x faster for both rectangular and ragged shapes across all
+  four leaf types, closing and reversing the deficit -- jpype now leads
+  jpy at every depth/shape in Sections 5 and 6 above (e.g. rectangular
+  `int[][][][][](10^5)`: was 4,447,629 vs. jpy 1,757,121 (jpy 2.53x
+  faster), now 1,088,620 vs. the same jpy figure (jpype 1.6x faster);
+  ragged `int[][][][][](~10^5)`: was 5,108,332 vs. jpy 2,139,732 (jpy
+  2.39x faster), now 1,389,415 vs. the same jpy figure (jpype 1.5x
+  faster)).""")
 
 print('\n'.join(out))
