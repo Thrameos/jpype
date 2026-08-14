@@ -18,6 +18,7 @@
 #include "pyjp.h"
 #include "jp_array.h"
 #include "jp_arrayclass.h"
+#include "jp_primitive_accessor.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -189,6 +190,71 @@ static int PyJPArray_init(PyObject *self, PyObject *args, PyObject *kwargs)
 		((PyJPArray*) self)->m_Array = JPArray::create(value);
 		PyJPValue_assignJavaSlot(frame, self, value);
 		return 0;
+	}
+
+	// Buffer-protocol fast path for a multi-dimensional target (int[][],
+	// double[][][], ...) -- without this, a numpy array also satisfies
+	// PySequence_Check below, so construction would always fall into the
+	// generic newArray+setRange(0, length, 1, v) path. That's still fast
+	// for a 1D target (JPClass::setArrayRange's *primitive* overrides
+	// already try tryFastBufferPush internally), but for an N-D target the
+	// componentType is itself an array class, so setArrayRange's generic
+	// default implementation applies instead -- no buffer shortcut, one
+	// findJavaConversion+set call per row. Same gate/fallback contract as
+	// JPConversionMultiArrayBuffer::matches (jp_classhints.cpp) and
+	// JArray.of()'s N-D branch (PyJPModule_convertBuffer, pyjp_module.cpp),
+	// which both already reuse tryFastMultiArrayBuffer (jp_convert.cpp) the
+	// same way.
+	JPPrimitiveType *multiLeaf = arrayClass->getMultiArrayLeaf();
+	int multiDepth = arrayClass->getMultiArrayDepth();
+	if (multiLeaf != nullptr && multiDepth >= 2 && PyObject_CheckBuffer(v))
+	{
+		JPPyBuffer buffer(v, PyBUF_STRIDES | PyBUF_FORMAT);
+		if (!buffer.valid())
+		{
+			PyErr_Clear();
+		} else
+		{
+			Py_buffer &view = buffer.getView();
+			jarray fast = nullptr;
+			if (view.ndim == multiDepth)
+			{
+				try
+				{
+					auto jdims = (jintArray) frame.getContext()->_int->newArrayOf(frame, view.ndim);
+					{
+						JPPrimitiveArrayAccessor<jintArray, jint*> accessor(frame, jdims,
+								&JPJavaFrame::GetIntArrayElements, &JPJavaFrame::ReleaseIntArrayElements);
+						jint *a = accessor.get();
+						for (int i = 0; i < view.ndim; ++i)
+							a[i] = (jint) view.shape[i];
+						accessor.commit();
+					}
+					tryFastMultiArrayBuffer(frame, multiLeaf, buffer, jdims, fast);
+				} catch (...)
+				{
+					// Declined -- e.g. an element format with no Java
+					// primitive converter at all (a numpy object-dtype
+					// array), which getConverter reports by raising rather
+					// than returning nullptr. Fall through to the general
+					// PySequence_Check path below, which raises the
+					// appropriate TypeError for genuinely unconvertible
+					// elements -- same outcome as if this fast path had
+					// never been attempted.
+					fast = nullptr;
+				}
+			}
+			if (fast != nullptr)
+			{
+				JPClass *outType = frame.findClassForObject(fast);
+				jvalue val;
+				val.l = fast;
+				JPValue value(outType, val);
+				((PyJPArray*) self)->m_Array = JPArray::create(value);
+				PyJPValue_assignJavaSlot(frame, self, value);
+				return 0;
+			}
+		}
 	}
 
 	if (PySequence_Check(v))
@@ -582,7 +648,15 @@ static const char *pushFrom_doc =
 		"array) with the same total element count as this array -- its\n"
 		"shape need not match, and its dtype need not match this array's\n"
 		"component type (a converting fallback handles that case). Only\n"
-		"valid for arrays of primitives.\n";
+		"valid for arrays of primitives.\n"
+		"\n"
+		"For a multi-dimensional array: any buffer export of this array\n"
+		"(``memoryview(arr)``, ``numpy.asarray(arr)``) already open at the\n"
+		"time of the call is a frozen read-only snapshot and will not\n"
+		"reflect this call's changes -- Java's array-of-arrays layout isn't\n"
+		"contiguous, so an export can only ever be a one-time collected\n"
+		"copy, not a live view. Release any prior export first (or take a\n"
+		"fresh one afterwards) to see the update.\n";
 
 namespace
 {

@@ -131,5 +131,9 @@ for label, dtype, cross_dtype, jtype in TYPES:
             lambda arr=arr, jtype=jtype: JArray.of(arr, dtype=jtype), size,
             'of_dtype_matching', label, dims)
 
+        run(f"JArray({label}, {dims})(arr) {label}{'[]' * dims}(10^{dims}), manual ctor",
+            lambda arr=arr, jtype=jtype, dims=dims: JArray(jtype, dims)(arr), size,
+            'manual_ctor_nd', label, dims)
+
 csv_log.close()
 jpype.shutdownJVM()

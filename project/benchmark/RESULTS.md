@@ -619,6 +619,21 @@ _Fixed 2026-08-13 -- see Section 11. Before the fix (`newMultiArray`/
 [][][][](10^4) cost 141,606-149,967ns across types, ~2.4-2.7x today's
 numbers above._
 
+**`JArray(JType, dims)(arr)` -- the manual type+dims constructor spelling,
+int only (10^dims elements):**
+
+| shape | `JArray.of(arr)` | `JArray(JType, dims)(arr)` |
+|---|---:|---:|
+| [][](10^2) | 2,531 | 3,473 |
+| [][][](10^3) | 7,251 | 8,511 |
+| [][][][](10^4) | 58,460 | 60,684 |
+| [][][][][](10^5) | 602,778 | 570,695 |
+
+_Fixed 2026-08-13, see Section 11 -- before the fix: 12,350 / 18,893 /
+64,983 / 536,493 respectively, i.e. 3.56x/2.22x slower than `.of()` at
+[][](10^2)/[][][](10^3); already near parity at [][][][](10^4) and beyond
+even before the fix (see Result below for why)._
+
 **Result.** Flat (1D): `JArray.of()` now leads the naive constructor at
 every size 1,000 and up, and is within noise of it below that -- fixed
 2026-08-13 (see Section 11). Before the fix, `JArray.of()` was routed
@@ -662,6 +677,26 @@ slower than matching dtype at every size -- confirmed this is pre-existing
 and unrelated to this fix (reproduces identically through the naive
 `JArray(JType)(arr)` constructor, which never touches the code this fix
 changed). Root cause not yet investigated.
+
+`JArray(JType, dims)(arr)` (the manual type+dims constructor, as distinct
+from `.of()`): also fixed, 2026-08-13. `PyJPArray_init` never checked the
+buffer protocol for this call path -- a numpy array also satisfies
+`PySequence_Check`, so construction always fell into the generic
+`newArray`+`setRange(0, length, 1, v)` path. For depth>=2 the
+componentType is itself an array class (not primitive), so
+`setArrayRange`'s generic default implementation applies, which -- unlike
+the primitive overrides the flat/1D case already benefits from -- has no
+buffer shortcut of its own. Fixed by adding a buffer-protocol fast-path
+attempt to `PyJPArray_init` reusing the same `tryFastMultiArrayBuffer`
+helper Part 1 added, falling back to the unchanged generic path exactly
+as before when it declines. The gain shrinks toward parity at higher
+depth/size (see table above) because the generic path already recurses
+one array-class level per dimension down to a primitive leaf level, where
+it *does* hit the existing primitive-`setArrayRange` fast path -- so its
+overhead scales with row count at the outermost levels, not total element
+count, and becomes negligible once total data dominates. The fix mainly
+matters at smaller/shallower shapes, where that per-row overhead was the
+whole cost.
 
 ### `list()` vs. `toList()` dtype variants
 
@@ -1422,4 +1457,73 @@ real bulk buffer-transfer paths in both directions.
   This closes the `JArray.of()`/`pullTo`/`pushFrom` N-D plan: all three
   now have genuine bulk N-D paths, none silently degrade to per-element
   loops for a rectangular primitive source/destination at any depth.
+
+- **Resolved 2026-08-13: the manual `JArray(JType, dims)(arr)`/
+  `JType[:,:,...](arr)` constructor spelling had no buffer-protocol fast
+  path at any N-D depth.** Follow-up to the closed N-D plan above,
+  prompted by checking that `JArray.of()` -- "just a lazy way to say make
+  an array of any depth from a buffer" -- wasn't the *only* spelling that
+  got the fix. It wasn't: `PyJPArray_init` (`pyjp_array.cpp`) never
+  checked the buffer protocol at all for this call path. A numpy array
+  also satisfies `PySequence_Check`, so construction always fell into the
+  generic `newArray`+`setRange(0, length, 1, v)` path; for depth>=2 the
+  componentType is itself an array class, so `setArrayRange`'s generic
+  default implementation applies (no buffer shortcut, unlike the
+  primitive overrides the 1D case already benefits from).
+
+  Fixed by adding a buffer-protocol fast-path attempt to `PyJPArray_init`,
+  gated the same way `JPConversionMultiArrayBuffer::matches` gates its
+  own (`getMultiArrayLeaf()`/`getMultiArrayDepth() >= 2`), reusing Part
+  1's `tryFastMultiArrayBuffer` helper directly -- no new Java or
+  buffer-classification code, a third call site for existing machinery.
+  Falls back to the unchanged generic path whenever the fast path
+  declines (non-contiguous source, genuine dtype coercion, depth<2, or
+  not a buffer at all).
+
+  One real bug surfaced and fixed along the way: `getConverter`
+  (`jp_convert.cpp`) raises a Python `ValueError` for an unrecognized
+  buffer element format (e.g. a numpy object-dtype array) rather than
+  returning `nullptr` -- pre-existing behavior, latent because the two
+  existing `tryFastMultiArrayBuffer` call sites never exercised an
+  unrecognized format through a path that also needed a clean decline (a
+  method-argument push or `.of()` call with an object-dtype array simply
+  wasn't a tested case before). Wiring this fast path into
+  `PyJPArray_init` newly exposed it: `test_array.py`'s pre-existing
+  `testNumpyMultiDimBufferDtypeMismatch` (asserting `TypeError` for an
+  object-dtype source) started raising `ValueError` instead, since my
+  first attempt let the exception propagate rather than treating it as a
+  decline. Fixed by wrapping the fast-path attempt in a `catch (...)`
+  that falls through to the general path on any exception (matching the
+  "declines cleanly" contract every other caller of this helper already
+  gets) -- not a fix to `getConverter` itself, which is unchanged and
+  still used the same way by its other callers.
+
+  Also investigated, and confirmed *not* a bug: holding a
+  `memoryview(ja)`/`np.asarray(ja)` export alive across a later
+  `pushFrom`/mutation on the same array, then reading through that same,
+  still-open export, shows old data. This is required buffer-protocol
+  behavior, not a caching bug -- `PyJPArray_getBuffer` already explicitly
+  rejects `PyBUF_WRITEABLE` and takes a one-time `collectRectangular`
+  snapshot precisely because Java's array-of-arrays layout isn't
+  contiguous and can't be a true live view; the cache is torn down and
+  rebuilt correctly once the export count drops to zero. Verified
+  experimentally (release the export, mutate, re-export: always fresh)
+  and added a regression test plus a doc-comment note on `pushFrom_doc`
+  capturing this so it doesn't get "fixed" into a bug later.
+
+  Verified via isolated `git worktree` + fresh venv: full suite (1614
+  tests -- 1608 plus 6 new cases -- clean across 3 randomized-order runs,
+  including the `testNumpyMultiDimBufferDtypeMismatch` regression once
+  caught); new coverage for depths 2 through 6, `JType[:,:,...]` syntax,
+  non-contiguous-source and cross-dtype fallback correctness, and the
+  buffer-export snapshot-semantics regression test. Measured (paired
+  same-venv isolation): `JArray(JInt, 2)(arr)` at `int[][](10^2)` 12,350
+  -> 3,473ns (3.56x), `int[][][](10^3)` 18,893 -> 8,511ns (2.22x); gains
+  shrink toward parity at `int[][][][](10^4)` and beyond, since the old
+  generic path already recurses down to a primitive leaf level per
+  dimension and hits the *existing* primitive fast path there too, so its
+  overhead scales with row count (small relative to total data at larger
+  shapes), not total element count -- this fix mainly matters at
+  smaller/shallower shapes, where that per-row overhead was the whole
+  cost.
 

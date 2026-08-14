@@ -210,3 +210,50 @@ class ArrayMultiDimBufferTestCase(common.JPypeTestCase):
         ja = JArray(JDouble, 2)(arr)
         back = np.asarray(ja)
         np.testing.assert_array_equal(back, arr)
+
+
+class ArrayManualCtorBufferTestCase(common.JPypeTestCase):
+    """The manual JArray(JType, dims)(buffer) / JType[:,:,...](buffer)
+    construction spelling -- as distinct from JArray.of(buffer), which is
+    a dedicated buffer-only factory. PyJPArray_init previously never
+    checked the buffer protocol at all for this path: a numpy array also
+    satisfies PySequence_Check, so construction always fell into the
+    generic newArray+setRange per-row path for N-D targets (no bulk-copy
+    shortcut, unlike the primitive/1D case, where setArrayRange's
+    primitive overrides already try the buffer fast path internally).
+    See jp_array.h/PyJPArray_init's buffer-protocol fast-path block."""
+
+    def setUp(self):
+        common.JPypeTestCase.setUp(self)
+        if not has_numpy:
+            self.skipTest("NumPy not available")
+
+    def testDepths2Through6(self):
+        for dims in range(2, 7):
+            shape = (4,) * dims
+            arr = np.arange(np.prod(shape), dtype=np.int32).reshape(shape)
+            ja = JArray(JInt, dims)(arr)
+            np.testing.assert_array_equal(np.asarray(ja), arr)
+
+    def testClassGetitemSyntax(self):
+        arr = np.arange(64, dtype=np.int32).reshape(4, 4, 4)
+        ja = JInt[:, :, :](arr)
+        np.testing.assert_array_equal(np.asarray(ja), arr)
+
+    def testNonContiguousSourceFallsBack(self):
+        arr = np.arange(64, dtype=np.int32).reshape(4, 4, 4)
+        transposed = np.asfortranarray(arr)
+        self.assertFalse(transposed.flags['C_CONTIGUOUS'])
+        ja = JArray(JInt, 3)(transposed)
+        np.testing.assert_array_equal(np.asarray(ja), transposed)
+
+    def testCrossDtypeFallsBackAndConverts(self):
+        arr = np.arange(64, dtype=np.int32).reshape(4, 4, 4)
+        src = arr.astype(np.int64)
+        ja = JArray(JInt, 3)(src)
+        np.testing.assert_array_equal(np.asarray(ja), arr)
+
+    def testFloatDtype(self):
+        arr = np.random.random((3, 3, 3)).astype(np.float64)
+        ja = JArray(JDouble, 3)(arr)
+        np.testing.assert_array_equal(np.asarray(ja), arr)

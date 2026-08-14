@@ -422,3 +422,26 @@ class ArrayPushFromMultiDimTestCase(common.JPypeTestCase):
         dest = np.empty((3,) * 5, dtype=np.int32)
         ja.pullTo(dest)
         np.testing.assert_array_equal(dest, src)
+
+    def testBufferExportSnapshotSemantics(self):
+        # An N-D array's buffer export (memoryview()/np.asarray()) is a
+        # one-time read-only snapshot -- Java's array-of-arrays layout
+        # isn't contiguous, so there's no way to hand out a true live
+        # view. This is required buffer-protocol behavior (an exported
+        # buffer's memory must stay valid for the life of that export),
+        # not a caching bug: a *held-open* export stays frozen after a
+        # later pushFrom, but releasing it and re-exporting always gives
+        # fresh data.
+        ja = self._makeJavaArray((4, 4))
+
+        mv = memoryview(ja)
+        snapshot_while_held = np.asarray(mv).copy()
+        src = np.arange(16, dtype=np.int32).reshape(4, 4)
+        ja.pushFrom(src)
+        # Reading through the *same, still-open* export is frozen.
+        np.testing.assert_array_equal(np.asarray(mv), snapshot_while_held)
+        del mv
+
+        # A fresh export, taken after the old one was released, reflects
+        # the pushFrom.
+        np.testing.assert_array_equal(np.asarray(ja), src)
