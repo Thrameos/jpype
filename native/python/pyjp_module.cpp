@@ -990,6 +990,29 @@ static PyObject *PyJPModule_convertBuffer(JPPyBuffer& buffer, PyObject *dtype, P
 	// the type.
 	auto *pcls = dynamic_cast<JPPrimitiveType *>( cls);
 
+	// Flat (1D) source: route through the same bulk fast path
+	// `setArrayRange`'s buffer branch (`tryFastBufferPush`,
+	// `Support.fillFlatFromBuffer`) already gives the method-argument
+	// push and the naive `JArray(JType)(numpyArray)` sequence
+	// constructor (which also lands in `setArrayRange` -- numpy arrays
+	// satisfy `PySequence_Check` too) -- one bulk JNI handoff instead of
+	// the N-D `newMultiArray`/`convertMultiArrayObject` path's per-element
+	// `pack(converter(src))` loop, which has no such shortcut and was
+	// never meant to carry the common flat case. Measured: this closed a
+	// ~5-6x regression where `JArray.of()` was slower than the "naive"
+	// non-buffer constructor for the exact same input (see
+	// project/benchmark/jpype/array_of.py).
+	if (view.ndim == 1)
+	{
+		Py_ssize_t length = view.shape != nullptr ? view.shape[0] : view.len / view.itemsize;
+		jarray arr = pcls->newArrayOf(frame, (jsize) length);
+		pcls->setArrayRange(frame, arr, 0, (jsize) length, 1, source);
+		JPClass *outType = frame.findClassForObject(arr);
+		jvalue v;
+		v.l = arr;
+		return outType->convertToPythonObject(frame, v, false).keep();
+	}
+
 	// Convert the shape
 	Py_ssize_t subs = 1;
 	Py_ssize_t base = 1;
