@@ -1482,13 +1482,36 @@ void JPJavaAccess::checkFast()
 	throw JPJavaError(frame, th, JP_STACKINFO());
 }
 
+// Fault-injection labels below deliberately reuse the JPJavaFrame::Get*
+// names (not JPJavaAccess::Get*) even though these are JPJavaAccess
+// methods: the fault name identifies which JNI operation is being
+// exercised (matching the pre-existing test suite's _jpype.fault(...)
+// names, e.g. test_jlong.py's "JPJavaFrame::GetLongArrayRegion"), not
+// which C++ wrapper class currently happens to implement it. Was
+// missing entirely until this fix -- JAVA_FAST_CHECK never called
+// PyJPModuleFault_throw, so every fault-injection test targeting a
+// primitive array element read silently passed straight through
+// (findable as "SystemError not raised" test failures) once
+// JPArray*::getItem started routing reads through JPJavaAccess instead
+// of JPJavaFrame.
+#ifdef JP_INSTRUMENTATION
+#define JAVA_FAST_CHECK(Y,Z) \
+  PyJPModuleFault_throw(compile_hash(Y)); \
+  Z; \
+  JP_TRACE_JAVA(Y, 0); \
+  checkFast();
+#else
 #define JAVA_FAST_CHECK(Y,Z) \
   Z; \
   JP_TRACE_JAVA(Y, 0); \
   checkFast();
+#endif
 
 jsize JPJavaAccess::GetArrayLength(jarray a0)
 {
+#ifdef JP_INSTRUMENTATION
+	PyJPModuleFault_throw(compile_hash("JPJavaFrame::GetArrayLength"));
+#endif
 	jsize ret = m_Env->GetArrayLength(a0);
 	JP_TRACE_JAVA("JPJavaAccess::GetArrayLength", 0);
 	checkFast();
@@ -1497,49 +1520,49 @@ jsize JPJavaAccess::GetArrayLength(jarray a0)
 
 void JPJavaAccess::GetBooleanArrayRegion(jbooleanArray array, jsize start, jsize len, jboolean* vals)
 {
-	JAVA_FAST_CHECK("JPJavaAccess::GetBooleanArrayRegion",
+	JAVA_FAST_CHECK("JPJavaFrame::GetBooleanArrayRegion",
 			m_Env->GetBooleanArrayRegion(array, start, len, vals));
 }
 
 void JPJavaAccess::GetByteArrayRegion(jbyteArray array, jsize start, jsize len, jbyte* vals)
 {
-	JAVA_FAST_CHECK("JPJavaAccess::GetByteArrayRegion",
+	JAVA_FAST_CHECK("JPJavaFrame::GetByteArrayRegion",
 			m_Env->GetByteArrayRegion(array, start, len, vals));
 }
 
 void JPJavaAccess::GetCharArrayRegion(jcharArray array, jsize start, jsize len, jchar* vals)
 {
-	JAVA_FAST_CHECK("JPJavaAccess::GetCharArrayRegion",
+	JAVA_FAST_CHECK("JPJavaFrame::GetCharArrayRegion",
 			m_Env->GetCharArrayRegion(array, start, len, vals));
 }
 
 void JPJavaAccess::GetShortArrayRegion(jshortArray array, jsize start, jsize len, jshort* vals)
 {
-	JAVA_FAST_CHECK("JPJavaAccess::GetShortArrayRegion",
+	JAVA_FAST_CHECK("JPJavaFrame::GetShortArrayRegion",
 			m_Env->GetShortArrayRegion(array, start, len, vals));
 }
 
 void JPJavaAccess::GetIntArrayRegion(jintArray array, jsize start, jsize len, jint* vals)
 {
-	JAVA_FAST_CHECK("JPJavaAccess::GetIntArrayRegion",
+	JAVA_FAST_CHECK("JPJavaFrame::GetIntArrayRegion",
 			m_Env->GetIntArrayRegion(array, start, len, vals));
 }
 
 void JPJavaAccess::GetLongArrayRegion(jlongArray array, jsize start, jsize len, jlong* vals)
 {
-	JAVA_FAST_CHECK("JPJavaAccess::GetLongArrayRegion",
+	JAVA_FAST_CHECK("JPJavaFrame::GetLongArrayRegion",
 			m_Env->GetLongArrayRegion(array, start, len, vals));
 }
 
 void JPJavaAccess::GetFloatArrayRegion(jfloatArray array, jsize start, jsize len, jfloat* vals)
 {
-	JAVA_FAST_CHECK("JPJavaAccess::GetFloatArrayRegion",
+	JAVA_FAST_CHECK("JPJavaFrame::GetFloatArrayRegion",
 			m_Env->GetFloatArrayRegion(array, start, len, vals));
 }
 
 void JPJavaAccess::GetDoubleArrayRegion(jdoubleArray array, jsize start, jsize len, jdouble* vals)
 {
-	JAVA_FAST_CHECK("JPJavaAccess::GetDoubleArrayRegion",
+	JAVA_FAST_CHECK("JPJavaFrame::GetDoubleArrayRegion",
 			m_Env->GetDoubleArrayRegion(array, start, len, vals));
 }
 

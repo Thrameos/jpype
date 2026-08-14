@@ -131,10 +131,16 @@ class JLongTestCase(common.JPypeTestCase):
         # Special case, only BufferError is allowed from getBuffer
         with self.assertRaises(BufferError):
             memoryview(ja[0:3])
-        _jpype.fault("JPJavaFrame::ReleaseLongArrayElements")
+        # ja[0:3] = bytes(...) and cloning a slice both go through
+        # tryFastBufferPush's DirectByteBuffer handoff now (setArrayRange
+        # tries it before falling back to the Get/ReleaseLongArrayElements
+        # critical section), so the fault point to arm is
+        # fillFlatIntoArray, not ReleaseLongArrayElements -- that release
+        # call is never reached for a buffer-protocol source.
+        _jpype.fault("JPJavaFrame::fillFlatIntoArray")
         with self.assertRaisesRegex(SystemError, "fault"):
             ja[0:3] = bytes([1, 2, 3])
-        _jpype.fault("JPJavaFrame::ReleaseLongArrayElements")
+        _jpype.fault("JPJavaFrame::fillFlatIntoArray")
         with self.assertRaisesRegex(SystemError, "fault"):
             jpype.JObject(ja[::2], jpype.JObject)
         _jpype.fault("JPJavaFrame::ReleaseLongArrayElements")

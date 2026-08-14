@@ -81,9 +81,11 @@ class ArrayTestCase(common.JPypeTestCase):
         _jpype.fault("PyJPArray_len")
         with self.assertRaisesRegex(SystemError, "fault"):
             len(ja)
-        _jpype.fault("PyJPModule_getContext")
-        with self.assertRaisesRegex(SystemError, "fault"):
-            len(ja)
+        # No second (PyJPModule_getContext) check here: PyJPArray_len
+        # returns a cached jsize set at construction and makes no JNI
+        # call at all (see the comment on PyJPArray_len itself,
+        # pyjp_array.cpp), so there is no longer any JNI-failure mode to
+        # inject for a plain length read.
 
     @common.requireInstrumentation
     def testJPArray_getArrayItem(self):
@@ -194,7 +196,15 @@ class ArrayTestCase(common.JPypeTestCase):
     @common.requireInstrumentation
     def testJArrayGetJavaConversion(self):
         ja = JArray(JInt)
-        _jpype.fault("JPArrayClass::findJavaConversion")
+        # findJavaConversion is now a cache-checking wrapper on the base
+        # JPClass (see JPClass::findJavaConversion, jp_class.cpp) that
+        # only calls into the per-subclass findJavaConversionImpl
+        # (formerly plain findJavaConversion, still traced under the old
+        # "JPArrayClass::findJavaConversion" label) on a cache miss -- but
+        # the wrapper itself is the actual entry point _canConvertToJava
+        # reaches, and it fault-checks before ever delegating, so that's
+        # the fault point to arm.
+        _jpype.fault("JPClass::findJavaConversion")
         with self.assertRaisesRegex(SystemError, "fault"):
             ja._canConvertToJava(object())
 
@@ -542,32 +552,42 @@ class ArrayTestCase(common.JPypeTestCase):
 
     @common.requireInstrumentation
     def testArrayOfFaults(self):
+        # b is a flat (1D) buffer source -- PyJPModule_convertBuffer's
+        # view.ndim==1 branch (pyjp_module.cpp) routes every one of these
+        # straight through pcls->newArrayOf + pcls->setArrayRange (the same
+        # bulk fast path setArrayRange's own buffer branch uses), never
+        # reaching newMultiArray/assemble at all -- those only run for a
+        # genuinely multi-dimensional (view.ndim > 1) source. So the fault
+        # point to arm is fillFlatIntoArray, except for JChar, whose
+        # setArrayRange has no buffer fast path (still a plain
+        # Get/ReleaseCharArrayElements critical section -- see
+        # JPCharType::setArrayRange).
         b = bytes([1, 2, 3])
-        _jpype.fault("JPJavaFrame::assemble")
+        _jpype.fault("JPJavaFrame::fillFlatIntoArray")
         with self.assertRaisesRegex(SystemError, "fault"):
             JArray.of(b, JInt)
-        _jpype.fault("JPBooleanType::newMultiArray")
+        _jpype.fault("JPJavaFrame::fillFlatIntoArray")
         with self.assertRaisesRegex(SystemError, "fault"):
             JArray.of(b, JBoolean)
-        _jpype.fault("JPCharType::newMultiArray")
+        _jpype.fault("JPJavaFrame::ReleaseCharArrayElements")
         with self.assertRaisesRegex(SystemError, "fault"):
             JArray.of(b, JChar)
-        _jpype.fault("JPByteType::newMultiArray")
+        _jpype.fault("JPJavaFrame::fillFlatIntoArray")
         with self.assertRaisesRegex(SystemError, "fault"):
             JArray.of(b, JByte)
-        _jpype.fault("JPShortType::newMultiArray")
+        _jpype.fault("JPJavaFrame::fillFlatIntoArray")
         with self.assertRaisesRegex(SystemError, "fault"):
             JArray.of(b, JShort)
-        _jpype.fault("JPIntType::newMultiArray")
+        _jpype.fault("JPJavaFrame::fillFlatIntoArray")
         with self.assertRaisesRegex(SystemError, "fault"):
             JArray.of(b, JInt)
-        _jpype.fault("JPLongType::newMultiArray")
+        _jpype.fault("JPJavaFrame::fillFlatIntoArray")
         with self.assertRaisesRegex(SystemError, "fault"):
             JArray.of(b, JLong)
-        _jpype.fault("JPFloatType::newMultiArray")
+        _jpype.fault("JPJavaFrame::fillFlatIntoArray")
         with self.assertRaisesRegex(SystemError, "fault"):
             JArray.of(b, JFloat)
-        _jpype.fault("JPDoubleType::newMultiArray")
+        _jpype.fault("JPJavaFrame::fillFlatIntoArray")
         with self.assertRaisesRegex(SystemError, "fault"):
             JArray.of(b, JDouble)
 
