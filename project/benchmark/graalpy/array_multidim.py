@@ -21,7 +21,7 @@ missing path is emulated rather than skipped). Here that means:
     routing through it first would just add numpy-array-construction
     cost on top of the same manual assembly, not reveal anything new.
 
-Two categories in the pull section (GraalPy has no tolist()-equivalent,
+Two categories in the pull section (GraalPy has no toList()-equivalent,
 see ../array_flat.py):
   - pull, "array->list": a fully-materialized nested Python list,
     recursing over the returned `polyglot.ForeignList` one dimension at a

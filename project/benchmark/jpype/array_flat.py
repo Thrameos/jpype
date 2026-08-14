@@ -114,14 +114,14 @@ for label, dtype, sumfn, makefn in TYPES:
             lambda size=size, makefn=makefn: list(makefn(size)), size,
             'pull', 'list', label)
 
-    print(f"=== JPype: array->list via tolist(), flat, pull (Java -> Python), {label} ===")
-    # tolist(): one JNI critical section for the whole array instead of one
+    print(f"=== JPype: array->list via toList(), flat, pull (Java -> Python), {label} ===")
+    # toList(): one JNI critical section for the whole array instead of one
     # JNI call per element via list()'s native sq_item iteration -- same
     # output, compare directly against the row above.
     for size in SIZES:
-        run(f"array->list.tolist() {label}[{size}]",
-            lambda size=size, makefn=makefn: makefn(size).tolist(), size,
-            'pull', 'tolist', label)
+        run(f"array->list.toList() {label}[{size}]",
+            lambda size=size, makefn=makefn: makefn(size).toList(), size,
+            'pull', 'toList', label)
 
     print(f"=== JPype: array->buffer, flat, pull (Java -> Python), {label} ===")
     for size in SIZES:

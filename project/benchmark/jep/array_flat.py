@@ -33,8 +33,8 @@ pyjarray go through the same generic Python sequence protocol
 (__len__/__getitem__) regardless of size or element type -- kept as two
 rows anyway for a direct side-by-side with the other two libraries'
 array->list/array->buffer rows, not because jep distinguishes them
-itself. jep has no tolist()-equivalent fast pull path at all, so unlike
-jpype's array_flat.py there is no fifth "array->list via tolist()" row
+itself. jep has no toList()-equivalent fast pull path at all, so unlike
+jpype's array_flat.py there is no fifth "array->list via toList()" row
 here. See ../array_multidim.py's pull numbers for just how much the
 generic path costs at scale.
 

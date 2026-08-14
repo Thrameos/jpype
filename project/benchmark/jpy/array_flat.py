@@ -17,7 +17,7 @@ code (jpy_jtype.c). On the pull side, "array->list" is generic Python
 sequence iteration over the returned jpy array wrapper, while
 "array->buffer" hits a real registered `getbufferproc` (1D primitive-leaf
 jpy arrays only -- see ../array_multidim.py for why that's not true past
-1D). jpy has no `tolist()`-equivalent fast path (that's a jpype-only
+1D). jpy has no `toList()`-equivalent fast path (that's a jpype-only
 API), so this file stays at four rows per type, not five.
 
 Writes project/benchmark/jpy/array_flat_results.csv alongside the

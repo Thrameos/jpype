@@ -558,79 +558,79 @@ jpype/jpy's bulk path there has no reflection in the loop at all.
 
 These three scripts (`array_to_list_dtype.py`, `arraytransfer.py`,
 `classhints.py`) have no equivalent in the jpy/jep/pyjnius suites --
-they exercise jpype-internal API surface (`tolist()` dtype variants,
+they exercise jpype-internal API surface (`toList()` dtype variants,
 `pullTo`/`pushFrom` bulk in-place transfer, `JPConversionList`/
 `JPConversionTuple`'s cached-class-hint lookup) with nothing to compare
 against. jpype-only, `best` ns/call.
 
-### `list()` vs. `tolist()` dtype variants
+### `list()` vs. `toList()` dtype variants
 
 | operation | jpype |
 |---|:---:|
 | list(arr) int[100] | 7,444 |
-| tolist() int[100], plain | 2,748 |
-| tolist(dtype=int) int[100], wrapped (~= old default) | 5,283 |
-| tolist(dtype=float) int[100], forced cast, plain | 2,567 |
+| toList() int[100], plain | 2,748 |
+| toList(dtype=int) int[100], wrapped (~= old default) | 5,283 |
+| toList(dtype=float) int[100], forced cast, plain | 2,567 |
 | list(arr) int[1000] | 63,103 |
-| tolist() int[1000], plain | 13,569 |
-| tolist(dtype=int) int[1000], wrapped (~= old default) | 38,162 |
-| tolist(dtype=float) int[1000], forced cast, plain | 12,751 |
+| toList() int[1000], plain | 13,569 |
+| toList(dtype=int) int[1000], wrapped (~= old default) | 38,162 |
+| toList(dtype=float) int[1000], forced cast, plain | 12,751 |
 | list(arr) int[10000] | 652,408 |
-| tolist() int[10000], plain | 179,768 |
-| tolist(dtype=int) int[10000], wrapped (~= old default) | 404,119 |
-| tolist(dtype=float) int[10000], forced cast, plain | 125,526 |
+| toList() int[10000], plain | 179,768 |
+| toList(dtype=int) int[10000], wrapped (~= old default) | 404,119 |
+| toList(dtype=float) int[10000], forced cast, plain | 125,526 |
 | list(arr) int[100000] | 8,802,843 |
-| tolist() int[100000], plain | 2,761,812 |
-| tolist(dtype=int) int[100000], wrapped (~= old default) | 6,278,195 |
-| tolist(dtype=float) int[100000], forced cast, plain | 1,243,748 |
+| toList() int[100000], plain | 2,761,812 |
+| toList(dtype=int) int[100000], wrapped (~= old default) | 6,278,195 |
+| toList(dtype=float) int[100000], forced cast, plain | 1,243,748 |
 | list(arr) long[100] | 6,904 |
-| tolist() long[100], plain | 3,079 |
-| tolist(dtype=long) long[100], wrapped (~= old default) | 4,597 |
-| tolist(dtype=float) long[100], forced cast, plain | 2,625 |
+| toList() long[100], plain | 3,079 |
+| toList(dtype=long) long[100], wrapped (~= old default) | 4,597 |
+| toList(dtype=float) long[100], forced cast, plain | 2,625 |
 | list(arr) long[1000] | 58,228 |
-| tolist() long[1000], plain | 16,914 |
-| tolist(dtype=long) long[1000], wrapped (~= old default) | 30,411 |
-| tolist(dtype=float) long[1000], forced cast, plain | 14,017 |
+| toList() long[1000], plain | 16,914 |
+| toList(dtype=long) long[1000], wrapped (~= old default) | 30,411 |
+| toList(dtype=float) long[1000], forced cast, plain | 14,017 |
 | list(arr) long[10000] | 615,109 |
-| tolist() long[10000], plain | 180,830 |
-| tolist(dtype=long) long[10000], wrapped (~= old default) | 331,916 |
-| tolist(dtype=float) long[10000], forced cast, plain | 129,970 |
+| toList() long[10000], plain | 180,830 |
+| toList(dtype=long) long[10000], wrapped (~= old default) | 331,916 |
+| toList(dtype=float) long[10000], forced cast, plain | 129,970 |
 | list(arr) long[100000] | 8,242,095 |
-| tolist() long[100000], plain | 3,503,721 |
-| tolist(dtype=long) long[100000], wrapped (~= old default) | 5,299,674 |
-| tolist(dtype=float) long[100000], forced cast, plain | 1,381,093 |
+| toList() long[100000], plain | 3,503,721 |
+| toList(dtype=long) long[100000], wrapped (~= old default) | 5,299,674 |
+| toList(dtype=float) long[100000], forced cast, plain | 1,381,093 |
 | list(arr) float[100] | 10,972 |
-| tolist() float[100], plain | 2,315 |
-| tolist(dtype=float) float[100], wrapped (~= old default) | 7,787 |
-| tolist(dtype=int) float[100], forced cast, plain | 2,364 |
+| toList() float[100], plain | 2,315 |
+| toList(dtype=float) float[100], wrapped (~= old default) | 7,787 |
+| toList(dtype=int) float[100], forced cast, plain | 2,364 |
 | list(arr) float[1000] | 97,796 |
-| tolist() float[1000], plain | 12,612 |
-| tolist(dtype=float) float[1000], wrapped (~= old default) | 61,306 |
-| tolist(dtype=int) float[1000], forced cast, plain | 11,474 |
+| toList() float[1000], plain | 12,612 |
+| toList(dtype=float) float[1000], wrapped (~= old default) | 61,306 |
+| toList(dtype=int) float[1000], forced cast, plain | 11,474 |
 | list(arr) float[10000] | 982,178 |
-| tolist() float[10000], plain | 120,205 |
-| tolist(dtype=float) float[10000], wrapped (~= old default) | 597,952 |
-| tolist(dtype=int) float[10000], forced cast, plain | 111,263 |
+| toList() float[10000], plain | 120,205 |
+| toList(dtype=float) float[10000], wrapped (~= old default) | 597,952 |
+| toList(dtype=int) float[10000], forced cast, plain | 111,263 |
 | list(arr) float[100000] | 11,649,202 |
-| tolist() float[100000], plain | 1,298,283 |
-| tolist(dtype=float) float[100000], wrapped (~= old default) | 6,034,438 |
-| tolist(dtype=int) float[100000], forced cast, plain | 1,233,254 |
+| toList() float[100000], plain | 1,298,283 |
+| toList(dtype=float) float[100000], wrapped (~= old default) | 6,034,438 |
+| toList(dtype=int) float[100000], forced cast, plain | 1,233,254 |
 | list(arr) double[100] | 10,620 |
-| tolist() double[100], plain | 2,486 |
-| tolist(dtype=double) double[100], wrapped (~= old default) | 7,964 |
-| tolist(dtype=int) double[100], forced cast, plain | 2,546 |
+| toList() double[100], plain | 2,486 |
+| toList(dtype=double) double[100], wrapped (~= old default) | 7,964 |
+| toList(dtype=int) double[100], forced cast, plain | 2,546 |
 | list(arr) double[1000] | 94,811 |
-| tolist() double[1000], plain | 13,362 |
-| tolist(dtype=double) double[1000], wrapped (~= old default) | 62,177 |
-| tolist(dtype=int) double[1000], forced cast, plain | 12,113 |
+| toList() double[1000], plain | 13,362 |
+| toList(dtype=double) double[1000], wrapped (~= old default) | 62,177 |
+| toList(dtype=int) double[1000], forced cast, plain | 12,113 |
 | list(arr) double[10000] | 934,043 |
-| tolist() double[10000], plain | 132,495 |
-| tolist(dtype=double) double[10000], wrapped (~= old default) | 619,168 |
-| tolist(dtype=int) double[10000], forced cast, plain | 119,350 |
+| toList() double[10000], plain | 132,495 |
+| toList(dtype=double) double[10000], wrapped (~= old default) | 619,168 |
+| toList(dtype=int) double[10000], forced cast, plain | 119,350 |
 | list(arr) double[100000] | 11,255,501 |
-| tolist() double[100000], plain | 1,358,495 |
-| tolist(dtype=double) double[100000], wrapped (~= old default) | 6,081,819 |
-| tolist(dtype=int) double[100000], forced cast, plain | 1,296,466 |
+| toList() double[100000], plain | 1,358,495 |
+| toList(dtype=double) double[100000], wrapped (~= old default) | 6,081,819 |
+| toList(dtype=int) double[100000], forced cast, plain | 1,296,466 |
 
 _Full re-run 2026-08-13, all four types, for internal consistency (mixing
 old and new numbers in one plain-vs-wrapped comparison would misrepresent
@@ -1089,9 +1089,9 @@ real bulk buffer-transfer paths in both directions.
   8-thread concurrent array-pull stress test) all clean. Measured:
   `array->list int[100000]` 11,227,930 -> 9,265,813ns (1.21x),
   `array->list long[100000]` 10,766,004 -> 8,235,060ns (1.31x),
-  `tolist(dtype=int) int[100000]` (the wrapped wrapper-construction path)
+  `toList(dtype=int) int[100000]` (the wrapped wrapper-construction path)
   9,121,523 -> 6,278,195ns (1.45x), `JBoolean(True)` construction 250 ->
   90ns (2.78x, singleton). `float`/`double` and the plain/forced-cast
-  `tolist()` variants are unaffected by design (untouched by this pool;
+  `toList()` variants are unaffected by design (untouched by this pool;
   they already used bare `PyLong_FromLong`/`PyFloat_FromDouble`).
 

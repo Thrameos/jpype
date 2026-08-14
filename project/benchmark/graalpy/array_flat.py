@@ -23,9 +23,9 @@ Four rows per type, matching jpype's/jpy's array_flat.py exactly:
     call as above -- the emulated push path (see ../_arrayutil.py).
   - "pull, array->list": DeepBench.make{Type}Array(n) comes back as a
     `polyglot.ForeignList`; list(...) walks it via the sequence protocol,
-    one polyglot call per element. GraalPy has no tolist()-equivalent
+    one polyglot call per element. GraalPy has no toList()-equivalent
     bulk pull method, so unlike jpype's array_flat.py there is no fifth
-    "array->list via tolist()" row.
+    "array->list via toList()" row.
   - "pull, array->buffer": np.asarray() on that same ForeignList.
 
 Writes project/benchmark/graalpy/array_flat_results.csv alongside the

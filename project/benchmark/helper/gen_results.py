@@ -477,12 +477,12 @@ per-leaf-array overhead, not per-element).""")
 h(2, '8. jpype-only microbenchmarks')
 p("""These three scripts (`array_to_list_dtype.py`, `arraytransfer.py`,
 `classhints.py`) have no equivalent in the jpy/jep/pyjnius suites --
-they exercise jpype-internal API surface (`tolist()` dtype variants,
+they exercise jpype-internal API surface (`toList()` dtype variants,
 `pullTo`/`pushFrom` bulk in-place transfer, `JPConversionList`/
 `JPConversionTuple`'s cached-class-hint lookup) with nothing to compare
 against. jpype-only, `best` ns/call.""")
 
-h(3, '`list()` vs. `tolist()` dtype variants')
+h(3, '`list()` vs. `toList()` dtype variants')
 rows = []
 for r in d['jpype']['array_to_list_dtype']:
     rows.append([r['label'], fmt(r['best'])])

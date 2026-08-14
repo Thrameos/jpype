@@ -1,7 +1,7 @@
-"""JArray.tolist()'s dtype argument: plain-Python default vs. explicit
+"""JArray.toList()'s dtype argument: plain-Python default vs. explicit
 forced-cast wrapping/casting, flat 1D arrays at increasing sizes.
 
-tolist() used to always box every element as a tagged wrapper instance
+toList() used to always box every element as a tagged wrapper instance
 (JInt/JDouble/etc, via convertToPythonObject -- tp_alloc + Java-slot
 assignment). It now defaults to plain Python int/float/bool/str (a bare
 PyLong_From*/PyFloat_FromDouble/PyBool_FromLong/PyUnicode_FromOrdinal,
@@ -9,18 +9,18 @@ no wrapper allocation, no Java-slot tagging) and only pays the wrapper
 cost when a caller explicitly asks for it via dtype=JInt/JDouble/etc.
 
 Categories per type, all reading the same freshly-built array:
-  - tolist() [[plain, new default]]: bare Python values, no wrapper.
-  - tolist(dtype=<same type>) [[wrapped, ~= old default]]: identity cast,
+  - toList() [[plain, new default]]: bare Python values, no wrapper.
+  - toList(dtype=<same type>) [[wrapped, ~= old default]]: identity cast,
     but boxed as a tagged wrapper instance -- reproduces exactly what
-    every tolist() call used to cost before this change (see
-    project/plan/tolist-dtype.md), so this row is the "before" number.
-  - tolist(dtype=int) / tolist(dtype=float): forced numeric cast, plain
+    every toList() call used to cost before this change, so this row is
+    the "before" number.
+  - toList(dtype=int) / toList(dtype=float): forced numeric cast, plain
     output -- the interesting new case for int[]/long[] read as float or
     float[]/double[] read as int.
-  - list(arr): the pre-tolist() naive per-element baseline, for scale.
+  - list(arr): the pre-toList() naive per-element baseline, for scale.
 
 See ../array_flat.py (the general flat-array benchmark, whose own
-array->list.tolist() row now reflects the new plain default automatically)
+array->list.toList() row now reflects the new plain default automatically)
 and ../README.md.
 
 Usage:
@@ -70,24 +70,24 @@ def run(name, fn, total_elements, category, dtype):
 
 
 for label, jtype, crossType, makefn in TYPES:
-    print(f"=== JPype: tolist() plain vs wrapped vs forced-cast, flat, {label} ===")
+    print(f"=== JPype: toList() plain vs wrapped vs forced-cast, flat, {label} ===")
     for size in SIZES:
         run(f"list(arr) {label}[{size}]",
             lambda size=size, makefn=makefn: list(makefn(size)), size,
             'list_naive', label)
 
-        run(f"tolist() {label}[{size}], plain",
-            lambda size=size, makefn=makefn: makefn(size).tolist(), size,
-            'tolist_plain', label)
+        run(f"toList() {label}[{size}], plain",
+            lambda size=size, makefn=makefn: makefn(size).toList(), size,
+            'toList_plain', label)
 
-        run(f"tolist(dtype={label}) {label}[{size}], wrapped (~= old default)",
-            lambda size=size, makefn=makefn, jtype=jtype: makefn(size).tolist(dtype=jtype), size,
-            'tolist_wrapped_identity', label)
+        run(f"toList(dtype={label}) {label}[{size}], wrapped (~= old default)",
+            lambda size=size, makefn=makefn, jtype=jtype: makefn(size).toList(dtype=jtype), size,
+            'toList_wrapped_identity', label)
 
         crossLabel = 'float' if crossType is float else 'int'
-        run(f"tolist(dtype={crossLabel}) {label}[{size}], forced cast, plain",
-            lambda size=size, makefn=makefn, crossType=crossType: makefn(size).tolist(dtype=crossType), size,
-            'tolist_forced_cast_plain', label)
+        run(f"toList(dtype={crossLabel}) {label}[{size}], forced cast, plain",
+            lambda size=size, makefn=makefn, crossType=crossType: makefn(size).toList(dtype=crossType), size,
+            'toList_forced_cast_plain', label)
 
 csv_log.close()
 jpype.shutdownJVM()

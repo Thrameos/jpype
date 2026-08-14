@@ -625,7 +625,7 @@ static PyObject *PyJPArray_toList(PyJPArray *self, PyObject *args, PyObject *kwa
 {
 	static const char *kwlist[] = {"dtype", nullptr};
 	PyObject *dtype_obj = nullptr;
-	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O:tolist", (char**) kwlist, &dtype_obj))
+	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O:toList", (char**) kwlist, &dtype_obj))
 		return nullptr;
 
 	JP_PY_TRY("PyJPArray_toList");
@@ -665,7 +665,7 @@ static PyMethodDef arrayMethods[] = {
 	{"__getitem__", (PyCFunction) (&PyJPArray_getItem), METH_O | METH_COEXIST, ""},
 	{"pullTo", (PyCFunction) (&PyJPArray_pullTo), METH_O, (pullTo_doc)},
 	{"pushFrom", (PyCFunction) (&PyJPArray_pushFrom), METH_O, (pushFrom_doc)},
-	{"tolist", (PyCFunction) (&PyJPArray_toList), METH_VARARGS | METH_KEYWORDS, (toList_doc)},
+	{"toList", (PyCFunction) (&PyJPArray_toList), METH_VARARGS | METH_KEYWORDS, (toList_doc)},
 	{nullptr},
 };
 

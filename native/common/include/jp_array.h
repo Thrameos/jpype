@@ -142,7 +142,7 @@ public:
 	void       pushFrom(PyObject* src);
 
 	/**
-	 * Bulk-convert this array into a genuine Python list (JArray.tolist()).
+	 * Bulk-convert this array into a genuine Python list (JArray.toList()).
 	 *
 	 * For a primitive array, reads the whole range in a single JNI
 	 * critical section (JPPrimitiveType::getArrayRange) instead of one JNI
