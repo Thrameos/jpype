@@ -556,12 +556,96 @@ jpype/jpy's bulk path there has no reflection in the loop at all.
 
 ## 8. jpype-only microbenchmarks
 
-These three scripts (`array_to_list_dtype.py`, `arraytransfer.py`,
-`classhints.py`) have no equivalent in the jpy/jep/pyjnius suites --
-they exercise jpype-internal API surface (`toList()` dtype variants,
-`pullTo`/`pushFrom` bulk in-place transfer, `JPConversionList`/
-`JPConversionTuple`'s cached-class-hint lookup) with nothing to compare
-against. jpype-only, `best` ns/call.
+These four scripts (`array_of.py`, `array_to_list_dtype.py`,
+`arraytransfer.py`, `classhints.py`) have no equivalent in the
+jpy/jep/pyjnius suites -- they exercise jpype-internal API surface
+(`JArray.of()`, `toList()` dtype variants, `pullTo`/`pushFrom` bulk
+in-place transfer, `JPConversionList`/`JPConversionTuple`'s
+cached-class-hint lookup) with nothing to compare against. jpype-only,
+`best` ns/call.
+
+### `JArray.of()` -- constructing an array directly from a buffer
+
+**Methodology.** `array_of.py`. `JArray.of(arr)`/`JArray.of(arr,
+dtype=...)` construct a jpype array directly from a buffer-protocol
+source (numpy), the dedicated factory method for this -- as distinct
+from passing the same source as a method argument (Sections 3/5's
+`buffer->array` push) or via the array class's own constructor
+(`JArray(JType)(arr)`, included here as the "naive" alternative a user
+might reach for instead of `.of()`; a numpy array satisfies
+`PySequence_Check`, so this alternative was never actually naive for a
+buffer-protocol source -- see the Result below).
+
+| operation | int[100] | int[1000] | int[10000] | int[100000] |
+|---|---:|---:|---:|---:|
+| JArray.of(arr) | 1,570 | 1,968 | 6,169 | 40,796 |
+| JArray.of(arr, dtype=<same type>) | 1,607 | 2,117 | 6,127 | 39,664 |
+| JArray.of(arr, dtype=<cross type>) | 2,237 | 4,273 | 26,293 | 198,824 |
+| JArray(JType)(arr), naive ctor | 2,727 | 2,893 | 6,940 | 46,273 |
+
+| operation | long[100] | long[1000] | long[10000] | long[100000] |
+|---|---:|---:|---:|---:|
+| JArray.of(arr) | 1,609 | 2,504 | 10,594 | 92,649 |
+| JArray.of(arr, dtype=<same type>) | 1,659 | 2,379 | 10,916 | 96,862 |
+| JArray.of(arr, dtype=<cross type>) | 1,944 | 4,594 | 25,588 | 240,806 |
+| JArray(JType)(arr), naive ctor | 2,663 | 3,294 | 11,622 | 105,218 |
+
+| operation | float[100] | float[1000] | float[10000] | float[100000] |
+|---|---:|---:|---:|---:|
+| JArray.of(arr) | 1,483 | 1,821 | 5,832 | 49,037 |
+| JArray.of(arr, dtype=<same type>) | 1,539 | 1,937 | 5,864 | 41,955 |
+| JArray.of(arr, dtype=<cross type>) | 1,807 | 3,701 | 23,673 | 200,740 |
+| JArray(JType)(arr), naive ctor | 2,547 | 2,818 | 7,281 | 44,738 |
+
+| operation | double[100] | double[1000] | double[10000] | double[100000] |
+|---|---:|---:|---:|---:|
+| JArray.of(arr) | 1,586 | 2,289 | 10,362 | 109,222 |
+| JArray.of(arr, dtype=<same type>) | 1,620 | 2,405 | 10,871 | 101,428 |
+| JArray.of(arr, dtype=<cross type>) | 1,756 | 3,846 | 24,534 | 259,313 |
+| JArray(JType)(arr), naive ctor | 2,538 | 3,237 | 11,712 | 99,483 |
+
+**Multi-dimensional (10^dims elements, `JArray.of(arr)` only -- see
+Result):**
+
+| shape | int | long | float | double |
+|---|---:|---:|---:|---:|
+| [][](10^2) | 2,956 | 3,058 | 2,956 | 2,966 |
+| [][][](10^3) | 15,506 | 15,064 | 15,376 | 15,612 |
+| [][][][](10^4) | 141,606 | 138,650 | 149,967 | 144,599 |
+| [][][][][](10^5) | 1,408,537 | 1,390,935 | 1,613,576 | 1,438,259 |
+
+**Result.** Flat (1D): `JArray.of()` now leads the naive constructor at
+every size 1,000 and up, and is within noise of it below that -- fixed
+2026-08-13 (see Section 11). Before the fix, `JArray.of()` was routed
+through the N-dimensional `newMultiArray`/`convertMultiArrayObject`
+machinery *unconditionally*, even for a flat 1D source: that path has no
+bulk-copy shortcut, so it paid a per-element `pack(converter(src))` call
+in a tight loop regardless of matching dtype, while the "naive"
+`JArray(JType)(arr)` constructor -- which also lands in `setArrayRange`,
+since a numpy array satisfies `PySequence_Check` -- already tries the
+buffer-protocol fast path (`tryFastBufferPush`/`Support.fillFlatFromBuffer`)
+first. The result was backwards from what the API promises:
+`JArray.of(arr)` at `int[100000]` cost 238,569ns, 5.8x *slower* than
+`JArray(JInt)(arr)`'s 41,196ns for the identical input. Fixed by routing
+the `ndim == 1` case through the same `setArrayRange` fast path instead
+of `newMultiArray`, closing the gap (`int[100000]`: 238,569 -> 40,796ns,
+5.85x).
+
+Multi-dimensional `JArray.of()` is untouched by this fix -- still the
+older `newMultiArray`/`convertMultiArrayObject` per-element-pack path,
+same cost model as Section 5's N>=2 `buffer->array` push rows (which
+share that machinery) -- deliberately deferred to the planned
+`pushTo`/`pullFrom` multidimensional work rather than folded into this
+fix, since giving it a real bulk-copy path is a larger redesign, not a
+reroute. (The `dtype=<same type>` column is omitted from the
+multi-dimensional table -- it tracks `JArray.of(arr)` within noise, as
+expected, since both take the identical unmodified code path there.)
+
+The `dtype=<cross type>` (real dtype-coercion) column is markedly
+slower than matching dtype at every size -- confirmed this is pre-existing
+and unrelated to this fix (reproduces identically through the naive
+`JArray(JType)(arr)` constructor, which never touches the code this fix
+changed). Root cause not yet investigated.
 
 ### `list()` vs. `toList()` dtype variants
 
@@ -1094,4 +1178,45 @@ real bulk buffer-transfer paths in both directions.
   90ns (2.78x, singleton). `float`/`double` and the plain/forced-cast
   `toList()` variants are unaffected by design (untouched by this pool;
   they already used bare `PyLong_FromLong`/`PyFloat_FromDouble`).
+
+- **Resolved 2026-08-13: `JArray.of()` (flat/1D) was 5.8x slower than
+  the naive fallback constructor for the identical input.** Newly
+  benchmarked (`array_of.py`, Section 8) rather than a regression from
+  other work this session -- `JArray.of()` had no dedicated benchmark
+  before, so this gap had never been directly measured; it was only
+  visible by comparing across two different tables (Section 3's
+  method-argument `buffer->array` push vs. this one) and had gone
+  unnoticed. Root cause: `PyJPModule_convertBuffer`
+  (`native/python/pyjp_module.cpp`) routed every source through
+  `JPPrimitiveType::newMultiArray` -> `convertMultiArrayObject`
+  (`jp_primitive_accessor.h`) unconditionally, including a flat 1D
+  source -- that path has no bulk-copy shortcut, only a per-element
+  `pack(converter(src))` call in its traversal loop, because it predates
+  the flat-path optimization (`Support.fillFlatFromBuffer`) and was
+  never given the same treatment. Meanwhile the "naive" alternative,
+  `JArray(JType)(arr)`, already reached the fast path by accident: numpy
+  arrays satisfy `PySequence_Check`, so `PyJPArray_init` routes them
+  through `JPArray::setRange` -> `JPXxxType::setArrayRange`, which tries
+  `tryFastBufferPush`/`fillFlatFromBuffer` first, before falling back to
+  a general per-element loop.
+
+  Fix: for `view.ndim == 1`, `PyJPModule_convertBuffer` now allocates the
+  flat array directly and calls `setArrayRange` on it -- the same fast
+  path the naive constructor already used, reused rather than
+  duplicated. N>=2 is untouched, still routed through
+  `newMultiArray`/`convertMultiArrayObject` (same per-element-pack cost
+  model as Section 5's N-D `buffer->array` push rows, which share that
+  code) -- deliberately deferred to the planned `pushTo`/`pullFrom`
+  multidimensional work, since a real fix there needs a genuine
+  per-row bulk-copy redesign, not a one-line reroute.
+
+  Verified via isolated `git worktree` + fresh venv: full suite (1588
+  tests, clean across 2 additional randomized-order runs) plus explicit
+  1D/2D/3D/cross-dtype/strided correctness checks. Measured:
+  `JArray.of(arr)` `int[100000]` 238,569 -> 40,796ns (5.85x), now ahead
+  of the naive constructor's 46,273ns again as the API intends. A
+  separate, pre-existing (not introduced by this fix, confirmed by
+  reproducing it through the untouched naive-constructor path too)
+  dtype-coercion slowdown in `tryFastBufferPush`/`fillFlatIntoArray` was
+  found along the way and is noted in Section 8, not yet root-caused.
 
