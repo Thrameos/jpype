@@ -299,4 +299,27 @@ static inline JPPyObject JPPyTuple_Pack(T... args) {
 extern bool tryFastBufferPush(JPJavaFrame &frame, JPPrimitiveType *pcls, jarray dest,
 		jsize start, jsize step, jsize length, PyObject *sequence);
 
+/**
+ * Shared fast path for constructing a brand-new N-D primitive array
+ * (int[][], double[][][], ...) directly from a buffer-protocol source
+ * whose ndim already matches the target nesting depth -- the multi-dim
+ * counterpart to tryFastBufferPush above. Used by both
+ * JPConversionMultiArrayBuffer::convert (jp_classhints.cpp, the
+ * method-argument push path) and JArray.of()'s N-D case
+ * (PyJPModule_convertBuffer, pyjp_module.cpp), which were previously two
+ * separate call sites doing the same classifyRawTransfer-gated
+ * DirectByteBuffer handoff to Support.fillMultiArrayFromBuffer.
+ *
+ * `buffer` must already be validated (PyBUF_STRIDES | PyBUF_FORMAT,
+ * view.ndim == the array's nesting depth). `jdims` is the caller's
+ * already-built int[] of view.shape. On success returns true and sets
+ * `out` to the newly constructed array; returns false (out untouched,
+ * caller falls back to its existing per-element newMultiArray/
+ * newMultiArrayObject path) whenever the source isn't C-contiguous or
+ * requires genuine dtype coercion rather than a fixed bulk-friendly
+ * reinterpret/byte-swap/half-decode.
+ */
+extern bool tryFastMultiArrayBuffer(JPJavaFrame &frame, JPPrimitiveType *pcls,
+		JPPyBuffer &buffer, jintArray jdims, jarray &out);
+
 #endif // _JPYPE_H_

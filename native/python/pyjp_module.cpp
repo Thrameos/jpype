@@ -1041,6 +1041,22 @@ static PyObject *PyJPModule_convertBuffer(JPPyBuffer& buffer, PyObject *dtype, P
 		}
 		base = view.len / view.itemsize;
 	}
+
+	// Same bulk DirectByteBuffer handoff as the flat (1D) case above and
+	// as JPConversionMultiArrayBuffer's own N-D method-argument push --
+	// see tryFastMultiArrayBuffer (jp_convert.cpp). Falls back to the
+	// older per-element newMultiArray/convertMultiArrayObject path
+	// (unchanged below) for a non-contiguous source or genuine dtype
+	// coercion.
+	jarray fast = nullptr;
+	if (tryFastMultiArrayBuffer(frame, pcls, buffer, jdims, fast))
+	{
+		JPClass *outType = frame.findClassForObject(fast);
+		jvalue v;
+		v.l = fast;
+		return outType->convertToPythonObject(frame, v, false).keep();
+	}
+
 	return pcls->newMultiArray(frame, buffer, subs, base, (jobject) jdims);
 }
 

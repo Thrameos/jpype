@@ -16,6 +16,7 @@
 #include "jpype.h"
 #include <math.h>
 #include <bitset>
+#include <cctype>
 
 namespace
 {
@@ -690,5 +691,32 @@ bool tryFastBufferPush(JPJavaFrame &frame, JPPrimitiveType *pcls, jarray dest,
 			(jlong) ((length - 1) * vstep + view.itemsize));
 	frame.fillFlatIntoArray(pcls->getTypeCode(), src.kind, src.size, (jboolean) src.swapped,
 			directBuf, length, (jint) vstep, dest, start, step);
+	return true;
+}
+
+bool tryFastMultiArrayBuffer(JPJavaFrame &frame, JPPrimitiveType *pcls,
+		JPPyBuffer &buffer, jintArray jdims, jarray &out)
+{
+	Py_buffer &view = buffer.getView();
+	if (!PyBuffer_IsContiguous(&view, 'C'))
+		return false;
+
+	char code[2] = {(char) tolower(pcls->getTypeCode()), 0};
+	const char *format = view.format != nullptr ? view.format : "B";
+	jconverter converter = getConverter(format, (int) view.itemsize, code);
+	if (converter == nullptr)
+		return false;
+
+	JPRawTransferMode mode = classifyRawTransfer(converter, pcls, format, (int) view.itemsize, code);
+	if (mode == RAW_NONE)
+		return false;
+
+	Py_ssize_t total = 1;
+	for (int i = 0; i < view.ndim; ++i)
+		total *= view.shape[i];
+	jobject directBuf = frame.NewDirectByteBuffer(view.buf, total * view.itemsize);
+	// A local reference within frame's own scope -- caller keeps/converts
+	// it as appropriate to their own frame lifetime, same as before.
+	out = (jarray) frame.fillMultiArrayFromBuffer(pcls->getTypeCode(), (jint) mode, directBuf, jdims);
 	return true;
 }

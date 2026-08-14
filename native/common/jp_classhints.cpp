@@ -735,13 +735,10 @@ public:
 		// to the general per-leaf critical-section path below only for
 		// genuine dtype coercion (e.g. float64 -> int32), which still
 		// requires visiting every element through `converter`.
-		JPRawTransferMode mode = classifyRawTransfer(converter, pcls, format, (int) view.itemsize, code);
-		if (mode != RAW_NONE && PyBuffer_IsContiguous(&view, 'C'))
+		jarray fast = nullptr;
+		if (tryFastMultiArrayBuffer(frame, pcls, buffer, jdims, fast))
 		{
-			Py_ssize_t total = subs * base;
-			jobject directBuf = frame.NewDirectByteBuffer(view.buf, total * view.itemsize);
-			res.l = frame.keep(frame.fillMultiArrayFromBuffer(
-					pcls->getTypeCode(), (jint) mode, directBuf, jdims));
+			res.l = frame.keep(fast);
 			return res;
 		}
 

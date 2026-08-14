@@ -609,10 +609,15 @@ Result):**
 
 | shape | int | long | float | double |
 |---|---:|---:|---:|---:|
-| [][](10^2) | 2,956 | 3,058 | 2,956 | 2,966 |
-| [][][](10^3) | 15,506 | 15,064 | 15,376 | 15,612 |
-| [][][][](10^4) | 141,606 | 138,650 | 149,967 | 144,599 |
-| [][][][][](10^5) | 1,408,537 | 1,390,935 | 1,613,576 | 1,438,259 |
+| [][](10^2) | 2,531 | 2,418 | 2,377 | 2,503 |
+| [][][](10^3) | 7,251 | 7,295 | 6,962 | 8,271 |
+| [][][][](10^4) | 58,460 | 58,260 | 54,356 | 59,906 |
+| [][][][][](10^5) | 602,778 | 606,252 | 538,842 | 557,756 |
+
+_Fixed 2026-08-13 -- see Section 11. Before the fix (`newMultiArray`/
+`convertMultiArrayObject` per-element pack loop, no bulk-copy shortcut):
+[][][][](10^4) cost 141,606-149,967ns across types, ~2.4-2.7x today's
+numbers above._
 
 **Result.** Flat (1D): `JArray.of()` now leads the naive constructor at
 every size 1,000 and up, and is within noise of it below that -- fixed
@@ -631,15 +636,26 @@ the `ndim == 1` case through the same `setArrayRange` fast path instead
 of `newMultiArray`, closing the gap (`int[100000]`: 238,569 -> 40,796ns,
 5.85x).
 
-Multi-dimensional `JArray.of()` is untouched by this fix -- still the
-older `newMultiArray`/`convertMultiArrayObject` per-element-pack path,
-same cost model as Section 5's N>=2 `buffer->array` push rows (which
-share that machinery) -- deliberately deferred to the planned
-`pushTo`/`pullFrom` multidimensional work rather than folded into this
-fix, since giving it a real bulk-copy path is a larger redesign, not a
-reroute. (The `dtype=<same type>` column is omitted from the
-multi-dimensional table -- it tracks `JArray.of(arr)` within noise, as
-expected, since both take the identical unmodified code path there.)
+Multi-dimensional (N>=2): also fixed, 2026-08-13, as part of the
+`JArray.of()`/`pullTo`/`pushFrom` N-D work (see Section 11). Previously
+`JArray.of()` at any depth >= 2 routed unconditionally through
+`newMultiArray`/`convertMultiArrayObject`'s per-element `pack(converter(src))`
+loop -- the same cost model as Section 5's N>=2 `buffer->array` push rows
+before *their* fix, since both shared that machinery. Fixed by factoring
+`JPConversionMultiArrayBuffer::convert`'s existing fast-path block (the
+`classifyRawTransfer`-gated `Support.fillMultiArrayFromBuffer` bulk
+DirectByteBuffer handoff, already proven by Section 5's fast N-D push
+numbers) into a shared helper (`tryFastMultiArrayBuffer`,
+`jp_convert.cpp`) and calling it from `JArray.of()`'s N-D case too,
+falling back to the old per-element path exactly as before for a
+non-contiguous source or genuine dtype coercion. `fillMultiArrayFromBuffer`
+has no depth cap, so this covers every depth `JArray.of()` already
+accepted, including depth > 4 (verified against depth 6, one level past
+the unrelated 4-dim cap on the *read*-direction `collectRectangular`
+helper used by `pullTo`/`np.asarray()`, which does not apply here). (The
+`dtype=<same type>` column is omitted from the multi-dimensional table --
+it tracks `JArray.of(arr)` within noise, as expected, since both take the
+identical fast path there.)
 
 The `dtype=<cross type>` (real dtype-coercion) column is markedly
 slower than matching dtype at every size -- confirmed this is pre-existing
@@ -1219,4 +1235,48 @@ real bulk buffer-transfer paths in both directions.
   reproducing it through the untouched naive-constructor path too)
   dtype-coercion slowdown in `tryFastBufferPush`/`fillFlatIntoArray` was
   found along the way and is noted in Section 8, not yet root-caused.
+
+- **Resolved 2026-08-13: `JArray.of()` (multi-dimensional, N>=2) had no
+  bulk-copy path at all -- Part 1 of the planned `JArray.of()`/`pullTo`/
+  `pushFrom` N-D work.** Deliberately deferred by the flat/1D fix above:
+  every N-D `JArray.of()` call routed through `newMultiArray` ->
+  `convertMultiArrayObject`'s per-element `pack(converter(src))` loop, the
+  same cost model Section 5's N-D `buffer->array` method-argument push had
+  *before* `JPConversionMultiArrayBuffer::convert` grew its own
+  `classifyRawTransfer`-gated `Support.fillMultiArrayFromBuffer` bulk
+  DirectByteBuffer fast path -- `JArray.of()` had simply never been given
+  the same treatment as that sibling path.
+
+  Fix: factored the existing fast-path block out of
+  `JPConversionMultiArrayBuffer::convert` (`jp_classhints.cpp`) into a
+  shared helper, `tryFastMultiArrayBuffer` (`jp_convert.cpp`, declared in
+  `jpype.h` alongside `tryFastBufferPush`), taking `(frame, pcls, buffer,
+  jdims)` and returning the constructed array on success or declining
+  (non-contiguous source, genuine dtype coercion) for the caller to fall
+  back exactly as before. Called from both
+  `JPConversionMultiArrayBuffer::convert` (no behavior change there --
+  same fast path, same fallback, just no longer duplicated) and
+  `PyJPModule_convertBuffer`'s N-D branch (`pyjp_module.cpp`), which
+  previously called `newMultiArray` unconditionally. Since
+  `Support.fillFromBuffer`/`fillMultiArrayFromBuffer` has no depth cap
+  (confirmed by reading `Support.java` -- `shape.length` used directly, no
+  dimension limit anywhere in `assemble`/`unpack`), no recursion or
+  depth-cap handling was needed for this part; it covers every depth
+  `JArray.of()` already accepted.
+
+  Verified via isolated `git worktree` + fresh venv: full suite (1588
+  non-SQL-driver tests -- the SQL failures are a pre-existing sandbox
+  environment gap, unrelated, reproduce identically on unpatched HEAD --
+  clean across 2 randomized-order runs) plus explicit correctness checks
+  at depths 1 through 6 (int/long/float/double), including non-contiguous
+  (Fortran-order) source and cross-dtype coercion fallback correctness,
+  and depth 6 specifically to confirm the missing depth cap claim (one
+  level past `pullTo`'s unrelated `collectRectangular` 4-dim cap, which
+  does not apply to this write-direction path). Measured (paired same-venv
+  isolation to avoid cross-worktree editable-install contamination):
+  `JArray.of(arr)` `int[][][][](10^4)` 147,646 -> 58,460ns (2.53x),
+  `int[][][][][](10^5)` 1,512,067 -> 602,778ns (2.51x); consistent
+  2.2-2.7x across int/long/float/double at every depth 2-5 (see Section 8
+  for the full per-type table). Flat (1D) numbers unaffected, as expected
+  (that path was already untouched by this change).
 
