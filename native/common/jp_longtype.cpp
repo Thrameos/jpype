@@ -236,19 +236,27 @@ void JPLongType::setArrayRange(JPJavaFrame& frame, jarray a,
 	}
 
 	jsize index = start;
-	Py_ssize_t i = 0;
 
-	// Fast path: a plain list of exact ints, avoiding PySequence_GetItem's
-	// generic protocol dispatch in favor of PyList_GET_ITEM, and
-	// PyLong_AsLongLong instead of the more general PyIndex_Check path.
-	// See JPIntType::setArrayRange for the same pattern.
+	// Container-kind dispatch happens once, not per element (list vs.
+	// tuple vs. general sequence, resolved here). The value conversion
+	// itself (PyLong_AsLongLong) is identical whether the item is an
+	// exact int or not -- unlike byte/short/int, there's no narrower
+	// PyLong_AsLong to prefer, since jlong is already the widest integer
+	// type PyLong_As* offers. So the only per-element saving available is
+	// skipping PyIndex_Check's generic-protocol probe for the (common)
+	// exact-int case, done inline below rather than as a separate branch
+	// that would otherwise demote every element after the first non-exact
+	// one to the general PySequence_GetItem path.
 	if (PyList_CheckExact(sequence))
 	{
-		for (; i < length; ++i, index += step)
+		for (Py_ssize_t i = 0; i < length; ++i, index += step)
 		{
 			PyObject *item = PyList_GET_ITEM(sequence, i);
-			if (!PyLong_CheckExact(item))
-				break;
+			if (!PyLong_CheckExact(item) && !PyIndex_Check(item))
+			{
+				PyErr_Format(PyExc_TypeError, "Unable to implicitly convert '%s' to long", Py_TYPE(item)->tp_name);
+				JP_RAISE_PYTHON();
+			}
 			jlong v = PyLong_AsLongLong(item);
 			if (v == -1)
 				JP_PY_CHECK();
@@ -256,25 +264,23 @@ void JPLongType::setArrayRange(JPJavaFrame& frame, jarray a,
 		}
 	} else if (PyTuple_CheckExact(sequence))
 	{
-		// Tuple counterpart of the list fast path above.
-		for (; i < length; ++i, index += step)
+		for (Py_ssize_t i = 0; i < length; ++i, index += step)
 		{
 			PyObject *item = PyTuple_GET_ITEM(sequence, i);
-			if (!PyLong_CheckExact(item))
-				break;
+			if (!PyLong_CheckExact(item) && !PyIndex_Check(item))
+			{
+				PyErr_Format(PyExc_TypeError, "Unable to implicitly convert '%s' to long", Py_TYPE(item)->tp_name);
+				JP_RAISE_PYTHON();
+			}
 			jlong v = PyLong_AsLongLong(item);
 			if (v == -1)
 				JP_PY_CHECK();
 			val[index] = (type_t) v;
 		}
-	}
-
-	if (i < length)
+	} else
 	{
-		// General sequence API, continuing from wherever the fast path
-		// above left off.
 		JPPySequence seq = JPPySequence::use(sequence);
-		for (; i < length; ++i, index += step)
+		for (Py_ssize_t i = 0; i < length; ++i, index += step)
 		{
 			PyObject *item = seq[i].get();
 			if (!PyIndex_Check(item))
@@ -284,8 +290,8 @@ void JPLongType::setArrayRange(JPJavaFrame& frame, jarray a,
 			}
 			jlong v = PyLong_AsLongLong(item);
 			if (v == -1)
-				JP_PY_CHECK()
-				val[index] = (type_t) v;
+				JP_PY_CHECK();
+			val[index] = (type_t) v;
 		}
 	}
 	accessor.commit();

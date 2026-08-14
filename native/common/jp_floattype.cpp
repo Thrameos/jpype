@@ -241,18 +241,20 @@ void JPFloatType::setArrayRange(JPJavaFrame& frame, jarray a,
 	}
 
 	jsize index = start;
-	Py_ssize_t i = 0;
 
-	// Fast path: a plain list/tuple of exact floats (or ints, widening),
-	// avoiding PySequence_GetItem's generic protocol dispatch in favor of
-	// PyList_GET_ITEM/PyTuple_GET_ITEM. See JPIntType::setArrayRange for
-	// the same container-access pattern; the PyLong_CheckExact branch
-	// mirrors matches()'s own widening acceptance so an int list/tuple
-	// pushed into a float[]/double[] doesn't fall all the way through to
-	// the general per-element path just because it isn't already floats.
+	// Container-kind dispatch happens once, not per element (list vs.
+	// tuple vs. general sequence, resolved here); within each loop, the
+	// exact-float/exact-int-or-neither check IS per element, deliberately
+	// -- cheap type checks, the same cost sequenceCheckStep (jp_class.cpp)
+	// already pays per element during matches(). The PyLong_CheckExact arm
+	// mirrors matches()'s own widening acceptance, so an int among floats
+	// stays fast too. A single item that's neither (a numpy scalar, a
+	// custom __float__ object, ...) anywhere in the sequence no longer
+	// demotes every element after it to the generic PySequence_GetItem
+	// path -- only that one element pays the general PyFloat_AsDouble call.
 	if (PyList_CheckExact(sequence))
 	{
-		for (; i < length; ++i, index += step)
+		for (Py_ssize_t i = 0; i < length; ++i, index += step)
 		{
 			PyObject *item = PyList_GET_ITEM(sequence, i);
 			double v;
@@ -264,12 +266,16 @@ void JPFloatType::setArrayRange(JPJavaFrame& frame, jarray a,
 				if (v == -1.0 && PyErr_Occurred())
 					JP_PY_CHECK();
 			} else
-				break;
+			{
+				v = PyFloat_AsDouble(item);
+				if (v == -1.0 && PyErr_Occurred())
+					JP_PY_CHECK();
+			}
 			val[index] = (type_t) v;
 		}
 	} else if (PyTuple_CheckExact(sequence))
 	{
-		for (; i < length; ++i, index += step)
+		for (Py_ssize_t i = 0; i < length; ++i, index += step)
 		{
 			PyObject *item = PyTuple_GET_ITEM(sequence, i);
 			double v;
@@ -281,17 +287,17 @@ void JPFloatType::setArrayRange(JPJavaFrame& frame, jarray a,
 				if (v == -1.0 && PyErr_Occurred())
 					JP_PY_CHECK();
 			} else
-				break;
+			{
+				v = PyFloat_AsDouble(item);
+				if (v == -1.0 && PyErr_Occurred())
+					JP_PY_CHECK();
+			}
 			val[index] = (type_t) v;
 		}
-	}
-
-	if (i < length)
+	} else
 	{
-		// General sequence API, continuing from wherever the fast path
-		// above left off.
 		JPPySequence seq = JPPySequence::use(sequence);
-		for (; i < length; ++i, index += step)
+		for (Py_ssize_t i = 0; i < length; ++i, index += step)
 		{
 			double v =  PyFloat_AsDouble(seq[i].get());
 			if (v == -1.)

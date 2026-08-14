@@ -284,43 +284,54 @@ void JPBooleanType::setArrayRange(JPJavaFrame& frame, jarray a,
 	}
 
 	jsize index = start;
-	Py_ssize_t i = 0;
 
-	// Fast path: a plain list/tuple of exact bools, avoiding
-	// PySequence_GetItem's generic protocol dispatch and PyObject_IsTrue's
-	// generic truthiness call in favor of a direct Py_True identity check.
-	// See JPIntType::setArrayRange for the same container-access pattern.
+	// Container-kind dispatch happens once, not per element (list vs.
+	// tuple vs. general sequence, resolved here); within each loop, the
+	// exact-bool-or-not check IS per element, deliberately -- a single
+	// cheap PyBool_Check, the same cost sequenceCheckStep (jp_class.cpp)
+	// already pays per element during matches(). A single non-bool item
+	// anywhere in the sequence no longer demotes every element after it
+	// to the generic PySequence_GetItem + PyObject_IsTrue path -- only
+	// that one element pays the general truthiness call.
 	if (PyList_CheckExact(sequence))
 	{
-		for (; i < length; ++i, index += step)
+		for (Py_ssize_t i = 0; i < length; ++i, index += step)
 		{
 			PyObject *item = PyList_GET_ITEM(sequence, i);
-			if (!PyBool_Check(item))
-				break;
-			val[index] = (type_t) (item == Py_True);
+			if (PyBool_Check(item))
+				val[index] = (type_t) (item == Py_True);
+			else
+			{
+				int v = PyObject_IsTrue(item);
+				if (v == -1)
+					JP_PY_CHECK();
+				val[index] = (type_t) v;
+			}
 		}
 	} else if (PyTuple_CheckExact(sequence))
 	{
-		for (; i < length; ++i, index += step)
+		for (Py_ssize_t i = 0; i < length; ++i, index += step)
 		{
 			PyObject *item = PyTuple_GET_ITEM(sequence, i);
-			if (!PyBool_Check(item))
-				break;
-			val[index] = (type_t) (item == Py_True);
+			if (PyBool_Check(item))
+				val[index] = (type_t) (item == Py_True);
+			else
+			{
+				int v = PyObject_IsTrue(item);
+				if (v == -1)
+					JP_PY_CHECK();
+				val[index] = (type_t) v;
+			}
 		}
-	}
-
-	if (i < length)
+	} else
 	{
-		// General sequence API, continuing from wherever the fast path
-		// above left off.
 		JPPySequence seq = JPPySequence::use(sequence);
-		for (; i < length; ++i, index += step)
+		for (Py_ssize_t i = 0; i < length; ++i, index += step)
 		{
 			int v = PyObject_IsTrue(seq[i].get());
 			if (v == -1)
 				JP_PY_CHECK();
-			val[index] = v;
+			val[index] = (type_t) v;
 		}
 	}
 	accessor.commit();

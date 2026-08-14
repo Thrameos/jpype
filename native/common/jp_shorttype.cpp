@@ -233,42 +233,71 @@ void JPShortType::setArrayRange(JPJavaFrame& frame, jarray a,
 	}
 
 	jsize index = start;
-	Py_ssize_t i = 0;
 
-	// Fast path: a plain list/tuple of exact ints. See
-	// JPIntType::setArrayRange for the same pattern.
+	// Container-kind dispatch happens once, not per element (list vs.
+	// tuple vs. general sequence, resolved here); within each loop, the
+	// exact-int-or-not check IS per element, deliberately -- it's a
+	// single cheap PyLong_CheckExact, the same cost sequenceCheckStep
+	// (jp_class.cpp) already pays per element during matches(). A single
+	// non-exact item (a bool, a numpy scalar, a custom __index__ object,
+	// ...) anywhere in the sequence no longer demotes every element after
+	// it to the generic PySequence_GetItem path -- only that one element
+	// pays the heavier PyIndex_Check + PyLong_AsLongLong conversion; the
+	// rest of the array stays on direct indexed access either way.
 	if (PyList_CheckExact(sequence))
 	{
-		for (; i < length; ++i, index += step)
+		for (Py_ssize_t i = 0; i < length; ++i, index += step)
 		{
 			PyObject *item = PyList_GET_ITEM(sequence, i);
-			if (!PyLong_CheckExact(item))
-				break;
-			long v = PyLong_AsLong(item);
-			if (v == -1)
-				JP_PY_CHECK();
+			jlong v;
+			if (PyLong_CheckExact(item))
+			{
+				long lv = PyLong_AsLong(item);
+				if (lv == -1)
+					JP_PY_CHECK();
+				v = lv;
+			} else
+			{
+				if (!PyIndex_Check(item))
+				{
+					PyErr_Format(PyExc_TypeError, "Unable to implicitly convert '%s' to short", Py_TYPE(item)->tp_name);
+					JP_RAISE_PYTHON();
+				}
+				v = PyLong_AsLongLong(item);
+				if (v == -1)
+					JP_PY_CHECK();
+			}
 			val[index] = (type_t) assertRange(v);
 		}
 	} else if (PyTuple_CheckExact(sequence))
 	{
-		for (; i < length; ++i, index += step)
+		for (Py_ssize_t i = 0; i < length; ++i, index += step)
 		{
 			PyObject *item = PyTuple_GET_ITEM(sequence, i);
-			if (!PyLong_CheckExact(item))
-				break;
-			long v = PyLong_AsLong(item);
-			if (v == -1)
-				JP_PY_CHECK();
+			jlong v;
+			if (PyLong_CheckExact(item))
+			{
+				long lv = PyLong_AsLong(item);
+				if (lv == -1)
+					JP_PY_CHECK();
+				v = lv;
+			} else
+			{
+				if (!PyIndex_Check(item))
+				{
+					PyErr_Format(PyExc_TypeError, "Unable to implicitly convert '%s' to short", Py_TYPE(item)->tp_name);
+					JP_RAISE_PYTHON();
+				}
+				v = PyLong_AsLongLong(item);
+				if (v == -1)
+					JP_PY_CHECK();
+			}
 			val[index] = (type_t) assertRange(v);
 		}
-	}
-
-	if (i < length)
+	} else
 	{
-		// General sequence API, continuing from wherever the fast path
-		// above left off.
 		JPPySequence seq = JPPySequence::use(sequence);
-		for (; i < length; ++i, index += step)
+		for (Py_ssize_t i = 0; i < length; ++i, index += step)
 		{
 			PyObject *item = seq[i].get();
 			if (!PyIndex_Check(item))

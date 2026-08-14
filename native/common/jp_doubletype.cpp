@@ -255,14 +255,18 @@ void JPDoubleType::setArrayRange(JPJavaFrame& frame, jarray a,
 	}
 
 	jsize index = start;
-	Py_ssize_t i = 0;
 
-	// Fast path: a plain list/tuple of exact floats (or ints, widening).
-	// See JPFloatType::setArrayRange for the same pattern (this type just
-	// stores the double directly, no narrowing cast needed).
+	// Container-kind dispatch happens once, not per element (list vs.
+	// tuple vs. general sequence, resolved here); within each loop, the
+	// exact-float/exact-int-or-neither check IS per element, deliberately
+	// -- see JPFloatType::setArrayRange for the same pattern (this type
+	// just stores the double directly, no narrowing cast needed). A
+	// single item that's neither exact float nor exact int anywhere in
+	// the sequence no longer demotes every element after it to the
+	// generic PySequence_GetItem path.
 	if (PyList_CheckExact(sequence))
 	{
-		for (; i < length; ++i, index += step)
+		for (Py_ssize_t i = 0; i < length; ++i, index += step)
 		{
 			PyObject *item = PyList_GET_ITEM(sequence, i);
 			double v;
@@ -274,12 +278,16 @@ void JPDoubleType::setArrayRange(JPJavaFrame& frame, jarray a,
 				if (v == -1.0 && PyErr_Occurred())
 					JP_PY_CHECK();
 			} else
-				break;
+			{
+				v = PyFloat_AsDouble(item);
+				if (v == -1.0 && PyErr_Occurred())
+					JP_PY_CHECK();
+			}
 			val[index] = (type_t) v;
 		}
 	} else if (PyTuple_CheckExact(sequence))
 	{
-		for (; i < length; ++i, index += step)
+		for (Py_ssize_t i = 0; i < length; ++i, index += step)
 		{
 			PyObject *item = PyTuple_GET_ITEM(sequence, i);
 			double v;
@@ -291,17 +299,17 @@ void JPDoubleType::setArrayRange(JPJavaFrame& frame, jarray a,
 				if (v == -1.0 && PyErr_Occurred())
 					JP_PY_CHECK();
 			} else
-				break;
+			{
+				v = PyFloat_AsDouble(item);
+				if (v == -1.0 && PyErr_Occurred())
+					JP_PY_CHECK();
+			}
 			val[index] = (type_t) v;
 		}
-	}
-
-	if (i < length)
+	} else
 	{
-		// General sequence API, continuing from wherever the fast path
-		// above left off.
 		JPPySequence seq = JPPySequence::use(sequence);
-		for (; i < length; ++i, index += step)
+		for (Py_ssize_t i = 0; i < length; ++i, index += step)
 		{
 			type_t v = (type_t) PyFloat_AsDouble(seq[i].get());
 			if (v == -1)
