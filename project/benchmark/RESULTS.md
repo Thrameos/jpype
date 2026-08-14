@@ -160,14 +160,14 @@ parameter (int has no widening case against itself).
 
 | size | jpype | jpy | jep | pyjnius |
 |---|:---:|:---:|:---:|:---:|
-| int[100] | 10,468 | 5,182 | 5,017 | 1,993 |
-| int[1000] | 95,366 | 46,138 | 40,936 | 12,941 |
-| int[10000] | 954,093 | 489,233 | 419,284 | 167,126 |
-| int[100000] | 11,227,930 | 6,576,669 | 5,848,730 | 1,785,407 |
-| long[100] | 9,411 | 5,378 | 5,452 | 2,168 |
-| long[1000] | 82,218 | 48,160 | 38,753 | 16,237 |
-| long[10000] | 837,322 | 483,064 | 368,904 | 141,594 |
-| long[100000] | 10,766,004 | 7,442,961 | 6,322,217 | 5,623,093 |
+| int[100] | 7,108 | 5,182 | 5,017 | 1,993 |
+| int[1000] | 61,033 | 46,138 | 40,936 | 12,941 |
+| int[10000] | 659,175 | 489,233 | 419,284 | 167,126 |
+| int[100000] | 9,265,813 | 6,576,669 | 5,848,730 | 1,785,407 |
+| long[100] | 6,724 | 5,378 | 5,452 | 2,168 |
+| long[1000] | 56,779 | 48,160 | 38,753 | 16,237 |
+| long[10000] | 613,107 | 483,064 | 368,904 | 141,594 |
+| long[100000] | 8,235,060 | 7,442,961 | 6,322,217 | 5,623,093 |
 | float[100] | 10,228 | 4,529 | 4,332 | 1,607 |
 | float[1000] | 92,252 | 42,160 | 44,974 | 13,192 |
 | float[10000] | 909,845 | 439,692 | 431,904 | 153,484 |
@@ -176,6 +176,13 @@ parameter (int has no widening case against itself).
 | double[1000] | 94,934 | 45,415 | 43,017 | 14,002 |
 | double[10000] | 946,430 | 456,469 | 436,006 | 121,902 |
 | double[100000] | 11,524,401 | 4,912,456 | 4,366,728 | 1,705,660 |
+
+_jpype's int/long rows reflect a recycling pool for the tagged-number
+leaves (`JByte`/`JShort`/`JInt`/`JLong` -- see Section 11); float/double
+are untouched by that change since they don't go through the same
+`tp_alloc` path. Boolean array pulls were already unaffected either way
+-- `JPBooleanType::getFastArrayItem` already returned a plain
+`PyBool_FromLong` singleton, never a tagged wrapper._
 
 ### `array->buffer` pull (Java array -> Python/numpy buffer)
 
@@ -203,10 +210,13 @@ size 1,000 and up; all four show a 1.5-2x int-widening penalty on
 float/double vs. their own matched-type number, jpype's the narrowest.
 `buffer->array`: pyjnius has no buffer-protocol push at all (falls back
 to `sequenceConversion`, i.e. it isn't in this table -- see Section 5
-for the isolated cost of that fallback). `array->list`: pyjnius is the
-fastest of all four despite losing most other benchmarks in this
-report, because its Cython bridge boxes one plain `PyLong`/`PyFloat`
-per element while jpype/jep/jpy build heavier tagged wrapper objects.
+for the isolated cost of that fallback). `array->list`: pyjnius is still
+the fastest of all four despite losing most other benchmarks in this
+report, because its Cython bridge boxes one plain `PyLong`/`PyFloat` per
+element while jpype/jep/jpy build heavier tagged wrapper objects --
+jpype's int/long gap to pyjnius narrowed (a recycling pool for those
+wrapper allocations, Section 11) but float/double and jep/jpy across the
+board still pay full per-element allocation cost.
 `array->buffer`: jep/pyjnius have no real buffer-protocol return path --
 their columns above are `array->list`'s cost plus a redundant
 `np.asarray()`, not a genuine bulk read, which is why they land *worse*
@@ -337,14 +347,14 @@ _pyjnius: no entry -- no buffer->array push at any depth._
 
 | shape | jpype | jpy | jep | pyjnius |
 |---|:---:|:---:|:---:|:---:|
-| int[][](10^2) | 19,888 | 9,963 | 13,526 | 3,440 |
-| int[][][](10^3) | 202,320 | 99,842 | 129,102 | 30,065 |
-| int[][][][](10^4) | 2,168,734 | 1,137,774 | 1,466,528 | 498,866 |
-| int[][][][][](10^5) | 24,815,711 | 13,614,375 | 16,390,342 | 7,774,809 |
-| long[][](10^2) | 19,419 | 10,198 | 14,147 | 3,571 |
-| long[][][](10^3) | 189,452 | 105,042 | 133,857 | 31,427 |
-| long[][][][](10^4) | 2,033,694 | 1,092,114 | -- | 474,170 |
-| long[][][][][](10^5) | 24,752,357 | 11,879,790 | -- | 9,453,776 |
+| int[][](10^2) | 16,057 | 9,963 | 13,526 | 3,440 |
+| int[][][](10^3) | 158,150 | 99,842 | 129,102 | 30,065 |
+| int[][][][](10^4) | 1,727,024 | 1,137,774 | 1,466,528 | 498,866 |
+| int[][][][][](10^5) | 21,465,065 | 13,614,375 | 16,390,342 | 7,774,809 |
+| long[][](10^2) | 15,685 | 10,198 | 14,147 | 3,571 |
+| long[][][](10^3) | 156,303 | 105,042 | 133,857 | 31,427 |
+| long[][][][](10^4) | 1,689,539 | 1,092,114 | -- | 474,170 |
+| long[][][][][](10^5) | 20,103,014 | 11,879,790 | -- | 9,453,776 |
 | float[][](10^2) | 19,054 | 9,386 | -- | 2,968 |
 | float[][][](10^3) | 194,456 | 91,323 | -- | 29,074 |
 | float[][][][](10^4) | 2,042,988 | 1,015,685 | -- | 406,225 |
@@ -353,6 +363,10 @@ _pyjnius: no entry -- no buffer->array push at any depth._
 | double[][][](10^3) | 199,660 | 97,720 | -- | 28,600 |
 | double[][][][](10^4) | 2,106,412 | 1,037,738 | -- | 431,080 |
 | double[][][][][](10^5) | 23,046,632 | 11,476,721 | -- | 5,539,152 |
+
+_jpype's int/long rows reflect the tagged-number recycling pool -- see
+Section 11 and Section 3's footnote; float/double are untouched by that
+change._
 
 ### `array->buffer` pull
 
@@ -553,70 +567,77 @@ against. jpype-only, `best` ns/call.
 
 | operation | jpype |
 |---|:---:|
-| list(arr) int[100] | 11,577 |
-| tolist() int[100], plain | 3,036 |
-| tolist(dtype=int) int[100], wrapped (~= old default) | 8,664 |
-| tolist(dtype=float) int[100], forced cast, plain | 2,603 |
-| list(arr) int[1000] | 100,200 |
-| tolist() int[1000], plain | 14,271 |
-| tolist(dtype=int) int[1000], wrapped (~= old default) | 70,602 |
-| tolist(dtype=float) int[1000], forced cast, plain | 13,206 |
-| list(arr) int[10000] | 996,342 |
-| tolist() int[10000], plain | 183,772 |
-| tolist(dtype=int) int[10000], wrapped (~= old default) | 681,140 |
-| tolist(dtype=float) int[10000], forced cast, plain | 127,085 |
-| list(arr) int[100000] | 11,765,756 |
-| tolist() int[100000], plain | 2,866,822 |
-| tolist(dtype=int) int[100000], wrapped (~= old default) | 9,121,523 |
-| tolist(dtype=float) int[100000], forced cast, plain | 1,312,820 |
-| list(arr) long[100] | 9,833 |
-| tolist() long[100], plain | 3,213 |
-| tolist(dtype=long) long[100], wrapped (~= old default) | 7,740 |
-| tolist(dtype=float) long[100], forced cast, plain | 2,823 |
-| list(arr) long[1000] | 86,876 |
-| tolist() long[1000], plain | 17,457 |
-| tolist(dtype=long) long[1000], wrapped (~= old default) | 59,391 |
-| tolist(dtype=float) long[1000], forced cast, plain | 15,786 |
-| list(arr) long[10000] | 880,339 |
-| tolist() long[10000], plain | 186,668 |
-| tolist(dtype=long) long[10000], wrapped (~= old default) | 580,724 |
-| tolist(dtype=float) long[10000], forced cast, plain | 146,189 |
-| list(arr) long[100000] | 11,854,535 |
-| tolist() long[100000], plain | 5,723,378 |
-| tolist(dtype=long) long[100000], wrapped (~= old default) | 9,593,036 |
-| tolist(dtype=float) long[100000], forced cast, plain | 1,547,741 |
-| list(arr) float[100] | 10,323 |
-| tolist() float[100], plain | 2,366 |
-| tolist(dtype=float) float[100], wrapped (~= old default) | 7,953 |
-| tolist(dtype=int) float[100], forced cast, plain | 2,362 |
-| list(arr) float[1000] | 91,095 |
-| tolist() float[1000], plain | 12,990 |
-| tolist(dtype=float) float[1000], wrapped (~= old default) | 62,260 |
-| tolist(dtype=int) float[1000], forced cast, plain | 11,475 |
-| list(arr) float[10000] | 885,817 |
-| tolist() float[10000], plain | 121,665 |
-| tolist(dtype=float) float[10000], wrapped (~= old default) | 609,658 |
-| tolist(dtype=int) float[10000], forced cast, plain | 113,944 |
-| list(arr) float[100000] | 10,650,928 |
-| tolist() float[100000], plain | 1,258,368 |
-| tolist(dtype=float) float[100000], wrapped (~= old default) | 6,106,305 |
-| tolist(dtype=int) float[100000], forced cast, plain | 1,951,151 |
-| list(arr) double[100] | 10,331 |
-| tolist() double[100], plain | 2,441 |
-| tolist(dtype=double) double[100], wrapped (~= old default) | 7,836 |
-| tolist(dtype=int) double[100], forced cast, plain | 2,420 |
-| list(arr) double[1000] | 92,739 |
-| tolist() double[1000], plain | 14,315 |
-| tolist(dtype=double) double[1000], wrapped (~= old default) | 62,683 |
-| tolist(dtype=int) double[1000], forced cast, plain | 13,142 |
-| list(arr) double[10000] | 897,298 |
-| tolist() double[10000], plain | 127,222 |
-| tolist(dtype=double) double[10000], wrapped (~= old default) | 619,674 |
-| tolist(dtype=int) double[10000], forced cast, plain | 119,141 |
-| list(arr) double[100000] | 10,859,806 |
-| tolist() double[100000], plain | 1,410,884 |
-| tolist(dtype=double) double[100000], wrapped (~= old default) | 6,943,983 |
-| tolist(dtype=int) double[100000], forced cast, plain | 2,743,430 |
+| list(arr) int[100] | 7,444 |
+| tolist() int[100], plain | 2,748 |
+| tolist(dtype=int) int[100], wrapped (~= old default) | 5,283 |
+| tolist(dtype=float) int[100], forced cast, plain | 2,567 |
+| list(arr) int[1000] | 63,103 |
+| tolist() int[1000], plain | 13,569 |
+| tolist(dtype=int) int[1000], wrapped (~= old default) | 38,162 |
+| tolist(dtype=float) int[1000], forced cast, plain | 12,751 |
+| list(arr) int[10000] | 652,408 |
+| tolist() int[10000], plain | 179,768 |
+| tolist(dtype=int) int[10000], wrapped (~= old default) | 404,119 |
+| tolist(dtype=float) int[10000], forced cast, plain | 125,526 |
+| list(arr) int[100000] | 8,802,843 |
+| tolist() int[100000], plain | 2,761,812 |
+| tolist(dtype=int) int[100000], wrapped (~= old default) | 6,278,195 |
+| tolist(dtype=float) int[100000], forced cast, plain | 1,243,748 |
+| list(arr) long[100] | 6,904 |
+| tolist() long[100], plain | 3,079 |
+| tolist(dtype=long) long[100], wrapped (~= old default) | 4,597 |
+| tolist(dtype=float) long[100], forced cast, plain | 2,625 |
+| list(arr) long[1000] | 58,228 |
+| tolist() long[1000], plain | 16,914 |
+| tolist(dtype=long) long[1000], wrapped (~= old default) | 30,411 |
+| tolist(dtype=float) long[1000], forced cast, plain | 14,017 |
+| list(arr) long[10000] | 615,109 |
+| tolist() long[10000], plain | 180,830 |
+| tolist(dtype=long) long[10000], wrapped (~= old default) | 331,916 |
+| tolist(dtype=float) long[10000], forced cast, plain | 129,970 |
+| list(arr) long[100000] | 8,242,095 |
+| tolist() long[100000], plain | 3,503,721 |
+| tolist(dtype=long) long[100000], wrapped (~= old default) | 5,299,674 |
+| tolist(dtype=float) long[100000], forced cast, plain | 1,381,093 |
+| list(arr) float[100] | 10,972 |
+| tolist() float[100], plain | 2,315 |
+| tolist(dtype=float) float[100], wrapped (~= old default) | 7,787 |
+| tolist(dtype=int) float[100], forced cast, plain | 2,364 |
+| list(arr) float[1000] | 97,796 |
+| tolist() float[1000], plain | 12,612 |
+| tolist(dtype=float) float[1000], wrapped (~= old default) | 61,306 |
+| tolist(dtype=int) float[1000], forced cast, plain | 11,474 |
+| list(arr) float[10000] | 982,178 |
+| tolist() float[10000], plain | 120,205 |
+| tolist(dtype=float) float[10000], wrapped (~= old default) | 597,952 |
+| tolist(dtype=int) float[10000], forced cast, plain | 111,263 |
+| list(arr) float[100000] | 11,649,202 |
+| tolist() float[100000], plain | 1,298,283 |
+| tolist(dtype=float) float[100000], wrapped (~= old default) | 6,034,438 |
+| tolist(dtype=int) float[100000], forced cast, plain | 1,233,254 |
+| list(arr) double[100] | 10,620 |
+| tolist() double[100], plain | 2,486 |
+| tolist(dtype=double) double[100], wrapped (~= old default) | 7,964 |
+| tolist(dtype=int) double[100], forced cast, plain | 2,546 |
+| list(arr) double[1000] | 94,811 |
+| tolist() double[1000], plain | 13,362 |
+| tolist(dtype=double) double[1000], wrapped (~= old default) | 62,177 |
+| tolist(dtype=int) double[1000], forced cast, plain | 12,113 |
+| list(arr) double[10000] | 934,043 |
+| tolist() double[10000], plain | 132,495 |
+| tolist(dtype=double) double[10000], wrapped (~= old default) | 619,168 |
+| tolist(dtype=int) double[10000], forced cast, plain | 119,350 |
+| list(arr) double[100000] | 11,255,501 |
+| tolist() double[100000], plain | 1,358,495 |
+| tolist(dtype=double) double[100000], wrapped (~= old default) | 6,081,819 |
+| tolist(dtype=int) double[100000], forced cast, plain | 1,296,466 |
+
+_Full re-run 2026-08-13, all four types, for internal consistency (mixing
+old and new numbers in one plain-vs-wrapped comparison would misrepresent
+it). `list(arr)`/wrapped rows for int/long reflect the tagged-number
+recycling pool -- see Section 11; float/double and the plain/forced-cast
+rows (already bare `PyLong_FromLong`/`PyFloat_FromDouble`, never routed
+through the pool) are session-to-session noise only._
 
 ### Bulk in-place transfer (`pullTo`/`pushFrom`) vs. naive per-element
 
@@ -1025,4 +1046,52 @@ real bulk buffer-transfer paths in both directions.
   (jpype losing to jpy 2-4x on every shape) until re-measured and
   corrected 2026-08-13. No code changed for this refresh, only the
   recorded numbers.
+
+- **Resolved 2026-08-13: `array->list` pull (int/long) was dominated by
+  tagged-wrapper allocation cost, not the JNI read.** Profiled
+  `getFastArrayItem`'s two stages directly (instrumented, isolated
+  build): reading one element via `GetIntArrayRegion` cost ~34ns; boxing
+  it into a `JInt` via `PyJPNumber_longFromLongLong`
+  (`native/python/pyjp_number.cpp`) cost ~135ns, of which ~45ns was
+  `tp_alloc` (`PyType_GenericAlloc` -- a non-builtin heap type gets none
+  of `PyLong`'s own small-int cache or specialized allocator) and ~44ns
+  was the digit-fill/sign-tag work `PyLong_FromLong` itself would also
+  have to do, plus ~47ns of call-boundary overhead. A/B against a
+  same-call-site plain-`PyLong` bypass confirmed the gap: ~42ns plain vs.
+  ~135.5ns tagged, a ~3.2x difference matching the table's own ~1.3-1.5x
+  end-to-end swing once JNI/bounds-check/list-append overhead dilutes it.
+
+  Fix: a fixed-size recycling pool for the `JByte`/`JShort`/`JInt`/`JLong`
+  leaves (`intfreelist` in `pyjp_number.cpp`) -- one bucket sized for the
+  largest possible `jlong`'s digit count (there's nothing to gain from a
+  finer per-digit-count scheme), a lock-free Treiber stack (atomic head,
+  CAS push/pop, correct under free-threaded CPython even though nothing
+  here needs that yet, since construction runs under the GIL today), and
+  a custom `tp_dealloc` that pushes back instead of freeing. Gated by
+  exact type-pointer identity against the four leaves specifically:
+  confirmed `class MyInt(JInt): pass` raises `TypeError` ("Java classes
+  cannot be extended in Python"), so a Python subclass can never reach
+  this path, but `PyJPNumber_create` boxes `java.lang.Integer`/`Long`/
+  etc. return values through this same shared function with the *boxed*
+  class's own distinct host type -- pooling those too may well be safe
+  but is out of scope here, so the identity gate correctly excludes them.
+  `JBoolean` gets its own fix instead of a pool -- two process-lifetime
+  singletons (like Python's own `True`/`False`), since a Java boolean has
+  only two possible values; built lazily on first real construction
+  (building them eagerly from `PyJPNumber_initType` crashed at
+  `import _jpype` time -- that runs before any JVM/context exists, and
+  the eager version needed one).
+
+  Verified via isolated `git worktree` + fresh venv: full suite (1588
+  tests, 3 runs with randomized ordering) clean; a targeted stress script
+  (heavy churn value-fidelity, refcount sanity, boolean singleton
+  identity, interleaved mixed-type recycling with out-of-order drops, an
+  8-thread concurrent array-pull stress test) all clean. Measured:
+  `array->list int[100000]` 11,227,930 -> 9,265,813ns (1.21x),
+  `array->list long[100000]` 10,766,004 -> 8,235,060ns (1.31x),
+  `tolist(dtype=int) int[100000]` (the wrapped wrapper-construction path)
+  9,121,523 -> 6,278,195ns (1.45x), `JBoolean(True)` construction 250 ->
+  90ns (2.78x, singleton). `float`/`double` and the plain/forced-cast
+  `tolist()` variants are unaffected by design (untouched by this pool;
+  they already used bare `PyLong_FromLong`/`PyFloat_FromDouble`).
 
