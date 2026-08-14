@@ -2006,6 +2006,131 @@ class Support
     }
   }
 
+  /**
+   * Bulk-write a caller-supplied direct buffer's contents into a
+   * rectangular multi-dimensional primitive array's *existing* leaf
+   * arrays, in place -- the push-side mirror of {@link #collectToBuffer}
+   * above, for {@code JArray.pushFrom}'s N-D case. Unlike {@link
+   * #fillFromBuffer}, this never allocates a new array: {@code collected}
+   * (from {@link #collectRectangular}) already holds references to the
+   * target array's own leaf arrays, and this only overwrites their
+   * contents, preserving the target array's identity exactly as
+   * {@code pushFrom}'s existing flat/1D contract requires. `src`'s
+   * capacity must already match the total element count implied by
+   * `collected`'s shape entry.
+   *
+   * @param typeCode primitive type signature character.
+   * @param collected the result of {@link #collectRectangular}: [0] =
+   * leaf component Class (unused here, typeCode is passed separately by
+   * the C++ caller instead), [1] = int[] shape, [2..] = leaf arrays in
+   * row-major order.
+   * @param src a direct, readable buffer of the right total byte
+   * capacity.
+   */
+  public static void fillFromBufferIntoRectangular(char typeCode, Object[] collected, ByteBuffer src)
+  {
+    src.order(ByteOrder.nativeOrder());
+    int[] shape = (int[]) collected[1];
+    int last = shape[shape.length - 1];
+    int leaves = collected.length - 2;
+
+    IntStream range = leafRange(leaves, last);
+
+    switch (typeCode)
+    {
+      case 'I':
+      {
+        IntBuffer buf = src.asIntBuffer();
+        range.forEach(i ->
+        {
+          IntBuffer dup = buf.duplicate();
+          dup.position(i * last);
+          dup.get((int[]) collected[i + 2], 0, last);
+        });
+        break;
+      }
+      case 'D':
+      {
+        DoubleBuffer buf = src.asDoubleBuffer();
+        range.forEach(i ->
+        {
+          DoubleBuffer dup = buf.duplicate();
+          dup.position(i * last);
+          dup.get((double[]) collected[i + 2], 0, last);
+        });
+        break;
+      }
+      case 'J':
+      {
+        LongBuffer buf = src.asLongBuffer();
+        range.forEach(i ->
+        {
+          LongBuffer dup = buf.duplicate();
+          dup.position(i * last);
+          dup.get((long[]) collected[i + 2], 0, last);
+        });
+        break;
+      }
+      case 'F':
+      {
+        FloatBuffer buf = src.asFloatBuffer();
+        range.forEach(i ->
+        {
+          FloatBuffer dup = buf.duplicate();
+          dup.position(i * last);
+          dup.get((float[]) collected[i + 2], 0, last);
+        });
+        break;
+      }
+      case 'S':
+      {
+        ShortBuffer buf = src.asShortBuffer();
+        range.forEach(i ->
+        {
+          ShortBuffer dup = buf.duplicate();
+          dup.position(i * last);
+          dup.get((short[]) collected[i + 2], 0, last);
+        });
+        break;
+      }
+      case 'C':
+      {
+        CharBuffer buf = src.asCharBuffer();
+        range.forEach(i ->
+        {
+          CharBuffer dup = buf.duplicate();
+          dup.position(i * last);
+          dup.get((char[]) collected[i + 2], 0, last);
+        });
+        break;
+      }
+      case 'B':
+      {
+        range.forEach(i ->
+        {
+          ByteBuffer dup = src.duplicate();
+          dup.position(i * last);
+          dup.get((byte[]) collected[i + 2], 0, last);
+        });
+        break;
+      }
+      case 'Z':
+      {
+        range.forEach(i ->
+        {
+          boolean[] row = (boolean[]) collected[i + 2];
+          ByteBuffer dup = src.duplicate();
+          dup.position(i * last);
+          for (int j = 0; j < last; j++)
+            row[j] = dup.get() != 0;
+        });
+        break;
+      }
+      default:
+        throw new IllegalArgumentException("Unknown primitive type code: " + typeCode);
+    }
+  }
+
   // ---- Ragged-native nested-list push.
   //
   // Counterpart to fillFromBuffer above, but for a *ragged* nested Python

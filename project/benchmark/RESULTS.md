@@ -782,6 +782,22 @@ it at 10^5 would cost minutes for no additional information. int only
 this same test fixture across types; the underlying transfer -- a flat
 memcpy of `itemsize`-wide elements -- has no per-type cost difference, so
 one type is representative)._
+
+**`pushFrom`, multi-dimensional (10^dims elements, `int[][]`..
+`int[][][][][]`).** Same story as `pullTo` above, mirrored: no N-D
+support at all before 2026-08-13 (Part 3 of the same work, see Section
+11), so the naive comparator is the only prior option, not a regression
+baseline.
+
+| shape | pushFrom | naive per-element |
+|---|---:|---:|
+| [][](10^2) | 1,277 | 44,379 |
+| [][][](10^3) | 4,013 | 457,039 |
+| [][][][](10^4) | 30,231 | 4,567,642 |
+| [][][][][](10^5) | 307,131 | (not run -- see below) |
+
+_Same capping/type-representativeness rationale as `pullTo`'s table
+above._
 | direct-buffer-shared double[1000] | 1,542 |
 | direct-buffer-shared double[100000] | 30,352 |
 | direct-buffer-shared double[1000000] | 314,876 |
@@ -1352,4 +1368,58 @@ real bulk buffer-transfer paths in both directions.
   4,286ns vs. 350,651ns naive (81.8x), `int[][][][](10^4)` 31,601ns vs.
   3,515,619ns naive (111.3x); `int[][][][][](10^5)` 310,539ns (naive not
   run at this size -- already minutes-long at 10^4).
+
+- **Added 2026-08-13: `pushFrom` gained genuine multi-dimensional (N-D)
+  support -- Part 3 (final) of the planned `JArray.of()`/`pullTo`/
+  `pushFrom` N-D work.** Same starting point as `pullTo` above, mirrored:
+  `JPArray::pushFrom` gated on the same `dynamic_cast<JPPrimitiveType*>`
+  check, raising `"pushFrom requires a primitive array"` unconditionally
+  for any N-D array. This was the one part of the three requiring new
+  Java code -- unlike the read direction (`np.asarray()`/`pullTo`, both
+  served by the existing `Support.collectRectangular`/`collectToBuffer`),
+  nothing bulk-writes a flat buffer's bytes into an *already-existing*
+  N-D array's leaves in place; `Support.fillFromBuffer` (Part 1's
+  `JArray.of()` fix) always allocates a fresh array, which is wrong for
+  `pushFrom`'s in-place identity-preserving contract.
+
+  Added `Support.fillFromBufferIntoRectangular` (`Support.java`), a
+  structural mirror of `collectToBuffer` with the buffer direction
+  reversed (`Buffer.get(leafArray, ...)` in place of `dup.put(...)`,
+  same per-type switch, same `leafRange` serial/parallel split, same
+  `collectRectangular`-produced leaf-array references -- so it writes
+  into the target array's own memory, never allocating new leaves), wired
+  through a new `JPJavaFrame::fillBufferIntoMultiArray` wrapper and
+  `jmethodID` (`jp_javaframe.h/.cpp`, `jp_context.h/.cpp`) following the
+  existing `collectMultiArrayToBuffer` wrapper's exact pattern. On the
+  C++ side, added `pushFromRectangular` (`jp_array.cpp`, anonymous
+  namespace) as a direct structural mirror of Part 2's
+  `pullToRectangular` -- same depth<=4/depth>4 split, same
+  `validateRectangularShape`/`sliceOuterDim` helpers (factored out and
+  shared between both directions rather than duplicated), same
+  shape-mismatch/ragged-source error handling -- differing only in
+  transfer direction (`fillBufferIntoMultiArray` instead of
+  `collectMultiArrayToBuffer`; a new `copyBufferViewToFlat` odometer walk
+  reads a non-contiguous *source* into scratch memory, mirroring
+  `copyFlatToBufferView`'s write into a non-contiguous *destination*).
+
+  Verified via isolated `git worktree` + fresh venv: full suite (1608
+  tests -- 1597 plus 11 new N-D `pushFrom` cases -- clean across 3
+  randomized-order runs); new cases cover depths 2 through 5, non-
+  contiguous sources at depth 2 and depth 5, shape/ndim-mismatch and
+  ragged-source error handling (mirroring `pullTo`'s coverage), a
+  push+pull depth-5 round trip, and an explicit array-identity check
+  (`System.identityHashCode` on each leaf row before/after `pushFrom`,
+  confirming no leaf array is ever replaced -- the in-place contract
+  holds for the N-D path exactly as it always has for the flat one).
+  Measured (`arraytransfer.py`, new "pushFrom, multi-dimensional"
+  section) against the only prior alternative (a recursive per-element
+  Python assignment loop, since `pushFrom` itself didn't support N-D
+  before this): `int[][][](10^3)` 4,013ns vs. 457,039ns naive (113.9x),
+  `int[][][][](10^4)` 30,231ns vs. 4,567,642ns naive (151.1x);
+  `int[][][][][](10^5)` 307,131ns (naive not run at this size, same
+  reasoning as `pullTo`'s table).
+
+  This closes the `JArray.of()`/`pullTo`/`pushFrom` N-D plan: all three
+  now have genuine bulk N-D paths, none silently degrade to per-element
+  loops for a rectangular primitive source/destination at any depth.
 

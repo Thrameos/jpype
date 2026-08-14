@@ -207,6 +207,90 @@ void copyFlatToBufferView(const char *src, Py_ssize_t itemsize, Py_ssize_t len, 
 	}
 }
 
+// Validates a rectangular Java array's shape (from collectRectangular's
+// [1] element) against a Python-side Py_buffer's own ndim/shape --
+// shared by pullToRectangular and pushFromRectangular below, both of
+// which need this same per-dimension check (stricter than a flattened
+// total-count comparison) before touching either side's memory.
+void validateRectangularShape(JPJavaFrame &frame, jobjectArray collected, Py_buffer &view)
+{
+	jobject shapeObj = frame.GetObjectArrayElement(collected, 1);
+	JPPrimitiveArrayAccessor<jintArray, jint*> accessor(frame, (jintArray) shapeObj,
+			&JPJavaFrame::GetIntArrayElements, &JPJavaFrame::ReleaseIntArrayElements);
+	jint *shape = accessor.get();
+	jsize shapeLen = frame.GetArrayLength((jarray) shapeObj);
+	if (shapeLen != view.ndim)
+		JP_RAISE(PyExc_ValueError, "mismatched size");
+	for (int i = 0; i < shapeLen; ++i)
+		if (shape[i] != view.shape[i])
+			JP_RAISE(PyExc_ValueError, "mismatched size");
+	accessor.abort();
+}
+
+// Slices off row `i` of the outermost dimension of `view`, one dimension
+// shallower -- shared by pullToRectangular's and pushFromRectangular's
+// depth>4 recursion, which both peel the outermost dimension the same
+// way regardless of transfer direction.
+Py_buffer sliceOuterDim(Py_buffer &view, jsize i)
+{
+	Py_buffer subView = view;
+	subView.ndim = view.ndim - 1;
+	subView.shape = view.shape + 1;
+	if (view.strides != nullptr)
+	{
+		subView.buf = (char*) view.buf + view.strides[0] * i;
+		subView.strides = view.strides + 1;
+	} else
+	{
+		Py_ssize_t rowElems = 1;
+		for (int d = 1; d < view.ndim; ++d)
+			rowElems *= view.shape[d];
+		subView.buf = (char*) view.buf + rowElems * view.itemsize * i;
+	}
+	if (view.suboffsets != nullptr)
+		subView.suboffsets = view.suboffsets + 1;
+	return subView;
+}
+
+// Copies `len` itemsize-wide elements out of an arbitrary-shape/strided
+// source Py_buffer into a flat, row-major scratch buffer -- the
+// push-direction mirror of copyFlatToBufferView above (source and
+// destination roles swapped). Used by pushFromRectangular whenever the
+// source isn't C-contiguous, to assemble a flat buffer suitable for a
+// single Support.fillFromBufferIntoRectangular JNI call.
+void copyBufferViewToFlat(Py_buffer &view, char *dest, Py_ssize_t itemsize, Py_ssize_t len)
+{
+	std::vector<Py_ssize_t> indices(view.ndim, 0);
+	int u = view.ndim - 1;
+	for (Py_ssize_t idx = 0; idx < len; ++idx)
+	{
+		char *pointer = (char*) view.buf;
+		if (view.strides == nullptr)
+		{
+			Py_ssize_t index = 0;
+			for (int i = 0; i < view.ndim; i++)
+				index = index * view.shape[i] + indices[i];
+			pointer += index * view.itemsize;
+		} else
+		{
+			for (int i = 0; i < view.ndim; i++)
+			{
+				pointer += view.strides[i] * indices[i];
+				if (view.suboffsets != nullptr && view.suboffsets[i] >= 0)
+					pointer = *((char**) pointer) + view.suboffsets[i];
+			}
+		}
+		memcpy(dest + idx * itemsize, pointer, (size_t) itemsize);
+
+		for (int d = u; d >= 0; --d)
+		{
+			if (++indices[d] < view.shape[d])
+				break;
+			indices[d] = 0;
+		}
+	}
+}
+
 // Bulk-fills a rectangular N-D destination Py_buffer straight from a
 // rectangular primitive Java array, for JPArray::pullTo's N-D case.
 // depth<=4: one Support.collectRectangular call (Java-side leaf
@@ -231,20 +315,7 @@ void pullToRectangular(JPJavaFrame &frame, jarray arr, JPPrimitiveType *pcls, in
 		auto collected = (jobjectArray) frame.collectRectangular(arr);
 		if (collected == nullptr)
 			JP_RAISE(PyExc_TypeError, "pullTo requires a rectangular primitive array");
-
-		jobject shapeObj = frame.GetObjectArrayElement(collected, 1);
-		{
-			JPPrimitiveArrayAccessor<jintArray, jint*> accessor(frame, (jintArray) shapeObj,
-					&JPJavaFrame::GetIntArrayElements, &JPJavaFrame::ReleaseIntArrayElements);
-			jint *shape = accessor.get();
-			jsize shapeLen = frame.GetArrayLength((jarray) shapeObj);
-			if (shapeLen != view.ndim)
-				JP_RAISE(PyExc_ValueError, "mismatched size");
-			for (int i = 0; i < shapeLen; ++i)
-				if (shape[i] != view.shape[i])
-					JP_RAISE(PyExc_ValueError, "mismatched size");
-			accessor.abort();
-		}
+		validateRectangularShape(frame, collected, view);
 
 		Py_ssize_t total = 1;
 		for (int i = 0; i < view.ndim; ++i)
@@ -270,23 +341,56 @@ void pullToRectangular(JPJavaFrame &frame, jarray arr, JPPrimitiveType *pcls, in
 	for (jsize i = 0; i < n; ++i)
 	{
 		auto sub = (jarray) frame.GetObjectArrayElement((jobjectArray) arr, i);
-		Py_buffer subView = view;
-		subView.ndim = view.ndim - 1;
-		subView.shape = view.shape + 1;
-		if (view.strides != nullptr)
+		Py_buffer subView = sliceOuterDim(view, i);
+		pullToRectangular(frame, sub, pcls, depth - 1, subView);
+	}
+}
+
+// Push-direction mirror of pullToRectangular above -- bulk-fills a
+// rectangular N-D Java array's existing leaf arrays in place from a
+// rectangular N-D source Py_buffer (JPArray::pushFrom's N-D case). Same
+// depth<=4/depth>4 split, same rectangular-only gate, same
+// shape-validation rules; the only difference is direction (Support.
+// fillFromBufferIntoRectangular writing into the array's own leaves
+// rather than Support.collectMultiArrayToBuffer reading out of them) and,
+// for a non-contiguous source, assembling the flat scratch buffer by
+// reading the source (copyBufferViewToFlat) rather than writing the
+// destination.
+void pushFromRectangular(JPJavaFrame &frame, jarray arr, JPPrimitiveType *pcls, int depth, Py_buffer &view)
+{
+	if (depth <= 4)
+	{
+		auto collected = (jobjectArray) frame.collectRectangular(arr);
+		if (collected == nullptr)
+			JP_RAISE(PyExc_TypeError, "pushFrom requires a rectangular primitive array");
+		validateRectangularShape(frame, collected, view);
+
+		Py_ssize_t total = 1;
+		for (int i = 0; i < view.ndim; ++i)
+			total *= view.shape[i];
+
+		if (PyBuffer_IsContiguous(&view, 'C'))
 		{
-			subView.buf = (char*) view.buf + view.strides[0] * i;
-			subView.strides = view.strides + 1;
+			jobject directBuf = frame.NewDirectByteBuffer(view.buf, total * view.itemsize);
+			frame.fillBufferIntoMultiArray(pcls->getTypeCode(), collected, directBuf);
 		} else
 		{
-			Py_ssize_t rowElems = 1;
-			for (int d = 1; d < view.ndim; ++d)
-				rowElems *= view.shape[d];
-			subView.buf = (char*) view.buf + rowElems * view.itemsize * i;
+			std::vector<char> temp((size_t) (total * view.itemsize));
+			copyBufferViewToFlat(view, temp.data(), view.itemsize, total);
+			jobject directBuf = frame.NewDirectByteBuffer(temp.data(), total * view.itemsize);
+			frame.fillBufferIntoMultiArray(pcls->getTypeCode(), collected, directBuf);
 		}
-		if (view.suboffsets != nullptr)
-			subView.suboffsets = view.suboffsets + 1;
-		pullToRectangular(frame, sub, pcls, depth - 1, subView);
+		return;
+	}
+
+	jsize n = frame.GetArrayLength(arr);
+	if (n != view.shape[0])
+		JP_RAISE(PyExc_ValueError, "mismatched size");
+	for (jsize i = 0; i < n; ++i)
+	{
+		auto sub = (jarray) frame.GetObjectArrayElement((jobjectArray) arr, i);
+		Py_buffer subView = sliceOuterDim(view, i);
+		pushFromRectangular(frame, sub, pcls, depth - 1, subView);
 	}
 }
 
@@ -350,10 +454,27 @@ void JPArray::pushFrom(PyObject* src)
 {
 	JP_TRACE_IN("JPArray::pushFrom");
 	auto *compType = dynamic_cast<JPPrimitiveType*>(m_Class->getComponentType());
-	if (compType == nullptr)
-		JP_RAISE(PyExc_TypeError, "pushFrom requires a primitive array");
-
 	JPJavaFrame frame = JPJavaFrame::outer();
+	if (compType == nullptr)
+	{
+		JPPrimitiveType *pcls = m_Class->getMultiArrayLeaf();
+		int depth = m_Class->getMultiArrayDepth();
+		if (pcls == nullptr)
+			JP_RAISE(PyExc_TypeError, "pushFrom requires a primitive array");
+
+		JPPyBuffer buffer(src, PyBUF_STRIDES | PyBUF_FORMAT);
+		if (!buffer.valid())
+			JP_PY_CHECK();
+		Py_buffer& view = buffer.getView();
+		if (view.ndim != depth)
+			JP_RAISE(PyExc_ValueError, "mismatched size");
+		if (view.itemsize != pcls->getItemSize())
+			JP_RAISE(PyExc_TypeError, "mismatched item size");
+
+		pushFromRectangular(frame, m_Object.get(), pcls, depth, view);
+		return;
+	}
+
 	JPPyBuffer buffer(src, PyBUF_STRIDES | PyBUF_FORMAT);
 	if (!buffer.valid())
 		JP_PY_CHECK();

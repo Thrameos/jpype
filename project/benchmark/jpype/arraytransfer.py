@@ -136,6 +136,41 @@ for size in SIZES:
             return dest[0]
         run(f"naive per-element double[{size}]", naive_fill, size)
 
+# ---- Model 1b-nd: pushFrom, multi-dimensional (int[][]..int[][][][][],
+# N-D pushFromRectangular) vs the only prior alternative -- there was no
+# N-D pushFrom at all before this fix (TypeError, "pushFrom requires a
+# primitive array"), so the comparator is a recursive per-element
+# assignment loop, the mirror of Model 1a's naive pullTo comparator. ----
+
+print("=== JPype: pushFrom, multi-dimensional (10^dims elements) ===")
+
+
+def push_looped(ja, src):
+    if src.ndim == 1:
+        for i in range(len(ja)):
+            ja[i] = int(src[i])
+    else:
+        for i in range(len(ja)):
+            push_looped(ja[i], src[i])
+
+
+for dims in MULTIDIM_DIMS:
+    size = 10 ** dims
+    ja = MAKE_BY_DIMS[dims](10)
+    src = np.arange(size, dtype=np.int32).reshape((10,) * dims)
+
+    def pushFrom_nd(ja=ja, src=src):
+        ja.pushFrom(src)
+        return ja
+    run(f"pushFrom int{'[]' * dims}(10^{dims})", pushFrom_nd, size)
+
+    # Capped, same reasoning as Model 1a's naive comparator.
+    if size <= 10_000:
+        def naive_push_nd(ja=ja, src=src):
+            push_looped(ja, src)
+            return ja
+        run(f"naive per-element int{'[]' * dims}(10^{dims})", naive_push_nd, size)
+
 # ---- Model 1c: pushFrom converting fast path ----
 # Non-native-byte-order and float16 sources used to fall all the way back
 # to a scalar converter()/pack() loop, one GetPrimitiveArrayCritical pair

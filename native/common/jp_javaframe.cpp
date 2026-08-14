@@ -1314,6 +1314,21 @@ void JPJavaFrame::collectMultiArrayToBuffer(char typeCode, jobject collected, jo
 			context->m_Support_collectToBufferID, v));
 }
 
+void JPJavaFrame::fillBufferIntoMultiArray(char typeCode, jobject collected, jobject buf)
+{
+	JPContext* context = getContext();
+	if (context->m_Support_fillBufferIntoMultiArrayID == nullptr)
+		return;
+	jvalue v[3];
+	v[0].c = (jchar) typeCode;
+	v[1].l = collected;
+	v[2].l = buf;
+	JAVA_CHECK("JPJavaFrame::fillBufferIntoMultiArray",
+			CallStaticVoidMethodA(
+			context->m_SupportClass.get(),
+			context->m_Support_fillBufferIntoMultiArrayID, v));
+}
+
 jobject JPJavaFrame::newArrayInstance(jclass c, jintArray dims)
 {
 	JPContext* context = getContext();

@@ -318,3 +318,107 @@ class ArrayPushFromTestCase(common.JPypeTestCase):
         dest = np.empty(n, dtype=np.int32)
         ja.pullTo(dest)
         np.testing.assert_array_equal(dest, src)
+
+
+class ArrayPushFromMultiDimTestCase(common.JPypeTestCase):
+    """N-D pushFrom (int[][], ..., int[][][][][]) -- see jp_array.cpp's
+    pushFromRectangular, the push-direction mirror of pullToRectangular
+    (see ArrayPullToMultiDimTestCase). Same depth coverage rationale:
+    depths 2-4 exercise the direct Support.collectRectangular +
+    fillFromBufferIntoRectangular path, depth 5 exercises the recursive
+    peel-the-outer-dimension extension one level past
+    collectRectangular's own 4-dim JNI-call cap."""
+
+    def setUp(self):
+        common.JPypeTestCase.setUp(self)
+        if not has_numpy:
+            self.skipTest("NumPy not available")
+
+    def _makeJavaArray(self, shape):
+        DeepBench = jpype.JClass('jpype.benchmark.DeepBench')
+        maker = {
+            2: DeepBench.make2DIntArray, 3: DeepBench.make3DIntArray,
+            4: DeepBench.make4DIntArray, 5: DeepBench.make5DIntArray,
+        }[len(shape)]
+        return maker(shape[0])
+
+    def testPush2D(self):
+        ja = self._makeJavaArray((4, 4))
+        src = np.arange(16, dtype=np.int32).reshape(4, 4)
+        ja.pushFrom(src)
+        np.testing.assert_array_equal(np.asarray(ja), src)
+
+    def testPush3D(self):
+        ja = self._makeJavaArray((4, 4, 4))
+        src = np.arange(64, dtype=np.int32).reshape(4, 4, 4)
+        ja.pushFrom(src)
+        np.testing.assert_array_equal(np.asarray(ja), src)
+
+    def testPush4D(self):
+        ja = self._makeJavaArray((3, 3, 3, 3))
+        src = np.arange(81, dtype=np.int32).reshape(3, 3, 3, 3)
+        ja.pushFrom(src)
+        np.testing.assert_array_equal(np.asarray(ja), src)
+
+    def testPush5DBeyondCollectRectangularCap(self):
+        ja = self._makeJavaArray((3, 3, 3, 3, 3))
+        src = np.arange(3 ** 5, dtype=np.int32).reshape((3,) * 5)
+        ja.pushFrom(src)
+        np.testing.assert_array_equal(np.asarray(ja), src)
+
+    def testPushNonContiguousSrc2D(self):
+        ja = self._makeJavaArray((4, 4))
+        backing = np.arange(32, dtype=np.int32).reshape(4, 8)
+        src = backing[:, ::2]
+        self.assertFalse(src.flags['C_CONTIGUOUS'])
+        ja.pushFrom(src)
+        np.testing.assert_array_equal(np.asarray(ja), src)
+
+    def testPushNonContiguousSrc5D(self):
+        ja = self._makeJavaArray((2, 2, 2, 2, 2))
+        backing = np.arange(2 * 2 * 2 * 2 * 4, dtype=np.int32).reshape(2, 2, 2, 2, 4)
+        src = backing[..., ::2]
+        self.assertFalse(src.flags['C_CONTIGUOUS'])
+        ja.pushFrom(src)
+        np.testing.assert_array_equal(np.asarray(ja), src)
+
+    def testPushPreservesArrayIdentity(self):
+        # In-place contract: pushFrom must never allocate a new array --
+        # each leaf row must still be the exact same Java array object
+        # after the call, just with different contents.
+        System = jpype.JClass('java.lang.System')
+        ja = self._makeJavaArray((4, 4))
+        identity_before = [System.identityHashCode(ja[i]) for i in range(4)]
+        src = np.arange(16, dtype=np.int32).reshape(4, 4)
+        ja.pushFrom(src)
+        identity_after = [System.identityHashCode(ja[i]) for i in range(4)]
+        self.assertEqual(identity_before, identity_after)
+        np.testing.assert_array_equal(np.asarray(ja), src)
+
+    def testPushShapeMismatchRaises(self):
+        ja = self._makeJavaArray((4, 4))
+        src = np.arange(12, dtype=np.int32).reshape(3, 4)
+        with self.assertRaises(ValueError):
+            ja.pushFrom(src)
+
+    def testPushNdimMismatchRaises(self):
+        ja = self._makeJavaArray((4, 4))
+        src = np.arange(16, dtype=np.int32).reshape(4, 4, 1)
+        with self.assertRaises(ValueError):
+            ja.pushFrom(src)
+
+    def testPushRaggedRaises(self):
+        JIntArray = JArray(JInt)
+        JIntArray2D = JArray(JIntArray)
+        ragged = JIntArray2D([JIntArray([1, 2, 3]), JIntArray([4, 5])])
+        src = np.arange(5, dtype=np.int32).reshape(1, 5)
+        with self.assertRaises(TypeError):
+            ragged.pushFrom(src)
+
+    def testPushPullRoundTrip5D(self):
+        ja = self._makeJavaArray((3, 3, 3, 3, 3))
+        src = np.arange(3 ** 5, dtype=np.int32).reshape((3,) * 5)
+        ja.pushFrom(src)
+        dest = np.empty((3,) * 5, dtype=np.int32)
+        ja.pullTo(dest)
+        np.testing.assert_array_equal(dest, src)

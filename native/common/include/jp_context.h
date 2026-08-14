@@ -229,6 +229,7 @@ private:
 	jmethodID m_Support_assembleID{};
 	jmethodID m_Support_fillFromBufferID{};
 	jmethodID m_Support_collectToBufferID{};
+	jmethodID m_Support_fillBufferIntoMultiArrayID{};
 	jmethodID m_Support_fillRaggedFromBufferID{};
 	jmethodID m_Support_fillFlatFromBufferID{};
 	jmethodID m_Support_fillFlatIntoArrayID{};

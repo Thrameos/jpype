@@ -207,6 +207,14 @@ public:
 	jobject fillMultiArrayFromBuffer(char typeCode, jint mode, jobject buf, jintArray shape);
 	void collectMultiArrayToBuffer(char typeCode, jobject collected, jobject buf);
 
+	// Push-side mirror of collectMultiArrayToBuffer above -- writes buf's
+	// contents into collected's existing leaf arrays in place (JArray::
+	// pushFrom's N-D case), rather than reading them out. `collected` must
+	// be the result of collectRectangular against the array being pushed
+	// into, so its leaf-array references are the array's own -- this never
+	// allocates a new array, preserving the target's identity.
+	void fillBufferIntoMultiArray(char typeCode, jobject collected, jobject buf);
+
 	// Ragged-native nested-list push -- same shape as
 	// fillMultiArrayFromBuffer above (single JNI entry into
 	// org.jpype.internal.Support, everything after that plain Java), but
