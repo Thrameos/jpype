@@ -49,7 +49,16 @@ Categories:
     (`JPArray::setRange`), not the buffer protocol at all. Included to
     quantify the trap: this is *not* a buffer-protocol path, so it pays
     Python-level per-element sequence access on top of not having a bulk
-    copy either.
+    copy either. Flat (1D) only -- see "JArray(JType, dims)(arr)" below
+    for its multi-dimensional counterpart.
+  - "JArray(JType, dims)(arr)": the manual type+dims constructor spelling
+    (equivalently `JType[:, :, ...](arr)`), multi-dimensional only (dims
+    >= 2). Unlike the flat naive-ctor row above, this *does* take the
+    buffer-protocol fast path (`PyJPArray_init`'s buffer check, gated the
+    same way as `JArray.of()`'s own N-D branch) for a matching-dtype
+    contiguous source, so it's expected to track "JArray.of(arr)" closely
+    rather than the naive row -- included to confirm the manual spelling
+    isn't leaving performance on the table relative to `.of()`.
 
 Writes project/benchmark/jpype/array_of_results.csv alongside the printed
 output.

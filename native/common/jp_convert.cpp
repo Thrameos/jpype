@@ -14,6 +14,8 @@
    See NOTICE file for details.
  *****************************************************************************/
 #include "jpype.h"
+#include "pyjp.h"
+#include "jp_primitive_accessor.h"
 #include <math.h>
 #include <bitset>
 #include <cctype>
@@ -692,6 +694,18 @@ bool tryFastBufferPush(JPJavaFrame &frame, JPPrimitiveType *pcls, jarray dest,
 	frame.fillFlatIntoArray(pcls->getTypeCode(), src.kind, src.size, (jboolean) src.swapped,
 			directBuf, length, (jint) vstep, dest, start, step);
 	return true;
+}
+
+jintArray buildDimsArray(JPJavaFrame &frame, Py_buffer &view)
+{
+	auto jdims = (jintArray) frame.getContext()->_int->newArrayOf(frame, view.ndim);
+	JPPrimitiveArrayAccessor<jintArray, jint*> accessor(frame, jdims,
+			&JPJavaFrame::GetIntArrayElements, &JPJavaFrame::ReleaseIntArrayElements);
+	jint *a = accessor.get();
+	for (int i = 0; i < view.ndim; ++i)
+		a[i] = (jint) view.shape[i];
+	accessor.commit();
+	return jdims;
 }
 
 bool tryFastMultiArrayBuffer(JPJavaFrame &frame, JPPrimitiveType *pcls,

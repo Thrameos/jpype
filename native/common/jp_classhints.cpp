@@ -703,16 +703,7 @@ public:
 			JP_RAISE(PyExc_TypeError, "buffer protocol required");
 		Py_buffer &view = buffer.getView();
 
-		JPContext *context = frame.getContext();
-		auto jdims = (jintArray) context->_int->newArrayOf(frame, view.ndim);
-		{
-			JPPrimitiveArrayAccessor<jintArray, jint*> accessor(frame, jdims,
-					&JPJavaFrame::GetIntArrayElements, &JPJavaFrame::ReleaseIntArrayElements);
-			jint *a = accessor.get();
-			for (int i = 0; i < view.ndim; ++i)
-				a[i] = (jint) view.shape[i];
-			accessor.commit();
-		}
+		jintArray jdims = buildDimsArray(frame, view);
 		Py_ssize_t subs = 1;
 		for (int i = 0; i < view.ndim - 1; ++i)
 			subs *= view.shape[i];

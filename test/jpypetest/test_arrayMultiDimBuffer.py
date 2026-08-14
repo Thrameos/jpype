@@ -29,7 +29,19 @@ for every primitive type; this file targets what's not already
 exercised there: argument-conversion push (a declared array-typed
 *method parameter*, not the JArray(...) constructor path) at depths up
 to 5, and the cases above.
+
+ArrayManualCtorBufferTestCase below is the one exception to that split:
+it targets the manual JArray(JType, dims)(buffer)/JType[:, :, ...]
+(buffer) *constructor* path specifically, at N-D depths. It lives here
+rather than in test_array.py because it exercises the same buffer-fast-
+path machinery (tryFastMultiArrayBuffer) as the argument-conversion
+tests above, just through PyJPArray_init instead of PyJPModule_convertBuffer
+-- the two are more naturally grouped by "buffer fast path" than by
+"argument vs. constructor".
 """
+
+import sys
+import unittest
 
 import jpype
 from jpype import JArray, JInt, JDouble
@@ -257,3 +269,31 @@ class ArrayManualCtorBufferTestCase(common.JPypeTestCase):
         arr = np.random.random((3, 3, 3)).astype(np.float64)
         ja = JArray(JDouble, 3)(arr)
         np.testing.assert_array_equal(np.asarray(ja), arr)
+
+    def testNdimMismatchFallsBack(self):
+        # A source whose buffer ndim doesn't match the target array's
+        # depth (a 0-d numpy scalar into a 3-D target) must decline the
+        # fast path and fall through to the generic PySequence_Check
+        # branch's own (unrelated) error, not crash or silently
+        # misinterpret the shape.
+        scalar = np.array(5, dtype=np.int32)
+        self.assertEqual(scalar.ndim, 0)
+        with self.assertRaises(TypeError):
+            JArray(JInt, 3)(scalar)
+
+    @unittest.skipUnless(sys.version_info >= (3, 12),
+            "PEP 688 __buffer__ needed to force a buffer export that "
+            "declines PyBUF_STRIDES -- no portable way to construct one "
+            "on older Python, and no real-world buffer-protocol object "
+            "(numpy, array.array, ctypes, memoryview) is known to ever "
+            "decline it once PyObject_CheckBuffer is true.")
+    def testBufferExportDeclinesStridesFallsBack(self):
+        class NoStrides:
+            def __buffer__(self, flags):
+                raise BufferError("declines strides on purpose")
+
+            def __release_buffer__(self, view):
+                pass
+
+        with self.assertRaises(TypeError):
+            JArray(JInt, 2)(NoStrides())

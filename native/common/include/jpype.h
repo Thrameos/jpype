@@ -322,4 +322,13 @@ extern bool tryFastBufferPush(JPJavaFrame &frame, JPPrimitiveType *pcls, jarray 
 extern bool tryFastMultiArrayBuffer(JPJavaFrame &frame, JPPrimitiveType *pcls,
 		JPPyBuffer &buffer, jintArray jdims, jarray &out);
 
+/** Build a Java int[] of view.shape[0..view.ndim), for use as the `jdims`
+ * argument to tryFastMultiArrayBuffer (and the N-D newMultiArray fallback
+ * paths that still need it after tryFastMultiArrayBuffer declines).
+ *
+ * Requires view.shape != nullptr (guaranteed whenever the buffer was
+ * obtained with PyBUF_ND or PyBUF_STRIDES, which imply PyBUF_ND).
+ */
+extern jintArray buildDimsArray(JPJavaFrame &frame, Py_buffer &view);
+
 #endif // _JPYPE_H_

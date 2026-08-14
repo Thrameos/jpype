@@ -1016,17 +1016,10 @@ static PyObject *PyJPModule_convertBuffer(JPPyBuffer& buffer, PyObject *dtype, P
 	// Convert the shape
 	Py_ssize_t subs = 1;
 	Py_ssize_t base = 1;
-	auto jdims = (jintArray) context->_int->newArrayOf(frame, view.ndim);
+	jintArray jdims;
 	if (view.shape != nullptr)
 	{
-		JPPrimitiveArrayAccessor<jintArray, jint*> accessor(frame, jdims,
-				&JPJavaFrame::GetIntArrayElements, &JPJavaFrame::ReleaseIntArrayElements);
-		jint *a = accessor.get();
-		for (int i = 0; i < view.ndim; ++i)
-		{
-			a[i] = view.shape[i];
-		}
-		accessor.commit();
+		jdims = buildDimsArray(frame, view);
 		for (int i = 0; i < view.ndim - 1; ++i)
 		{
 			subs *= view.shape[i];
@@ -1039,6 +1032,7 @@ static PyObject *PyJPModule_convertBuffer(JPPyBuffer& buffer, PyObject *dtype, P
 			PyErr_Format(PyExc_TypeError, "buffer dims inconsistent");
 			return nullptr;
 		}
+		jdims = (jintArray) context->_int->newArrayOf(frame, view.ndim);
 		base = view.len / view.itemsize;
 	}
 

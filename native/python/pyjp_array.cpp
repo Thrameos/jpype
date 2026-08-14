@@ -221,15 +221,7 @@ static int PyJPArray_init(PyObject *self, PyObject *args, PyObject *kwargs)
 			{
 				try
 				{
-					auto jdims = (jintArray) frame.getContext()->_int->newArrayOf(frame, view.ndim);
-					{
-						JPPrimitiveArrayAccessor<jintArray, jint*> accessor(frame, jdims,
-								&JPJavaFrame::GetIntArrayElements, &JPJavaFrame::ReleaseIntArrayElements);
-						jint *a = accessor.get();
-						for (int i = 0; i < view.ndim; ++i)
-							a[i] = (jint) view.shape[i];
-						accessor.commit();
-					}
+					jintArray jdims = buildDimsArray(frame, view);
 					tryFastMultiArrayBuffer(frame, multiLeaf, buffer, jdims, fast);
 				} catch (...)
 				{

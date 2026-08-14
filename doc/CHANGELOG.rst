@@ -10,7 +10,7 @@ Latest Changes:
   - Added ``JArray.pullTo(dest)`` and ``JArray.pushFrom(src)`` for bulk
     in-place transfer between a primitive Java array and an existing
     caller-supplied Python buffer (e.g. a preallocated numpy array), and
-    ``JArray.tolist()`` for bulk conversion of a Java array into a genuine
+    ``JArray.toList()`` for bulk conversion of a Java array into a genuine
     Python list. Also substantially sped up array transfer generally: both
     directions of multi-dimensional primitive array <-> numpy conversion
     (construction, argument passing, and ``np.asarray()``) now hand the
@@ -19,6 +19,18 @@ Latest Changes:
     leaf sub-array; this also extends to non-native byte order and
     ``float16`` sources, which previously fell back to a much slower
     element-by-element path. #1457, #1443
+
+  - ``pullTo``/``pushFrom`` now support multi-dimensional primitive arrays
+    directly (previously flat/1D only, raising ``TypeError`` for any array
+    whose component type was itself an array); ``dest``/``src`` need only
+    match the array's total element count, not its shape. ``JArray.of()``
+    and the manual ``JArray(JType, dims)(source)`` / ``JType[:, :, ...]
+    (source)`` construction spelling both gained the same bulk buffer
+    fast path for multi-dimensional (2+ dimension) sources that the flat
+    case already had, removing a per-element conversion loop that
+    previously made those two construction paths considerably slower than
+    an equivalent ``JArray.of()``/argument-passing call for the same
+    data.
 
   - Reworked the internal object layout for Java-backed Python objects to use
     fixed, type-baked offsets instead of a runtime allocator that re-derived
