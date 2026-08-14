@@ -162,14 +162,161 @@ jarray JPArray::clone(JPJavaFrame& frame, PyObject* obj)
 	return out;
 }
 
+namespace
+{
+
+// Copies `len` itemsize-wide elements from a flat, row-major scratch
+// buffer into an arbitrary-shape/strided destination Py_buffer, walking
+// the destination's own shape/strides -- the flat-source counterpart to
+// JPPyBuffer::getBufferPtr's own pointer arithmetic (jp_pythontypes.cpp),
+// duplicated here rather than shared because the source here is a plain
+// flat scratch buffer, not itself a Py_buffer. Used by pullToRectangular
+// below whenever the destination isn't C-contiguous, after the leaf data
+// has already been bulk-collected into scratch memory by
+// Support.collectMultiArrayToBuffer.
+void copyFlatToBufferView(const char *src, Py_ssize_t itemsize, Py_ssize_t len, Py_buffer &view)
+{
+	std::vector<Py_ssize_t> indices(view.ndim, 0);
+	int u = view.ndim - 1;
+	for (Py_ssize_t idx = 0; idx < len; ++idx)
+	{
+		char *pointer = (char*) view.buf;
+		if (view.strides == nullptr)
+		{
+			Py_ssize_t index = 0;
+			for (int i = 0; i < view.ndim; i++)
+				index = index * view.shape[i] + indices[i];
+			pointer += index * view.itemsize;
+		} else
+		{
+			for (int i = 0; i < view.ndim; i++)
+			{
+				pointer += view.strides[i] * indices[i];
+				if (view.suboffsets != nullptr && view.suboffsets[i] >= 0)
+					pointer = *((char**) pointer) + view.suboffsets[i];
+			}
+		}
+		memcpy(pointer, src + idx * itemsize, (size_t) itemsize);
+
+		for (int d = u; d >= 0; --d)
+		{
+			if (++indices[d] < view.shape[d])
+				break;
+			indices[d] = 0;
+		}
+	}
+}
+
+// Bulk-fills a rectangular N-D destination Py_buffer straight from a
+// rectangular primitive Java array, for JPArray::pullTo's N-D case.
+// depth<=4: one Support.collectRectangular call (Java-side leaf
+// discovery, capped at 4 dims to bound a single JNI round trip's own
+// cost -- not a supported-depth limit, see jp_convert.cpp's
+// tryFastMultiArrayBuffer/Support.java's fillFromBuffer for the
+// write-direction counterpart, which has no such cap at all) collects
+// every leaf array's identity in one call, then either a direct
+// DirectByteBuffer handoff (C-contiguous destination) or a collect-to-
+// scratch-then-strided-copy (any other destination) fills it.
+// depth>4: peels the outermost dimension and recurses once per
+// top-level slice, each of which is depth-1 shallower -- this is what
+// safely carries the fast path one level beyond collectRectangular's own
+// cap, and generalizes to any depth.
+// Raises on a non-rectangular (ragged) source (collectRectangular
+// returns null) or a shape mismatch against the destination -- no fill/
+// pad semantics, by design (see RESULTS.md/plan notes).
+void pullToRectangular(JPJavaFrame &frame, jarray arr, JPPrimitiveType *pcls, int depth, Py_buffer &view)
+{
+	if (depth <= 4)
+	{
+		auto collected = (jobjectArray) frame.collectRectangular(arr);
+		if (collected == nullptr)
+			JP_RAISE(PyExc_TypeError, "pullTo requires a rectangular primitive array");
+
+		jobject shapeObj = frame.GetObjectArrayElement(collected, 1);
+		{
+			JPPrimitiveArrayAccessor<jintArray, jint*> accessor(frame, (jintArray) shapeObj,
+					&JPJavaFrame::GetIntArrayElements, &JPJavaFrame::ReleaseIntArrayElements);
+			jint *shape = accessor.get();
+			jsize shapeLen = frame.GetArrayLength((jarray) shapeObj);
+			if (shapeLen != view.ndim)
+				JP_RAISE(PyExc_ValueError, "mismatched size");
+			for (int i = 0; i < shapeLen; ++i)
+				if (shape[i] != view.shape[i])
+					JP_RAISE(PyExc_ValueError, "mismatched size");
+			accessor.abort();
+		}
+
+		Py_ssize_t total = 1;
+		for (int i = 0; i < view.ndim; ++i)
+			total *= view.shape[i];
+
+		if (PyBuffer_IsContiguous(&view, 'C'))
+		{
+			jobject directBuf = frame.NewDirectByteBuffer(view.buf, total * view.itemsize);
+			frame.collectMultiArrayToBuffer(pcls->getTypeCode(), collected, directBuf);
+		} else
+		{
+			std::vector<char> temp((size_t) (total * view.itemsize));
+			jobject directBuf = frame.NewDirectByteBuffer(temp.data(), total * view.itemsize);
+			frame.collectMultiArrayToBuffer(pcls->getTypeCode(), collected, directBuf);
+			copyFlatToBufferView(temp.data(), view.itemsize, total, view);
+		}
+		return;
+	}
+
+	jsize n = frame.GetArrayLength(arr);
+	if (n != view.shape[0])
+		JP_RAISE(PyExc_ValueError, "mismatched size");
+	for (jsize i = 0; i < n; ++i)
+	{
+		auto sub = (jarray) frame.GetObjectArrayElement((jobjectArray) arr, i);
+		Py_buffer subView = view;
+		subView.ndim = view.ndim - 1;
+		subView.shape = view.shape + 1;
+		if (view.strides != nullptr)
+		{
+			subView.buf = (char*) view.buf + view.strides[0] * i;
+			subView.strides = view.strides + 1;
+		} else
+		{
+			Py_ssize_t rowElems = 1;
+			for (int d = 1; d < view.ndim; ++d)
+				rowElems *= view.shape[d];
+			subView.buf = (char*) view.buf + rowElems * view.itemsize * i;
+		}
+		if (view.suboffsets != nullptr)
+			subView.suboffsets = view.suboffsets + 1;
+		pullToRectangular(frame, sub, pcls, depth - 1, subView);
+	}
+}
+
+} // namespace
+
 void JPArray::pullTo(PyObject* dest)
 {
 	JP_TRACE_IN("JPArray::pullTo");
 	auto *compType = dynamic_cast<JPPrimitiveType*>(m_Class->getComponentType());
-	if (compType == nullptr)
-		JP_RAISE(PyExc_TypeError, "pullTo requires a primitive array");
-
 	JPJavaFrame frame = JPJavaFrame::outer();
+	if (compType == nullptr)
+	{
+		JPPrimitiveType *pcls = m_Class->getMultiArrayLeaf();
+		int depth = m_Class->getMultiArrayDepth();
+		if (pcls == nullptr)
+			JP_RAISE(PyExc_TypeError, "pullTo requires a primitive array");
+
+		JPPyBuffer buffer(dest, PyBUF_WRITABLE | PyBUF_STRIDES | PyBUF_FORMAT);
+		if (!buffer.valid())
+			JP_PY_CHECK();
+		Py_buffer& view = buffer.getView();
+		if (view.ndim != depth)
+			JP_RAISE(PyExc_ValueError, "mismatched size");
+		if (view.itemsize != pcls->getItemSize())
+			JP_RAISE(PyExc_TypeError, "mismatched item size");
+
+		pullToRectangular(frame, m_Object.get(), pcls, depth, view);
+		return;
+	}
+
 	JPPyBuffer buffer(dest, PyBUF_WRITABLE | PyBUF_STRIDES | PyBUF_FORMAT);
 	if (!buffer.valid())
 		JP_PY_CHECK();

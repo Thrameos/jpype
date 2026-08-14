@@ -120,6 +120,94 @@ class ArrayPullToTestCase(common.JPypeTestCase):
             ja.pullTo(dest)
 
 
+class ArrayPullToMultiDimTestCase(common.JPypeTestCase):
+    """N-D pullTo (int[][], ..., int[][][][][]) -- see jp_array.cpp's
+    pullToRectangular. Depths 2-4 exercise the direct
+    Support.collectRectangular path; depth 5 exercises the recursive
+    peel-the-outer-dimension extension one level past
+    collectRectangular's own 4-dim JNI-call cap."""
+
+    def setUp(self):
+        common.JPypeTestCase.setUp(self)
+        if not has_numpy:
+            self.skipTest("NumPy not available")
+
+    def _makeJavaArray(self, shape):
+        DeepBench = jpype.JClass('jpype.benchmark.DeepBench')
+        maker = {
+            2: DeepBench.make2DIntArray, 3: DeepBench.make3DIntArray,
+            4: DeepBench.make4DIntArray, 5: DeepBench.make5DIntArray,
+        }[len(shape)]
+        return maker(shape[0])
+
+    def testPull2D(self):
+        ja = self._makeJavaArray((4, 4))
+        expected = np.asarray(ja)
+        dest = np.empty((4, 4), dtype=np.int32)
+        ja.pullTo(dest)
+        np.testing.assert_array_equal(dest, expected)
+
+    def testPull3D(self):
+        ja = self._makeJavaArray((4, 4, 4))
+        expected = np.asarray(ja)
+        dest = np.empty((4, 4, 4), dtype=np.int32)
+        ja.pullTo(dest)
+        np.testing.assert_array_equal(dest, expected)
+
+    def testPull4D(self):
+        ja = self._makeJavaArray((3, 3, 3, 3))
+        expected = np.asarray(ja)
+        dest = np.empty((3, 3, 3, 3), dtype=np.int32)
+        ja.pullTo(dest)
+        np.testing.assert_array_equal(dest, expected)
+
+    def testPull5DBeyondCollectRectangularCap(self):
+        ja = self._makeJavaArray((3, 3, 3, 3, 3))
+        expected = np.asarray(ja)
+        dest = np.empty((3, 3, 3, 3, 3), dtype=np.int32)
+        ja.pullTo(dest)
+        np.testing.assert_array_equal(dest, expected)
+
+    def testPullNonContiguousDest2D(self):
+        ja = self._makeJavaArray((4, 4))
+        expected = np.asarray(ja)
+        backing = np.zeros((4, 8), dtype=np.int32)
+        dest = backing[:, ::2]
+        self.assertFalse(dest.flags['C_CONTIGUOUS'])
+        ja.pullTo(dest)
+        np.testing.assert_array_equal(dest, expected)
+        np.testing.assert_array_equal(backing[:, 1::2], np.zeros((4, 4)))
+
+    def testPullNonContiguousDest5D(self):
+        ja = self._makeJavaArray((2, 2, 2, 2, 2))
+        expected = np.asarray(ja)
+        backing = np.zeros((2, 2, 2, 2, 4), dtype=np.int32)
+        dest = backing[..., ::2]
+        self.assertFalse(dest.flags['C_CONTIGUOUS'])
+        ja.pullTo(dest)
+        np.testing.assert_array_equal(dest, expected)
+
+    def testPullShapeMismatchRaises(self):
+        ja = self._makeJavaArray((4, 4))
+        dest = np.empty((3, 4), dtype=np.int32)
+        with self.assertRaises(ValueError):
+            ja.pullTo(dest)
+
+    def testPullNdimMismatchRaises(self):
+        ja = self._makeJavaArray((4, 4))
+        dest = np.empty((4, 4, 1), dtype=np.int32)
+        with self.assertRaises(ValueError):
+            ja.pullTo(dest)
+
+    def testPullRaggedRaises(self):
+        JIntArray = JArray(JInt)
+        JIntArray2D = JArray(JIntArray)
+        ragged = JIntArray2D([JIntArray([1, 2, 3]), JIntArray([4, 5])])
+        dest = np.empty((2, 3), dtype=np.int32)
+        with self.assertRaises(TypeError):
+            ragged.pullTo(dest)
+
+
 class ArrayPushFromTestCase(common.JPypeTestCase):
     def setUp(self):
         common.JPypeTestCase.setUp(self)

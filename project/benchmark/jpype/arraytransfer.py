@@ -26,6 +26,8 @@ from jpype import JArray, JDouble
 
 jpype.startJVM(classpath=['test/classes', 'test/harness'])
 
+DeepBench = jpype.JClass('jpype.benchmark.DeepBench')
+
 SIZES = [1_000, 100_000, 1_000_000]
 
 
@@ -69,6 +71,48 @@ for size in SIZES:
                 total += v
             return total
         run(f"naive per-element double[{size}]", naive_sum, size)
+
+# ---- Model 1a: pullTo, multi-dimensional (int[][]..int[][][][][], N-D
+# pullToRectangular) vs the only prior alternative for filling an
+# existing destination in place -- there was no N-D pullTo at all before
+# this fix (TypeError, "pullTo requires a primitive array"), so the
+# comparator here is the same nested-loop walk Model 4 below uses for its
+# looped 2D read comparator, generalized to depth via recursion. ----
+
+print("=== JPype: pullTo, multi-dimensional (10^dims elements) ===")
+MULTIDIM_DIMS = [2, 3, 4, 5]
+MAKE_BY_DIMS = {
+    2: DeepBench.make2DIntArray, 3: DeepBench.make3DIntArray,
+    4: DeepBench.make4DIntArray, 5: DeepBench.make5DIntArray,
+}
+
+
+def fill_looped(ja, dest):
+    if dest.ndim == 1:
+        for i in range(len(ja)):
+            dest[i] = ja[i]
+    else:
+        for i in range(len(ja)):
+            fill_looped(ja[i], dest[i])
+
+
+for dims in MULTIDIM_DIMS:
+    size = 10 ** dims
+    ja = MAKE_BY_DIMS[dims](10)
+    dest = np.empty((10,) * dims, dtype=np.int32)
+
+    def pullTo_nd(ja=ja, dest=dest):
+        ja.pullTo(dest)
+        return dest.flat[0]
+    run(f"pullTo int{'[]' * dims}(10^{dims})", pullTo_nd, size)
+
+    # Capped: the whole point of pullTo's N-D path is to avoid this loop,
+    # and it grows very slow at higher depth/size.
+    if size <= 10_000:
+        def naive_fill_nd(ja=ja, dest=dest):
+            fill_looped(ja, dest)
+            return dest.flat[0]
+        run(f"naive per-element int{'[]' * dims}(10^{dims})", naive_fill_nd, size)
 
 # ---- Model 1b: pushFrom (bulk-copy fast path) vs naive per-element fill ----
 

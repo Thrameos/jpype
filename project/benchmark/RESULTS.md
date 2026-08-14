@@ -759,6 +759,29 @@ through the pool) are session-to-session noise only._
 | pushFrom float16 double[100000] | 556,526 |
 | pushFrom byteswapped double[1000000] | 4,938,962 |
 | pushFrom float16 double[1000000] | 5,659,187 |
+
+**`pullTo`, multi-dimensional (10^dims elements, `int[][]`..`int[][][][][]`).**
+Before 2026-08-13, `pullTo` had no N-D support at all -- any array whose
+component type wasn't itself primitive (`int[][]`'s componentType is
+`int[]`, an array class) raised `"pullTo requires a primitive array"`
+unconditionally. Added as Part 2 of the `JArray.of()`/`pullTo`/`pushFrom`
+N-D work (see Section 11); the naive comparator below is the only prior
+option (a recursive per-element Python loop), not a regression baseline.
+
+| shape | pullTo | naive per-element |
+|---|---:|---:|
+| [][](10^2) | 1,547 | 34,353 |
+| [][][](10^3) | 4,286 | 350,651 |
+| [][][][](10^4) | 31,601 | 3,515,619 |
+| [][][][][](10^5) | 310,539 | (not run -- see below) |
+
+_`naive per-element` capped at 10,000 elements -- pullTo's entire point is
+to avoid this loop, and it is already >100x slower at that size; running
+it at 10^5 would cost minutes for no additional information. int only
+(`array_multidim.py`/`arraytransfer.py`'s `DeepBench.make{2..5}D...` share
+this same test fixture across types; the underlying transfer -- a flat
+memcpy of `itemsize`-wide elements -- has no per-type cost difference, so
+one type is representative)._
 | direct-buffer-shared double[1000] | 1,542 |
 | direct-buffer-shared double[100000] | 30,352 |
 | direct-buffer-shared double[1000000] | 314,876 |
@@ -1279,4 +1302,54 @@ real bulk buffer-transfer paths in both directions.
   2.2-2.7x across int/long/float/double at every depth 2-5 (see Section 8
   for the full per-type table). Flat (1D) numbers unaffected, as expected
   (that path was already untouched by this change).
+
+- **Added 2026-08-13: `pullTo` gained genuine multi-dimensional (N-D)
+  support -- Part 2 of the planned `JArray.of()`/`pullTo`/`pushFrom` N-D
+  work.** Not a regression fix -- `pullTo` previously had no N-D support
+  at all: `JPArray::pullTo` (`jp_array.cpp`) gated on
+  `dynamic_cast<JPPrimitiveType*>(m_Class->getComponentType())`, which is
+  null for any array whose component type is itself an array class
+  (`int[][]`'s componentType is `int[]`), so every N-D call raised
+  `"pullTo requires a primitive array"` unconditionally.
+
+  Added a new `pullToRectangular` helper (`jp_array.cpp`, anonymous
+  namespace) that detects the N-D case via `JPArrayClass::
+  getMultiArrayLeaf()`/`getMultiArrayDepth()` (precomputed per-class,
+  already used by `JPConversionMultiArrayBuffer`) and, for depth<=4, uses
+  the same proven bulk read machinery `np.asarray()` on an N-D array
+  already used (`Support.collectRectangular` + `Support.
+  collectMultiArrayToBuffer`, via `JPJavaFrame::collectRectangular`/
+  `collectMultiArrayToBuffer`) -- writing straight into the destination's
+  own memory via a `NewDirectByteBuffer` when it's C-contiguous, or into
+  owned scratch memory followed by a new strided odometer-walk copy
+  (`copyFlatToBufferView`) when it isn't. For depth>4, recurses by
+  peeling the outermost dimension and calling itself once per top-level
+  slice (each depth-1 shallower) -- this is what carries the fast path
+  one level past `collectRectangular`'s own 4-dim-per-JNI-call cap (a
+  bound on one leaf-discovery call's cost, not a supported-depth limit --
+  confirmed on the *write* direction in Part 1 above, and here verified
+  directly for the *read* direction too). Raises `ValueError("mismatched
+  size")` for any shape mismatch (checked per-dimension against the
+  destination, not just the flattened total, since N-D shape mismatches
+  should be caught explicitly rather than silently reinterpreted) and
+  `TypeError("pullTo requires a rectangular primitive array")` for a
+  ragged (non-rectangular) source (`collectRectangular` returns `null`)
+  -- no fill/pad semantics, by design; ragged stays unsupported for the
+  fast path, same as it always has been for `np.asarray()`.
+
+  Verified via isolated `git worktree` + fresh venv: full suite (1597
+  tests -- 1588 plus 9 new N-D `pullTo` cases -- clean across 3
+  randomized-order runs); new cases cover depths 2 through 5 (5 being one
+  level past the `collectRectangular` cap, confirming the recursive
+  extension), non-contiguous destinations at depth 2 and depth 5, an
+  `ndim`-mismatch-but-equal-total-count case (confirming the stricter
+  per-dimension check catches what the old flattened-total check would
+  have missed), and an explicit ragged-source case (confirming the
+  `TypeError`, not a crash or silent misbehavior). Measured
+  (`arraytransfer.py`, new "pullTo, multi-dimensional" section) against
+  the only prior alternative (a recursive per-element Python loop, since
+  `pullTo` itself didn't support N-D before this): `int[][][](10^3)`
+  4,286ns vs. 350,651ns naive (81.8x), `int[][][][](10^4)` 31,601ns vs.
+  3,515,619ns naive (111.3x); `int[][][][][](10^5)` 310,539ns (naive not
+  run at this size -- already minutes-long at 10^4).
 
