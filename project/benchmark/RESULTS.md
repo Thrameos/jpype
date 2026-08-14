@@ -438,42 +438,48 @@ total elements or leaf-array count / row-heaviness. `list->array` and
 
 | shape | jpype | jpy | jep | pyjnius |
 |---|:---:|:---:|:---:|:---:|
-| int[10][10000] | 2,960,890 | 806,918 | 1,402,789 | 2,915,372 |
-| int[100][1000] | 2,915,324 | 830,006 | 1,417,742 | 2,794,704 |
-| int[1000][100] | 3,037,152 | 866,335 | 1,836,153 | 2,241,320 |
-| int[10000][10] | 4,040,163 | 1,649,007 | 6,145,127 | 4,012,716 |
-| int[3][100000] | 9,216,003 | 2,490,970 | 4,207,551 | 9,705,678 |
-| int[100000][3] | 19,652,844 | 11,588,374 | 50,941,097 | 26,209,037 |
-| int[1000][1000] | 30,719,558 | 8,584,726 | 14,795,684 | 32,167,686 |
-| int[1000][10][10] | 4,041,021 | 1,745,310 | 6,499,518 | 6,011,382 |
-| int[10][10][1000] | 2,905,373 | 798,483 | 1,412,372 | 2,778,888 |
-| long[10][10000] | 2,906,523 | 821,602 | 1,275,314 | 2,884,768 |
-| long[100][1000] | 2,923,999 | 826,781 | 1,354,412 | 2,688,467 |
-| long[1000][100] | 3,077,487 | 890,544 | 1,738,038 | 2,215,003 |
-| long[10000][10] | 4,011,671 | 1,759,386 | 5,879,173 | 4,086,737 |
-| long[3][100000] | 9,464,592 | 2,584,784 | 4,047,452 | 9,942,196 |
-| long[100000][3] | 20,808,892 | 12,470,530 | 51,026,319 | 26,499,032 |
-| long[1000][1000] | 35,942,820 | 8,898,200 | 13,989,272 | 30,639,333 |
-| long[1000][10][10] | 4,398,865 | 1,872,495 | 6,269,827 | 5,337,705 |
-| long[10][10][1000] | 2,944,613 | 823,260 | 1,349,376 | 2,671,344 |
-| float[10][10000] | 2,881,037 | 731,309 | 994,848 | 2,789,406 |
-| float[100][1000] | 2,882,450 | 754,981 | 1,057,161 | 2,849,780 |
-| float[1000][100] | 2,988,267 | 795,978 | 1,430,817 | 3,208,813 |
-| float[10000][10] | 3,921,653 | 1,609,817 | 5,431,722 | 5,489,580 |
-| float[3][100000] | 8,818,460 | 2,333,876 | 2,962,936 | 10,136,459 |
-| float[100000][3] | 19,389,311 | 11,620,500 | 48,370,083 | 32,701,462 |
-| float[1000][1000] | 30,025,427 | 8,092,994 | 10,686,076 | 33,539,870 |
-| float[1000][10][10] | 4,155,854 | 1,754,334 | 5,816,736 | 7,109,184 |
-| float[10][10][1000] | 2,904,753 | 759,979 | 1,056,809 | 3,135,425 |
-| double[10][10000] | 2,934,489 | 829,131 | 929,372 | 3,060,208 |
-| double[100][1000] | 2,975,152 | 823,039 | 979,936 | 3,290,929 |
-| double[1000][100] | 3,111,911 | 867,200 | 1,371,696 | 3,586,975 |
-| double[10000][10] | 4,079,348 | 1,696,826 | 5,405,955 | 6,034,980 |
-| double[3][100000] | 9,462,700 | 2,670,880 | 2,870,663 | 11,272,831 |
-| double[100000][3] | 20,417,842 | 12,117,989 | 47,775,907 | 32,858,976 |
-| double[1000][1000] | 30,774,764 | 8,884,806 | 9,848,050 | 35,162,136 |
-| double[1000][10][10] | 4,260,643 | 1,833,219 | 5,852,637 | 7,900,256 |
-| double[10][10][1000] | 2,987,911 | 827,489 | 977,538 | 3,435,078 |
+| int[10][10000] | 575,069 | 806,918 | 1,402,789 | 2,915,372 |
+| int[100][1000] | 572,626 | 830,006 | 1,417,742 | 2,794,704 |
+| int[1000][100] | 587,039 | 866,335 | 1,836,153 | 2,241,320 |
+| int[10000][10] | 970,377 | 1,649,007 | 6,145,127 | 4,012,716 |
+| int[3][100000] | 2,127,744 | 2,490,970 | 4,207,551 | 9,705,678 |
+| int[100000][3] | 6,659,293 | 11,588,374 | 50,941,097 | 26,209,037 |
+| int[1000][1000] | 7,126,991 | 8,584,726 | 14,795,684 | 32,167,686 |
+| int[1000][10][10] | 1,011,021 | 1,745,310 | 6,499,518 | 6,011,382 |
+| int[10][10][1000] | 559,324 | 798,483 | 1,412,372 | 2,778,888 |
+| long[10][10000] | 586,065 | 821,602 | 1,275,314 | 2,884,768 |
+| long[100][1000] | 587,370 | 826,781 | 1,354,412 | 2,688,467 |
+| long[1000][100] | 624,388 | 890,544 | 1,738,038 | 2,215,003 |
+| long[10000][10] | 920,533 | 1,759,386 | 5,879,173 | 4,086,737 |
+| long[3][100000] | 2,216,927 | 2,584,784 | 4,047,452 | 9,942,196 |
+| long[100000][3] | 5,883,622 | 12,470,530 | 51,026,319 | 26,499,032 |
+| long[1000][1000] | 8,130,824 | 8,898,200 | 13,989,272 | 30,639,333 |
+| long[1000][10][10] | 931,120 | 1,872,495 | 6,269,827 | 5,337,705 |
+| long[10][10][1000] | 604,084 | 823,260 | 1,349,376 | 2,671,344 |
+| float[10][10000] | 579,350 | 731,309 | 994,848 | 2,789,406 |
+| float[100][1000] | 550,451 | 754,981 | 1,057,161 | 2,849,780 |
+| float[1000][100] | 592,391 | 795,978 | 1,430,817 | 3,208,813 |
+| float[10000][10] | 1,015,702 | 1,609,817 | 5,431,722 | 5,489,580 |
+| float[3][100000] | 1,936,514 | 2,333,876 | 2,962,936 | 10,136,459 |
+| float[100000][3] | 7,366,826 | 11,620,500 | 48,370,083 | 32,701,462 |
+| float[1000][1000] | 7,158,591 | 8,092,994 | 10,686,076 | 33,539,870 |
+| float[1000][10][10] | 1,118,367 | 1,754,334 | 5,816,736 | 7,109,184 |
+| float[10][10][1000] | 572,601 | 759,979 | 1,056,809 | 3,135,425 |
+| double[10][10000] | 515,464 | 829,131 | 929,372 | 3,060,208 |
+| double[100][1000] | 545,951 | 823,039 | 979,936 | 3,290,929 |
+| double[1000][100] | 550,896 | 867,200 | 1,371,696 | 3,586,975 |
+| double[10000][10] | 918,544 | 1,696,826 | 5,405,955 | 6,034,980 |
+| double[3][100000] | 2,026,502 | 2,670,880 | 2,870,663 | 11,272,831 |
+| double[100000][3] | 7,080,346 | 12,117,989 | 47,775,907 | 32,858,976 |
+| double[1000][1000] | 7,747,029 | 8,884,806 | 9,848,050 | 35,162,136 |
+| double[1000][10][10] | 1,172,212 | 1,833,219 | 5,852,637 | 7,900,256 |
+| double[10][10][1000] | 572,002 | 827,489 | 977,538 | 3,435,078 |
+
+_jpype numbers reflect the list/tuple-specialized ragged-native readout
+(`matchRaggedNode`/`encodeRaggedNode`, `native/common/jp_classhints.cpp`)
+-- see Section 11. Prior to that specialization jpype trailed jpy 2-4x on
+every shape here; this table was stale (pre-specialization numbers) until
+refreshed 2026-08-13 -- see Section 11._
 
 ### `buffer->array` push (jep: manual per-row)
 
@@ -523,10 +529,16 @@ _pyjnius: no entry -- no buffer->array push at any shape._
 short rows, e.g. `[100000][3]`) costs more than a column-heavy one
 (few long rows, e.g. `[3][100000]`) in every library that has a bulk
 path -- more leaf arrays means more per-leaf JNI/reflection overhead
-even though total elements is unchanged. The penalty is much larger for
-`list->array` (recursive per-row Python-level walk regardless of
-library) than for `buffer->array` (jpype/jpy's bulk path pays only
-per-leaf-array overhead, not per-element).
+even though total elements is unchanged. For jpy/jep/pyjnius,
+`list->array` pays this penalty via a recursive per-row Python-level
+walk. jpype's ragged-native path (Section 11) avoids the Python-level
+per-row cost -- one C++ walk, one JNI crossing -- but still shows the
+same row-heavy-costs-more shape, now from `Array.newInstance`/
+`Array.set` reflection on the Java side of `fillRaggedFromBuffer`, one
+call per row regardless of row length (e.g. `int[100000][3]`: 6,659,293ns
+vs `int[3][100000]`: 2,127,744ns, same 100,000 elements). `buffer->array`
+still pays the smallest per-leaf-array penalty of the three, since
+jpype/jpy's bulk path there has no reflection in the loop at all.
 
 ## 8. jpype-only microbenchmarks
 
@@ -1006,4 +1018,11 @@ real bulk buffer-transfer paths in both directions.
   ragged `int[][][][][](~10^5)`: was 5,108,332 vs. jpy 2,139,732 (jpy
   2.39x faster), now 1,389,415 vs. the same jpy figure (jpype 1.5x
   faster)).
+
+  Section 7's `list->array` table recurses through the same
+  `JPConversionRaggedSequence`/`fillRaggedFromBuffer` path and was missed
+  in the original refresh -- it still showed pre-specialization numbers
+  (jpype losing to jpy 2-4x on every shape) until re-measured and
+  corrected 2026-08-13. No code changed for this refresh, only the
+  recorded numbers.
 
