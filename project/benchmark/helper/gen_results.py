@@ -33,7 +33,8 @@ PARSED_JSON = sys.argv[1]
 GRAALPY_SECTION_PATH = sys.argv[2] if len(sys.argv) > 2 else os.path.join(
     os.path.dirname(os.path.abspath(__file__)), 'graalpy_section.md')
 
-d = json.load(open(PARSED_JSON))
+with open(PARSED_JSON) as f:
+    d = json.load(f)
 
 def get(lib, script):
     return {r['label']: r for r in d.get(lib, {}).get(script, [])}
@@ -521,7 +522,8 @@ subsections below are carried forward **unchanged** from the previous
 edition of this report; their internal `Section N` cross-references
 point to *that* edition's section numbers, not this document's current
 numbering.""")
-out.append(open(GRAALPY_SECTION_PATH).read())
+with open(GRAALPY_SECTION_PATH) as f:
+    out.append(f.read())
 out.append('')
 
 # ---------------------------------------------------------------

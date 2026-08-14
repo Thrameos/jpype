@@ -32,7 +32,6 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from _common import timeit, format_row, CsvLog
 
-import numpy as np
 import jpype
 from jpype import JInt, JLong, JFloat, JDouble
 
