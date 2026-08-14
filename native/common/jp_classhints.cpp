@@ -520,6 +520,21 @@ public:
 			return match.type = JPMatch::_none;
 		}
 
+		// This conversion only ever produces a flat primitive[]: a
+		// multi-dimensional source (a 2D+ numpy array, or a memoryview over
+		// one) can never be reinterpreted as one, no matter its element
+		// type. Reject it explicitly and cheaply here, from the ndim this
+		// buffer already reports -- convert() below re-derives the same
+		// ndim==1 fact from its own Py_buffer to decide whether its bulk
+		// fast path applies, but by then this conversion has already been
+		// selected as the best-matching candidate for the parameter, so
+		// checking there is too late to keep a >1D source from winning the
+		// overload match in the first place (multiArrayBufferConversion,
+		// not this conversion, is what should claim an N-D source against
+		// an N-D array parameter).
+		if (buffer.getView().ndim != 1)
+			return match.type = JPMatch::_none;
+
 		// If it is a buffer we only need to test the first item in the list
 		JPPySequence seq = JPPySequence::use(match.object);
 		jlong length = seq.size();
