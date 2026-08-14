@@ -1027,6 +1027,11 @@ static PyObject *PyJPModule_convertBuffer(JPPyBuffer& buffer, PyObject *dtype, P
 		base = view.shape[view.ndim - 1];
 	} else
 	{
+		// Defensive only: every flag combo PyJPModule_arrayFromBuffer
+		// probes with (PyBUF_FULL_RO, PyBUF_RECORDS_RO, PyBUF_ND |
+		// PyBUF_FORMAT) implies PyBUF_ND, which guarantees a non-null
+		// view.shape -- so this branch is not known to be reachable from
+		// any real caller of this function.
 		if (view.ndim > 1)
 		{
 			PyErr_Format(PyExc_TypeError, "buffer dims inconsistent");
