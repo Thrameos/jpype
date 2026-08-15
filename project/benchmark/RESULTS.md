@@ -209,8 +209,11 @@ Boolean array pulls were already unaffected either way --
 | double[100000] | 105,339 | 132,296 | 7,028,567 | 4,170,636 |
 
 **Result.** `list->array`: jpype leads jpy/jep/pyjnius at every
-size 1,000 and up; all four show a 1.5-2x int-widening penalty on
-float/double vs. their own matched-type number, jpype's the narrowest.
+size 1,000 and up. The int-widening penalty on float/double (vs. each
+library's own matched-type number) varies widely by library: pyjnius
+shows almost none (~1.0x, even <1x at the largest double size), jpy's
+is the mildest of the rest (~1.4-1.6x), jpype's is moderate (~1.2-2.1x,
+worst at the largest sizes), and jep's is the steepest (~1.9-2.9x).
 `buffer->array`: pyjnius has no buffer-protocol push at all (falls back
 to `sequenceConversion`, i.e. it isn't in this table -- see Section 5
 for the isolated cost of that fallback). `array->list`: pyjnius is still
@@ -282,7 +285,12 @@ _jpy and pyjnius have no entry: jpy's buffer matcher requires `PyBUF_SIMPLE` (fa
 | double[][][][][](10^5) | 1,467,151 | 4,963,800 | 25,427,445 | -- |
 
 **Result.** jpype and jep are the only libraries with a real bulk
-path for a non-contiguous 1D source; jep is faster at this size. jpy
+path for a non-contiguous 1D source; the two trade wins depending on
+size and type, with no consistent winner (jpype leads at the smaller
+sizes across all four types, e.g. `int[100]`: 1,117 vs 1,247; jep
+pulls ahead for int/float at the larger sizes, e.g. `int[100000]`:
+90,146 vs 67,997, while jpype stays ahead for long/double at every
+size tested). jpy
 has no buffer->array push at all for a non-contiguous source in any
 dimensionality (fails outright, 1D; not benchmarked, ND, since the
 underlying push has no bulk path to exercise); pyjnius has no
@@ -563,8 +571,8 @@ walk. jpype's ragged-native path avoids the Python-level per-row cost
 -- one C++ walk, one JNI crossing -- but still shows the same
 row-heavy-costs-more shape, now from `Array.newInstance`/
 `Array.set` reflection on the Java side of `fillRaggedFromBuffer`, one
-call per row regardless of row length (e.g. `int[100000][3]`: 6,659,293ns
-vs `int[3][100000]`: 2,127,744ns, same 100,000 elements). `buffer->array`
+call per row regardless of row length (e.g. `int[100000][3]`: 6,022,370ns
+vs `int[3][100000]`: 1,927,287ns, same 100,000 elements). `buffer->array`
 still pays the smallest per-leaf-array penalty of the three, since
 jpype/jpy's bulk path there has no reflection in the loop at all.
 
@@ -863,8 +871,10 @@ above._
 | match@400/400 | 639 |
 
 **Result.** `pullTo`/`pushFrom` beat their naive per-element
-counterparts by roughly one to two orders of magnitude at 100,000+
-elements. `direct-buffer-shared` (steady-state cost once a direct
+counterparts by roughly one to two orders of magnitude across the
+tested sizes, from ~20-35x at 10^2 elements up to ~110-120x at 10^4
+(the largest size the naive loop was run at -- see the capping note
+above). `direct-buffer-shared` (steady-state cost once a direct
 buffer is already set up) is the cheapest transfer path at every size.
 `classhints` cache lookup cost is flat from 1 to 400 registered classes
 -- confirms the cache is a real O(1) lookup, not a linear scan that
