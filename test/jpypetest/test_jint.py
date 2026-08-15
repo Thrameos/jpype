@@ -437,6 +437,35 @@ class JIntTestCase(common.JPypeTestCase):
         self.assertEqual(list(ja[0:2]), [1, 1])
 
     @common.requireNumpy
+    def testArraySetRangeBufferEmptySliceDeclines(self):
+        # tryFastBufferPush's length <= 0 decline branch.
+        ja = JArray(JInt)(3)
+        ja[0:0] = np.array([], dtype=np.int32)
+        self.assertEqual(list(ja), [0, 0, 0])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferNdimMismatchDeclines(self):
+        # tryFastBufferPush's view.ndim != 1 decline branch (jp_convert.cpp)
+        # -- a 2D buffer source into a flat slice assignment. Not dead: the
+        # general fallback path (JPIntType::setArrayRange) has its own
+        # redundant ndim check that raises the actual TypeError, but
+        # tryFastBufferPush's own decline is what routes it there.
+        ja = JArray(JInt)(3)
+        with self.assertRaisesRegex(TypeError, "incorrect"):
+            ja[0:3] = np.zeros((3, 1), dtype=np.int32)
+
+    @common.requireNumpy
+    def testArraySetRangeBufferUnrecognizedFormatDeclines(self):
+        # tryFastBufferPush's classifyBufferSource() decline branch -- a
+        # complex128 source's buffer format ('Zd') isn't recognized by
+        # classifyBufferSource, so this declines the bulk path and falls
+        # to the general getConverter() fallback, which doesn't recognize
+        # it either and raises.
+        ja = JArray(JInt)(3)
+        with self.assertRaises(ValueError):
+            ja[0:3] = np.array([1, 2, 3], dtype=np.complex128)
+
+    @common.requireNumpy
     def testArraySetRangeBufferFallback(self):
         # A negative-stride (reversed) buffer source can't be handed to the
         # bulk tryFastBufferPush path (classifyBufferSource requires a
