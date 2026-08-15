@@ -115,6 +115,18 @@ class JLongTestCase(common.JPypeTestCase):
         with self.assertRaisesRegex(SystemError, "fault"):
             JLong._canConvertToJava(object())
 
+    def testArrayClassNoMatchRaises(self):
+        # JPArrayClassLong::findJavaConversionImpl -- object() matches
+        # none of null/object/buffer/list/tuple/sequence/hints, walking
+        # the whole chain down to the final _none fallthrough.
+        self.assertEqual(JArray(JLong)._canConvertToJava(object()), "none")
+
+    def testArrayClassHints(self):
+        # JPArrayClassLong::getConversionInfo, reached via the array
+        # class's _hints introspection property.
+        hints = jpype.JClass(JLong[:])._hints
+        self.assertEqual(list(hints.returns), [jpype.JClass(JLong[:])])
+
     @common.requireInstrumentation
     def testArrayFault(self):
         ja = JArray(JLong)(5)

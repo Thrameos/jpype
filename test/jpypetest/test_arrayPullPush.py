@@ -279,6 +279,16 @@ class ArrayPushFromTestCase(common.JPypeTestCase):
         ja.pushFrom(src)
         np.testing.assert_array_equal(np.asarray(ja), src)
 
+    def testLongContiguousFastPath(self):
+        # JPLongType::setElements -- testUint64ItemSize8Aliasing below
+        # exercises the itemsize==8 'L'->'Q' aliasing (RAW_SWAPPED), but
+        # nothing previously used a genuinely matching int64 source, so
+        # RAW_NATIVE never reached setElements for JLong.
+        ja = JArray(JLong)(10)
+        src = np.arange(10, dtype=np.int64)
+        ja.pushFrom(src)
+        np.testing.assert_array_equal(np.asarray(ja), src)
+
     def testBooleanContiguousFastPath(self):
         ja = JArray(JBoolean)(4)
         src = np.array([True, False, True, True], dtype=np.bool_)

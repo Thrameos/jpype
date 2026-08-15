@@ -40,6 +40,12 @@ class JByteTestCase(common.JPypeTestCase):
         with self.assertRaisesRegex(SystemError, "fault"):
             JByte._canConvertToJava(object())
 
+    def testArrayClassHints(self):
+        # JPArrayClassByte::getConversionInfo, reached via the array
+        # class's _hints introspection property.
+        hints = jpype.JClass(JByte[:])._hints
+        self.assertEqual(list(hints.returns), [jpype.JClass(JByte[:])])
+
     @common.requireInstrumentation
     def testArrayFaults(self):
         ja = JArray(JByte)(5)
