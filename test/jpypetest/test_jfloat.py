@@ -646,6 +646,20 @@ class JFloatTestCase(common.JPypeTestCase):
         ja = JArray(JFloat)([1, 2, 3])
         self.assertIsInstance(hash(ja), int)
 
+    def testMethodArgTupleMatchesFloatArray(self):
+        # JPArrayClassFloat::findJavaConversionImpl -- a tuple argument
+        # against a declared float[] parameter exercises tupleConversion
+        # (list/GenericSequence forms are exercised elsewhere already;
+        # only tuple/generic-sequence were missing here).
+        DeepBench = jpype.JClass('jpype.benchmark.DeepBench')
+        result = DeepBench.identityFloatArray((1.5, 2.5, 3.5))
+        self.assertEqual(list(result), [1.5, 2.5, 3.5])
+
+    def testMethodArgGenericSequenceMatchesFloatArray(self):
+        DeepBench = jpype.JClass('jpype.benchmark.DeepBench')
+        result = DeepBench.identityFloatArray(common.GenericSequence([1.5, 2.5, 3.5]))
+        self.assertEqual(list(result), [1.5, 2.5, 3.5])
+
     @common.requireNumpy
     def testArrayBufferDims(self):
         ja = JArray(JFloat)(5)
