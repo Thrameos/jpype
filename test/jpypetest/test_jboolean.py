@@ -165,6 +165,7 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [True, False, True])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackFloat16Subnormal(self):
         # jp_convert.cpp's Half<Convert<float>::toZ>::convert -- a
         # subnormal half-float (exp==0, frac!=0) is nonzero, so truncates
@@ -176,6 +177,7 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [True, True, True])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackInt16Source(self):
         # getConverter's int16_t source case (from[0] == 'h', non-swapped)
         # -> 'z' target.
@@ -185,6 +187,7 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [True, False, True])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackInt16SourceSwapped(self):
         import numpy as np
         ja = JArray(JBoolean)(3)
@@ -192,6 +195,7 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [True, False, True])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackUint16Source(self):
         # getConverter's uint16_t source case (from[0] == 'H', non-swapped)
         # -> 'z' target.
@@ -201,6 +205,7 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [True, False, True])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackUint16SourceSwapped(self):
         import numpy as np
         ja = JArray(JBoolean)(3)
@@ -208,6 +213,7 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [True, False, True])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackInt32Source(self):
         # getConverter's int32_t source case (from[0] in 'i','l',
         # non-swapped) -> 'z' target.
@@ -217,6 +223,7 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [True, False, True])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackInt32SourceSwapped(self):
         import numpy as np
         ja = JArray(JBoolean)(3)
@@ -224,6 +231,7 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [True, False, True])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackUint32Source(self):
         # getConverter's uint32_t source case (from[0] in 'I','L',
         # non-swapped) -> 'z' target.
@@ -233,6 +241,7 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [True, False, True])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackUint32SourceSwapped(self):
         import numpy as np
         ja = JArray(JBoolean)(3)
@@ -240,6 +249,7 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [True, False, True])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackUint64Source(self):
         # getConverter's uint64_t source case (from[0] == 'Q',
         # non-swapped) -> 'z' target.
@@ -249,6 +259,7 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [True, False, True])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackUint64SourceSwapped(self):
         import numpy as np
         ja = JArray(JBoolean)(3)
@@ -256,6 +267,7 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [True, False, True])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackFloat32Source(self):
         # getConverter's float source case (from[0] == 'f', non-swapped)
         # -> 'z' target.
@@ -265,6 +277,7 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [True, False, True])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackFloat32SourceSwapped(self):
         import numpy as np
         ja = JArray(JBoolean)(3)
@@ -272,6 +285,7 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [True, False, True])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackFloat64Source(self):
         # getConverter's double source case (from[0] == 'd', non-swapped)
         # -> 'z' target.
@@ -281,6 +295,7 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [True, False, True])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackFloat64SourceSwapped(self):
         import numpy as np
         ja = JArray(JBoolean)(3)
@@ -288,6 +303,7 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [True, False, True])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackFloat16SourceSwapped(self):
         # getConverter's float16 source case (from[0] == 'e', swapped) ->
         # 'z' target -- Reverse<Half<Convert<float>::toZ>::convert>::call4.
@@ -321,6 +337,7 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = mv[::-1]
         self.assertEqual(list(ja), [True, False, True])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackFloat16InfNan(self):
         # jp_convert.cpp's Half<Convert<float>::toZ>::convert -- the "to
         # infinity and beyond" branch (exp==31): all nonzero, so all true.

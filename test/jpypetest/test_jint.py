@@ -483,6 +483,7 @@ class JIntTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3, 2, 1])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackInt16Source(self):
         # getConverter's int16_t source case (from[0] == 'h', non-swapped)
         # -> 'i' target.
@@ -491,12 +492,14 @@ class JIntTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3, 2, 1])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackInt16SourceSwapped(self):
         ja = JArray(JInt)(3)
         a = np.array([1, 2, 3], dtype='>i2')
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3, 2, 1])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackUint16Source(self):
         # getConverter's uint16_t source case (from[0] == 'H', non-swapped)
         # -> 'i' target.
@@ -505,12 +508,14 @@ class JIntTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3, 2, 1])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackUint16SourceSwapped(self):
         ja = JArray(JInt)(3)
         a = np.array([1, 2, 3], dtype='>u2')
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3, 2, 1])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackUint32Source(self):
         # getConverter's uint32_t source case (from[0] in 'I','L',
         # non-swapped) -> 'i' target.
@@ -519,12 +524,14 @@ class JIntTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3, 2, 1])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackUint32SourceSwapped(self):
         ja = JArray(JInt)(3)
         a = np.array([1, 2, 3], dtype='>u4')
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3, 2, 1])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackUint64Source(self):
         # getConverter's uint64_t source case (from[0] == 'Q',
         # non-swapped) -> 'i' target.
@@ -533,12 +540,14 @@ class JIntTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3, 2, 1])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackUint64SourceSwapped(self):
         ja = JArray(JInt)(3)
         a = np.array([1, 2, 3], dtype='>u8')
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3, 2, 1])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackFloat32Source(self):
         # getConverter's float source case (from[0] == 'f', non-swapped)
         # -> 'i' target.
@@ -547,12 +556,14 @@ class JIntTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3, 2, 1])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackFloat32SourceSwapped(self):
         ja = JArray(JInt)(3)
         a = np.array([1, 2, 3], dtype='>f4')
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3, 2, 1])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackFloat64SourceSwapped(self):
         # getConverter's double source case (from[0] == 'd', swapped) ->
         # 'i' target. Non-swapped 'i' is already covered elsewhere.
@@ -561,6 +572,7 @@ class JIntTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3, 2, 1])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackFloat16SourceSwapped(self):
         # getConverter's float16 source case (from[0] == 'e', swapped) ->
         # 'i' target.
@@ -587,6 +599,7 @@ class JIntTestCase(common.JPypeTestCase):
         ja[0:3] = mv[::-1]
         self.assertEqual(list(ja), [3, 2, 1])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackInt8Source(self):
         # getConverter's int8_t source case (from[0] in '?','c','b') ->
         # 'i' target.
@@ -595,6 +608,7 @@ class JIntTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3, 2, 1])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackFloat16Subnormal(self):
         # jp_convert.cpp's Half<Convert<float>::toI>::convert -- a
         # subnormal half-float (exp==0, frac!=0) truncated to int is 0
@@ -605,6 +619,7 @@ class JIntTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [0, 0, 0])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackFloat16InfNan(self):
         # jp_convert.cpp's Half<Convert<float>::toI>::convert -- the "to
         # infinity and beyond" branch (exp==31): +inf/-inf/nan all cast to

@@ -444,6 +444,7 @@ class JDoubleTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3.5, 2.5, 1.5])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackInt16Source(self):
         # getConverter's int16_t source case (from[0] == 'h', non-swapped)
         # -> 'd' target.
@@ -452,12 +453,14 @@ class JDoubleTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3.0, 2.0, 1.0])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackInt16SourceSwapped(self):
         ja = JArray(JDouble)(3)
         a = np.array([1, 2, 3], dtype='>i2')
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3.0, 2.0, 1.0])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackUint16Source(self):
         # getConverter's uint16_t source case (from[0] == 'H', non-swapped)
         # -> 'd' target.
@@ -466,12 +469,14 @@ class JDoubleTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3.0, 2.0, 1.0])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackUint16SourceSwapped(self):
         ja = JArray(JDouble)(3)
         a = np.array([1, 2, 3], dtype='>u2')
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3.0, 2.0, 1.0])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackInt32SourceSwapped(self):
         # getConverter's int32_t source case (from[0] in 'i','l', swapped)
         # -> 'd' target. Non-swapped 'd' is already covered by
@@ -484,6 +489,7 @@ class JDoubleTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3.0, 2.0, 1.0])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackUint32Source(self):
         # getConverter's uint32_t source case (from[0] in 'I','L',
         # non-swapped) -> 'd' target.
@@ -492,12 +498,14 @@ class JDoubleTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3.0, 2.0, 1.0])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackUint32SourceSwapped(self):
         ja = JArray(JDouble)(3)
         a = np.array([1, 2, 3], dtype='>u4')
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3.0, 2.0, 1.0])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackUint64Source(self):
         # getConverter's uint64_t source case (from[0] == 'Q',
         # non-swapped) -> 'd' target.
@@ -506,12 +514,14 @@ class JDoubleTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3.0, 2.0, 1.0])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackUint64SourceSwapped(self):
         ja = JArray(JDouble)(3)
         a = np.array([1, 2, 3], dtype='>u8')
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3.0, 2.0, 1.0])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackFloat32SourceSwapped(self):
         # getConverter's float source case (from[0] == 'f', swapped) ->
         # 'd' target. Non-swapped 'd' is already covered by
@@ -521,6 +531,7 @@ class JDoubleTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3.5, 2.5, 1.5])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackFloat64SourceSwapped(self):
         # getConverter's double source case (from[0] == 'd', swapped) ->
         # 'd' target. Non-swapped 'd' is already covered elsewhere.
@@ -529,6 +540,7 @@ class JDoubleTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3.5, 2.5, 1.5])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackFloat16SourceSwapped(self):
         # getConverter's float16 source case (from[0] == 'e', swapped) ->
         # 'd' target.
@@ -555,6 +567,7 @@ class JDoubleTestCase(common.JPypeTestCase):
         ja[0:3] = mv[::-1]
         self.assertEqual(list(ja), [3.0, 2.0, 1.0])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackInt8Source(self):
         # getConverter's int8_t source case (from[0] in '?','c','b') ->
         # 'd' target.
@@ -563,6 +576,7 @@ class JDoubleTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3.0, 2.0, 1.0])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackFloat16Subnormal(self):
         # jp_convert.cpp's Half<Convert<float>::toD>::convert, via the
         # per-element getConverter() fallback (a negative-stride source
@@ -576,6 +590,7 @@ class JDoubleTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         np.testing.assert_array_equal(np.asarray(ja), expected[::-1])
 
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackFloat16InfNan(self):
         # jp_convert.cpp's Half<Convert<float>::toD>::convert -- the "to
         # infinity and beyond" branch (exp==31), via the per-element
