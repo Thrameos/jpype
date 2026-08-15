@@ -321,6 +321,24 @@ public class DeepBench
     return "long";
   }
 
+  // 2D short array -- short[][] is the only readily-callable exercise of
+  // JPArrayClassNested (the multiArrayBuffer-but-not-ragged variant used
+  // for a primitive leaf that isn't ragged-eligible: short/byte/char/
+  // boolean; see isRaggedEligible in jp_classhints.cpp), as opposed to
+  // JPArrayClassNestedRagged (int/long/float/double, via sum2DIntArray
+  // et al.). Declared-parameter dispatch, not the JArray(...) constructor,
+  // is required to actually reach findJavaConversionImpl's own match/
+  // no-match branches -- the constructor path short-circuits invalid
+  // input before ever calling it.
+  public static long sum2DShortArray(short[][] a)
+  {
+    long s = 0;
+    for (short[] row : a)
+      for (short x : row)
+        s += x;
+    return s;
+  }
+
   // 2D variant of sumIntArray -- component type is itself int[], so
   // conversion recurses through the array-conversion machinery once per
   // outer element in addition to the per-element work each inner array

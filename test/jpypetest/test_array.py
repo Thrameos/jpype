@@ -749,3 +749,48 @@ class ArrayTestCase(common.JPypeTestCase):
         j_ragged = JArray(JInt, dims=2)(ragged)
         self.assertEqual(list(j_ragged[0]), [1, 2, 3])
         self.assertEqual(list(j_ragged[1]), [4, 5])
+
+
+class ArrayClassNestedTestCase(common.JPypeTestCase):
+    """JPArrayClassNested (jp_arrayclass.cpp) is the multiArrayBuffer-but-
+    not-ragged specialization used for a 2D+ array whose leaf type isn't
+    ragged-eligible (short/byte/char/boolean -- see isRaggedEligible in
+    jp_classhints.cpp), as distinct from JPArrayClassNestedRagged
+    (int/long/float/double, exercised via DeepBench.sum2DIntArray etc. in
+    test_arrayRaggedPush.py/test_arrayMultiDimBuffer.py). short[][] is the
+    only readily-available declared-parameter target for it."""
+
+    def setUp(self):
+        common.JPypeTestCase.setUp(self)
+        self.DeepBench = jpype.JClass('jpype.benchmark.DeepBench')
+
+    def testNestedAsArgument(self):
+        data = [[1, 2, 3], [4, 5]]
+        expected = sum(x for row in data for x in row)
+        self.assertEqual(self.DeepBench.sum2DShortArray(data), expected)
+
+    def testNestedAsArgumentNoMatchRaises(self):
+        # Nothing (null/object/multiArrayBuffer/sequence/hints) matches a
+        # plain object() -- JPArrayClassNested::findJavaConversionImpl's
+        # own no-match fallthrough, not an earlier/unrelated rejection.
+        with self.assertRaises(TypeError):
+            self.DeepBench.sum2DShortArray(object())
+
+    def testNestedHints(self):
+        # JPArrayClassNested::getConversionInfo, reached via the class's
+        # _hints introspection property.
+        hints = jpype.JClass(jpype.JShort[:, :])._hints
+        self.assertEqual(list(hints.returns), [jpype.JClass(jpype.JShort[:, :])])
+
+    def testRaggedEligibleHints(self):
+        # JPArrayClassNestedRagged::getConversionInfo counterpart.
+        hints = jpype.JClass(jpype.JInt[:, :])._hints
+        self.assertEqual(list(hints.returns), [jpype.JClass(jpype.JInt[:, :])])
+
+    def testNestedSlice(self):
+        # JPArrayNested::slice -- the non-primitive-leaf array-of-arrays
+        # slice path (JPArrayNested), as opposed to the primitive-leaf
+        # JPArrayByte/Short/etc. slice used by a flat 1D array.
+        ja = JArray(JShort, 2)([[1, 2], [3, 4], [5, 6]])
+        sub = ja[0:2]
+        self.assertEqual([list(row) for row in sub], [[1, 2], [3, 4]])
