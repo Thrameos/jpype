@@ -45,11 +45,10 @@ static PyObject *PyJPField_get(PyJPField *self, PyObject *obj, PyObject *type)
 		return self->m_Field->getStaticField().keep();
 	if (obj == nullptr)
 		JP_RAISE(PyExc_AttributeError, "Field is not static");
-	JPValue *jval = PyJPValue_getJavaSlot(obj);
-	if (jval == nullptr)
+	if (PyJPValue_getJPClass(obj) == nullptr)
 		JP_RAISE(PyExc_AttributeError, "Field requires instance value");
 
-	return self->m_Field->getField(jval->getValue().l).keep();
+	return self->m_Field->getField(PyJPValue_getJValue(frame, obj).l).keep();
 	JP_PY_CATCH(nullptr);
 }
 
@@ -72,13 +71,12 @@ static int PyJPField_set(PyJPField *self, PyObject *obj, PyObject *pyvalue)
 		PyErr_SetString(PyExc_AttributeError, "Field is not static");
 		return -1;
 	}
-	JPValue *jval = PyJPValue_getJavaSlot(obj);
-	if (jval == nullptr)
+	if (PyJPValue_getJPClass(obj) == nullptr)
 	{
 		PyErr_Format(PyExc_AttributeError, "Field requires instance value, not '%s'", Py_TYPE(obj)->tp_name);
 		return -1;
 	}
-	self->m_Field->setField(jval->getValue().l, pyvalue);
+	self->m_Field->setField(PyJPValue_getJValue(frame, obj).l, pyvalue);
 	return 0;
 	JP_PY_CATCH(-1);
 }
@@ -132,7 +130,7 @@ JPPyObject PyJPField_create(JPField* m)
 {
 	JP_TRACE_IN("PyJPField_create");
 	auto* self = (PyJPField*) PyJPField_Type->tp_alloc(PyJPField_Type, 0);
-	JP_PY_CHECK();
+	JP_PY_CHECK_NULL(self);
 	self->m_Field = m;
 	return JPPyObject::claim((PyObject*) self);
 	JP_TRACE_OUT; // GCOVR_EXCL_LINE

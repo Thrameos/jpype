@@ -47,7 +47,8 @@ extern void PyJPClassHints_initType(PyObject* module);
 extern void PyJPPackage_initType(PyObject* module);
 extern void PyJPChar_initType(PyObject* module);
 
-static PyObject *PyJPModule_convertBuffer(JPPyBuffer& buffer, PyObject *dtype);
+static PyObject *PyJPModule_convertBuffer(JPPyBuffer& buffer, PyObject *dtype, PyObject *source);
+static PyObject *PyJPModule_convertBufferFallback(PyObject *source, PyObject *dtype);
 
 // To ensure no leaks (requires C++ linkage)
 
@@ -509,13 +510,13 @@ PyObject *PyJPModule_getClass(PyObject* module, PyObject *obj)
 	} else
 	{
 		// From an existing java.lang.Class object
-		JPValue *value = PyJPValue_getJavaSlot(obj);
-		if (value == nullptr || value->getClass() != context->_java_lang_Class)
+		JPClass *valueCls = PyJPValue_getJPClass(obj);
+		if (valueCls == nullptr || valueCls != context->_java_lang_Class)
 		{
 			PyErr_Format(PyExc_TypeError, "JClass requires str or java.lang.Class instance, not '%s'", Py_TYPE(obj)->tp_name);
 			return nullptr;
 		}
-		cls = frame.findClass((jclass) value->getValue().l);
+		cls = frame.findClass((jclass) PyJPValue_getJValue(frame, obj).l);
 		if (cls == nullptr)
 		{
 			PyErr_SetString(PyExc_ValueError, "Unable to find class");
@@ -573,17 +574,17 @@ static PyObject *PyJPModule_arrayFromBuffer(PyObject *module, PyObject *args, Py
 	{
 		JPPyBuffer	buffer(source, PyBUF_FULL_RO);
 		if (buffer.valid())
-			return PyJPModule_convertBuffer(buffer, dtype);
+			return PyJPModule_convertBuffer(buffer, dtype, source);
 	}
 	{
 		JPPyBuffer	buffer(source, PyBUF_RECORDS_RO);
 		if (buffer.valid())
-			return PyJPModule_convertBuffer(buffer, dtype);
+			return PyJPModule_convertBuffer(buffer, dtype, source);
 	}
 	{
 		JPPyBuffer	buffer(source, PyBUF_ND | PyBUF_FORMAT);
 		if (buffer.valid())
-			return PyJPModule_convertBuffer(buffer, dtype);
+			return PyJPModule_convertBuffer(buffer, dtype, source);
 	}
 	PyErr_Format(PyExc_TypeError, "buffer protocol for '%s' not supported", Py_TYPE(source)->tp_name);
 	return nullptr;
@@ -727,7 +728,7 @@ PyObject* examine(PyObject *module, PyObject *other)
 	printf("    alloc: %p\n", type->tp_alloc);
 	printf("    free: %p\n", type->tp_free);
 	printf("    finalize: %p\n", type->tp_finalize);
-	long v = _PyObject_VAR_SIZE(type, 1)+(PyJPValue_hasJavaSlot(type)?sizeof (JPValue):0);
+	long v = _PyObject_VAR_SIZE(type, 1)+(PyJPValue_hasJavaSlot(type)?sizeof (jvalue):0);
 	printf("    size?: %ld\n",v);
 	printf("======\n");
 
@@ -753,6 +754,13 @@ uint32_t _PyJPModule_fault_code = -1;
 
 static PyObject* PyJPModule_fault(PyObject *module, PyObject *args)
 {
+	// Arming (or disarming) a fault must force the next findJavaConversion
+	// resolution to actually run findJavaConversionImpl again -- otherwise a
+	// cache hit can silently skip right over the instrumented matches() call
+	// the test is targeting, leaving the fault armed-but-never-triggered to
+	// go off unexpectedly in some later, unrelated call. Reuse the same
+	// generation-counter invalidation JPClassHints mutation uses.
+	++JPClassHints::s_Generation;
 	if (args == Py_None)
 	{
 		_PyJPModule_fault_code = 0;
@@ -854,6 +862,7 @@ PyMODINIT_FUNC PyInit__jpype()
 	PyModule_AddObject(module, "__builtins__", builtins);
 
 	PyJPClassMagic = PyDict_New();
+	PyJPClassMagicConcrete = PyDict_New();
 	// Initialize each of the python extension types
 	PyJPClass_initType(module);
 	PyJPObject_initType(module);
@@ -905,7 +914,7 @@ void PyJPModule_rethrow(const JPStackInfo& info)
 	JP_TRACE_OUT; // GCOVR_EXCL_LINE
 }
 
-static PyObject *PyJPModule_convertBuffer(JPPyBuffer& buffer, PyObject *dtype)
+static PyObject *PyJPModule_convertBuffer(JPPyBuffer& buffer, PyObject *dtype, PyObject *source)
 {
 	JPContext *context = PyJPModule_getContext();
 	JPJavaFrame frame = JPJavaFrame::outer();
@@ -937,8 +946,8 @@ static PyObject *PyJPModule_convertBuffer(JPPyBuffer& buffer, PyObject *dtype)
 		cls = PyJPClass_getJPClass(dtype);
 		if (cls == nullptr  || !cls->isPrimitive())
 		{
-			PyErr_Format(PyExc_TypeError, "'%s' is not a Java primitive type", Py_TYPE(dtype)->tp_name);
-			return nullptr;
+			// Not a primitive type - use fallback path for element-by-element conversion
+			return PyJPModule_convertBufferFallback(source, dtype);
 		}
 	} else
 	{
@@ -971,6 +980,7 @@ static PyObject *PyJPModule_convertBuffer(JPPyBuffer& buffer, PyObject *dtype)
 		}
 		if (cls == nullptr)
 		{
+			// Unrecognized buffer format - use fallback path
 			PyErr_Format(PyExc_TypeError, "'%s' type code not supported without dtype specified", format);
 			return nullptr;
 		}
@@ -980,20 +990,36 @@ static PyObject *PyJPModule_convertBuffer(JPPyBuffer& buffer, PyObject *dtype)
 	// the type.
 	auto *pcls = dynamic_cast<JPPrimitiveType *>( cls);
 
+	// Flat (1D) source: route through the same bulk fast path
+	// `setArrayRange`'s buffer branch (`tryFastBufferPush`,
+	// `Support.fillFlatFromBuffer`) already gives the method-argument
+	// push and the naive `JArray(JType)(numpyArray)` sequence
+	// constructor (which also lands in `setArrayRange` -- numpy arrays
+	// satisfy `PySequence_Check` too) -- one bulk JNI handoff instead of
+	// the N-D `newMultiArray`/`convertMultiArrayObject` path's per-element
+	// `pack(converter(src))` loop, which has no such shortcut and was
+	// never meant to carry the common flat case. Measured: this closed a
+	// ~5-6x regression where `JArray.of()` was slower than the "naive"
+	// non-buffer constructor for the exact same input (see
+	// project/benchmark/jpype/array_of.py).
+	if (view.ndim == 1)
+	{
+		Py_ssize_t length = view.shape != nullptr ? view.shape[0] : view.len / view.itemsize;
+		jarray arr = pcls->newArrayOf(frame, (jsize) length);
+		pcls->setArrayRange(frame, arr, 0, (jsize) length, 1, source);
+		JPClass *outType = frame.findClassForObject(arr);
+		jvalue v;
+		v.l = arr;
+		return outType->convertToPythonObject(frame, v, false).keep();
+	}
+
 	// Convert the shape
 	Py_ssize_t subs = 1;
 	Py_ssize_t base = 1;
-	auto jdims = (jintArray) context->_int->newArrayOf(frame, view.ndim);
+	jintArray jdims;
 	if (view.shape != nullptr)
 	{
-		JPPrimitiveArrayAccessor<jintArray, jint*> accessor(frame, jdims,
-				&JPJavaFrame::GetIntArrayElements, &JPJavaFrame::ReleaseIntArrayElements);
-		jint *a = accessor.get();
-		for (int i = 0; i < view.ndim; ++i)
-		{
-			a[i] = view.shape[i];
-		}
-		accessor.commit();
+		jdims = buildDimsArray(frame, view);
 		for (int i = 0; i < view.ndim - 1; ++i)
 		{
 			subs *= view.shape[i];
@@ -1001,14 +1027,85 @@ static PyObject *PyJPModule_convertBuffer(JPPyBuffer& buffer, PyObject *dtype)
 		base = view.shape[view.ndim - 1];
 	} else
 	{
+		// Defensive only: every flag combo PyJPModule_arrayFromBuffer
+		// probes with (PyBUF_FULL_RO, PyBUF_RECORDS_RO, PyBUF_ND |
+		// PyBUF_FORMAT) implies PyBUF_ND, which guarantees a non-null
+		// view.shape -- so this branch is not known to be reachable from
+		// any real caller of this function.
 		if (view.ndim > 1)
 		{
 			PyErr_Format(PyExc_TypeError, "buffer dims inconsistent");
 			return nullptr;
 		}
+		jdims = (jintArray) context->_int->newArrayOf(frame, view.ndim);
 		base = view.len / view.itemsize;
 	}
+
+	// Same bulk DirectByteBuffer handoff as the flat (1D) case above and
+	// as JPConversionMultiArrayBuffer's own N-D method-argument push --
+	// see tryFastMultiArrayBuffer (jp_convert.cpp). Falls back to the
+	// older per-element newMultiArray/convertMultiArrayObject path
+	// (unchanged below) for a non-contiguous source or genuine dtype
+	// coercion.
+	jarray fast = nullptr;
+	if (tryFastMultiArrayBuffer(frame, pcls, buffer, jdims, fast))
+	{
+		JPClass *outType = frame.findClassForObject(fast);
+		jvalue v;
+		v.l = fast;
+		return outType->convertToPythonObject(frame, v, false).keep();
+	}
+
 	return pcls->newMultiArray(frame, buffer, subs, base, (jobject) jdims);
+}
+
+static PyObject *PyJPModule_convertBufferFallback(PyObject *source, PyObject *dtype)
+{
+	JP_PY_TRY("PyJPModule_convertBufferFallback");
+
+	// For non-primitive types or unrecognized buffer formats,
+	// use Python-level conversion by calling the JArray constructor.
+	// This is slower but handles all cases that the regular Python
+	// conversion path supports (like strings, objects, etc.)
+
+	// Get the shape to determine dimensions
+	JPPyObject shape_obj = JPPyObject::call(PyObject_GetAttrString(source, "shape"));
+	Py_ssize_t ndim = 1;
+	if (!shape_obj.isNull() && PyTuple_Check(shape_obj.get()))
+	{
+		ndim = PyTuple_Size(shape_obj.get());
+	}
+	else
+	{
+		// If no shape attribute, assume 1D
+		PyErr_Clear();
+	}
+
+	// Import jpype module to get JArray
+	JPPyObject jpype_module = JPPyObject::call(PyImport_ImportModule("jpype"));
+	if (jpype_module.isNull())
+		return nullptr;
+
+	JPPyObject JArray = JPPyObject::call(PyObject_GetAttrString(jpype_module.get(), "JArray"));
+	if (JArray.isNull())
+		return nullptr;
+
+	// Create the array type: JArray(dtype, ndim)
+	JPPyObject args = JPPyObject::call(Py_BuildValue("(Oi)", dtype, (int)ndim));
+	if (args.isNull())
+		return nullptr;
+
+	JPPyObject array_type = JPPyObject::call(PyObject_CallObject(JArray.get(), args.get()));
+	if (array_type.isNull())
+		return nullptr;
+
+	// Now construct the array with the source data
+	JPPyObject constructor_args = JPPyObject::call(Py_BuildValue("(O)", source));
+	if (constructor_args.isNull())
+		return nullptr;
+
+	return PyObject_CallObject(array_type.get(), constructor_args.get());
+	JP_PY_CATCH(nullptr);
 }
 
 #ifdef JP_INSTRUMENTATION

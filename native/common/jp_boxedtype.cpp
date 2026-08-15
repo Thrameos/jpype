@@ -62,16 +62,23 @@ m_PrimitiveType(primitiveType)
 JPBoxedType::~JPBoxedType()
 = default;
 
-JPMatch::Type JPBoxedType::findJavaConversion(JPMatch &match)
+JPMatch::Type JPBoxedType::findJavaConversionImpl(JPMatch &match)
 {
 	JP_TRACE_IN("JPBoxedType::findJavaConversion");
-	JPClass::findJavaConversion(match);
+	JPClass::findJavaConversionImpl(match);
 	if (match.type != JPMatch::_none)
 		return match.type;
-	if (m_PrimitiveType->findJavaConversion(match) != JPMatch::_none)
+	// m_PrimitiveType->findJavaConversion is a call into another JPClass's
+	// own cached wrapper, which resets match.cacheable for its own
+	// sub-decision -- AND it back with what the base check above already
+	// established rather than letting it silently overwrite that.
+	bool baseCacheable = match.cacheable;
+	JPMatch::Type primitiveType = m_PrimitiveType->findJavaConversion(match);
+	match.cacheable = baseCacheable && match.cacheable;
+	if (primitiveType != JPMatch::_none)
 	{
 		JP_TRACE("Primitive", match.type);
-		match.conversion = boxBooleanConversion;
+		match.conversion = boxGenericConversion;
 		match.closure = this;
 		// Issue #1098: Downgrade match quality by one level for boxing conversion
 		// This allows Python int/float to implicitly convert to boxed types
@@ -115,14 +122,43 @@ JPPyObject JPBoxedType::convertToPythonObject(JPJavaFrame& frame, jvalue value, 
 			return JPPyObject::getNone();
 		}
 
-		cls = frame.findClassForObject(value.l);
-		if (cls != this)
-			return cls->convertToPythonObject(frame, value, true);
+		// See JPClass::convertToPythonObject's identical fast path: skip
+		// the findClassForObject JNI upcall when the runtime class is
+		// already known to be exactly this one.
+		if (!frame.IsSameObject(frame.GetObjectClass(value.l), getJavaClass()))
+		{
+			cls = frame.findClassForObject(value.l);
+			if (cls != this)
+				return cls->convertToPythonObject(frame, value, true);
+		}
 	}
 
 	JPPyObject wrapper = PyJPClass_create(frame, cls);
-	JPPyObject obj;
+	auto *wrapperType = (PyTypeObject*) wrapper.get();
 	JPContext *context = JPContext_global;
+
+	// Reconstructing families (Long/Boolean/Char) keep no per-instance Java
+	// value at all -- a real Java null needs a dedicated singleton instance
+	// instead, since there's no slot left on an ordinary instance to mark
+	// "this one's null". Built once per class and cached; Double/Float (no
+	// tp_jvalue yet) fall through to the ordinary path below, unchanged.
+	if (cast && value.l == nullptr && PyJPClass_GetJValueFn(wrapperType) != nullptr)
+	{
+		PyObject *nullBoxed = PyJPClass_GetNullBoxed(wrapperType);
+		if (nullBoxed == nullptr)
+		{
+			JPPyObject built;
+			if (this->getPrimitive() == context->_char)
+				built = JPPyObject::call(PyJPChar_Create(wrapperType, 0));
+			else
+				built = PyJPNumber_create(frame, wrapper, JPValue(cls, value));
+			PyJPClass_SetNullBoxed(wrapperType, built.get());
+			nullBoxed = built.get();
+		}
+		return JPPyObject::use(nullBoxed);
+	}
+
+	JPPyObject obj;
 	if (this->getPrimitive() == context->_char)
 	{
 		jchar value2 = 0;
@@ -130,7 +166,7 @@ JPPyObject JPBoxedType::convertToPythonObject(JPJavaFrame& frame, jvalue value, 
 		if (value.l != nullptr)
 			value2 = context->_char->getValueFromObject(frame, JPValue(this, value)).getValue().c;
 		// Create a char string object
-		obj = JPPyObject::call(PyJPChar_Create((PyTypeObject*) wrapper.get(), value2));
+		obj = JPPyObject::call(PyJPChar_Create(wrapperType, value2));
 	} else
 		obj = PyJPNumber_create(frame, wrapper, JPValue(cls, value));
 	PyJPValue_assignJavaSlot(frame, obj.get(), JPValue(cls, value));

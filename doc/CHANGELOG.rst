@@ -7,6 +7,63 @@ Latest Changes:
 
 - **1.7.2.dev0**
 
+  - Added ``JArray.pullTo(dest)`` and ``JArray.pushFrom(src)`` for bulk
+    in-place transfer between a primitive Java array and an existing
+    caller-supplied Python buffer (e.g. a preallocated numpy array), and
+    ``JArray.toList()`` for bulk conversion of a Java array into a genuine
+    Python list. Also substantially sped up array transfer generally: both
+    directions of multi-dimensional primitive array <-> numpy conversion
+    (construction, argument passing, and ``np.asarray()``) now hand the
+    whole buffer to Java in a single JNI call and let Java do the
+    reshape/copy in bulk, instead of pinning or visiting one JNI call per
+    leaf sub-array; this also extends to non-native byte order and
+    ``float16`` sources, which previously fell back to a much slower
+    element-by-element path. #1457, #1443
+
+  - ``pullTo``/``pushFrom`` now support multi-dimensional primitive arrays
+    directly (previously flat/1D only, raising ``TypeError`` for any array
+    whose component type was itself an array); ``dest``/``src`` need only
+    match the array's total element count, not its shape. ``JArray.of()``
+    and the manual ``JArray(JType, dims)(source)`` / ``JType[:, :, ...]
+    (source)`` construction spelling both gained the same bulk buffer
+    fast path for multi-dimensional (2+ dimension) sources that the flat
+    case already had, removing a per-element conversion loop that
+    previously made those two construction paths considerably slower than
+    an equivalent ``JArray.of()``/argument-passing call for the same
+    data.
+
+  - Fixed classpath directories/jars containing a "+" character having it
+    silently converted to a space on import, corrupting the resolved
+    resource path. #1413
+
+  - Reworked the internal object layout for Java-backed Python objects to use
+    fixed, type-baked offsets instead of a runtime allocator that re-derived
+    each object's layout from version-sensitive CPython internals on every
+    access. For the boxed `Long`/`Boolean`/`Character` wrapper types this
+    also removes their per-instance Java-value storage entirely (reconstructed
+    on demand instead), shrinking those instances and eliminating a
+    version-gated digit-layout workaround. No user-visible API change; boxed
+    wrapper instances no longer retain Java-side reference identity across
+    repeated round-trips through Python.
+
+  - Fixed heap corruption when boxing large `JLong`/`JInt`/`JShort`/`JByte`/`JBoolean`
+    values on Python 3.8-3.11, caused by a fixed-offset allocator layout
+    assumption colliding with CPython's own implicit `__dict__` slot for
+    variable-length int subclasses.
+
+  - Fixed a GC refcount-accounting bug in the internal Java-class metaclass
+    where `tp_traverse`/`tp_clear` did not chain to `type`'s own
+    implementation.
+
+  - ``JBoolean``/``JByte``/``JChar``/``JInt``/``JShort``/``JLong``/``JFloat``/
+    ``JDouble`` are no longer tracked by the cyclic garbage collector. They
+    were previously declared as ordinary Python ``class`` statements, which
+    unconditionally pick up GC tracking from CPython even when none of these
+    types can ever hold an arbitrary Python reference or participate in a
+    reference cycle; every boxed array element pulled into Python paid for
+    that bookkeeping on allocation and deallocation for no benefit. No
+    user-visible API change.
+
   - Fixed a random segmentation fault at JVM shutdown when Python tooling
     (such as pytest's built-in faulthandler plugin) restored pre-JVM signal
     handlers over HotSpot's, leaving safepoint polls in compiled code
@@ -26,9 +83,30 @@ Latest Changes:
     while a Python exception was mid-unwind through the reverse-bridge
     C++ layer could corrupt the in-flight exception. #1415
 
+  - Reworked the internal object layout for Java-backed Python objects to use
+    fixed, type-baked offsets instead of a runtime allocator that re-derived
+    each object's layout from version-sensitive CPython internals on every
+    access. For the boxed `Long`/`Boolean`/`Character` wrapper types this
+    also removes their per-instance Java-value storage entirely (reconstructed
+    on demand instead), shrinking those instances and eliminating a
+    version-gated digit-layout workaround. No user-visible API change; boxed
+    wrapper instances no longer retain Java-side reference identity across
+    repeated round-trips through Python.
+
+  - Fixed heap corruption when boxing large `JLong`/`JInt`/`JShort`/`JByte`/`JBoolean`
+    values on Python 3.8-3.11, caused by a fixed-offset allocator layout
+    assumption colliding with CPython's own implicit `__dict__` slot for
+    variable-length int subclasses.
+
+  - Fixed a GC refcount-accounting bug in the internal Java-class metaclass
+    where `tp_traverse`/`tp_clear` did not chain to `type`'s own
+    implementation.
+
   - Fixed memory leak with int and float conversions. #1379
 
   - Fixed instablity in threading for method dispatch. #1366
+
+  - Fixed overloading ambiguity issue. #1371
 
   - Fixed caching issue with method overloading for functors. #1366
 
@@ -41,6 +119,12 @@ Latest Changes:
   - Added jdk.zipfs module dependency to module-info for proper jlink/jdeps detection. #908
 
   - Fixed overloaded methods from multiple interfaces not being detected. #844
+
+  - Fixed annotation and interface methods using incorrect JNI call type. #880
+
+  - Fixed crash when calling isinstance(obj, JException) before JVM starts or after JVM shutdown. #1329
+
+  - Added fallback conversion path for JArray.of() to support non-primitive types like JString, enabling conversion of numpy string arrays. #953
 
   - Improved implicit conversion from Python primitives to Java boxed types (Integer, Long, Short, Double, Float). #1098
   
