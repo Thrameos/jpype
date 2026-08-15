@@ -441,16 +441,21 @@ jconverter getConverter(const char* from, int itemsize, const char* to)
 			}
 			break;
 		case 'e':
+			// call2, not call4: a float16 element is 2 bytes on the wire
+			// even though Half::convert widens it to a 4-byte float
+			// internally -- swapping 4 bytes here would read past the
+			// element (into the next one, or out of bounds at the end of
+			// the buffer) and reverse the wrong byte pair.
 			if (reverse) switch (to[0])
 			{
-				case 'z': return &Reverse<Half<Convert<float>::toZ>::convert>::call4;
-				case 'b': return &Reverse<Half<Convert<float>::toB>::convert>::call4;
-				case 'c': return &Reverse<Half<Convert<float>::toC>::convert>::call4;
-				case 's': return &Reverse<Half<Convert<float>::toS>::convert>::call4;
-				case 'i': return &Reverse<Half<Convert<float>::toI>::convert>::call4;
-				case 'j': return &Reverse<Half<Convert<float>::toJ>::convert>::call4;
-				case 'f': return &Reverse<Half<Convert<float>::toF>::convert>::call4;
-				case 'd': return &Reverse<Half<Convert<float>::toD>::convert>::call4;
+				case 'z': return &Reverse<Half<Convert<float>::toZ>::convert>::call2;
+				case 'b': return &Reverse<Half<Convert<float>::toB>::convert>::call2;
+				case 'c': return &Reverse<Half<Convert<float>::toC>::convert>::call2;
+				case 's': return &Reverse<Half<Convert<float>::toS>::convert>::call2;
+				case 'i': return &Reverse<Half<Convert<float>::toI>::convert>::call2;
+				case 'j': return &Reverse<Half<Convert<float>::toJ>::convert>::call2;
+				case 'f': return &Reverse<Half<Convert<float>::toF>::convert>::call2;
+				case 'd': return &Reverse<Half<Convert<float>::toD>::convert>::call2;
 			}
 			else switch (to[0])
 			{
