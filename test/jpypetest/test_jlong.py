@@ -419,6 +419,19 @@ class JLongTestCase(common.JPypeTestCase):
         with self.assertRaises(TypeError):
             ja[0:1] = (object(),)
 
+    def testArraySetRangeListNonExactIndex(self):
+        # A bool is a valid __index__ object but not PyLong_CheckExact --
+        # exercises the LIST loop's combined
+        # !PyLong_CheckExact && !PyIndex_Check gate's true-index path.
+        ja = JArray(JLong)(2)
+        ja[0:2] = [1, True]
+        self.assertEqual(list(ja[0:2]), [1, 1])
+
+    def testArraySetRangeTupleNonExactIndex(self):
+        ja = JArray(JLong)(2)
+        ja[0:2] = (1, True)
+        self.assertEqual(list(ja[0:2]), [1, 1])
+
     def testArraySetRangeSequence(self):
         ja = JArray(JLong)(3)
         ja[0:2] = common.GenericSequence([123, -1])

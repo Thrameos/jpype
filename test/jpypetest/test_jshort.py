@@ -424,6 +424,13 @@ class JShortTestCase(common.JPypeTestCase):
         ja[0:2] = (1, True)
         self.assertEqual(list(ja[0:2]), [1, 1])
 
+    def testArraySetRangeListNonExactIndex(self):
+        # Same as testArraySetRangeTupleNonExactIndex, but the LIST loop's
+        # own PyIndex_Check fallback sub-branch.
+        ja = JArray(JShort)(2)
+        ja[0:2] = [1, True]
+        self.assertEqual(list(ja[0:2]), [1, 1])
+
     @common.requireNumpy
     def testArraySetRangeBufferFallback(self):
         # A negative-stride (reversed) source declines the bulk

@@ -676,6 +676,17 @@ class JFloatTestCase(common.JPypeTestCase):
         with self.assertRaisesRegex(SystemError, "nope"):
             ja[:] = a
 
+    def testArrayBadItemTuple(self):
+        # Same as testArrayBadItem, but the TUPLE loop's PyFloat_AsDouble
+        # general-fallback error branch, not the LIST loop's.
+        class q(object):
+            def __float__(self):
+                raise SystemError("nope")
+        ja = JArray(JFloat)(5)
+        a = (1, -1, q(), 3, 4)
+        with self.assertRaisesRegex(SystemError, "nope"):
+            ja[:] = a
+
     def testArrayBadDims(self):
         class q(bytes):
             # Lie about our length
