@@ -255,27 +255,31 @@ void JPClass::setArrayRange(JPJavaFrame& frame, jarray a,
 	JP_TRACE_IN("JPClass::setArrayRange");
 	auto array = (jobjectArray) a;
 
-	// Verify before we start the conversion, as we wont be able
-	// to abort once we start
+	// Match every item before starting the conversion, as we won't be
+	// able to abort once we start writing into the array. The matched
+	// items and their JPMatch results are held here (rather than
+	// re-matching in a second pass below) so findJavaConversion runs
+	// exactly once per item -- re-matching would recompute a decision
+	// already made, and for a nested array element that decision can
+	// itself be an expensive recursive match.
 	JPPySequence seq = JPPySequence::use(vals);
+	std::vector<JPPyObject> items;
+	std::vector<JPMatch> matches;
+	items.reserve(length);
+	matches.reserve(length);
 	JP_TRACE("Verify argument types");
 	for (int i = 0; i < length; i++)
 	{
-		JPPyObject v = seq[i];
-		JPMatch match(&frame, v.get());
-		if (findJavaConversion(match) < JPMatch::_implicit)
+		items.push_back(seq[i]);
+		matches.emplace_back(&frame, items.back().get());
+		if (findJavaConversion(matches.back()) < JPMatch::_implicit)
 			JP_RAISE(PyExc_TypeError, "Unable to convert");
 	}
 
 	JP_TRACE("Copy");
 	int index = start;
 	for (int i = 0; i < length; i++, index += step)
-	{
-		JPPyObject v = seq[i];
-		JPMatch match(&frame, v.get());
-		findJavaConversion(match);
-		frame.SetObjectArrayElement(array, index, match.convert().l);
-	}
+		frame.SetObjectArrayElement(array, index, matches[i].convert().l);
 	JP_TRACE_OUT;
 }
 
