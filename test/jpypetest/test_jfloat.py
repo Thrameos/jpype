@@ -132,6 +132,12 @@ class JFloatTestCase(common.JPypeTestCase):
         with self.assertRaisesRegex(SystemError, "fault"):
             JFloat._canConvertToJava(object())
 
+    def testArrayClassNoMatchRaises(self):
+        # JPArrayClassFloat::findJavaConversionImpl -- object() matches
+        # none of null/object/buffer/list/tuple/sequence/hints, walking
+        # the whole chain down to the final _none fallthrough.
+        self.assertEqual(JArray(JFloat)._canConvertToJava(object()), "none")
+
     @common.requireInstrumentation
     def testArrayFault(self):
         ja = JArray(JFloat)(5)

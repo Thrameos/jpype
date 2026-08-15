@@ -265,6 +265,14 @@ class ArrayPushFromTestCase(common.JPypeTestCase):
         ja.pushFrom(src)
         np.testing.assert_array_equal(np.asarray(ja), src)
 
+    def testFloatContiguousFastPath(self):
+        # JPFloatType::setElements -- only JInt/JDouble had a pushFrom
+        # RAW_NATIVE-fast-path test; float never did.
+        ja = JArray(jpype.JFloat)(20)
+        src = (np.arange(20, dtype=np.float32) - 10) * 1.5
+        ja.pushFrom(src)
+        np.testing.assert_array_equal(np.asarray(ja), src)
+
     def testByteContiguousFastPath(self):
         # JPByteType::setElements -- only JInt/JDouble had a pushFrom
         # RAW_NATIVE-fast-path test; byte/short/boolean/char never did.

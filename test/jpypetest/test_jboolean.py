@@ -62,6 +62,12 @@ class JBooleanTestCase(common.JPypeTestCase):
         with self.assertRaisesRegex(SystemError, "fault"):
             JBoolean._canConvertToJava(object())
 
+    def testArrayClassNoMatchRaises(self):
+        # JPArrayClassBoolean::findJavaConversionImpl -- object() matches
+        # none of null/object/buffer/list/tuple/sequence/hints, walking
+        # the whole chain down to the final _none fallthrough.
+        self.assertEqual(JArray(JBoolean)._canConvertToJava(object()), "none")
+
     def testBooleanFromInt(self):
         self.assertEqual(self.Test.callBoolean(int(123)), True)
         self.assertEqual(self.Test.callBoolean(int(0)), False)

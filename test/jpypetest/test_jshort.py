@@ -115,6 +115,12 @@ class JShortTestCase(common.JPypeTestCase):
         with self.assertRaisesRegex(SystemError, "fault"):
             JShort._canConvertToJava(object())
 
+    def testArrayClassNoMatchRaises(self):
+        # JPArrayClassShort::findJavaConversionImpl -- object() matches
+        # none of null/object/buffer/list/tuple/sequence/hints, walking
+        # the whole chain down to the final _none fallthrough.
+        self.assertEqual(JArray(JShort)._canConvertToJava(object()), "none")
+
     @common.requireInstrumentation
     def testArrayFault(self):
         ja = JArray(JShort)(5)
