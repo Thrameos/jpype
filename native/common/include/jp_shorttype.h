@@ -54,10 +54,10 @@ public:
 	void        setArrayRange(JPJavaFrame& frame, jarray,
 			jsize start, jsize length, jsize step,
 			PyObject *sequence) override;
-	JPPyObject  getArrayItem(JPJavaFrame& frame, jarray, jsize ndx) override;
 	void        setArrayItem(JPJavaFrame& frame, jarray, jsize ndx, PyObject* val) override;
 
-	// Non-virtual, narrow-frame companion to getArrayItem above -- called
+	// Non-virtual, narrow-frame companion to JPPrimitiveType::getArrayItem
+	// (unreachable for primitives; see jp_primitivetype.h) -- called
 	// only by JPArrayShort::getItem().
 	JPPyObject  getFastArrayItem(JPJavaAccess& frame, jarray, jsize ndx);
 

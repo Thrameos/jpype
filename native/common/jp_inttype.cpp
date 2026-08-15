@@ -319,16 +319,6 @@ void JPIntType::setArrayRange(JPJavaFrame& frame, jarray a,
 	JP_TRACE_OUT;
 }
 
-JPPyObject JPIntType::getArrayItem(JPJavaFrame& frame, jarray a, jsize ndx)
-{
-	auto array = (array_t) a;
-	type_t val;
-	frame.GetIntArrayRegion(array, ndx, 1, &val);
-	jvalue v;
-	field(v) = val;
-	return convertToPythonObject(frame, v, false);
-}
-
 void JPIntType::setArrayItem(JPJavaFrame& frame, jarray a, jsize ndx, PyObject* obj)
 {
 	JPMatch match(&frame, obj);

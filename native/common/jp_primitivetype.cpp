@@ -31,6 +31,15 @@ bool JPPrimitiveType::isPrimitive() const
 	return true;
 }
 
+JPPyObject JPPrimitiveType::getArrayItem(JPJavaFrame& frame, jarray a, jsize ndx)  // GCOVR_EXCL_LINE
+{
+	// See the declaration's comment (jp_primitivetype.h) -- unreachable
+	// today (JPArrayByte/JPArrayInt/etc. all use getFastArrayItem
+	// instead), kept only so a future polymorphic caller can't silently
+	// fall through to JPClass's jobjectArray-based default.
+	JP_RAISE(PyExc_SystemError, "getArrayItem not implemented for primitive types; use getFastArrayItem");  // GCOVR_EXCL_LINE
+}
+
 PyObject *JPPrimitiveType::convertLong(PyTypeObject* wrapper, long long value)
 {
 	if (wrapper == nullptr)

@@ -37,6 +37,20 @@ public:
 		m_Class = JPClassRef(frame, o);
 	}
 
+	// The virtual JPClass::getArrayItem is only ever called polymorphically
+	// through JPArrayObject (jp_array.cpp), which is only constructed for
+	// reference-typed array components -- JPArray::create always builds a
+	// dedicated JPArrayByte/JPArrayInt/etc. wrapper for a primitive
+	// component, and that wrapper's getItem() calls getFastArrayItem
+	// instead. So this override can never actually be reached today, but
+	// still needs to exist: JPClass's own default implementation treats
+	// `a` as a jobjectArray (GetObjectArrayElement), which would
+	// misbehave on a primitive array if anything -- now or in the future
+	// -- ever did dispatch getArrayItem polymorphically for one. One
+	// shared override here (replacing seven duplicate per-type ones)
+	// keeps that guarantee without seven copies of unreachable code.
+	JPPyObject getArrayItem(JPJavaFrame& frame, jarray a, jsize ndx) override;
+
 	virtual void getView(JPArrayView& view) = 0;
 	virtual void releaseView(JPArrayView& view) = 0;
 	virtual const char* getBufferFormat() = 0;

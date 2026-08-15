@@ -309,16 +309,6 @@ void JPFloatType::setArrayRange(JPJavaFrame& frame, jarray a,
 	JP_TRACE_OUT;
 }
 
-JPPyObject JPFloatType::getArrayItem(JPJavaFrame& frame, jarray a, jsize ndx)
-{
-	auto array = (array_t) a;
-	type_t val;
-	frame.GetFloatArrayRegion(array, ndx, 1, &val);
-	jvalue v;
-	field(v) = val;
-	return convertToPythonObject(frame, v, false);
-}
-
 void JPFloatType::setArrayItem(JPJavaFrame& frame, jarray a, jsize ndx, PyObject* obj)
 {
 	JPMatch match(&frame, obj);
