@@ -30,7 +30,7 @@ import sys
 import unittest
 
 import jpype
-from jpype import JArray, JInt, JLong, JDouble, JString
+from jpype import JArray, JInt, JLong, JDouble, JString, JByte, JShort, JBoolean, JChar
 import common
 
 try:
@@ -262,6 +262,32 @@ class ArrayPushFromTestCase(common.JPypeTestCase):
     def testDoubleContiguousFastPath(self):
         ja = JArray(JDouble)(50)
         src = np.arange(50, dtype=np.float64) * 1.5
+        ja.pushFrom(src)
+        np.testing.assert_array_equal(np.asarray(ja), src)
+
+    def testByteContiguousFastPath(self):
+        # JPByteType::setElements -- only JInt/JDouble had a pushFrom
+        # RAW_NATIVE-fast-path test; byte/short/boolean/char never did.
+        ja = JArray(JByte)(10)
+        src = np.arange(10, dtype=np.int8)
+        ja.pushFrom(src)
+        np.testing.assert_array_equal(np.asarray(ja), src)
+
+    def testShortContiguousFastPath(self):
+        ja = JArray(JShort)(10)
+        src = np.arange(10, dtype=np.int16)
+        ja.pushFrom(src)
+        np.testing.assert_array_equal(np.asarray(ja), src)
+
+    def testBooleanContiguousFastPath(self):
+        ja = JArray(JBoolean)(4)
+        src = np.array([True, False, True, True], dtype=np.bool_)
+        ja.pushFrom(src)
+        np.testing.assert_array_equal(np.asarray(ja), src)
+
+    def testCharContiguousFastPath(self):
+        ja = JArray(JChar)(5)
+        src = np.arange(65, 70, dtype=np.uint16)
         ja.pushFrom(src)
         np.testing.assert_array_equal(np.asarray(ja), src)
 
