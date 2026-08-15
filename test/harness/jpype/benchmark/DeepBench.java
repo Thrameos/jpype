@@ -269,6 +269,27 @@ public class DeepBench
     return a;
   }
 
+  // byte/boolean/char 2D counterparts -- unlike int/short/long/float/double
+  // (which get a sum2D*Array method for the dtype-mismatch push test), these
+  // three primitive types have no natural numeric "sum" (or, for boolean, no
+  // useful reduction at all), so an identity passthrough is used instead to
+  // exercise the same JPConversionMultiArrayBuffer -> newMultiArrayObject
+  // method-argument dtype-coercion path.
+  public static byte[][] identity2DByteArray(byte[][] a)
+  {
+    return a;
+  }
+
+  public static boolean[][] identity2DBooleanArray(boolean[][] a)
+  {
+    return a;
+  }
+
+  public static char[][] identity2DCharArray(char[][] a)
+  {
+    return a;
+  }
+
   // Zero-Java-side-compute push benchmarking targets: unlike sumXArray
   // (which does type-dependent O(elements) work, see
   // project/benchmark/RESULTS.md's push methodology note) and unlike

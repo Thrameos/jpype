@@ -114,6 +114,53 @@ class ArrayMultiDimBufferTestCase(common.JPypeTestCase):
         arr = np.arange(16, dtype=np.int64).reshape(4, 4)
         self.assertEqual(self.DeepBench.sum2DIntArray(arr), int(arr.sum()))
 
+    def testPushDtypeMismatchInt64ToByte(self):
+        # byte/boolean/char have no fixed-cost raw-reinterpret/byte-swap
+        # relationship to int64 (classifyRawTransfer returns RAW_NONE), so
+        # this exercises JPByteType::newMultiArrayObject -- the general
+        # per-leaf-critical-section fallback tryFastMultiArrayBuffer declines
+        # into -- which byte/boolean/char never reach via any other test
+        # (no sum2D*Array method exists for them; identity2D*Array round-
+        # trips the same conversion path instead).
+        arr = np.arange(16, dtype=np.int64).reshape(4, 4) - 8
+        back = np.asarray(self.DeepBench.identity2DByteArray(arr))
+        np.testing.assert_array_equal(back, arr)
+
+    def testPushDtypeMismatchInt64ToBoolean(self):
+        arr = (np.arange(16, dtype=np.int64) % 2).reshape(4, 4)
+        back = np.asarray(self.DeepBench.identity2DBooleanArray(arr))
+        np.testing.assert_array_equal(back, arr.astype(bool))
+
+    def testPushDtypeMismatchInt64ToChar(self):
+        arr = (np.arange(16, dtype=np.int64) + ord('a')).reshape(4, 4)
+        back = np.asarray(self.DeepBench.identity2DCharArray(arr))
+        np.testing.assert_array_equal(back, arr.astype(np.uint16))
+
+    # int's own JPIntType::newMultiArrayObject is exercised by
+    # testPushDtypeMismatch{Float64,Int64}ToInt above, but short/long/
+    # float/double never got the same treatment despite having their own
+    # sum2D*Array method to exercise it through -- each of these sources is
+    # chosen so classifyRawTransfer can't take a raw-reinterpret/byte-swap
+    # shortcut (mismatched kind or size vs. the target), forcing the actual
+    # newMultiArrayObject fallback rather than tryFastMultiArrayBuffer.
+
+    def testPushDtypeMismatchInt64ToShort(self):
+        arr = np.arange(16, dtype=np.int64).reshape(4, 4) - 8
+        self.assertEqual(self.DeepBench.sum2DShortArray(arr), int(arr.sum()))
+
+    def testPushDtypeMismatchFloat64ToLong(self):
+        arr = (np.arange(16, dtype=np.float64) + 0.9).reshape(4, 4)
+        expected = sum(int(x) for x in arr.flatten())
+        self.assertEqual(self.DeepBench.sum2DLongArray(arr), expected)
+
+    def testPushDtypeMismatchFloat64ToFloat(self):
+        arr = (np.arange(16, dtype=np.float64) + 0.5).reshape(4, 4)
+        self.assertAlmostEqual(self.DeepBench.sum2DFloatArray(arr), float(arr.sum()), places=3)
+
+    def testPushDtypeMismatchInt64ToDouble(self):
+        arr = np.arange(16, dtype=np.int64).reshape(4, 4) - 8
+        self.assertEqual(self.DeepBench.sum2DDoubleArray(arr), float(arr.sum()))
+
     @unittest.skipUnless(sys.version_info >= (3, 12),
             "PEP 688 __buffer__ needed to force a buffer export that "
             "declines PyBUF_STRIDES -- see ArrayManualCtorBufferTestCase's "
