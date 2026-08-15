@@ -736,9 +736,8 @@ class Support
 
   private static void readBytesSignedUnrolled(ByteBuffer src, long[] out, int length, int strideBytes)
   {
-    int n8 = length - (length % 8);
     int i = 0, off = 0;
-    for (; i < n8; i += 8, off += 8 * strideBytes)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
     {
       out[i] = src.get(off);
       out[i + 1] = src.get(off + strideBytes);
@@ -755,9 +754,8 @@ class Support
 
   private static void readBytesUnsignedUnrolled(ByteBuffer src, long[] out, int length, int strideBytes)
   {
-    int n8 = length - (length % 8);
     int i = 0, off = 0;
-    for (; i < n8; i += 8, off += 8 * strideBytes)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
     {
       out[i] = src.get(off) & 0xFF;
       out[i + 1] = src.get(off + strideBytes) & 0xFF;
@@ -774,9 +772,8 @@ class Support
 
   private static void readShortsSignedUnrolled(ByteBuffer src, long[] out, int length, int strideBytes)
   {
-    int n8 = length - (length % 8);
     int i = 0, off = 0;
-    for (; i < n8; i += 8, off += 8 * strideBytes)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
     {
       out[i] = src.getShort(off);
       out[i + 1] = src.getShort(off + strideBytes);
@@ -793,9 +790,8 @@ class Support
 
   private static void readShortsUnsignedUnrolled(ByteBuffer src, long[] out, int length, int strideBytes)
   {
-    int n8 = length - (length % 8);
     int i = 0, off = 0;
-    for (; i < n8; i += 8, off += 8 * strideBytes)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
     {
       out[i] = src.getShort(off) & 0xFFFF;
       out[i + 1] = src.getShort(off + strideBytes) & 0xFFFF;
@@ -812,9 +808,8 @@ class Support
 
   private static void readIntsSignedUnrolled(ByteBuffer src, long[] out, int length, int strideBytes)
   {
-    int n8 = length - (length % 8);
     int i = 0, off = 0;
-    for (; i < n8; i += 8, off += 8 * strideBytes)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
     {
       out[i] = src.getInt(off);
       out[i + 1] = src.getInt(off + strideBytes);
@@ -831,9 +826,8 @@ class Support
 
   private static void readIntsUnsignedUnrolled(ByteBuffer src, long[] out, int length, int strideBytes)
   {
-    int n8 = length - (length % 8);
     int i = 0, off = 0;
-    for (; i < n8; i += 8, off += 8 * strideBytes)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
     {
       out[i] = src.getInt(off) & 0xFFFFFFFFL;
       out[i + 1] = src.getInt(off + strideBytes) & 0xFFFFFFFFL;
@@ -850,9 +844,8 @@ class Support
 
   private static void readLongsSignedUnrolled(ByteBuffer src, long[] out, int length, int strideBytes)
   {
-    int n8 = length - (length % 8);
     int i = 0, off = 0;
-    for (; i < n8; i += 8, off += 8 * strideBytes)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
     {
       out[i] = src.getLong(off);
       out[i + 1] = src.getLong(off + strideBytes);
@@ -926,9 +919,8 @@ class Support
   private static double[] readUnsignedLongsAsDoublesUnrolled(ByteBuffer src, int length, int strideBytes)
   {
     double[] out = new double[length];
-    int n8 = length - (length % 8);
     int i = 0, off = 0;
-    for (; i < n8; i += 8, off += 8 * strideBytes)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
     {
       out[i] = unsignedLongBitsToDouble(src.getLong(off));
       out[i + 1] = unsignedLongBitsToDouble(src.getLong(off + strideBytes));
@@ -947,9 +939,8 @@ class Support
   private static double[] readBytesSignedAsDoublesUnrolled(ByteBuffer src, int length, int strideBytes)
   {
     double[] out = new double[length];
-    int n8 = length - (length % 8);
     int i = 0, off = 0;
-    for (; i < n8; i += 8, off += 8 * strideBytes)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
     {
       out[i] = src.get(off);
       out[i + 1] = src.get(off + strideBytes);
@@ -968,9 +959,8 @@ class Support
   private static double[] readBytesUnsignedAsDoublesUnrolled(ByteBuffer src, int length, int strideBytes)
   {
     double[] out = new double[length];
-    int n8 = length - (length % 8);
     int i = 0, off = 0;
-    for (; i < n8; i += 8, off += 8 * strideBytes)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
     {
       out[i] = src.get(off) & 0xFF;
       out[i + 1] = src.get(off + strideBytes) & 0xFF;
@@ -989,9 +979,8 @@ class Support
   private static double[] readShortsSignedAsDoublesUnrolled(ByteBuffer src, int length, int strideBytes)
   {
     double[] out = new double[length];
-    int n8 = length - (length % 8);
     int i = 0, off = 0;
-    for (; i < n8; i += 8, off += 8 * strideBytes)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
     {
       out[i] = src.getShort(off);
       out[i + 1] = src.getShort(off + strideBytes);
@@ -1010,9 +999,8 @@ class Support
   private static double[] readShortsUnsignedAsDoublesUnrolled(ByteBuffer src, int length, int strideBytes)
   {
     double[] out = new double[length];
-    int n8 = length - (length % 8);
     int i = 0, off = 0;
-    for (; i < n8; i += 8, off += 8 * strideBytes)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
     {
       out[i] = src.getShort(off) & 0xFFFF;
       out[i + 1] = src.getShort(off + strideBytes) & 0xFFFF;
@@ -1031,9 +1019,8 @@ class Support
   private static double[] readIntsSignedAsDoublesUnrolled(ByteBuffer src, int length, int strideBytes)
   {
     double[] out = new double[length];
-    int n8 = length - (length % 8);
     int i = 0, off = 0;
-    for (; i < n8; i += 8, off += 8 * strideBytes)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
     {
       out[i] = src.getInt(off);
       out[i + 1] = src.getInt(off + strideBytes);
@@ -1052,9 +1039,8 @@ class Support
   private static double[] readIntsUnsignedAsDoublesUnrolled(ByteBuffer src, int length, int strideBytes)
   {
     double[] out = new double[length];
-    int n8 = length - (length % 8);
     int i = 0, off = 0;
-    for (; i < n8; i += 8, off += 8 * strideBytes)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
     {
       out[i] = src.getInt(off) & 0xFFFFFFFFL;
       out[i + 1] = src.getInt(off + strideBytes) & 0xFFFFFFFFL;
@@ -1073,9 +1059,8 @@ class Support
   private static double[] readLongsSignedAsDoublesUnrolled(ByteBuffer src, int length, int strideBytes)
   {
     double[] out = new double[length];
-    int n8 = length - (length % 8);
     int i = 0, off = 0;
-    for (; i < n8; i += 8, off += 8 * strideBytes)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
     {
       out[i] = src.getLong(off);
       out[i + 1] = src.getLong(off + strideBytes);
@@ -1099,12 +1084,11 @@ class Support
   private static double[] readDoublesFromFloat(ByteBuffer src, int length, int strideBytes, int srcSize)
   {
     double[] out = new double[length];
-    int n8 = length - (length % 8);
     int i = 0, off = 0;
     switch (srcSize)
     {
       case 2:
-        for (; i < n8; i += 8, off += 8 * strideBytes)
+        for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
         {
           out[i] = halfToFloat(src.getShort(off));
           out[i + 1] = halfToFloat(src.getShort(off + strideBytes));
@@ -1119,7 +1103,7 @@ class Support
           out[i] = halfToFloat(src.getShort(off));
         break;
       case 4:
-        for (; i < n8; i += 8, off += 8 * strideBytes)
+        for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
         {
           out[i] = src.getFloat(off);
           out[i + 1] = src.getFloat(off + strideBytes);
@@ -1134,7 +1118,7 @@ class Support
           out[i] = src.getFloat(off);
         break;
       default:
-        for (; i < n8; i += 8, off += 8 * strideBytes)
+        for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
         {
           out[i] = src.getDouble(off);
           out[i + 1] = src.getDouble(off + strideBytes);
@@ -1164,9 +1148,8 @@ class Support
   private static void writeBooleansFromLongs(long[] vals, boolean[] dest, int destStart, int destStep)
   {
     int n = vals.length;
-    int n8 = n - (n % 8);
     int i = 0, di = destStart;
-    for (; i < n8; i += 8, di += 8 * destStep)
+    for (; i + 8 <= n; i += 8, di += 8 * destStep)
     {
       dest[di] = vals[i] != 0;
       dest[di + destStep] = vals[i + 1] != 0;
@@ -1184,9 +1167,8 @@ class Support
   private static void writeBytesFromLongs(long[] vals, byte[] dest, int destStart, int destStep)
   {
     int n = vals.length;
-    int n8 = n - (n % 8);
     int i = 0, di = destStart;
-    for (; i < n8; i += 8, di += 8 * destStep)
+    for (; i + 8 <= n; i += 8, di += 8 * destStep)
     {
       dest[di] = (byte) vals[i];
       dest[di + destStep] = (byte) vals[i + 1];
@@ -1204,9 +1186,8 @@ class Support
   private static void writeCharsFromLongs(long[] vals, char[] dest, int destStart, int destStep)
   {
     int n = vals.length;
-    int n8 = n - (n % 8);
     int i = 0, di = destStart;
-    for (; i < n8; i += 8, di += 8 * destStep)
+    for (; i + 8 <= n; i += 8, di += 8 * destStep)
     {
       dest[di] = (char) vals[i];
       dest[di + destStep] = (char) vals[i + 1];
@@ -1224,9 +1205,8 @@ class Support
   private static void writeShortsFromLongs(long[] vals, short[] dest, int destStart, int destStep)
   {
     int n = vals.length;
-    int n8 = n - (n % 8);
     int i = 0, di = destStart;
-    for (; i < n8; i += 8, di += 8 * destStep)
+    for (; i + 8 <= n; i += 8, di += 8 * destStep)
     {
       dest[di] = (short) vals[i];
       dest[di + destStep] = (short) vals[i + 1];
@@ -1244,9 +1224,8 @@ class Support
   private static void writeIntsFromLongs(long[] vals, int[] dest, int destStart, int destStep)
   {
     int n = vals.length;
-    int n8 = n - (n % 8);
     int i = 0, di = destStart;
-    for (; i < n8; i += 8, di += 8 * destStep)
+    for (; i + 8 <= n; i += 8, di += 8 * destStep)
     {
       dest[di] = (int) vals[i];
       dest[di + destStep] = (int) vals[i + 1];
@@ -1264,9 +1243,8 @@ class Support
   private static void writeLongsFromLongs(long[] vals, long[] dest, int destStart, int destStep)
   {
     int n = vals.length;
-    int n8 = n - (n % 8);
     int i = 0, di = destStart;
-    for (; i < n8; i += 8, di += 8 * destStep)
+    for (; i + 8 <= n; i += 8, di += 8 * destStep)
     {
       dest[di] = vals[i];
       dest[di + destStep] = vals[i + 1];
@@ -1284,9 +1262,8 @@ class Support
   private static void writeBooleansFromDoubles(double[] vals, boolean[] dest, int destStart, int destStep)
   {
     int n = vals.length;
-    int n8 = n - (n % 8);
     int i = 0, di = destStart;
-    for (; i < n8; i += 8, di += 8 * destStep)
+    for (; i + 8 <= n; i += 8, di += 8 * destStep)
     {
       dest[di] = vals[i] != 0;
       dest[di + destStep] = vals[i + 1] != 0;
@@ -1304,9 +1281,8 @@ class Support
   private static void writeBytesFromDoubles(double[] vals, byte[] dest, int destStart, int destStep)
   {
     int n = vals.length;
-    int n8 = n - (n % 8);
     int i = 0, di = destStart;
-    for (; i < n8; i += 8, di += 8 * destStep)
+    for (; i + 8 <= n; i += 8, di += 8 * destStep)
     {
       dest[di] = (byte) vals[i];
       dest[di + destStep] = (byte) vals[i + 1];
@@ -1324,9 +1300,8 @@ class Support
   private static void writeCharsFromDoubles(double[] vals, char[] dest, int destStart, int destStep)
   {
     int n = vals.length;
-    int n8 = n - (n % 8);
     int i = 0, di = destStart;
-    for (; i < n8; i += 8, di += 8 * destStep)
+    for (; i + 8 <= n; i += 8, di += 8 * destStep)
     {
       dest[di] = (char) vals[i];
       dest[di + destStep] = (char) vals[i + 1];
@@ -1344,9 +1319,8 @@ class Support
   private static void writeShortsFromDoubles(double[] vals, short[] dest, int destStart, int destStep)
   {
     int n = vals.length;
-    int n8 = n - (n % 8);
     int i = 0, di = destStart;
-    for (; i < n8; i += 8, di += 8 * destStep)
+    for (; i + 8 <= n; i += 8, di += 8 * destStep)
     {
       dest[di] = (short) vals[i];
       dest[di + destStep] = (short) vals[i + 1];
@@ -1364,9 +1338,8 @@ class Support
   private static void writeIntsFromDoubles(double[] vals, int[] dest, int destStart, int destStep)
   {
     int n = vals.length;
-    int n8 = n - (n % 8);
     int i = 0, di = destStart;
-    for (; i < n8; i += 8, di += 8 * destStep)
+    for (; i + 8 <= n; i += 8, di += 8 * destStep)
     {
       dest[di] = (int) vals[i];
       dest[di + destStep] = (int) vals[i + 1];
@@ -1384,9 +1357,8 @@ class Support
   private static void writeLongsFromDoubles(double[] vals, long[] dest, int destStart, int destStep)
   {
     int n = vals.length;
-    int n8 = n - (n % 8);
     int i = 0, di = destStart;
-    for (; i < n8; i += 8, di += 8 * destStep)
+    for (; i + 8 <= n; i += 8, di += 8 * destStep)
     {
       dest[di] = (long) vals[i];
       dest[di + destStep] = (long) vals[i + 1];
@@ -1404,9 +1376,8 @@ class Support
   private static void writeFloatsFromDoubles(double[] vals, float[] dest, int destStart, int destStep)
   {
     int n = vals.length;
-    int n8 = n - (n % 8);
     int i = 0, di = destStart;
-    for (; i < n8; i += 8, di += 8 * destStep)
+    for (; i + 8 <= n; i += 8, di += 8 * destStep)
     {
       dest[di] = (float) vals[i];
       dest[di + destStep] = (float) vals[i + 1];
@@ -1424,9 +1395,8 @@ class Support
   private static void writeDoublesFromDoubles(double[] vals, double[] dest, int destStart, int destStep)
   {
     int n = vals.length;
-    int n8 = n - (n % 8);
     int i = 0, di = destStart;
-    for (; i < n8; i += 8, di += 8 * destStep)
+    for (; i + 8 <= n; i += 8, di += 8 * destStep)
     {
       dest[di] = vals[i];
       dest[di + destStep] = vals[i + 1];
@@ -1457,9 +1427,8 @@ class Support
 
   private static void readIntsDirectUnrolled(ByteBuffer src, int[] out, int length, int strideBytes)
   {
-    int n8 = length - (length % 8);
     int i = 0, off = 0;
-    for (; i < n8; i += 8, off += 8 * strideBytes)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
     {
       out[i] = src.getInt(off);
       out[i + 1] = src.getInt(off + strideBytes);
@@ -1477,9 +1446,8 @@ class Support
   private static void readIntsDirectUnrolledInto(ByteBuffer src, int[] dest, int length, int strideBytes,
           int destStart, int destStep)
   {
-    int n8 = length - (length % 8);
     int i = 0, off = 0, di = destStart;
-    for (; i < n8; i += 8, off += 8 * strideBytes, di += 8 * destStep)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes, di += 8 * destStep)
     {
       dest[di] = src.getInt(off);
       dest[di + destStep] = src.getInt(off + strideBytes);
@@ -1496,9 +1464,8 @@ class Support
 
   private static void readFloatsDirectUnrolled(ByteBuffer src, float[] out, int length, int strideBytes)
   {
-    int n8 = length - (length % 8);
     int i = 0, off = 0;
-    for (; i < n8; i += 8, off += 8 * strideBytes)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes)
     {
       out[i] = src.getFloat(off);
       out[i + 1] = src.getFloat(off + strideBytes);
@@ -1516,9 +1483,8 @@ class Support
   private static void readFloatsDirectUnrolledInto(ByteBuffer src, float[] dest, int length, int strideBytes,
           int destStart, int destStep)
   {
-    int n8 = length - (length % 8);
     int i = 0, off = 0, di = destStart;
-    for (; i < n8; i += 8, off += 8 * strideBytes, di += 8 * destStep)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes, di += 8 * destStep)
     {
       dest[di] = src.getFloat(off);
       dest[di + destStep] = src.getFloat(off + strideBytes);
@@ -1547,9 +1513,8 @@ class Support
   private static void readLongsDirectUnrolledInto(ByteBuffer src, long[] dest, int length, int strideBytes,
           int destStart, int destStep)
   {
-    int n8 = length - (length % 8);
     int i = 0, off = 0, di = destStart;
-    for (; i < n8; i += 8, off += 8 * strideBytes, di += 8 * destStep)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes, di += 8 * destStep)
     {
       dest[di] = src.getLong(off);
       dest[di + destStep] = src.getLong(off + strideBytes);
@@ -1567,9 +1532,8 @@ class Support
   private static void readDoublesDirectUnrolledInto(ByteBuffer src, double[] dest, int length, int strideBytes,
           int destStart, int destStep)
   {
-    int n8 = length - (length % 8);
     int i = 0, off = 0, di = destStart;
-    for (; i < n8; i += 8, off += 8 * strideBytes, di += 8 * destStep)
+    for (; i + 8 <= length; i += 8, off += 8 * strideBytes, di += 8 * destStep)
     {
       dest[di] = src.getDouble(off);
       dest[di + destStep] = src.getDouble(off + strideBytes);
