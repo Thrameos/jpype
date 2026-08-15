@@ -244,6 +244,44 @@ class ArrayRaggedPushTestCase(common.JPypeTestCase):
         expected = sum(x for row in data for x in row)
         self.assertEqual(self.DeepBench.sum2DIntArray(data), expected)
 
+    # ---- matchRaggedNode failure branches, method-argument-dispatch path
+    # ----
+    # The JArray(...) constructor path never actually calls
+    # JPConversionRaggedSequence for these failure cases (a mixed/invalid
+    # leaf causes JPArrayClassNestedRagged::findJavaConversionImpl's
+    # raggedSequenceConversion->matches() to decline and fall through to
+    # plain sequenceConversion before matchRaggedNode's own TUPLE/GENERIC
+    # leaf-check or LIST-recursive-failure lines ever run -- confirmed via
+    # an isolated gcov reset-and-diff). Only the declared-array-parameter
+    # (method-call) dispatch actually exercises those specific lines, so
+    # these three targets are written against DeepBench.sum2DIntArray
+    # rather than the constructor.
+
+    def testTupleLeafFailureAsArgumentFallsBackAndRaises(self):
+        # matchRaggedNode's leaf-level TUPLE loop's own return-false.
+        with self.assertRaises(TypeError):
+            self.DeepBench.sum2DIntArray([[1, 2], (3, "x")])
+
+    def testGenericLeafFailureAsArgumentFallsBackAndRaises(self):
+        # matchRaggedNode's leaf-level GENERIC loop's own return-false.
+        GS = common.GenericSequence
+        with self.assertRaises(TypeError):
+            self.DeepBench.sum2DIntArray([[1, 2], GS([3, "x"])])
+
+    def testGenericSizeRaisesAsArgumentFallsBackAndRaises(self):
+        # matchRaggedNode's generic-kind size() call itself raising (a
+        # broken __len__) must decline gracefully, not propagate an
+        # unrelated internal exception.
+        class BrokenLen:
+            def __len__(self):
+                raise RuntimeError("boom")
+
+            def __getitem__(self, i):
+                raise IndexError
+
+        with self.assertRaises((TypeError, RuntimeError)):
+            self.DeepBench.sum2DIntArray([[1, 2], BrokenLen()])
+
     # ---- scope boundary: short/byte/char/boolean leaf types must stay on
     # the existing, untouched JPConversionSequence path at every depth --
     # this phase must not touch their behavior at all ----
