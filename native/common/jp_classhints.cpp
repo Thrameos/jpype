@@ -945,7 +945,7 @@ static inline void encodeRaggedLeaf(char typeCode, PyObject *item, char *buffer,
 		{
 			long v = PyLong_AsLong(item);
 			if (v == -1)
-				JP_PY_CHECK();
+				JP_PY_CHECK();  // GCOVR_EXCL_LINE
 			*(jint*) (buffer + offset) = (jint) JPIntType::assertRange(v);
 			offset += sizeof (jint);
 			break;
@@ -954,7 +954,7 @@ static inline void encodeRaggedLeaf(char typeCode, PyObject *item, char *buffer,
 		{
 			jlong v = PyLong_AsLongLong(item);
 			if (v == -1)
-				JP_PY_CHECK();
+				JP_PY_CHECK();  // GCOVR_EXCL_LINE
 			*(jlong*) (buffer + offset) = v;
 			offset += sizeof (jlong);
 			break;
@@ -963,7 +963,7 @@ static inline void encodeRaggedLeaf(char typeCode, PyObject *item, char *buffer,
 		{
 			double v = PyFloat_AsDouble(item);
 			if (v == -1.)
-				JP_PY_CHECK();
+				JP_PY_CHECK();  // GCOVR_EXCL_LINE
 			*(jfloat*) (buffer + offset) = (jfloat) v;
 			offset += sizeof (jfloat);
 			break;
@@ -972,7 +972,7 @@ static inline void encodeRaggedLeaf(char typeCode, PyObject *item, char *buffer,
 		{
 			double v = PyFloat_AsDouble(item);
 			if (v == -1.)
-				JP_PY_CHECK();
+				JP_PY_CHECK();  // GCOVR_EXCL_LINE
 			*(jdouble*) (buffer + offset) = (jdouble) v;
 			offset += sizeof (jdouble);
 			break;

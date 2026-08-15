@@ -250,6 +250,16 @@ class ArrayRaggedPushTestCase(common.JPypeTestCase):
         expected = sum(x for row in data for x in row)
         self.assertEqual(self.DeepBench.sum2DIntArray(data), expected)
 
+    def testRaggedFloatAsArgument(self):
+        # Only the method-argument-dispatch path (JPConversionRaggedSequence
+        # via findJavaConversion) reaches encodeRaggedLeaf's 'F' case --
+        # the JArray(JFloat, 2)(data) constructor path (testRaggedFloat2D
+        # above) never calls it, same as the int scope-boundary comment
+        # above documents.
+        data = [[1.5, 2.5, 3.5], [4.5]]
+        expected = sum(x for row in data for x in row)
+        self.assertAlmostEqual(self.DeepBench.sum2DFloatArray(data), expected, places=5)
+
     # ---- matchRaggedNode failure branches, method-argument-dispatch path
     # ----
     # The JArray(...) constructor path never actually calls
