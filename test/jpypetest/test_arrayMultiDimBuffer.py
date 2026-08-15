@@ -64,19 +64,33 @@ class ArrayMultiDimBufferTestCase(common.JPypeTestCase):
     # ---- push: matching dtype (fast path) ----
 
     def testPush2D(self):
-        arr = np.arange(16, dtype=np.int32).reshape(4, 4)
+        # Sum alone can't catch a transposed/misindexed reshape (same
+        # total either way) -- use non-square, non-symmetric-under-
+        # transpose shapes and round-trip elementwise through
+        # identity*DIntArray (the argument-dispatch counterpart of
+        # testPushValuesLandCorrectly's constructor-path check) rather
+        # than just comparing sums.
+        arr = np.arange(12, dtype=np.int32).reshape(3, 4)
+        back = np.asarray(self.DeepBench.identity2DIntArray(arr))
+        np.testing.assert_array_equal(back, arr)
         self.assertEqual(self.DeepBench.sum2DIntArray(arr), int(arr.sum()))
 
     def testPush3D(self):
-        arr = np.arange(64, dtype=np.int32).reshape(4, 4, 4)
+        arr = np.arange(60, dtype=np.int32).reshape(3, 4, 5)
+        back = np.asarray(self.DeepBench.identity3DIntArray(arr))
+        np.testing.assert_array_equal(back, arr)
         self.assertEqual(self.DeepBench.sum3DIntArray(arr), int(arr.sum()))
 
     def testPush4D(self):
-        arr = np.arange(4 ** 4, dtype=np.int32).reshape(4, 4, 4, 4)
+        arr = np.arange(2 * 3 * 4 * 5, dtype=np.int32).reshape(2, 3, 4, 5)
+        back = np.asarray(self.DeepBench.identity4DIntArray(arr))
+        np.testing.assert_array_equal(back, arr)
         self.assertEqual(self.DeepBench.sum4DIntArray(arr), int(arr.sum()))
 
     def testPush5D(self):
-        arr = np.arange(3 ** 5, dtype=np.int32).reshape(3, 3, 3, 3, 3)
+        arr = np.arange(2 * 3 * 2 * 3 * 2, dtype=np.int32).reshape(2, 3, 2, 3, 2)
+        back = np.asarray(self.DeepBench.identity5DIntArray(arr))
+        np.testing.assert_array_equal(back, arr)
         self.assertEqual(self.DeepBench.sum5DIntArray(arr), int(arr.sum()))
 
     def testPushValuesLandCorrectly(self):
@@ -177,25 +191,33 @@ class ArrayMultiDimBufferTestCase(common.JPypeTestCase):
     # the general per-leaf-critical-section newMultiArrayObject fallback) ----
 
     def testPushByteSwapped2D(self):
-        native = (np.arange(16, dtype=np.int32) - 5).reshape(4, 4)
+        native = (np.arange(12, dtype=np.int32) - 5).reshape(3, 4)
         swapped = native.astype(native.dtype.newbyteorder())
         self.assertNotEqual(swapped.dtype.byteorder, '=')
+        back = np.asarray(self.DeepBench.identity2DIntArray(swapped))
+        np.testing.assert_array_equal(back, native)
         self.assertEqual(self.DeepBench.sum2DIntArray(swapped), int(native.sum()))
 
     def testPushByteSwapped3D(self):
-        native = (np.arange(64, dtype=np.int32) - 5).reshape(4, 4, 4)
+        native = (np.arange(60, dtype=np.int32) - 5).reshape(3, 4, 5)
         swapped = native.astype(native.dtype.newbyteorder())
+        back = np.asarray(self.DeepBench.identity3DIntArray(swapped))
+        np.testing.assert_array_equal(back, native)
         self.assertEqual(self.DeepBench.sum3DIntArray(swapped), int(native.sum()))
 
     def testPushFloat16To2DInt(self):
-        arr = (np.arange(16, dtype=np.float32) - 8).reshape(4, 4).astype(np.float16)
-        expected = int(arr.astype(np.int32).sum())
-        self.assertEqual(self.DeepBench.sum2DIntArray(arr), expected)
+        arr = (np.arange(12, dtype=np.float32) - 6).reshape(3, 4).astype(np.float16)
+        expected = arr.astype(np.int32)
+        back = np.asarray(self.DeepBench.identity2DIntArray(arr))
+        np.testing.assert_array_equal(back, expected)
+        self.assertEqual(self.DeepBench.sum2DIntArray(arr), int(expected.sum()))
 
     def testPushFloat16To3DInt(self):
-        arr = (np.arange(64, dtype=np.float32) - 32).reshape(4, 4, 4).astype(np.float16)
-        expected = int(arr.astype(np.int32).sum())
-        self.assertEqual(self.DeepBench.sum3DIntArray(arr), expected)
+        arr = (np.arange(60, dtype=np.float32) - 30).reshape(3, 4, 5).astype(np.float16)
+        expected = arr.astype(np.int32)
+        back = np.asarray(self.DeepBench.identity3DIntArray(arr))
+        np.testing.assert_array_equal(back, expected)
+        self.assertEqual(self.DeepBench.sum3DIntArray(arr), int(expected.sum()))
 
     # ---- pull: matching dtype (fast path), depths beyond test_buffer.py's ----
 

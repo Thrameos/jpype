@@ -242,6 +242,33 @@ public class DeepBench
     return a;
   }
 
+  // 2D/3D/4D/5D counterparts of identityIntArray -- unlike sum*DIntArray
+  // (which discards position: summing is invariant to any permutation of
+  // the same values, so it can't catch a transposed axis or a misindexed
+  // reshape), echoing the array back lets the Python side compare it
+  // elementwise against the original and confirm every value actually
+  // landed at its own position, not just that the right values arrived
+  // somewhere.
+  public static int[][] identity2DIntArray(int[][] a)
+  {
+    return a;
+  }
+
+  public static int[][][] identity3DIntArray(int[][][] a)
+  {
+    return a;
+  }
+
+  public static int[][][][] identity4DIntArray(int[][][][] a)
+  {
+    return a;
+  }
+
+  public static int[][][][][] identity5DIntArray(int[][][][][] a)
+  {
+    return a;
+  }
+
   // Zero-Java-side-compute push benchmarking targets: unlike sumXArray
   // (which does type-dependent O(elements) work, see
   // project/benchmark/RESULTS.md's push methodology note) and unlike

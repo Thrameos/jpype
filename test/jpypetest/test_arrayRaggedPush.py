@@ -84,11 +84,16 @@ class ArrayRaggedPushTestCase(common.JPypeTestCase):
     # via a declared array-typed parameter instead) ----
 
     def testRectangularInt2DAsArgument(self):
-        data = [[1, 2], [3, 4]]
+        # Sum alone can't catch a transposed/misindexed push (same total
+        # either way) -- non-square, position-distinguishable data,
+        # round-tripped elementwise through identity2DIntArray.
+        data = [[1, 2, 3], [4, 5, 6]]
+        self.assertEqual(to_nested_list(self.DeepBench.identity2DIntArray(data)), data)
         self.assertEqual(self.DeepBench.sum2DIntArray(data), sum(x for row in data for x in row))
 
     def testRectangularInt3DAsArgument(self):
-        data = [[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
+        data = [[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]]
+        self.assertEqual(to_nested_list(self.DeepBench.identity3DIntArray(data)), data)
         expected = sum(x for p in data for r in p for x in r)
         self.assertEqual(self.DeepBench.sum3DIntArray(data), expected)
 
@@ -241,6 +246,7 @@ class ArrayRaggedPushTestCase(common.JPypeTestCase):
 
     def testRaggedAsArgument(self):
         data = [[1, 2], [3]]
+        self.assertEqual(to_nested_list(self.DeepBench.identity2DIntArray(data)), data)
         expected = sum(x for row in data for x in row)
         self.assertEqual(self.DeepBench.sum2DIntArray(data), expected)
 
