@@ -399,6 +399,34 @@ class JShortTestCase(common.JPypeTestCase):
         with self.assertRaises(TypeError):
             ja[0:1] = [object()]
 
+    def testArraySetRangeTuple(self):
+        ja = JArray(JShort)(3)
+        ja[0:2] = (123, -1)
+        self.assertEqual(list(ja[0:2]), [123, -1])
+        with self.assertRaises(TypeError):
+            ja[0:1] = (1.000,)
+        with self.assertRaises(TypeError):
+            ja[0:1] = (object(),)
+
+    def testArraySetRangeSequence(self):
+        ja = JArray(JShort)(3)
+        ja[0:2] = common.GenericSequence([123, -1])
+        self.assertEqual(list(ja[0:2]), [123, -1])
+        with self.assertRaises(TypeError):
+            ja[0:1] = common.GenericSequence([1.000])
+        with self.assertRaises(TypeError):
+            ja[0:1] = common.GenericSequence([object()])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallback(self):
+        # A negative-stride (reversed) source declines the bulk
+        # tryFastBufferPush path, falling back to the per-element
+        # getConverter()/Convert<T> path in setArrayRange.
+        ja = JArray(JShort)(3)
+        a = np.array([100, 200, 300], dtype=np.int64)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [300, 200, 100])
+
     def testArrayConversionFail(self):
         jarr = JArray(JShort)(VALUES)
         with self.assertRaises(TypeError):

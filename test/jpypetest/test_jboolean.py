@@ -126,6 +126,27 @@ class JBooleanTestCase(common.JPypeTestCase):
         jarr = jpype.JArray(jpype.JBoolean)(expected)
         self.assertEqual(expected, list(jarr[:]))
 
+    def testArraySetRangeTuple(self):
+        ja = JArray(JBoolean)(3)
+        ja[0:3] = (True, False, 1)
+        self.assertEqual(list(ja[0:3]), [True, False, True])
+
+    def testArraySetRangeSequence(self):
+        ja = JArray(JBoolean)(3)
+        ja[0:3] = common.GenericSequence([True, False, 1])
+        self.assertEqual(list(ja[0:3]), [True, False, True])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallback(self):
+        # A negative-stride (reversed) source declines the bulk
+        # tryFastBufferPush path, falling back to the per-element
+        # getConverter()/Convert<T> path in setArrayRange.
+        import numpy as np
+        ja = JArray(JBoolean)(3)
+        a = np.array([1, 0, 1], dtype=np.int8)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [True, False, True])
+
     @common.requireNumpy
     def testSetFromNPBoolArray(self):
         import numpy as np

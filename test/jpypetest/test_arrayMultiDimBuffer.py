@@ -100,6 +100,26 @@ class ArrayMultiDimBufferTestCase(common.JPypeTestCase):
         arr = np.arange(16, dtype=np.int64).reshape(4, 4)
         self.assertEqual(self.DeepBench.sum2DIntArray(arr), int(arr.sum()))
 
+    @unittest.skipUnless(sys.version_info >= (3, 12),
+            "PEP 688 __buffer__ needed to force a buffer export that "
+            "declines PyBUF_STRIDES -- see ArrayManualCtorBufferTestCase's "
+            "own copy of this technique below for the full rationale.")
+    def testMatchDeclinesWhenBufferExportFails(self):
+        # JPConversionMultiArrayBuffer::matches (jp_classhints.cpp) --
+        # PyObject_CheckBuffer passes but opening the buffer with
+        # PyBUF_STRIDES|PyBUF_FORMAT fails: must decline the match (fall
+        # through to sequenceConversion) rather than raise from matches()
+        # itself.
+        class NoStrides:
+            def __buffer__(self, flags):
+                raise BufferError("declines strides on purpose")
+
+            def __release_buffer__(self, view):
+                pass
+
+        with self.assertRaises(TypeError):
+            self.DeepBench.sum2DIntArray(NoStrides())
+
     def testPushNonContiguous(self):
         # A transposed view is not C-contiguous -- must not silently
         # reinterpret the wrong bytes; falls back correctly either way.

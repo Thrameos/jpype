@@ -113,6 +113,84 @@ class ArrayRaggedPushTestCase(common.JPypeTestCase):
         ja = JArray(JInt, 3)(data)
         self.assertEqual(to_nested_list(ja), data)
 
+    # ---- matchRaggedNode/encodeRaggedNode's per-node container-kind
+    # dispatch (list vs. tuple vs. generic sequence) -- the tests above
+    # only ever exercise the list branch, at both the leaf-container level
+    # (remainingDepth == 1) and the recursive mid-level (remainingDepth > 1)
+    # ----
+
+    def testRaggedNodeKindTuple(self):
+        data = ((1, 2, 3), (4, 5))
+        ja = JArray(JInt, 2)(data)
+        self.assertEqual(to_nested_list(ja), [[1, 2, 3], [4, 5]])
+
+    def testRaggedNodeKindTupleDeep(self):
+        data = (((1, 2), (3,)), ((4, 5, 6),))
+        ja = JArray(JInt, 3)(data)
+        self.assertEqual(to_nested_list(ja), [[[1, 2], [3]], [[4, 5, 6]]])
+
+    def testRaggedNodeKindGeneric(self):
+        GS = common.GenericSequence
+        data = GS([GS([1, 2, 3]), GS([4, 5])])
+        ja = JArray(JInt, 2)(data)
+        self.assertEqual(to_nested_list(ja), [[1, 2, 3], [4, 5]])
+
+    def testRaggedNodeKindGenericDeep(self):
+        GS = common.GenericSequence
+        data = GS([GS([GS([1, 2]), GS([3])]), GS([GS([4, 5, 6])])])
+        ja = JArray(JInt, 3)(data)
+        self.assertEqual(to_nested_list(ja), [[[1, 2], [3]], [[4, 5, 6]]])
+
+    def testRaggedMidLevelNonSequenceFallsBackAndRaises(self):
+        # A node that's neither list/tuple/sequence at all -- matchRaggedNode's
+        # generic-kind non-sequence rejection -- declines the ragged-native
+        # fast path and falls back to JPConversionSequence, which raises.
+        with self.assertRaises(TypeError):
+            JArray(JInt, 2)([[1, 2], 42])
+
+    def testRaggedMidLevelStringFallsBackAndRaises(self):
+        # A string is technically a PySequence but explicitly excluded
+        # (JPPyString::check) so it isn't walked character-by-character.
+        with self.assertRaises(TypeError):
+            JArray(JInt, 2)([[1, 2], "ab"])
+
+    def testRaggedLeafFailureInsideTupleFallsBackAndRaises(self):
+        # A bad leaf value inside a TUPLE-kind node specifically (not the
+        # already-covered LIST-kind failure) -- matchRaggedNode's
+        # leaf-level TUPLE loop's own return-false.
+        with self.assertRaises(TypeError):
+            JArray(JInt, 2)([[1, 2], (3, "x")])
+
+    def testRaggedLeafFailureInsideGenericFallsBackAndRaises(self):
+        GS = common.GenericSequence
+        with self.assertRaises(TypeError):
+            JArray(JInt, 2)([[1, 2], GS([3, "x"])])
+
+    def testRaggedRecursiveFailureInsideTupleFallsBackAndRaises(self):
+        # A bad grandchild propagating a failure back up through the
+        # recursive (remainingDepth > 1) TUPLE branch specifically.
+        with self.assertRaises(TypeError):
+            JArray(JInt, 3)([[[1, 2], [3, 4]], ([5, 6], [7, "x"])])
+
+    def testRaggedRecursiveFailureInsideGenericFallsBackAndRaises(self):
+        GS = common.GenericSequence
+        with self.assertRaises(TypeError):
+            JArray(JInt, 3)([[[1, 2], [3, 4]], GS([[5, 6], [7, "x"]])])
+
+    def testRaggedGenericSizeRaisesFallsBackAndRaises(self):
+        # matchRaggedNode's generic-kind size() call itself raising (a
+        # broken __len__) must decline gracefully, not propagate an
+        # unrelated internal exception.
+        class BrokenLen:
+            def __len__(self):
+                raise RuntimeError("boom")
+
+            def __getitem__(self, i):
+                raise IndexError
+
+        with self.assertRaises((TypeError, RuntimeError)):
+            JArray(JInt, 2)([[1, 2], BrokenLen()])
+
     def testRaggedEmptySublistAtStart(self):
         data = [[], [1, 2], [3]]
         ja = JArray(JInt, 2)(data)

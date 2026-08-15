@@ -230,3 +230,31 @@ class JByteTestCase(common.JPypeTestCase):
             ja[0:1] = [java.lang.Double(321)]
         with self.assertRaises(TypeError):
             ja[0:1] = [object()]
+
+    def testArraySetRangeTuple(self):
+        ja = JArray(JByte)(3)
+        ja[0:2] = (100, -1)
+        self.assertEqual(list(ja[0:2]), [100, -1])
+        with self.assertRaises(TypeError):
+            ja[0:1] = (1.000,)
+        with self.assertRaises(TypeError):
+            ja[0:1] = (object(),)
+
+    def testArraySetRangeSequence(self):
+        ja = JArray(JByte)(3)
+        ja[0:2] = common.GenericSequence([100, -1])
+        self.assertEqual(list(ja[0:2]), [100, -1])
+        with self.assertRaises(TypeError):
+            ja[0:1] = common.GenericSequence([1.000])
+        with self.assertRaises(TypeError):
+            ja[0:1] = common.GenericSequence([object()])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallback(self):
+        # A negative-stride (reversed) source declines the bulk
+        # tryFastBufferPush path, falling back to the per-element
+        # getConverter()/Convert<T> path in setArrayRange.
+        ja = JArray(JByte)(3)
+        a = np.array([10, 20, 30], dtype=np.int32)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [30, 20, 10])

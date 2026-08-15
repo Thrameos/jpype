@@ -410,6 +410,35 @@ class JIntTestCase(common.JPypeTestCase):
         with self.assertRaises(TypeError):
             ja[0:1] = [object()]
 
+    def testArraySetRangeTuple(self):
+        ja = JArray(JInt)(3)
+        ja[0:2] = (123, -1)
+        self.assertEqual(list(ja[0:2]), [123, -1])
+        with self.assertRaises(TypeError):
+            ja[0:1] = (1.000,)
+        with self.assertRaises(TypeError):
+            ja[0:1] = (object(),)
+
+    def testArraySetRangeSequence(self):
+        ja = JArray(JInt)(3)
+        ja[0:2] = common.GenericSequence([123, -1])
+        self.assertEqual(list(ja[0:2]), [123, -1])
+        with self.assertRaises(TypeError):
+            ja[0:1] = common.GenericSequence([1.000])
+        with self.assertRaises(TypeError):
+            ja[0:1] = common.GenericSequence([object()])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallback(self):
+        # A negative-stride (reversed) buffer source can't be handed to the
+        # bulk tryFastBufferPush path (classifyBufferSource requires a
+        # positive stride), so this exercises the older per-element
+        # getConverter()/Convert<T> fallback in setArrayRange instead.
+        ja = JArray(JInt)(3)
+        a = np.array([1, 2, 3], dtype=np.int64)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [3, 2, 1])
+
     def testArrayConversionFail(self):
         jarr = JArray(JInt)(VALUES)
         with self.assertRaises(TypeError):

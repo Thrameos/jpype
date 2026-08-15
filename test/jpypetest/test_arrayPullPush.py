@@ -27,7 +27,7 @@ alongside the byte-order/float16 bulk fast path.
 """
 
 import jpype
-from jpype import JArray, JInt, JDouble, JString
+from jpype import JArray, JInt, JLong, JDouble, JString
 import common
 
 try:
@@ -241,6 +241,16 @@ class ArrayPushFromTestCase(common.JPypeTestCase):
         src = np.arange(8, dtype=np.float64) + 0.9
         ja.pushFrom(src)
         np.testing.assert_array_equal(np.asarray(ja), src.astype(np.int32))
+
+    def testUint64ItemSize8Aliasing(self):
+        # itemsize==8 with buffer format 'L' (numpy's uint64 code on a
+        # platform where `unsigned long` is 8 bytes) exercises
+        # classifyRawTransfer's 'L'->'Q' aliasing, matching getConverter's
+        # own itemsize==8 'l'/'L' -> 'q'/'Q' aliasing.
+        ja = JArray(JLong)(10)
+        src = np.arange(10, dtype=np.uint64)
+        ja.pushFrom(src)
+        np.testing.assert_array_equal(np.asarray(ja), src.astype(np.int64))
 
     def testByteSwappedMatchingDtype(self):
         # Same numeric kind/width as the target, but non-native byte

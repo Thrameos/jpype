@@ -408,6 +408,30 @@ class JDoubleTestCase(common.JPypeTestCase):
         with self.assertRaises(TypeError):
             ja[0:1] = [object()]
 
+    def testArraySetRangeTuple(self):
+        ja = JArray(JDouble)(3)
+        ja[0:3] = (1.5, 2, java.lang.Double(3.5))
+        self.assertEqual(list(ja[0:3]), [1.5, 2.0, 3.5])
+        with self.assertRaises(TypeError):
+            ja[0:1] = (object(),)
+
+    def testArraySetRangeSequence(self):
+        ja = JArray(JDouble)(3)
+        ja[0:3] = common.GenericSequence([1.5, 2, java.lang.Double(3.5)])
+        self.assertEqual(list(ja[0:3]), [1.5, 2.0, 3.5])
+        with self.assertRaises(TypeError):
+            ja[0:1] = common.GenericSequence([object()])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallback(self):
+        # A negative-stride (reversed) source declines the bulk
+        # tryFastBufferPush path, falling back to the per-element
+        # getConverter()/Convert<T> path in setArrayRange.
+        ja = JArray(JDouble)(3)
+        a = np.array([1.5, 2.5, 3.5], dtype=np.float32)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [3.5, 2.5, 1.5])
+
     def testArrayHash(self):
         ja = JArray(JDouble)([1, 2, 3])
         self.assertIsInstance(hash(ja), int)
