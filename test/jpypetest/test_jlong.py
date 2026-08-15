@@ -438,6 +438,16 @@ class JLongTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [300, 200, 100])
 
+    def testArraySetRangeBufferFallbackFloat16Subnormal(self):
+        # jp_convert.cpp's Half<Convert<float>::toJ>::convert -- a
+        # subnormal half-float (exp==0, frac!=0) truncated to long is 0
+        # regardless of which nonzero subnormal magnitude.
+        bits = np.array([1, 0x0200, 0x03ff], dtype=np.uint16)
+        a = bits.view(np.float16)
+        ja = JArray(JLong)(3)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [0, 0, 0])
+
     def testArrayConversionFail(self):
         jarr = JArray(JLong)(VALUES)
         with self.assertRaises(TypeError):

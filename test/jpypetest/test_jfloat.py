@@ -454,6 +454,25 @@ class JFloatTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3.5, 2.5, 1.5])
 
+    @common.requireNumpy
+    def testArraySetRangeBufferFallbackFloat16Subnormal(self):
+        # testNPFloat16 above already covers subnormal float16 values
+        # numerically, but only via the JArray(JFloat)(a) *construction*
+        # path, which takes the bulk RAW_HALF fast path (Support.java's
+        # halfToFloat) -- not jp_convert.cpp's Half<T>::convert, the
+        # per-element C++ counterpart used by setArrayRange's general
+        # getConverter() fallback. A negative-stride source forces that
+        # fallback (see testArraySetRangeBufferFallback above); bit
+        # patterns 0x0001/0x0200/0x03ff are the smallest, a mid-range, and
+        # the largest subnormal half-float (exp==0, frac!=0) -- the branch
+        # Half::convert's own "subnormal numbers" comment covers.
+        bits = np.array([1, 0x0200, 0x03ff], dtype=np.uint16)
+        a = bits.view(np.float16)
+        expected = a.astype(np.float32)
+        ja = JArray(JFloat)(3)
+        ja[0:3] = a[::-1]
+        np.testing.assert_array_equal(np.asarray(ja), expected[::-1])
+
     def testArrayHash(self):
         ja = JArray(JFloat)([1, 2, 3])
         self.assertIsInstance(hash(ja), int)

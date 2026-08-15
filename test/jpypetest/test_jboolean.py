@@ -165,6 +165,17 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [True, False, True])
 
+    def testArraySetRangeBufferFallbackFloat16Subnormal(self):
+        # jp_convert.cpp's Half<Convert<float>::toZ>::convert -- a
+        # subnormal half-float (exp==0, frac!=0) is nonzero, so truncates
+        # to true, same as any other nonzero magnitude would.
+        import numpy as np
+        bits = np.array([1, 0x0200, 0x03ff], dtype=np.uint16)
+        a = bits.view(np.float16)
+        ja = JArray(JBoolean)(3)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [True, True, True])
+
     @common.requireNumpy
     def testSetFromNPBoolArray(self):
         import numpy as np

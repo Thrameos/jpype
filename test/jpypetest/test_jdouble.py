@@ -444,6 +444,19 @@ class JDoubleTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3.5, 2.5, 1.5])
 
+    def testArraySetRangeBufferFallbackFloat16Subnormal(self):
+        # jp_convert.cpp's Half<Convert<float>::toD>::convert, via the
+        # per-element getConverter() fallback (a negative-stride source
+        # can't take the bulk tryFastBufferPush path) rather than
+        # testNPFloat16's construction-path route to the same subnormal
+        # values (exp==0, frac!=0).
+        bits = np.array([1, 0x0200, 0x03ff], dtype=np.uint16)
+        a = bits.view(np.float16)
+        expected = a.astype(np.float64)
+        ja = JArray(JDouble)(3)
+        ja[0:3] = a[::-1]
+        np.testing.assert_array_equal(np.asarray(ja), expected[::-1])
+
     def testArrayHash(self):
         ja = JArray(JDouble)([1, 2, 3])
         self.assertIsInstance(hash(ja), int)
