@@ -2114,9 +2114,8 @@ class Support
    * depth-first pre-order buffer JPConversionRaggedSequence::convert
    * wrote.
    *
-   * @param typeCode primitive type signature character -- I/J/F/D only
-   * (see isRaggedEligible in jp_classhints.h; every other type stays on
-   * the JPConversionSequence path and never reaches here).
+   * @param typeCode primitive type signature character -- every
+   * primitive type code (see isRaggedEligible in jp_classhints.cpp).
    * @param dims the array's static nesting depth (e.g. 3 for int[][][]),
    * known up front from the target class, not discovered from the data.
    * @param src a direct buffer positioned at the start of the encoded
@@ -2141,9 +2140,55 @@ class Support
         return float.class;
       case 'D':
         return double.class;
+      case 'Z':
+        return boolean.class;
+      case 'B':
+        return byte.class;
+      case 'C':
+        return char.class;
+      case 'S':
+        return short.class;
       default:
         throw new IllegalArgumentException("Unsupported ragged leaf type code: " + typeCode);
     }
+  }
+
+  /**
+   * Element width on the wire for a ragged leaf run, in bytes -- mirrors
+   * raggedItemSize in jp_classhints.cpp exactly (must match, since it
+   * determines both sides' agreement on where the 4-byte padding after a
+   * leaf run ends).
+   */
+  private static int raggedItemSize(char typeCode)
+  {
+    switch (typeCode)
+    {
+      case 'Z':
+      case 'B':
+        return Byte.BYTES;
+      case 'C':
+      case 'S':
+        return Short.BYTES;
+      case 'I':
+      case 'F':
+        return Integer.BYTES;
+      default: // 'J'/'D'
+        return Long.BYTES;
+    }
+  }
+
+  /**
+   * Skips the zero-padding JPConversionRaggedSequence::convert
+   * (jp_classhints.cpp) inserted after a leaf run to restore 4-byte
+   * alignment for the next length marker -- see raggedAlign4 there.
+   * No-op for I/J/F/D, whose runs are always already a multiple of 4.
+   */
+  private static void skipRaggedPadding(ByteBuffer src, char typeCode, int n)
+  {
+    int rawBytes = n * raggedItemSize(typeCode);
+    int pad = (4 - (rawBytes & 3)) & 3;
+    if (pad != 0)
+      src.position(src.position() + pad);
   }
 
   /**
@@ -2219,6 +2264,37 @@ class Support
         double[] row = new double[n];
         src.asDoubleBuffer().get(row, 0, n);
         src.position(src.position() + n * Double.BYTES);
+        return row;
+      }
+      case 'Z':
+      {
+        boolean[] row = new boolean[n];
+        for (int i = 0; i < n; i++)
+          row[i] = src.get() != 0;
+        skipRaggedPadding(src, typeCode, n);
+        return row;
+      }
+      case 'B':
+      {
+        byte[] row = new byte[n];
+        src.get(row, 0, n);
+        skipRaggedPadding(src, typeCode, n);
+        return row;
+      }
+      case 'C':
+      {
+        char[] row = new char[n];
+        src.asCharBuffer().get(row, 0, n);
+        src.position(src.position() + n * Character.BYTES);
+        skipRaggedPadding(src, typeCode, n);
+        return row;
+      }
+      case 'S':
+      {
+        short[] row = new short[n];
+        src.asShortBuffer().get(row, 0, n);
+        src.position(src.position() + n * Short.BYTES);
+        skipRaggedPadding(src, typeCode, n);
         return row;
       }
       default:

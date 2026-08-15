@@ -191,12 +191,14 @@ public:
 	void getConversionInfo(JPConversionInfo &info) override;
 } ;
 
-/** A nested array (component type is itself an array class) that bottoms
- * out in a primitive leaf not eligible for the ragged-native conversion
- * (Z/B/C/S -- see isRaggedEligible in jp_classhints.cpp), e.g. char[][],
- * short[][][]. Adds multiArrayBufferConversion; still never tries
- * raggedSequenceConversion at all -- selected via
- * JPArrayClass::createArrayClass, not a runtime check in the chain.
+/** A nested array (component type is itself an array class) whose leaf is
+ * not eligible for the ragged-native conversion -- currently unreachable
+ * in practice, since isRaggedEligible (jp_classhints.cpp) now covers
+ * every primitive type code, but kept as the selectable alternative to
+ * JPArrayClassNestedRagged below (selected via
+ * JPArrayClass::createArrayClass, not a runtime check in the chain) for
+ * any future leaf type that isn't ragged-eligible. Adds
+ * multiArrayBufferConversion; never tries raggedSequenceConversion.
  */
 class JPArrayClassNested : public JPArrayClass
 {
@@ -207,9 +209,11 @@ public:
 } ;
 
 /** A nested array that bottoms out in a ragged-eligible primitive leaf
- * (I/J/F/D), e.g. int[][], double[][][]. Adds both multiArrayBufferConversion
- * and raggedSequenceConversion, unconditionally -- again decided once at
- * JPArrayClass::createArrayClass, never re-checked per call.
+ * (every primitive type code -- Z/B/C/S/I/J/F/D, see isRaggedEligible in
+ * jp_classhints.cpp), e.g. int[][], char[][][]. Adds both
+ * multiArrayBufferConversion and raggedSequenceConversion,
+ * unconditionally -- again decided once at JPArrayClass::createArrayClass,
+ * never re-checked per call.
  */
 class JPArrayClassNestedRagged : public JPArrayClass
 {

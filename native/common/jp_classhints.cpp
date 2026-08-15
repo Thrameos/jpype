@@ -27,6 +27,8 @@
 
 #include "jp_primitive_accessor.h"
 #include "jp_inttype.h"
+#include "jp_bytetype.h"
+#include "jp_shorttype.h"
 
 JPMatch::JPMatch() : conversion(nullptr), frame(nullptr), object(nullptr),
 					 type(JPMatch::_none), closure(nullptr), cacheable(true),
@@ -761,21 +763,60 @@ public:
 // walk, versus today's 3+ redundant passes compounding recursively with
 // depth.
 //
-// Scope: only I/J/F/D leaf types -- 4 or 8 bytes, a clean multiple of the
-// int32 length marker in the wire format below, and both have a
-// java.nio bulk buffer type (unlike boolean, which has none). Z/B/C/S
-// leaf types never reach this conversion at all (isRaggedEligible below,
-// checked by the caller in JPArrayClass::findJavaConversionImpl before
-// even trying matches()) -- they keep using JPConversionSequence
-// unchanged.
+// Scope: every primitive leaf type. I/J/F/D are 4 or 8 bytes -- already a
+// clean multiple of the int32 length marker in the wire format below.
+// Z/B/C/S are 1 or 2 bytes and don't naturally land on that boundary, so
+// each leaf run of those types is padded (raggedAlign4 below) back up to
+// a multiple of 4 once the run ends, keeping every length marker at every
+// level 4-byte aligned regardless of leaf width -- see matchRaggedNode
+// (computes the padded size), encodeRaggedNode (writes it, implicitly:
+// the padding bytes are never written, only skipped over, and the
+// buffer's own zero-initialization -- std::vector<char> -- covers them),
+// and Support.readRaggedLeaf (Java side, skips the same padding by
+// position).
 bool isRaggedEligible(char typeCode)
 {
-	return typeCode == 'I' || typeCode == 'J' || typeCode == 'F' || typeCode == 'D';
+	switch (typeCode)
+	{
+		case 'I':
+		case 'J':
+		case 'F':
+		case 'D':
+		case 'Z':
+		case 'B':
+		case 'C':
+		case 'S':
+			return true;
+		default:
+			return false;
+	}
 }
 
 static inline size_t raggedItemSize(char typeCode)
 {
-	return (typeCode == 'I' || typeCode == 'F') ? sizeof (jint) : sizeof (jlong);
+	switch (typeCode)
+	{
+		case 'Z':
+		case 'B':
+			return sizeof (jbyte);
+		case 'C':
+		case 'S':
+			return sizeof (jshort);
+		case 'I':
+		case 'F':
+			return sizeof (jint);
+		default: // 'J'/'D'
+			return sizeof (jlong);
+	}
+}
+
+// Rounds a byte count up to the next multiple of sizeof(jint) (4) -- the
+// width of the wire format's own length marker. Z/B/C/S leaf runs (1 or
+// 2 bytes/element) don't necessarily end on that boundary; I/J/F/D runs
+// (4 or 8 bytes/element) always already do, so this is a no-op for them.
+static inline size_t raggedAlign4(size_t n)
+{
+	return (n + 3) & ~size_t (3);
 }
 
 // Fast, exact-type-only leaf check -- the same raw-type-check shape used
@@ -792,10 +833,16 @@ static inline bool isRaggedLeafElement(char typeCode, PyObject *obj)
 	{
 		case 'I':
 		case 'J':
+		case 'B':
+		case 'S':
 			return PyLong_CheckExact(obj);
 		case 'F':
 		case 'D':
 			return PyFloat_CheckExact(obj);
+		case 'Z':
+			return PyBool_Check(obj);
+		case 'C':
+			return PyUnicode_CheckExact(obj) && PyUnicode_GET_LENGTH(obj) == 1;
 		default:
 			return false; // GCOVR_EXCL_LINE
 	}
@@ -892,7 +939,7 @@ static bool matchRaggedNode(PyObject *node, int remainingDepth, char typeCode, j
 				}
 			}
 		}
-		total += length * (jlong) raggedItemSize(typeCode);
+		total += (jlong) raggedAlign4((size_t) (length * (jlong) raggedItemSize(typeCode)));
 	} else
 	{
 		switch (kind)
@@ -975,13 +1022,49 @@ static inline void encodeRaggedLeaf(char typeCode, PyObject *item, char *buffer,
 			offset += sizeof (jfloat);
 			break;
 		}
-		default: // 'D'
+		case 'D':
 		{
 			double v = PyFloat_AsDouble(item);
 			if (v == -1.)
 				JP_PY_CHECK();  // GCOVR_EXCL_LINE
 			*(jdouble*) (buffer + offset) = (jdouble) v;
 			offset += sizeof (jdouble);
+			break;
+		}
+		case 'Z':
+		{
+			// isRaggedLeafElement already required PyBool_Check, so this
+			// is exactly JPBooleanType::setArrayRange's own PyBool_Check
+			// branch (jp_booleantype.cpp) -- no PyObject_IsTrue fallback
+			// needed here, unlike that function's non-bool branch.
+			*(jboolean*) (buffer + offset) = (jboolean) (item == Py_True);
+			offset += sizeof (jboolean);
+			break;
+		}
+		case 'B':
+		{
+			long v = PyLong_AsLong(item);
+			if (v == -1)
+				JP_PY_CHECK();  // GCOVR_EXCL_LINE
+			*(jbyte*) (buffer + offset) = (jbyte) JPByteType::assertRange(v);
+			offset += sizeof (jbyte);
+			break;
+		}
+		case 'S':
+		{
+			long v = PyLong_AsLong(item);
+			if (v == -1)
+				JP_PY_CHECK();  // GCOVR_EXCL_LINE
+			*(jshort*) (buffer + offset) = (jshort) JPShortType::assertRange(v);
+			offset += sizeof (jshort);
+			break;
+		}
+		default: // 'C'
+		{
+			jchar v = JPPyString::asCharUTF16(item);
+			JP_PY_CHECK();  // GCOVR_EXCL_LINE
+			*(jchar*) (buffer + offset) = v;
+			offset += sizeof (jchar);
 			break;
 		}
 	}
@@ -1022,6 +1105,14 @@ static void encodeRaggedNode(PyObject *node, int remainingDepth, char typeCode, 
 				}
 			}
 		}
+		// Restore 4-byte alignment for the next length marker -- see
+		// raggedAlign4/matchRaggedNode above, which already reserved
+		// exactly this many bytes. No-op for I/J/F/D (already a multiple
+		// of 4); the padding bytes themselves are left as whatever
+		// convert()'s std::vector<char> zero-initialized them to, since
+		// Support.readRaggedLeaf only skips over them by position, never
+		// reads their value.
+		offset = raggedAlign4(offset);
 	} else
 	{
 		switch (kind)

@@ -672,6 +672,31 @@ helper used by `pullTo`/`np.asarray()`, which does not apply here). (The
 it tracks `JArray.of(arr)` within noise, as expected, since both take the
 identical fast path there.)
 
+_Investigated 2026-08-15: the `dtype=<cross type>` row's ratio to the
+`dtype=<same type>` row is not constant -- it grows with size (~1.4x at
+100 elements to ~5x at 100,000, across all four flat tables above). This
+is real, expected cost, not a missed fast path or a regression: both rows
+share the identical `convertMultiArrayObject` per-element
+`pack(converter(src))` loop (`jp_primitive_accessor.h`) -- there is no
+bulk-copy shortcut for either, matching-dtype included, confirmed by
+reading `getConverter` (`jp_convert.cpp`), which always returns a
+`Convert<T>::to*` function pointer regardless of whether `from`/`to`
+match. The only actual difference is which conversion that function
+pointer performs: matching int32->jint is `Convert<int32_t>::toI`, a
+same-domain integer move (measured floor ~0.45ns/element at scale);
+cross-dtype float32->jint is `Convert<float>::toI`, an FP->int
+domain-crossing truncate with real per-call pipeline latency (measured
+floor ~2.2ns/element). The growing ratio across sizes is fixed-overhead
+amortization: at small N, JNI/array-alloc/Python-call overhead dominates
+so the rows look similar; at large N that overhead washes out and what
+remains is the intrinsic hardware cost gap between an integer move and an
+FP-domain conversion, paid serially per element through a
+non-vectorizable function-pointer call. No fix applied -- this is exactly
+what this row is documented above to measure ("a real per-element cast,"
+see Categories in `array_of.py`'s own docstring); closing the gap would
+mean vectorizing `Convert<T>::to*` over contiguous runs, a distinct
+optimization project, not a bug fix._
+
 The `dtype=<cross type>` (real dtype-coercion) column is markedly
 slower than matching dtype at every size -- confirmed this is pre-existing
 and unrelated to this fix (reproduces identically through the naive

@@ -21,10 +21,12 @@ Correctness tests for pushing a nested (rectangular or genuinely ragged)
 Python list into a multi-dimensional primitive Java array -- what the
 API guarantees the caller regardless of which internal conversion
 handles it. Covers rectangular and genuinely ragged (jagged) input at
-multiple depths/types, the type-widening rules (bool implicitly widens
-to int, an incompatible element type raises TypeError) at both depth
->= 2 and flat (1D) depth, the leaf-type scope boundary (short/byte/char/
-boolean must be unaffected), and overload disambiguation.
+multiple depths/types (all eight primitive leaf types -- Z/B/C/S as well
+as I/J/F/D -- are ragged-native eligible), the type-widening rules (bool
+implicitly widens to int, an incompatible element type raises
+TypeError) at both depth >= 2 and flat (1D) depth, the 4-byte length-
+marker padding the narrower Z/B/C/S leaf types require and I/J/F/D
+don't, and overload disambiguation.
 """
 
 import jpype
@@ -298,29 +300,136 @@ class ArrayRaggedPushTestCase(common.JPypeTestCase):
         with self.assertRaises((TypeError, RuntimeError)):
             self.DeepBench.sum2DIntArray([[1, 2], BrokenLen()])
 
-    # ---- scope boundary: short/byte/char/boolean leaf types must stay on
-    # the existing, untouched JPConversionSequence path at every depth --
-    # this phase must not touch their behavior at all ----
+    # ---- Z/B/C/S leaf types: ragged-native support, extended to these
+    # four 1-/2-byte-wide types alongside I/J/F/D above (isRaggedEligible,
+    # jp_classhints.cpp, now covers every primitive type code). Each leaf
+    # run of these narrower types is zero-padded up to a 4-byte boundary
+    # once the run ends (raggedAlign4 in jp_classhints.cpp) so every
+    # length marker at every level -- including one immediately following
+    # an odd-length run -- stays 4-byte aligned; Support.readRaggedLeaf
+    # (Java side) skips that same padding by position. The tests below
+    # are deliberately built around odd leaf-run lengths (3, 1, 5, ...) so
+    # a padding-byte-count mismatch on either side would corrupt the very
+    # next sibling's length marker instead of silently succeeding.
 
-    def testShortLeafUnaffected(self):
-        data = [[1, 2], [3]]
-        ja = JArray(JShort, 2)(data)
-        self.assertEqual(to_nested_list(ja), data)
-
-    def testByteLeafUnaffected(self):
-        data = [[1, 2], [3]]
+    def testRaggedByte2D(self):
+        data = [[1, 2, 3], [4], [5, 6, 7, 8, 9], []]
         ja = JArray(JByte, 2)(data)
         self.assertEqual(to_nested_list(ja), data)
 
-    def testCharLeafUnaffected(self):
-        data = [['a', 'b'], ['c']]
+    def testRaggedBoolean2D(self):
+        data = [[True, False, True], [False], [True, True, False, False, True]]
+        ja = JArray(JBoolean, 2)(data)
+        self.assertEqual(to_nested_list(ja), data)
+
+    def testRaggedChar2D(self):
+        data = [['a', 'b', 'c'], ['d'], ['e', 'f', 'g', 'h', 'i']]
         ja = JArray(JChar, 2)(data)
         self.assertEqual(to_nested_list(ja), data)
 
-    def testBooleanLeafUnaffected(self):
-        data = [[True, False], [True]]
-        ja = JArray(JBoolean, 2)(data)
+    def testRaggedShort2D(self):
+        data = [[1, 2, 3], [4], [5, 6, 7, 8, 9]]
+        ja = JArray(JShort, 2)(data)
         self.assertEqual(to_nested_list(ja), data)
+
+    def testRaggedByte3D(self):
+        # Padding after an odd-length leaf run must still land the
+        # *next sibling's own length marker correctly, one level up from
+        # the leaf -- not just the immediately-following leaf marker the
+        # 2D test above already covers.
+        data = [[[1, 2, 3], [4]], [[5]], [[6, 7, 8, 9, 10], [11, 12]]]
+        ja = JArray(JByte, 3)(data)
+        self.assertEqual(to_nested_list(ja), data)
+
+    def testRaggedBoolean3D(self):
+        data = [[[True, False, True], [False]], [[True]],
+                [[False, False, True, True, False], [True, False]]]
+        ja = JArray(JBoolean, 3)(data)
+        self.assertEqual(to_nested_list(ja), data)
+
+    # ---- Z/B/C/S, method-argument-dispatch path (not the JArray(...)
+    # constructor) -- same routing distinction I/J/F/D already draw above
+    # ----
+
+    def testRaggedByteAsArgument(self):
+        data = [[1, 2, 3], [4], [5, 6, 7, 8, 9]]
+        self.assertEqual(to_nested_list(self.DeepBench.identity2DByteArray(data)), data)
+
+    def testRaggedBooleanAsArgument(self):
+        data = [[True, False, True], [False], [True, True, False, False, True]]
+        self.assertEqual(to_nested_list(self.DeepBench.identity2DBooleanArray(data)), data)
+
+    def testRaggedCharAsArgument(self):
+        data = [['a', 'b', 'c'], ['d'], ['e', 'f', 'g', 'h', 'i']]
+        self.assertEqual(to_nested_list(self.DeepBench.identity2DCharArray(data)), data)
+
+    def testRaggedShortAsArgument(self):
+        data = [[1, 2, 3], [4], [5, 6, 7, 8, 9]]
+        expected = sum(x for row in data for x in row)
+        self.assertEqual(self.DeepBench.sum2DShortArray(data), expected)
+
+    # ---- container-kind dispatch (tuple/generic), spot-checked on the
+    # narrower types too -- the 2D/3D tests above only ever exercise the
+    # list branch ----
+
+    def testRaggedNodeKindTupleByte(self):
+        data = ((1, 2, 3), (4, 5))
+        ja = JArray(JByte, 2)(data)
+        self.assertEqual(to_nested_list(ja), [[1, 2, 3], [4, 5]])
+
+    def testRaggedNodeKindGenericBoolean(self):
+        GS = common.GenericSequence
+        data = GS([GS([True, False, True]), GS([False])])
+        ja = JArray(JBoolean, 2)(data)
+        self.assertEqual(to_nested_list(ja), [[True, False, True], [False]])
+
+    # ---- mixed-type fallback, Z/B/C/S: a non-conforming element
+    # disqualifies the ragged-native match and falls through to the
+    # general per-element path, mirroring the I bool-widening tests above
+    # ----
+
+    def testMixedByteThenBoolFallsBackAndSucceeds(self):
+        # bool fails isRaggedLeafElement's PyLong_CheckExact for 'B', just
+        # like it does for 'I' -- falls back to the general per-element
+        # path, which does accept it (bool -> byte is a valid implicit
+        # conversion there).
+        data = [[1, 2], [True, 4]]
+        ja = JArray(JByte, 2)(data)
+        self.assertEqual(to_nested_list(ja), [[1, 2], [1, 4]])
+
+    def testMixedShortThenBoolFallsBackAndSucceeds(self):
+        data = [[1, 2], [True, 4]]
+        ja = JArray(JShort, 2)(data)
+        self.assertEqual(to_nested_list(ja), [[1, 2], [1, 4]])
+
+    def testMixedBooleanThenIntFallsBackAndSucceeds(self):
+        # A plain int fails isRaggedLeafElement's PyBool_Check for 'Z' --
+        # falls back to the general per-element path, which accepts any
+        # truthy/falsy value, not just an exact bool.
+        data = [[True, False], [1, 0]]
+        ja = JArray(JBoolean, 2)(data)
+        self.assertEqual(to_nested_list(ja), [[True, False], [True, False]])
+
+    def testMixedCharThenIntFallsBackAndSucceeds(self):
+        # A plain int fails isRaggedLeafElement's exact-length-1-string
+        # check for 'C' -- falls back to the general per-element path,
+        # which accepts an index as the char's UTF-16 code point.
+        data = [['a', 'b'], [ord('c'), 'd']]
+        ja = JArray(JChar, 2)(data)
+        self.assertEqual(to_nested_list(ja), [['a', 'b'], ['c', 'd']])
+
+    # ---- out-of-range leaf values: matchRaggedNode's isRaggedLeafElement
+    # only checks Python type, not Java range, so an in-range-type,
+    # out-of-range-value leaf is accepted by the match and must still be
+    # rejected at encode time (encodeRaggedLeaf's assertRange call) ----
+
+    def testRaggedByteOutOfRangeRaises(self):
+        with self.assertRaises(OverflowError):
+            JArray(JByte, 2)([[1, 2], [300]])
+
+    def testRaggedShortOutOfRangeRaises(self):
+        with self.assertRaises(OverflowError):
+            JArray(JShort, 2)([[1, 2], [100000]])
 
     # ---- mixed-type fallback: a non-conforming element (bool, or a value
     # of the wrong exact type) partway through disqualifies the whole
