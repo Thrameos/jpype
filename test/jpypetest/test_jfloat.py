@@ -581,6 +581,24 @@ class JFloatTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3.5, 2.5, 1.5])
 
+    def testArraySetRangeBufferFallbackUintpSource(self):
+        # getConverter's size_t source case (from[0] == 'N') -> 'f'
+        # target.
+        ja = JArray(JFloat)(3)
+        mv = memoryview(bytearray(24)).cast('N')
+        mv[0], mv[1], mv[2] = 1, 2, 3
+        ja[0:3] = mv[::-1]
+        self.assertEqual(list(ja), [3.0, 2.0, 1.0])
+
+    def testArraySetRangeBufferFallbackIntpSource(self):
+        # getConverter's Py_ssize_t source case (from[0] == 'n') -> 'f'
+        # target.
+        ja = JArray(JFloat)(3)
+        mv = memoryview(bytearray(24)).cast('n')
+        mv[0], mv[1], mv[2] = 1, 2, 3
+        ja[0:3] = mv[::-1]
+        self.assertEqual(list(ja), [3.0, 2.0, 1.0])
+
     @common.requireNumpy
     def testArraySetRangeBufferFallbackInt8Source(self):
         # getConverter's int8_t source case (from[0] in '?','c','b') ->

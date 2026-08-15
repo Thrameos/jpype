@@ -297,6 +297,30 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [True, False, True])
 
+    def testArraySetRangeBufferFallbackIntpSource(self):
+        # getConverter's Py_ssize_t source case (from[0] == 'n') -> 'z'
+        # target. numpy never produces format 'n' (its intp buffer format
+        # is 'l' on this platform, already covered elsewhere) -- use
+        # memoryview.cast('n') to get a genuine 'n'-format buffer.
+        ja = JArray(JBoolean)(3)
+        mv = memoryview(bytearray(24)).cast('n')
+        mv[0] = 1
+        mv[1] = 0
+        mv[2] = 1
+        ja[0:3] = mv[::-1]
+        self.assertEqual(list(ja), [True, False, True])
+
+    def testArraySetRangeBufferFallbackUintpSource(self):
+        # getConverter's size_t source case (from[0] == 'N') -> 'z'
+        # target.
+        ja = JArray(JBoolean)(3)
+        mv = memoryview(bytearray(24)).cast('N')
+        mv[0] = 1
+        mv[1] = 0
+        mv[2] = 1
+        ja[0:3] = mv[::-1]
+        self.assertEqual(list(ja), [True, False, True])
+
     def testArraySetRangeBufferFallbackFloat16InfNan(self):
         # jp_convert.cpp's Half<Convert<float>::toZ>::convert -- the "to
         # infinity and beyond" branch (exp==31): all nonzero, so all true.

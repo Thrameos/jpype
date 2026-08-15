@@ -533,6 +533,24 @@ class JIntTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3, 2, 1])
 
+    def testArraySetRangeBufferFallbackIntpSource(self):
+        # getConverter's Py_ssize_t source case (from[0] == 'n') -> 'i'
+        # target.
+        ja = JArray(JInt)(3)
+        mv = memoryview(bytearray(24)).cast('n')
+        mv[0], mv[1], mv[2] = 1, 2, 3
+        ja[0:3] = mv[::-1]
+        self.assertEqual(list(ja), [3, 2, 1])
+
+    def testArraySetRangeBufferFallbackUintpSource(self):
+        # getConverter's size_t source case (from[0] == 'N') -> 'i'
+        # target.
+        ja = JArray(JInt)(3)
+        mv = memoryview(bytearray(24)).cast('N')
+        mv[0], mv[1], mv[2] = 1, 2, 3
+        ja[0:3] = mv[::-1]
+        self.assertEqual(list(ja), [3, 2, 1])
+
     def testArraySetRangeBufferFallbackInt8Source(self):
         # getConverter's int8_t source case (from[0] in '?','c','b') ->
         # 'i' target.

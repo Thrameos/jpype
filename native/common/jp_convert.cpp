@@ -471,6 +471,13 @@ jconverter getConverter(const char* from, int itemsize, const char* to)
 			break;
 
 		case 'n':
+			// GCOVR_EXCL_START -- 'n'/'N' (Py_ssize_t/size_t) are
+			// native-only in the struct module's own format-string rules;
+			// neither numpy (whose intp buffer format is 'l'/'q', not 'n')
+			// nor ctypes nor memoryview.cast() can produce a byte-order-
+			// prefixed 'n' buffer, so `reverse` can't legitimately be true
+			// here. Kept in case a non-standard buffer exporter ever lies
+			// about its own format string.
 			if (reverse) switch (to[0])
 			{
 				case 'z': return &Reverse<Convert<Py_ssize_t>::toZ>::call8;
@@ -482,6 +489,7 @@ jconverter getConverter(const char* from, int itemsize, const char* to)
 				case 'f': return &Reverse<Convert<Py_ssize_t>::toF>::call8;
 				case 'd': return &Reverse<Convert<Py_ssize_t>::toD>::call8;
 			}
+			// GCOVR_EXCL_STOP
 			else switch (to[0])
 			{
 				case 'z': return &Convert<Py_ssize_t>::toZ;
@@ -495,6 +503,10 @@ jconverter getConverter(const char* from, int itemsize, const char* to)
 			}
 			break;
 		case 'N':
+			// GCOVR_EXCL_START -- same reasoning as case 'n' above: 'N' is
+			// native-only per the struct module's own rules, so no
+			// standard buffer exporter can produce a byte-order-prefixed
+			// 'N' buffer for `reverse` to legitimately be true here.
 			if (reverse) switch (to[0])
 			{
 				case 'z': return &Reverse<Convert<size_t>::toZ>::call8;
@@ -506,6 +518,7 @@ jconverter getConverter(const char* from, int itemsize, const char* to)
 				case 'f': return &Reverse<Convert<size_t>::toF>::call8;
 				case 'd': return &Reverse<Convert<size_t>::toD>::call8;
 			}
+			// GCOVR_EXCL_STOP
 			else switch (to[0])
 			{
 				case 'z': return &Convert<size_t>::toZ;
