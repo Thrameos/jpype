@@ -342,15 +342,15 @@ public class DeepBench
     return "long";
   }
 
-  // 2D short array -- short[][] is the only readily-callable exercise of
-  // JPArrayClassNested (the multiArrayBuffer-but-not-ragged variant used
-  // for a primitive leaf that isn't ragged-eligible: short/byte/char/
-  // boolean; see isRaggedEligible in jp_classhints.cpp), as opposed to
-  // JPArrayClassNestedRagged (int/long/float/double, via sum2DIntArray
-  // et al.). Declared-parameter dispatch, not the JArray(...) constructor,
-  // is required to actually reach findJavaConversionImpl's own match/
-  // no-match branches -- the constructor path short-circuits invalid
-  // input before ever calling it.
+  // 2D short array -- declared-parameter dispatch, not the JArray(...)
+  // constructor, is required to actually reach findJavaConversionImpl's
+  // own match/no-match branches; the constructor path short-circuits
+  // invalid input before ever calling it. short/byte/char/boolean are
+  // ragged-eligible the same as int/long/float/double (isRaggedEligible,
+  // jp_classhints.cpp), so this goes through JPArrayClassNestedRagged
+  // like sum2DIntArray et al. -- see void2DByteArray et al. below for the
+  // 3D/4D/5D and zero-Java-side-compute push benchmarking counterparts
+  // for all four of these narrower leaf types.
   public static long sum2DShortArray(short[][] a)
   {
     long s = 0;
@@ -430,6 +430,78 @@ public class DeepBench
   }
 
   public static void void5DIntArray(int[][][][][] a)
+  {
+  }
+
+  // 2D/3D/4D/5D zero-Java-side-compute push benchmarking targets for the
+  // four leaf types added to isRaggedEligible (jp_classhints.cpp)
+  // alongside int/long/float/double -- byte/boolean/char/short. Same
+  // rationale as void2DIntArray et al. above: no per-element work, no
+  // return value, isolating push/conversion cost (including the 4-byte
+  // length-marker padding these 1-/2-byte-wide leaf types require and
+  // int/long/float/double don't -- see raggedAlign4, jp_classhints.cpp)
+  // from everything else.
+  public static void void2DByteArray(byte[][] a)
+  {
+  }
+
+  public static void void3DByteArray(byte[][][] a)
+  {
+  }
+
+  public static void void4DByteArray(byte[][][][] a)
+  {
+  }
+
+  public static void void5DByteArray(byte[][][][][] a)
+  {
+  }
+
+  public static void void2DBooleanArray(boolean[][] a)
+  {
+  }
+
+  public static void void3DBooleanArray(boolean[][][] a)
+  {
+  }
+
+  public static void void4DBooleanArray(boolean[][][][] a)
+  {
+  }
+
+  public static void void5DBooleanArray(boolean[][][][][] a)
+  {
+  }
+
+  public static void void2DCharArray(char[][] a)
+  {
+  }
+
+  public static void void3DCharArray(char[][][] a)
+  {
+  }
+
+  public static void void4DCharArray(char[][][][] a)
+  {
+  }
+
+  public static void void5DCharArray(char[][][][][] a)
+  {
+  }
+
+  public static void void2DShortArray(short[][] a)
+  {
+  }
+
+  public static void void3DShortArray(short[][][] a)
+  {
+  }
+
+  public static void void4DShortArray(short[][][][] a)
+  {
+  }
+
+  public static void void5DShortArray(short[][][][][] a)
   {
   }
 

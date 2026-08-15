@@ -6,8 +6,17 @@ same DeepBench.void{2,3,4,5}D{Type}Array push entry point, but built from a
 tree whose branching factor varies at every level (fixed seed, so
 "before" and "after" runs against the same commit produce identical
 trees and therefore a fair per-call comparison) instead of a uniform
-10-wide rectangular one. Swept across the same four primitive element
-types (int32, int64, float32, float64) as array_flat.py/array_multidim.py.
+10-wide rectangular one. Swept across the four primitive element types
+already ragged-eligible before this addition (int32, int64, float32,
+float64, as in array_flat.py/array_multidim.py) plus the four narrower
+leaf types isRaggedEligible (jp_classhints.cpp) grew to cover in the same
+change that added the padding this file's byte/boolean/char/short rows
+exercise: 1-byte-wide byte/boolean and 2-byte-wide char/short, whose leaf
+runs need 4-byte padding after encoding (raggedAlign4) that the 4-/8-byte
+int/long/float/double rows never pay -- this is the isRaggedEligible-vs-
+isRaggedEligible axis, not a numpy-dtype one, so unlike array_of.py's
+four-way dtype comparison there's no "auto"/"matching"/"cross"/"naive"
+split here, just eight leaf types over the same ragged-push shape.
 
 Writes project/benchmark/jpype/array_ragged_results.csv alongside the
 printed output.
@@ -44,6 +53,22 @@ TYPES = [
         2: DeepBench.void2DDoubleArray, 3: DeepBench.void3DDoubleArray,
         4: DeepBench.void4DDoubleArray, 5: DeepBench.void5DDoubleArray,
     }),
+    ('byte', {
+        2: DeepBench.void2DByteArray, 3: DeepBench.void3DByteArray,
+        4: DeepBench.void4DByteArray, 5: DeepBench.void5DByteArray,
+    }),
+    ('boolean', {
+        2: DeepBench.void2DBooleanArray, 3: DeepBench.void3DBooleanArray,
+        4: DeepBench.void4DBooleanArray, 5: DeepBench.void5DBooleanArray,
+    }),
+    ('char', {
+        2: DeepBench.void2DCharArray, 3: DeepBench.void3DCharArray,
+        4: DeepBench.void4DCharArray, 5: DeepBench.void5DCharArray,
+    }),
+    ('short', {
+        2: DeepBench.void2DShortArray, 3: DeepBench.void3DShortArray,
+        4: DeepBench.void4DShortArray, 5: DeepBench.void5DShortArray,
+    }),
 ]
 
 csv_log = CsvLog(
@@ -57,12 +82,14 @@ def nested_list_ragged(dims, avg_n, seed=0, leaf=int):
     not just the outermost. Fixed seed so repeated runs (e.g. before vs.
     after a code change) build the exact same tree.
 
-    leaf must produce a genuine (exact-type) Python float for a
-    float[]/double[] target -- the ragged-native list-push fast path's
-    leaf check (isRaggedLeafElement, jp_classhints.cpp) requires
-    PyFloat_CheckExact for F/D leaves, same as PyLong_CheckExact for I/J;
-    a plain Python int is valid (Java widens it) but misses this fast
-    path and silently falls back to the general per-element path."""
+    leaf must produce exactly the Python type isRaggedLeafElement
+    (jp_classhints.cpp) requires for the target leaf type, or the
+    ragged-native fast path silently declines and falls back to the
+    general per-element path instead -- PyFloat_CheckExact for F/D,
+    PyLong_CheckExact for I/J/B/S, PyBool_Check for Z, and an exact
+    length-1 str for C. A plain Python int is valid for a float[]/
+    double[]/boolean[]/char[] target too (Java widens/truthies/indexes
+    it), just not via this fast path."""
     rng = random.Random(seed)
 
     def build(d):
@@ -94,8 +121,15 @@ def run(name, fn, total_elements, dtype, dims):
                    best_ns=best, median_ns=median)
 
 
+LEAF_BY_LABEL = {
+    'int': int, 'long': int, 'float': float, 'double': float,
+    'byte': int, 'short': int,
+    'boolean': lambda i: bool(i % 2),
+    'char': lambda i: chr(ord('a') + i % 26),
+}
+
 for label, SUM_BY_DIMS in TYPES:
-    leaf = float if label in ('float', 'double') else int
+    leaf = LEAF_BY_LABEL[label]
     print(f"=== JPype: ragged list->array, multi-dimensional, push (Python -> Java), {label} ===")
     for dims in DIMS:
         lst = nested_list_ragged(dims, 10, seed=dims, leaf=leaf)
