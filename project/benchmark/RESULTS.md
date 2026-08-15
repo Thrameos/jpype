@@ -3,14 +3,15 @@
 jpype vs. jpy, jep, and pyjnius on the JVM-embedding side of a Python/Java
 bridge (Python drives Java in all four); GraalPy (Python-in-the-JVM,
 opposite architecture) is tracked separately in Section 9 and was not
-re-run for this edition. All numbers below are from a single sequential
-re-run of the full suite, in disposable/isolated environments per this
-repo's CLAUDE.md, with increased statistics (`trials=7`, higher
-iteration floors) versus prior editions of this report to reduce noise.
-Every section follows the same shape: **Methodology** (what is measured
-and how), **Table** (raw numbers, `best` of the trials, nanoseconds per
-call unless noted), **Result** (the factual takeaway only -- no
-running commentary, no revision history).
+re-run for this edition. jpype's own numbers are from a fresh,
+from-scratch re-run of its full benchmark suite, in disposable/isolated
+environments per this repo's CLAUDE.md; jpy/jep/pyjnius numbers are
+carried forward from their last captured run (not re-run this edition)
+and use the same `trials=7`, higher-iteration-floor methodology described
+below. Every section follows the same shape: **Methodology** (what is
+measured and how), **Table** (raw numbers, `best` of the trials,
+nanoseconds per call unless noted), **Result** (the factual takeaway
+only -- no running commentary, no revision history).
 
 ## Global methodology
 
@@ -39,8 +40,10 @@ running commentary, no revision history).
 - **Machine.** Single 16-core/7.7GB-RAM machine, one library's suite run
   at a time except where noted; no concurrent unrelated load.
 - **Scope.** `int`/`long`/`float`/`double` element types throughout
-  unless noted. `Z`/`B`/`C`/`S` (boolean/byte/char/short) arrays are not
-  separately benchmarked in this report.
+  unless noted -- jpy/jep/pyjnius have no `Z`/`B`/`C`/`S`
+  (boolean/byte/char/short) array benchmarks to compare against. Section
+  6 additionally covers jpype's own boolean/byte/char/short ragged-push
+  support, jpype-only.
 
 
 ## 1. Scalars, strings, object identity
@@ -61,7 +64,7 @@ identity of a returned Java object compared across two calls
 | Object identity | 974 | 737 | 2,135 | 4,096 |
 
 **Result.** jpy is fastest on every scalar/string/identity op; jpype
-trails jpy by roughly 1.3-1.9x; jep and pyjnius trail jpype by a further
+trails jpy by roughly 1-1.8x; jep and pyjnius trail jpype by a further
 1.5-4x depending on the op, with pyjnius's `new Integer`/`new Double`/
 string-roundtrip costs the widest outliers (7-23x jpy).
 
@@ -88,7 +91,7 @@ segfaults this pyjnius checkout (`GetObjectClass`/`IsSameObject` called
 without a null check on a genuinely-null `Object` argument), reproduced
 independently against a fresh build before being treated as a real
 finding rather than stale-build noise, per this repo's CLAUDE.md. jpype
-leads jep and pyjnius on dispatch by roughly 4-7x; jpy leads jpype on
+leads jep and pyjnius on dispatch by roughly 6-9x; jpy leads jpype on
 raw dispatch cost the same way it does on scalars.
 
 ## 3. Array push, flat (1D)
@@ -178,10 +181,10 @@ parameter (int has no widening case against itself).
 | double[100000] | 10,140,307 | 4,912,456 | 4,366,728 | 1,705,660 |
 
 _jpype's int/long rows reflect a recycling pool for the tagged-number
-leaves (`JByte`/`JShort`/`JInt`/`JLong` -- see Section 11); float/double
-are untouched by that change since they don't go through the same
-`tp_alloc` path. Boolean array pulls were already unaffected either way
--- `JPBooleanType::getFastArrayItem` already returned a plain
+leaves (`JByte`/`JShort`/`JInt`/`JLong`); float/double are untouched by
+that change since they don't go through the same `tp_alloc` path.
+Boolean array pulls were already unaffected either way --
+`JPBooleanType::getFastArrayItem` already returned a plain
 `PyBool_FromLong` singleton, never a tagged wrapper._
 
 ### `array->buffer` pull (Java array -> Python/numpy buffer)
@@ -214,9 +217,9 @@ for the isolated cost of that fallback). `array->list`: pyjnius is still
 the fastest of all four despite losing most other benchmarks in this
 report, because its Cython bridge boxes one plain `PyLong`/`PyFloat` per
 element while jpype/jep/jpy build heavier tagged wrapper objects --
-jpype's int/long gap to pyjnius narrowed (a recycling pool for those
-wrapper allocations, Section 11) but float/double and jep/jpy across the
-board still pay full per-element allocation cost.
+jpype's int/long gap to pyjnius is narrower than float/double's (a
+recycling pool for those wrapper allocations) but float/double and
+jep/jpy across the board still pay full per-element allocation cost.
 `array->buffer`: jep/pyjnius have no real buffer-protocol return path --
 their columns above are `array->list`'s cost plus a redundant
 `np.asarray()`, not a genuine bulk read, which is why they land *worse*
@@ -365,8 +368,7 @@ _pyjnius: no entry -- no buffer->array push at any depth._
 | double[][][][][](10^5) | 20,783,255 | 11,476,721 | -- | 5,539,152 |
 
 _jpype's int/long rows reflect the tagged-number recycling pool -- see
-Section 11 and Section 3's footnote; float/double are untouched by that
-change._
+Section 3's footnote; float/double are untouched by that change._
 
 ### `array->buffer` pull
 
@@ -390,13 +392,11 @@ change._
 | double[][][][][](10^5) | 605,987 | 10,900,139 | -- | 10,888,224 |
 
 _jpype numbers reflect the list/tuple-specialized ragged-native readout
-(`matchRaggedNode`/`encodeRaggedNode`, `native/common/jp_classhints.cpp`)
--- see Section 11._
+(`matchRaggedNode`/`encodeRaggedNode`, `native/common/jp_classhints.cpp`)._
 
 
-**Result.** `list->array`: jpype now leads at every depth, having
-closed and reversed a 2.2-2.5x deficit against jpy (see Section 11).
-`buffer->array`:
+**Result.** `list->array`: jpype leads jpy at every depth (1.1-1.8x,
+widening with depth). `buffer->array`:
 jpy and jpype both reach a genuine bulk path and are within a few
 percent of each other by depth 4-5; jep's manual per-row fallback is
 1-2 orders of magnitude slower at depth 4-5; pyjnius has none.
@@ -431,14 +431,31 @@ parameter, depth 2-5, ~10^depth total elements.
 | double[][][][](~10^4) | 100,782 | 151,441 | 532,166 | 463,626 |
 | double[][][][][](~10^5) | 1,511,558 | 2,217,599 | 7,744,838 | 10,166,998 |
 
-_jpype numbers reflect the list/tuple-specialized ragged-native readout
--- see Section 11._
+_jpype numbers reflect the list/tuple-specialized ragged-native readout._
 
+Also ragged-eligible, jpype-only (no jpy/jep/pyjnius equivalent to
+compare against): boolean/byte/char/short leaf types, added alongside
+int/long/float/double above. 1-/2-byte-wide leaves need 4-byte padding
+after each leaf run to keep the wire format's length markers aligned
+(`raggedAlign4`, `native/common/jp_classhints.cpp`) that the 4-/8-byte
+types never pay.
 
-**Result.** jpype leads at every depth/type (previously trailed jpy
-2.2-2.5x here -- see Section 11 for the fix); the gap to jpy widens
-with depth (both walk the ragged structure recursively, jpype's
+| shape | byte | boolean | char | short |
+|---|---:|---:|---:|---:|
+| [][](~10^2) | 1,416 | 1,375 | 1,862 | 1,432 |
+| [][][](~10^3) | 10,739 | 10,161 | 19,943 | 11,144 |
+| [][][][](~10^4) | 78,014 | 74,207 | 152,624 | 91,833 |
+| [][][][][](~10^5) | 1,277,818 | 1,243,047 | 2,253,666 | 1,360,739 |
+
+_char is 1.5-2x slower than the others at every depth -- its leaf
+conversion (`asCharUTF16`, `jp_stringtype.cpp`) decodes a Python
+string rather than doing a plain `PyLong_AsLong`/`PyBool_Check`._
+
+**Result.** jpype leads jpy at every depth/type; the gap widens with
+depth (both walk the ragged structure recursively, jpype's
 ragged-native encode path stays closer to linear in total elements).
+byte/boolean/short track int/long/float/double closely; char is the
+one outlier, for the string-decode reason noted above.
 
 ## 7. Array push/pull, shape at fixed depth and total element count
 
@@ -490,10 +507,7 @@ total elements or leaf-array count / row-heaviness. `list->array` and
 | double[10][10][1000] | 641,862 | 827,489 | 977,538 | 3,435,078 |
 
 _jpype numbers reflect the list/tuple-specialized ragged-native readout
-(`matchRaggedNode`/`encodeRaggedNode`, `native/common/jp_classhints.cpp`)
--- see Section 11. Prior to that specialization jpype trailed jpy 2-4x on
-every shape here; this table was stale (pre-specialization numbers) until
-refreshed 2026-08-13 -- see Section 11._
+(`matchRaggedNode`/`encodeRaggedNode`, `native/common/jp_classhints.cpp`)._
 
 ### `buffer->array` push (jep: manual per-row)
 
@@ -545,9 +559,9 @@ short rows, e.g. `[100000][3]`) costs more than a column-heavy one
 path -- more leaf arrays means more per-leaf JNI/reflection overhead
 even though total elements is unchanged. For jpy/jep/pyjnius,
 `list->array` pays this penalty via a recursive per-row Python-level
-walk. jpype's ragged-native path (Section 11) avoids the Python-level
-per-row cost -- one C++ walk, one JNI crossing -- but still shows the
-same row-heavy-costs-more shape, now from `Array.newInstance`/
+walk. jpype's ragged-native path avoids the Python-level per-row cost
+-- one C++ walk, one JNI crossing -- but still shows the same
+row-heavy-costs-more shape, now from `Array.newInstance`/
 `Array.set` reflection on the Java side of `fillRaggedFromBuffer`, one
 call per row regardless of row length (e.g. `int[100000][3]`: 6,659,293ns
 vs `int[3][100000]`: 2,127,744ns, same 100,000 elements). `buffer->array`
@@ -614,11 +628,6 @@ Result):**
 | [][][][](10^4) | 53,062 | 55,006 | 54,383 | 60,023 |
 | [][][][][](10^5) | 520,683 | 762,590 | 545,992 | 558,574 |
 
-_Fixed 2026-08-13 -- see Section 11. Before the fix (`newMultiArray`/
-`convertMultiArrayObject` per-element pack loop, no bulk-copy shortcut):
-[][][][](10^4) cost 141,606-149,967ns across types, ~2.4-2.7x today's
-numbers above._
-
 **`JArray(JType, dims)(arr)` -- the manual type+dims constructor spelling,
 int only (10^dims elements):**
 
@@ -629,50 +638,36 @@ int only (10^dims elements):**
 | [][][][](10^4) | 53,062 | 54,200 |
 | [][][][][](10^5) | 520,683 | 523,219 |
 
-_Fixed 2026-08-13, see Section 11 -- before the fix: 12,350 / 18,893 /
-64,983 / 536,493 respectively, i.e. 3.56x/2.22x slower than `.of()` at
-[][](10^2)/[][][](10^3); already near parity at [][][][](10^4) and beyond
-even before the fix (see Result below for why)._
+**Result.** Flat (1D): `JArray.of()` leads the naive constructor at
+every size 1,000 and up, and is within noise of it below that.
+`PyJPModule_convertBuffer` (`native/python/pyjp_module.cpp`) routes a
+flat (`ndim == 1`) source through the same `setArrayRange` buffer-
+protocol fast path (`tryFastBufferPush`/`Support.fillFlatFromBuffer`)
+the naive `JArray(JType)(arr)` constructor already uses -- a numpy
+source satisfies `PySequence_Check`, so the constructor lands in
+`setArrayRange` too, trying that same fast path first.
 
-**Result.** Flat (1D): `JArray.of()` now leads the naive constructor at
-every size 1,000 and up, and is within noise of it below that -- fixed
-2026-08-13 (see Section 11). Before the fix, `JArray.of()` was routed
-through the N-dimensional `newMultiArray`/`convertMultiArrayObject`
-machinery *unconditionally*, even for a flat 1D source: that path has no
-bulk-copy shortcut, so it paid a per-element `pack(converter(src))` call
-in a tight loop regardless of matching dtype, while the "naive"
-`JArray(JType)(arr)` constructor -- which also lands in `setArrayRange`,
-since a numpy array satisfies `PySequence_Check` -- already tries the
-buffer-protocol fast path (`tryFastBufferPush`/`Support.fillFlatFromBuffer`)
-first. The result was backwards from what the API promises:
-`JArray.of(arr)` at `int[100000]` cost 238,569ns, 5.8x *slower* than
-`JArray(JInt)(arr)`'s 41,196ns for the identical input. Fixed by routing
-the `ndim == 1` case through the same `setArrayRange` fast path instead
-of `newMultiArray`, closing the gap (`int[100000]`: 238,569 -> 40,796ns,
-5.85x).
+Multi-dimensional (N>=2): `JArray.of()` at depth >= 2 shares
+`tryFastMultiArrayBuffer` (`jp_convert.cpp`) with
+`JPConversionMultiArrayBuffer::convert` (Section 5's N>=2
+`buffer->array` push) -- the `classifyRawTransfer`-gated
+`Support.fillMultiArrayFromBuffer` bulk DirectByteBuffer handoff,
+falling back to a per-element `pack(converter(src))` loop
+(`newMultiArray`/`convertMultiArrayObject`) for a non-contiguous
+source or genuine dtype coercion. `fillMultiArrayFromBuffer` has no
+depth cap, so this covers every depth `JArray.of()` accepts, including
+depth > 4 (one level past the unrelated 4-dim cap on the
+*read*-direction `collectRectangular` helper used by
+`pullTo`/`np.asarray()`, which does not apply here). (The
+`dtype=<same type>` column is omitted from the multi-dimensional table
+-- it tracks `JArray.of(arr)` within noise, as expected, since both
+take the identical fast path there.) The manual `JArray(JType,
+dims)(arr)` constructor spelling reaches the same fast path via
+`PyJPArray_init`, gated the same way; it tracks `JArray.of(arr)`
+closely at every depth, confirming the manual spelling isn't leaving
+performance on the table relative to `.of()`.
 
-Multi-dimensional (N>=2): also fixed, 2026-08-13, as part of the
-`JArray.of()`/`pullTo`/`pushFrom` N-D work (see Section 11). Previously
-`JArray.of()` at any depth >= 2 routed unconditionally through
-`newMultiArray`/`convertMultiArrayObject`'s per-element `pack(converter(src))`
-loop -- the same cost model as Section 5's N>=2 `buffer->array` push rows
-before *their* fix, since both shared that machinery. Fixed by factoring
-`JPConversionMultiArrayBuffer::convert`'s existing fast-path block (the
-`classifyRawTransfer`-gated `Support.fillMultiArrayFromBuffer` bulk
-DirectByteBuffer handoff, already proven by Section 5's fast N-D push
-numbers) into a shared helper (`tryFastMultiArrayBuffer`,
-`jp_convert.cpp`) and calling it from `JArray.of()`'s N-D case too,
-falling back to the old per-element path exactly as before for a
-non-contiguous source or genuine dtype coercion. `fillMultiArrayFromBuffer`
-has no depth cap, so this covers every depth `JArray.of()` already
-accepted, including depth > 4 (verified against depth 6, one level past
-the unrelated 4-dim cap on the *read*-direction `collectRectangular`
-helper used by `pullTo`/`np.asarray()`, which does not apply here). (The
-`dtype=<same type>` column is omitted from the multi-dimensional table --
-it tracks `JArray.of(arr)` within noise, as expected, since both take the
-identical fast path there.)
-
-_Investigated 2026-08-15: the `dtype=<cross type>` row's ratio to the
+_The `dtype=<cross type>` row's ratio to the
 `dtype=<same type>` row is not constant -- it grows with size (~1.4x at
 100 elements to ~5x at 100,000, across all four flat tables above). This
 is real, expected cost, not a missed fast path or a regression: both rows
@@ -697,31 +692,19 @@ see Categories in `array_of.py`'s own docstring); closing the gap would
 mean vectorizing `Convert<T>::to*` over contiguous runs, a distinct
 optimization project, not a bug fix._
 
-The `dtype=<cross type>` (real dtype-coercion) column is markedly
-slower than matching dtype at every size -- confirmed this is pre-existing
-and unrelated to this fix (reproduces identically through the naive
-`JArray(JType)(arr)` constructor, which never touches the code this fix
-changed). Root cause not yet investigated.
-
 `JArray(JType, dims)(arr)` (the manual type+dims constructor, as distinct
-from `.of()`): also fixed, 2026-08-13. `PyJPArray_init` never checked the
-buffer protocol for this call path -- a numpy array also satisfies
-`PySequence_Check`, so construction always fell into the generic
-`newArray`+`setRange(0, length, 1, v)` path. For depth>=2 the
-componentType is itself an array class (not primitive), so
-`setArrayRange`'s generic default implementation applies, which -- unlike
-the primitive overrides the flat/1D case already benefits from -- has no
-buffer shortcut of its own. Fixed by adding a buffer-protocol fast-path
-attempt to `PyJPArray_init` reusing the same `tryFastMultiArrayBuffer`
-helper Part 1 added, falling back to the unchanged generic path exactly
-as before when it declines. The gain shrinks toward parity at higher
-depth/size (see table above) because the generic path already recurses
-one array-class level per dimension down to a primitive leaf level, where
-it *does* hit the existing primitive-`setArrayRange` fast path -- so its
-overhead scales with row count at the outermost levels, not total element
-count, and becomes negligible once total data dominates. The fix mainly
-matters at smaller/shallower shapes, where that per-row overhead was the
-whole cost.
+from `.of()`) reaches the same fast path: `PyJPArray_init` attempts the
+buffer-protocol fast path (`tryFastMultiArrayBuffer`, shared with
+`.of()`) before falling back to the generic `newArray`+`setRange(0,
+length, 1, v)` path that a non-buffer sequence source still needs. The
+gap to `.of(arr)` shrinks toward parity at higher depth/size (see table
+above) because even the generic fallback path recurses one array-class
+level per dimension down to a primitive leaf level, where it *does* hit
+the existing primitive-`setArrayRange` fast path -- so the fallback's
+overhead scales with row count at the outermost levels, not total
+element count, and becomes negligible once total data dominates. The
+buffer-protocol fast path matters most at smaller/shallower shapes,
+where that per-row overhead would otherwise be the whole cost.
 
 ### `list()` vs. `toList()` dtype variants
 
@@ -792,12 +775,10 @@ whole cost.
 | toList(dtype=double) double[100000], wrapped (~= old default) | 5,981,926 |
 | toList(dtype=int) double[100000], forced cast, plain | 1,948,578 |
 
-_Full re-run 2026-08-13, all four types, for internal consistency (mixing
-old and new numbers in one plain-vs-wrapped comparison would misrepresent
-it). `list(arr)`/wrapped rows for int/long reflect the tagged-number
-recycling pool -- see Section 11; float/double and the plain/forced-cast
-rows (already bare `PyLong_FromLong`/`PyFloat_FromDouble`, never routed
-through the pool) are session-to-session noise only._
+_`list(arr)`/wrapped rows for int/long reflect the tagged-number
+recycling pool; float/double and the plain/forced-cast rows (already
+bare `PyLong_FromLong`/`PyFloat_FromDouble`, never routed through the
+pool) are session-to-session noise only._
 
 ### Bulk in-place transfer (`pullTo`/`pushFrom`) vs. naive per-element
 
@@ -821,12 +802,10 @@ through the pool) are session-to-session noise only._
 | pushFrom float16 double[1000000] | 5,722,546 |
 
 **`pullTo`, multi-dimensional (10^dims elements, `int[][]`..`int[][][][][]`).**
-Before 2026-08-13, `pullTo` had no N-D support at all -- any array whose
-component type wasn't itself primitive (`int[][]`'s componentType is
-`int[]`, an array class) raised `"pullTo requires a primitive array"`
-unconditionally. Added as Part 2 of the `JArray.of()`/`pullTo`/`pushFrom`
-N-D work (see Section 11); the naive comparator below is the only prior
-option (a recursive per-element Python loop), not a regression baseline.
+`pullTo` supports N-D destinations (any array whose component type is
+itself an array class, e.g. `int[][]`); the naive comparator below (a
+recursive per-element Python loop) is the only alternative route to the
+same result.
 
 | shape | pullTo | naive per-element |
 |---|---:|---:|
@@ -844,10 +823,9 @@ memcpy of `itemsize`-wide elements -- has no per-type cost difference, so
 one type is representative)._
 
 **`pushFrom`, multi-dimensional (10^dims elements, `int[][]`..
-`int[][][][][]`).** Same story as `pullTo` above, mirrored: no N-D
-support at all before 2026-08-13 (Part 3 of the same work, see Section
-11), so the naive comparator is the only prior option, not a regression
-baseline.
+`int[][][][][]`).** Same story as `pullTo` above, mirrored for the write
+direction: the naive comparator is the only alternative route to the
+same result.
 
 | shape | pushFrom | naive per-element |
 |---|---:|---:|
@@ -1208,347 +1186,3 @@ real bulk buffer-transfer paths in both directions.
   case to measure separately from Section 3's finding.
 - **GraalPy**: not re-run this edition; see Section 9 for the last
   captured numbers and their own methodology/caveats.
-
-## 11. Where to focus next
-
-- **Resolved since the numbers above were first captured: `list->array`
-  push, depth >= 2 (both rectangular and ragged) used to lose to jpy's
-  naive per-element recursion by a consistent 2.2-2.5x, despite jpype
-  having a dedicated ragged-native fast path
-  (`isRaggedLeafElement`/`matchRaggedNode`/`encodeRaggedNode`,
-  `jp_classhints.cpp`) that jpy has no equivalent of at all -- every jpy
-  push there is a generic `PySequence_GetItem` recursion. Root cause:
-  `matchRaggedNode`/`encodeRaggedNode` read every node's contents via
-  the generic `JPPySequence` wrapper (`PySequence_Size`/
-  `PySequence_GetItem` -- protocol dispatch, owned reference per
-  element), at every node, in both the validation and encode passes.
-  This is exactly the cost `JPClass::sequenceCheckList`/
-  `sequenceCheckTuple` (`jp_class.h`) already exist to eliminate for the
-  flat (1D) push path via `PyList_GET_ITEM`/`PyTuple_GET_ITEM` (direct
-  index, borrowed reference, no dispatch) -- the ragged-native path had
-  never gotten the equivalent treatment. Fix: classify each node once
-  (list/tuple/generic) and use type-specific loops instead of the
-  one-size-fits-all `seq[i]` path, in both passes. Measured via isolated
-  `git worktree` + fresh venv before/after: `list->array` push at depth
-  2-5 is 2-4.4x faster for both rectangular and ragged shapes across all
-  four leaf types, closing and reversing the deficit -- jpype now leads
-  jpy at every depth/shape in Sections 5 and 6 above (e.g. rectangular
-  `int[][][][][](10^5)`: was 4,447,629 vs. jpy 1,757,121 (jpy 2.53x
-  faster), now 1,088,620 vs. the same jpy figure (jpype 1.6x faster);
-  ragged `int[][][][][](~10^5)`: was 5,108,332 vs. jpy 2,139,732 (jpy
-  2.39x faster), now 1,389,415 vs. the same jpy figure (jpype 1.5x
-  faster)).
-
-  Section 7's `list->array` table recurses through the same
-  `JPConversionRaggedSequence`/`fillRaggedFromBuffer` path and was missed
-  in the original refresh -- it still showed pre-specialization numbers
-  (jpype losing to jpy 2-4x on every shape) until re-measured and
-  corrected 2026-08-13. No code changed for this refresh, only the
-  recorded numbers.
-
-- **Resolved 2026-08-13: `array->list` pull (int/long) was dominated by
-  tagged-wrapper allocation cost, not the JNI read.** Profiled
-  `getFastArrayItem`'s two stages directly (instrumented, isolated
-  build): reading one element via `GetIntArrayRegion` cost ~34ns; boxing
-  it into a `JInt` via `PyJPNumber_longFromLongLong`
-  (`native/python/pyjp_number.cpp`) cost ~135ns, of which ~45ns was
-  `tp_alloc` (`PyType_GenericAlloc` -- a non-builtin heap type gets none
-  of `PyLong`'s own small-int cache or specialized allocator) and ~44ns
-  was the digit-fill/sign-tag work `PyLong_FromLong` itself would also
-  have to do, plus ~47ns of call-boundary overhead. A/B against a
-  same-call-site plain-`PyLong` bypass confirmed the gap: ~42ns plain vs.
-  ~135.5ns tagged, a ~3.2x difference matching the table's own ~1.3-1.5x
-  end-to-end swing once JNI/bounds-check/list-append overhead dilutes it.
-
-  Fix: a fixed-size recycling pool for the `JByte`/`JShort`/`JInt`/`JLong`
-  leaves (`intfreelist` in `pyjp_number.cpp`) -- one bucket sized for the
-  largest possible `jlong`'s digit count (there's nothing to gain from a
-  finer per-digit-count scheme), a lock-free Treiber stack (atomic head,
-  CAS push/pop, correct under free-threaded CPython even though nothing
-  here needs that yet, since construction runs under the GIL today), and
-  a custom `tp_dealloc` that pushes back instead of freeing. Gated by
-  exact type-pointer identity against the four leaves specifically:
-  confirmed `class MyInt(JInt): pass` raises `TypeError` ("Java classes
-  cannot be extended in Python"), so a Python subclass can never reach
-  this path, but `PyJPNumber_create` boxes `java.lang.Integer`/`Long`/
-  etc. return values through this same shared function with the *boxed*
-  class's own distinct host type -- pooling those too may well be safe
-  but is out of scope here, so the identity gate correctly excludes them.
-  `JBoolean` gets its own fix instead of a pool -- two process-lifetime
-  singletons (like Python's own `True`/`False`), since a Java boolean has
-  only two possible values; built lazily on first real construction
-  (building them eagerly from `PyJPNumber_initType` crashed at
-  `import _jpype` time -- that runs before any JVM/context exists, and
-  the eager version needed one).
-
-  Verified via isolated `git worktree` + fresh venv: full suite (1588
-  tests, 3 runs with randomized ordering) clean; a targeted stress script
-  (heavy churn value-fidelity, refcount sanity, boolean singleton
-  identity, interleaved mixed-type recycling with out-of-order drops, an
-  8-thread concurrent array-pull stress test) all clean. Measured:
-  `array->list int[100000]` 11,227,930 -> 9,265,813ns (1.21x),
-  `array->list long[100000]` 10,766,004 -> 8,235,060ns (1.31x),
-  `toList(dtype=int) int[100000]` (the wrapped wrapper-construction path)
-  9,121,523 -> 6,278,195ns (1.45x), `JBoolean(True)` construction 250 ->
-  90ns (2.78x, singleton). `float`/`double` and the plain/forced-cast
-  `toList()` variants are unaffected by design (untouched by this pool;
-  they already used bare `PyLong_FromLong`/`PyFloat_FromDouble`).
-
-- **Resolved 2026-08-13: `JArray.of()` (flat/1D) was 5.8x slower than
-  the naive fallback constructor for the identical input.** Newly
-  benchmarked (`array_of.py`, Section 8) rather than a regression from
-  other work this session -- `JArray.of()` had no dedicated benchmark
-  before, so this gap had never been directly measured; it was only
-  visible by comparing across two different tables (Section 3's
-  method-argument `buffer->array` push vs. this one) and had gone
-  unnoticed. Root cause: `PyJPModule_convertBuffer`
-  (`native/python/pyjp_module.cpp`) routed every source through
-  `JPPrimitiveType::newMultiArray` -> `convertMultiArrayObject`
-  (`jp_primitive_accessor.h`) unconditionally, including a flat 1D
-  source -- that path has no bulk-copy shortcut, only a per-element
-  `pack(converter(src))` call in its traversal loop, because it predates
-  the flat-path optimization (`Support.fillFlatFromBuffer`) and was
-  never given the same treatment. Meanwhile the "naive" alternative,
-  `JArray(JType)(arr)`, already reached the fast path by accident: numpy
-  arrays satisfy `PySequence_Check`, so `PyJPArray_init` routes them
-  through `JPArray::setRange` -> `JPXxxType::setArrayRange`, which tries
-  `tryFastBufferPush`/`fillFlatFromBuffer` first, before falling back to
-  a general per-element loop.
-
-  Fix: for `view.ndim == 1`, `PyJPModule_convertBuffer` now allocates the
-  flat array directly and calls `setArrayRange` on it -- the same fast
-  path the naive constructor already used, reused rather than
-  duplicated. N>=2 is untouched, still routed through
-  `newMultiArray`/`convertMultiArrayObject` (same per-element-pack cost
-  model as Section 5's N-D `buffer->array` push rows, which share that
-  code) -- deliberately deferred to the planned `pushTo`/`pullFrom`
-  multidimensional work, since a real fix there needs a genuine
-  per-row bulk-copy redesign, not a one-line reroute.
-
-  Verified via isolated `git worktree` + fresh venv: full suite (1588
-  tests, clean across 2 additional randomized-order runs) plus explicit
-  1D/2D/3D/cross-dtype/strided correctness checks. Measured:
-  `JArray.of(arr)` `int[100000]` 238,569 -> 40,796ns (5.85x), now ahead
-  of the naive constructor's 46,273ns again as the API intends. A
-  separate, pre-existing (not introduced by this fix, confirmed by
-  reproducing it through the untouched naive-constructor path too)
-  dtype-coercion slowdown in `tryFastBufferPush`/`fillFlatIntoArray` was
-  found along the way and is noted in Section 8, not yet root-caused.
-
-- **Resolved 2026-08-13: `JArray.of()` (multi-dimensional, N>=2) had no
-  bulk-copy path at all -- Part 1 of the planned `JArray.of()`/`pullTo`/
-  `pushFrom` N-D work.** Deliberately deferred by the flat/1D fix above:
-  every N-D `JArray.of()` call routed through `newMultiArray` ->
-  `convertMultiArrayObject`'s per-element `pack(converter(src))` loop, the
-  same cost model Section 5's N-D `buffer->array` method-argument push had
-  *before* `JPConversionMultiArrayBuffer::convert` grew its own
-  `classifyRawTransfer`-gated `Support.fillMultiArrayFromBuffer` bulk
-  DirectByteBuffer fast path -- `JArray.of()` had simply never been given
-  the same treatment as that sibling path.
-
-  Fix: factored the existing fast-path block out of
-  `JPConversionMultiArrayBuffer::convert` (`jp_classhints.cpp`) into a
-  shared helper, `tryFastMultiArrayBuffer` (`jp_convert.cpp`, declared in
-  `jpype.h` alongside `tryFastBufferPush`), taking `(frame, pcls, buffer,
-  jdims)` and returning the constructed array on success or declining
-  (non-contiguous source, genuine dtype coercion) for the caller to fall
-  back exactly as before. Called from both
-  `JPConversionMultiArrayBuffer::convert` (no behavior change there --
-  same fast path, same fallback, just no longer duplicated) and
-  `PyJPModule_convertBuffer`'s N-D branch (`pyjp_module.cpp`), which
-  previously called `newMultiArray` unconditionally. Since
-  `Support.fillFromBuffer`/`fillMultiArrayFromBuffer` has no depth cap
-  (confirmed by reading `Support.java` -- `shape.length` used directly, no
-  dimension limit anywhere in `assemble`/`unpack`), no recursion or
-  depth-cap handling was needed for this part; it covers every depth
-  `JArray.of()` already accepted.
-
-  Verified via isolated `git worktree` + fresh venv: full suite (1588
-  non-SQL-driver tests -- the SQL failures are a pre-existing sandbox
-  environment gap, unrelated, reproduce identically on unpatched HEAD --
-  clean across 2 randomized-order runs) plus explicit correctness checks
-  at depths 1 through 6 (int/long/float/double), including non-contiguous
-  (Fortran-order) source and cross-dtype coercion fallback correctness,
-  and depth 6 specifically to confirm the missing depth cap claim (one
-  level past `pullTo`'s unrelated `collectRectangular` 4-dim cap, which
-  does not apply to this write-direction path). Measured (paired same-venv
-  isolation to avoid cross-worktree editable-install contamination):
-  `JArray.of(arr)` `int[][][][](10^4)` 147,646 -> 58,460ns (2.53x),
-  `int[][][][][](10^5)` 1,512,067 -> 602,778ns (2.51x); consistent
-  2.2-2.7x across int/long/float/double at every depth 2-5 (see Section 8
-  for the full per-type table). Flat (1D) numbers unaffected, as expected
-  (that path was already untouched by this change).
-
-- **Added 2026-08-13: `pullTo` gained genuine multi-dimensional (N-D)
-  support -- Part 2 of the planned `JArray.of()`/`pullTo`/`pushFrom` N-D
-  work.** Not a regression fix -- `pullTo` previously had no N-D support
-  at all: `JPArray::pullTo` (`jp_array.cpp`) gated on
-  `dynamic_cast<JPPrimitiveType*>(m_Class->getComponentType())`, which is
-  null for any array whose component type is itself an array class
-  (`int[][]`'s componentType is `int[]`), so every N-D call raised
-  `"pullTo requires a primitive array"` unconditionally.
-
-  Added a new `pullToRectangular` helper (`jp_array.cpp`, anonymous
-  namespace) that detects the N-D case via `JPArrayClass::
-  getMultiArrayLeaf()`/`getMultiArrayDepth()` (precomputed per-class,
-  already used by `JPConversionMultiArrayBuffer`) and, for depth<=4, uses
-  the same proven bulk read machinery `np.asarray()` on an N-D array
-  already used (`Support.collectRectangular` + `Support.
-  collectMultiArrayToBuffer`, via `JPJavaFrame::collectRectangular`/
-  `collectMultiArrayToBuffer`) -- writing straight into the destination's
-  own memory via a `NewDirectByteBuffer` when it's C-contiguous, or into
-  owned scratch memory followed by a new strided odometer-walk copy
-  (`copyFlatToBufferView`) when it isn't. For depth>4, recurses by
-  peeling the outermost dimension and calling itself once per top-level
-  slice (each depth-1 shallower) -- this is what carries the fast path
-  one level past `collectRectangular`'s own 4-dim-per-JNI-call cap (a
-  bound on one leaf-discovery call's cost, not a supported-depth limit --
-  confirmed on the *write* direction in Part 1 above, and here verified
-  directly for the *read* direction too). Raises `ValueError("mismatched
-  size")` for any shape mismatch (checked per-dimension against the
-  destination, not just the flattened total, since N-D shape mismatches
-  should be caught explicitly rather than silently reinterpreted) and
-  `TypeError("pullTo requires a rectangular primitive array")` for a
-  ragged (non-rectangular) source (`collectRectangular` returns `null`)
-  -- no fill/pad semantics, by design; ragged stays unsupported for the
-  fast path, same as it always has been for `np.asarray()`.
-
-  Verified via isolated `git worktree` + fresh venv: full suite (1597
-  tests -- 1588 plus 9 new N-D `pullTo` cases -- clean across 3
-  randomized-order runs); new cases cover depths 2 through 5 (5 being one
-  level past the `collectRectangular` cap, confirming the recursive
-  extension), non-contiguous destinations at depth 2 and depth 5, an
-  `ndim`-mismatch-but-equal-total-count case (confirming the stricter
-  per-dimension check catches what the old flattened-total check would
-  have missed), and an explicit ragged-source case (confirming the
-  `TypeError`, not a crash or silent misbehavior). Measured
-  (`arraytransfer.py`, new "pullTo, multi-dimensional" section) against
-  the only prior alternative (a recursive per-element Python loop, since
-  `pullTo` itself didn't support N-D before this): `int[][][](10^3)`
-  4,286ns vs. 350,651ns naive (81.8x), `int[][][][](10^4)` 31,601ns vs.
-  3,515,619ns naive (111.3x); `int[][][][][](10^5)` 310,539ns (naive not
-  run at this size -- already minutes-long at 10^4).
-
-- **Added 2026-08-13: `pushFrom` gained genuine multi-dimensional (N-D)
-  support -- Part 3 (final) of the planned `JArray.of()`/`pullTo`/
-  `pushFrom` N-D work.** Same starting point as `pullTo` above, mirrored:
-  `JPArray::pushFrom` gated on the same `dynamic_cast<JPPrimitiveType*>`
-  check, raising `"pushFrom requires a primitive array"` unconditionally
-  for any N-D array. This was the one part of the three requiring new
-  Java code -- unlike the read direction (`np.asarray()`/`pullTo`, both
-  served by the existing `Support.collectRectangular`/`collectToBuffer`),
-  nothing bulk-writes a flat buffer's bytes into an *already-existing*
-  N-D array's leaves in place; `Support.fillFromBuffer` (Part 1's
-  `JArray.of()` fix) always allocates a fresh array, which is wrong for
-  `pushFrom`'s in-place identity-preserving contract.
-
-  Added `Support.fillFromBufferIntoRectangular` (`Support.java`), a
-  structural mirror of `collectToBuffer` with the buffer direction
-  reversed (`Buffer.get(leafArray, ...)` in place of `dup.put(...)`,
-  same per-type switch, same `leafRange` serial/parallel split, same
-  `collectRectangular`-produced leaf-array references -- so it writes
-  into the target array's own memory, never allocating new leaves), wired
-  through a new `JPJavaFrame::fillBufferIntoMultiArray` wrapper and
-  `jmethodID` (`jp_javaframe.h/.cpp`, `jp_context.h/.cpp`) following the
-  existing `collectMultiArrayToBuffer` wrapper's exact pattern. On the
-  C++ side, added `pushFromRectangular` (`jp_array.cpp`, anonymous
-  namespace) as a direct structural mirror of Part 2's
-  `pullToRectangular` -- same depth<=4/depth>4 split, same
-  `validateRectangularShape`/`sliceOuterDim` helpers (factored out and
-  shared between both directions rather than duplicated), same
-  shape-mismatch/ragged-source error handling -- differing only in
-  transfer direction (`fillBufferIntoMultiArray` instead of
-  `collectMultiArrayToBuffer`; a new `copyBufferViewToFlat` odometer walk
-  reads a non-contiguous *source* into scratch memory, mirroring
-  `copyFlatToBufferView`'s write into a non-contiguous *destination*).
-
-  Verified via isolated `git worktree` + fresh venv: full suite (1608
-  tests -- 1597 plus 11 new N-D `pushFrom` cases -- clean across 3
-  randomized-order runs); new cases cover depths 2 through 5, non-
-  contiguous sources at depth 2 and depth 5, shape/ndim-mismatch and
-  ragged-source error handling (mirroring `pullTo`'s coverage), a
-  push+pull depth-5 round trip, and an explicit array-identity check
-  (`System.identityHashCode` on each leaf row before/after `pushFrom`,
-  confirming no leaf array is ever replaced -- the in-place contract
-  holds for the N-D path exactly as it always has for the flat one).
-  Measured (`arraytransfer.py`, new "pushFrom, multi-dimensional"
-  section) against the only prior alternative (a recursive per-element
-  Python assignment loop, since `pushFrom` itself didn't support N-D
-  before this): `int[][][](10^3)` 4,013ns vs. 457,039ns naive (113.9x),
-  `int[][][][](10^4)` 30,231ns vs. 4,567,642ns naive (151.1x);
-  `int[][][][][](10^5)` 307,131ns (naive not run at this size, same
-  reasoning as `pullTo`'s table).
-
-  This closes the `JArray.of()`/`pullTo`/`pushFrom` N-D plan: all three
-  now have genuine bulk N-D paths, none silently degrade to per-element
-  loops for a rectangular primitive source/destination at any depth.
-
-- **Resolved 2026-08-13: the manual `JArray(JType, dims)(arr)`/
-  `JType[:,:,...](arr)` constructor spelling had no buffer-protocol fast
-  path at any N-D depth.** Follow-up to the closed N-D plan above,
-  prompted by checking that `JArray.of()` -- "just a lazy way to say make
-  an array of any depth from a buffer" -- wasn't the *only* spelling that
-  got the fix. It wasn't: `PyJPArray_init` (`pyjp_array.cpp`) never
-  checked the buffer protocol at all for this call path. A numpy array
-  also satisfies `PySequence_Check`, so construction always fell into the
-  generic `newArray`+`setRange(0, length, 1, v)` path; for depth>=2 the
-  componentType is itself an array class, so `setArrayRange`'s generic
-  default implementation applies (no buffer shortcut, unlike the
-  primitive overrides the 1D case already benefits from).
-
-  Fixed by adding a buffer-protocol fast-path attempt to `PyJPArray_init`,
-  gated the same way `JPConversionMultiArrayBuffer::matches` gates its
-  own (`getMultiArrayLeaf()`/`getMultiArrayDepth() >= 2`), reusing Part
-  1's `tryFastMultiArrayBuffer` helper directly -- no new Java or
-  buffer-classification code, a third call site for existing machinery.
-  Falls back to the unchanged generic path whenever the fast path
-  declines (non-contiguous source, genuine dtype coercion, depth<2, or
-  not a buffer at all).
-
-  One real bug surfaced and fixed along the way: `getConverter`
-  (`jp_convert.cpp`) raises a Python `ValueError` for an unrecognized
-  buffer element format (e.g. a numpy object-dtype array) rather than
-  returning `nullptr` -- pre-existing behavior, latent because the two
-  existing `tryFastMultiArrayBuffer` call sites never exercised an
-  unrecognized format through a path that also needed a clean decline (a
-  method-argument push or `.of()` call with an object-dtype array simply
-  wasn't a tested case before). Wiring this fast path into
-  `PyJPArray_init` newly exposed it: `test_array.py`'s pre-existing
-  `testNumpyMultiDimBufferDtypeMismatch` (asserting `TypeError` for an
-  object-dtype source) started raising `ValueError` instead, since my
-  first attempt let the exception propagate rather than treating it as a
-  decline. Fixed by wrapping the fast-path attempt in a `catch (...)`
-  that falls through to the general path on any exception (matching the
-  "declines cleanly" contract every other caller of this helper already
-  gets) -- not a fix to `getConverter` itself, which is unchanged and
-  still used the same way by its other callers.
-
-  Also investigated, and confirmed *not* a bug: holding a
-  `memoryview(ja)`/`np.asarray(ja)` export alive across a later
-  `pushFrom`/mutation on the same array, then reading through that same,
-  still-open export, shows old data. This is required buffer-protocol
-  behavior, not a caching bug -- `PyJPArray_getBuffer` already explicitly
-  rejects `PyBUF_WRITEABLE` and takes a one-time `collectRectangular`
-  snapshot precisely because Java's array-of-arrays layout isn't
-  contiguous and can't be a true live view; the cache is torn down and
-  rebuilt correctly once the export count drops to zero. Verified
-  experimentally (release the export, mutate, re-export: always fresh)
-  and added a regression test plus a doc-comment note on `pushFrom_doc`
-  capturing this so it doesn't get "fixed" into a bug later.
-
-  Verified via isolated `git worktree` + fresh venv: full suite (1614
-  tests -- 1608 plus 6 new cases -- clean across 3 randomized-order runs,
-  including the `testNumpyMultiDimBufferDtypeMismatch` regression once
-  caught); new coverage for depths 2 through 6, `JType[:,:,...]` syntax,
-  non-contiguous-source and cross-dtype fallback correctness, and the
-  buffer-export snapshot-semantics regression test. Measured (paired
-  same-venv isolation): `JArray(JInt, 2)(arr)` at `int[][](10^2)` 12,350
-  -> 3,473ns (3.56x), `int[][][](10^3)` 18,893 -> 8,511ns (2.22x); gains
-  shrink toward parity at `int[][][][](10^4)` and beyond, since the old
-  generic path already recurses down to a primitive leaf level per
-  dimension and hits the *existing* primitive fast path there too, so its
-  overhead scales with row count (small relative to total data at larger
-  shapes), not total element count -- this fix mainly matters at
-  smaller/shallower shapes, where that per-row overhead was the whole
-  cost.
-
