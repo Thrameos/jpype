@@ -455,6 +455,142 @@ class JFloatTestCase(common.JPypeTestCase):
         self.assertEqual(list(ja), [3.5, 2.5, 1.5])
 
     @common.requireNumpy
+    def testArraySetRangeBufferFallbackInt16Source(self):
+        # getConverter's int16_t source case (from[0] == 'h', non-swapped)
+        # -> 'f' target.
+        ja = JArray(JFloat)(3)
+        a = np.array([1, 2, 3], dtype=np.int16)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [3.0, 2.0, 1.0])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallbackInt16SourceSwapped(self):
+        ja = JArray(JFloat)(3)
+        a = np.array([1, 2, 3], dtype='>i2')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [3.0, 2.0, 1.0])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallbackUint16Source(self):
+        # getConverter's uint16_t source case (from[0] == 'H', non-swapped)
+        # -> 'f' target.
+        ja = JArray(JFloat)(3)
+        a = np.array([1, 2, 3], dtype=np.uint16)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [3.0, 2.0, 1.0])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallbackUint16SourceSwapped(self):
+        ja = JArray(JFloat)(3)
+        a = np.array([1, 2, 3], dtype='>u2')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [3.0, 2.0, 1.0])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallbackInt32Source(self):
+        # getConverter's int32_t source case (from[0] in 'i','l',
+        # non-swapped) -> 'f' target.
+        ja = JArray(JFloat)(3)
+        a = np.array([1, 2, 3], dtype=np.int32)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [3.0, 2.0, 1.0])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallbackInt32SourceSwapped(self):
+        ja = JArray(JFloat)(3)
+        a = np.array([1, 2, 3], dtype='>i4')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [3.0, 2.0, 1.0])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallbackUint32Source(self):
+        # getConverter's uint32_t source case (from[0] in 'I','L',
+        # non-swapped) -> 'f' target.
+        ja = JArray(JFloat)(3)
+        a = np.array([1, 2, 3], dtype=np.uint32)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [3.0, 2.0, 1.0])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallbackUint32SourceSwapped(self):
+        ja = JArray(JFloat)(3)
+        a = np.array([1, 2, 3], dtype='>u4')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [3.0, 2.0, 1.0])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallbackInt64Source(self):
+        # getConverter's int64_t source case (from[0] == 'q', non-swapped)
+        # -> 'f' target.
+        ja = JArray(JFloat)(3)
+        a = np.array([1, 2, 3], dtype=np.int64)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [3.0, 2.0, 1.0])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallbackInt64SourceSwapped(self):
+        ja = JArray(JFloat)(3)
+        a = np.array([1, 2, 3], dtype='>i8')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [3.0, 2.0, 1.0])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallbackUint64SourceSwapped(self):
+        # getConverter's uint64_t source case (from[0] == 'Q', swapped) ->
+        # 'f' target. Non-swapped 'f' is already covered by
+        # testArraySetRangeBufferFallbackInt64Source-adjacent uint64
+        # itemsize-8 handling elsewhere; add the swapped case here.
+        ja = JArray(JFloat)(3)
+        a = np.array([1, 2, 3], dtype='>u8')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [3.0, 2.0, 1.0])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallbackFloat32Source(self):
+        # getConverter's float source case (from[0] == 'f', non-swapped)
+        # -> 'f' target. The type's own testArraySetRangeBufferFallback
+        # above uses a float64 source, not float32.
+        ja = JArray(JFloat)(3)
+        a = np.array([1.5, 2.5, 3.5], dtype=np.float32)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [3.5, 2.5, 1.5])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallbackFloat32SourceSwapped(self):
+        ja = JArray(JFloat)(3)
+        a = np.array([1.5, 2.5, 3.5], dtype='>f4')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [3.5, 2.5, 1.5])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallbackFloat64SourceSwapped(self):
+        # getConverter's double source case (from[0] == 'd', swapped) ->
+        # 'f' target. Non-swapped 'f' is already covered by
+        # testArraySetRangeBufferFallback above.
+        ja = JArray(JFloat)(3)
+        a = np.array([1.5, 2.5, 3.5], dtype='>f8')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [3.5, 2.5, 1.5])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallbackFloat16SourceSwapped(self):
+        # getConverter's float16 source case (from[0] == 'e', swapped) ->
+        # 'f' target.
+        ja = JArray(JFloat)(3)
+        a = np.array([1.5, 2.5, 3.5], dtype='>f2')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [3.5, 2.5, 1.5])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallbackInt8Source(self):
+        # getConverter's int8_t source case (from[0] in '?','c','b') ->
+        # 'f' target.
+        ja = JArray(JFloat)(3)
+        a = np.array([1, 2, 3], dtype=np.int8)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [3.0, 2.0, 1.0])
+
+    @common.requireNumpy
     def testArraySetRangeBufferFallbackFloat16Subnormal(self):
         # testNPFloat16 above already covers subnormal float16 values
         # numerically, but only via the JArray(JFloat)(a) *construction*
@@ -472,6 +608,21 @@ class JFloatTestCase(common.JPypeTestCase):
         ja = JArray(JFloat)(3)
         ja[0:3] = a[::-1]
         np.testing.assert_array_equal(np.asarray(ja), expected[::-1])
+
+    @common.requireNumpy
+    def testArraySetRangeBufferFallbackFloat16InfNan(self):
+        # jp_convert.cpp's Half<Convert<float>::toF>::convert -- the "to
+        # infinity and beyond" branch (exp==31), via the per-element
+        # getConverter() fallback rather than testNPFloat16's construction-
+        # path route to the same +inf/-inf/nan values.
+        bits = np.array([0x7C00, 0xFC00, 0x7E00], dtype=np.uint16)
+        a = bits.view(np.float16)
+        ja = JArray(JFloat)(3)
+        ja[0:3] = a[::-1]
+        result = list(ja)
+        self.assertTrue(np.isnan(result[0]))
+        self.assertEqual(result[1], float('-inf'))
+        self.assertEqual(result[2], float('inf'))
 
     def testArrayHash(self):
         ja = JArray(JFloat)([1, 2, 3])

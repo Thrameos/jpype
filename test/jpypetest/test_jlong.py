@@ -438,6 +438,109 @@ class JLongTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [300, 200, 100])
 
+    def testArraySetRangeBufferFallbackInt16Source(self):
+        # getConverter's int16_t source case (from[0] == 'h', non-swapped)
+        # -> 'j' target.
+        ja = JArray(JLong)(3)
+        a = np.array([10, 20, 30], dtype=np.int16)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [30, 20, 10])
+
+    def testArraySetRangeBufferFallbackInt16SourceSwapped(self):
+        ja = JArray(JLong)(3)
+        a = np.array([10, 20, 30], dtype='>i2')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [30, 20, 10])
+
+    def testArraySetRangeBufferFallbackUint16Source(self):
+        # getConverter's uint16_t source case (from[0] == 'H', non-swapped)
+        # -> 'j' target.
+        ja = JArray(JLong)(3)
+        a = np.array([10, 20, 30], dtype=np.uint16)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [30, 20, 10])
+
+    def testArraySetRangeBufferFallbackUint16SourceSwapped(self):
+        ja = JArray(JLong)(3)
+        a = np.array([10, 20, 30], dtype='>u2')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [30, 20, 10])
+
+    def testArraySetRangeBufferFallbackInt32SourceSwapped(self):
+        # getConverter's int32_t source case (from[0] in 'i','l', swapped)
+        # -> 'j' target. Non-swapped 'j' is already covered by
+        # testArraySetRangeBufferFallback above (np.int32 source).
+        ja = JArray(JLong)(3)
+        a = np.array([10, 20, 30], dtype='>i4')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [30, 20, 10])
+
+    def testArraySetRangeBufferFallbackUint32Source(self):
+        # getConverter's uint32_t source case (from[0] in 'I','L',
+        # non-swapped) -> 'j' target.
+        ja = JArray(JLong)(3)
+        a = np.array([10, 20, 30], dtype=np.uint32)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [30, 20, 10])
+
+    def testArraySetRangeBufferFallbackUint32SourceSwapped(self):
+        ja = JArray(JLong)(3)
+        a = np.array([10, 20, 30], dtype='>u4')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [30, 20, 10])
+
+    def testArraySetRangeBufferFallbackUint64Source(self):
+        # getConverter's uint64_t source case (from[0] == 'Q',
+        # non-swapped) -> 'j' target.
+        ja = JArray(JLong)(3)
+        a = np.array([10, 20, 30], dtype=np.uint64)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [30, 20, 10])
+
+    def testArraySetRangeBufferFallbackUint64SourceSwapped(self):
+        ja = JArray(JLong)(3)
+        a = np.array([10, 20, 30], dtype='>u8')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [30, 20, 10])
+
+    def testArraySetRangeBufferFallbackFloat32Source(self):
+        # getConverter's float source case (from[0] == 'f', non-swapped)
+        # -> 'j' target.
+        ja = JArray(JLong)(3)
+        a = np.array([10, 20, 30], dtype=np.float32)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [30, 20, 10])
+
+    def testArraySetRangeBufferFallbackFloat32SourceSwapped(self):
+        ja = JArray(JLong)(3)
+        a = np.array([10, 20, 30], dtype='>f4')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [30, 20, 10])
+
+    def testArraySetRangeBufferFallbackFloat64SourceSwapped(self):
+        # getConverter's double source case (from[0] == 'd', swapped) ->
+        # 'j' target. Non-swapped 'j' is already covered elsewhere.
+        ja = JArray(JLong)(3)
+        a = np.array([10, 20, 30], dtype='>f8')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [30, 20, 10])
+
+    def testArraySetRangeBufferFallbackFloat16SourceSwapped(self):
+        # getConverter's float16 source case (from[0] == 'e', swapped) ->
+        # 'j' target.
+        ja = JArray(JLong)(3)
+        a = np.array([10, 20, 30], dtype='>f2')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [30, 20, 10])
+
+    def testArraySetRangeBufferFallbackInt8Source(self):
+        # getConverter's int8_t source case (from[0] in '?','c','b') ->
+        # 'j' target.
+        ja = JArray(JLong)(3)
+        a = np.array([10, 20, 30], dtype=np.int8)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [30, 20, 10])
+
     def testArraySetRangeBufferFallbackFloat16Subnormal(self):
         # jp_convert.cpp's Half<Convert<float>::toJ>::convert -- a
         # subnormal half-float (exp==0, frac!=0) truncated to long is 0
@@ -447,6 +550,16 @@ class JLongTestCase(common.JPypeTestCase):
         ja = JArray(JLong)(3)
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [0, 0, 0])
+
+    def testArraySetRangeBufferFallbackFloat16InfNan(self):
+        # jp_convert.cpp's Half<Convert<float>::toJ>::convert -- the "to
+        # infinity and beyond" branch (exp==31): +inf/-inf/nan all cast to
+        # jlong the same way float infinity/nan already do (LONG_MIN).
+        bits = np.array([0x7C00, 0xFC00, 0x7E00], dtype=np.uint16)
+        a = bits.view(np.float16)
+        ja = JArray(JLong)(3)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [-9223372036854775808] * 3)
 
     def testArrayConversionFail(self):
         jarr = JArray(JLong)(VALUES)

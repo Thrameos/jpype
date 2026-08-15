@@ -176,6 +176,137 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [True, True, True])
 
+    def testArraySetRangeBufferFallbackInt16Source(self):
+        # getConverter's int16_t source case (from[0] == 'h', non-swapped)
+        # -> 'z' target.
+        import numpy as np
+        ja = JArray(JBoolean)(3)
+        a = np.array([1, 0, 1], dtype=np.int16)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [True, False, True])
+
+    def testArraySetRangeBufferFallbackInt16SourceSwapped(self):
+        import numpy as np
+        ja = JArray(JBoolean)(3)
+        a = np.array([1, 0, 1], dtype='>i2')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [True, False, True])
+
+    def testArraySetRangeBufferFallbackUint16Source(self):
+        # getConverter's uint16_t source case (from[0] == 'H', non-swapped)
+        # -> 'z' target.
+        import numpy as np
+        ja = JArray(JBoolean)(3)
+        a = np.array([1, 0, 1], dtype=np.uint16)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [True, False, True])
+
+    def testArraySetRangeBufferFallbackUint16SourceSwapped(self):
+        import numpy as np
+        ja = JArray(JBoolean)(3)
+        a = np.array([1, 0, 1], dtype='>u2')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [True, False, True])
+
+    def testArraySetRangeBufferFallbackInt32Source(self):
+        # getConverter's int32_t source case (from[0] in 'i','l',
+        # non-swapped) -> 'z' target.
+        import numpy as np
+        ja = JArray(JBoolean)(3)
+        a = np.array([1, 0, 1], dtype=np.int32)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [True, False, True])
+
+    def testArraySetRangeBufferFallbackInt32SourceSwapped(self):
+        import numpy as np
+        ja = JArray(JBoolean)(3)
+        a = np.array([1, 0, 1], dtype='>i4')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [True, False, True])
+
+    def testArraySetRangeBufferFallbackUint32Source(self):
+        # getConverter's uint32_t source case (from[0] in 'I','L',
+        # non-swapped) -> 'z' target.
+        import numpy as np
+        ja = JArray(JBoolean)(3)
+        a = np.array([1, 0, 1], dtype=np.uint32)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [True, False, True])
+
+    def testArraySetRangeBufferFallbackUint32SourceSwapped(self):
+        import numpy as np
+        ja = JArray(JBoolean)(3)
+        a = np.array([1, 0, 1], dtype='>u4')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [True, False, True])
+
+    def testArraySetRangeBufferFallbackUint64Source(self):
+        # getConverter's uint64_t source case (from[0] == 'Q',
+        # non-swapped) -> 'z' target.
+        import numpy as np
+        ja = JArray(JBoolean)(3)
+        a = np.array([1, 0, 1], dtype=np.uint64)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [True, False, True])
+
+    def testArraySetRangeBufferFallbackUint64SourceSwapped(self):
+        import numpy as np
+        ja = JArray(JBoolean)(3)
+        a = np.array([1, 0, 1], dtype='>u8')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [True, False, True])
+
+    def testArraySetRangeBufferFallbackFloat32Source(self):
+        # getConverter's float source case (from[0] == 'f', non-swapped)
+        # -> 'z' target.
+        import numpy as np
+        ja = JArray(JBoolean)(3)
+        a = np.array([1, 0, 1], dtype=np.float32)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [True, False, True])
+
+    def testArraySetRangeBufferFallbackFloat32SourceSwapped(self):
+        import numpy as np
+        ja = JArray(JBoolean)(3)
+        a = np.array([1, 0, 1], dtype='>f4')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [True, False, True])
+
+    def testArraySetRangeBufferFallbackFloat64Source(self):
+        # getConverter's double source case (from[0] == 'd', non-swapped)
+        # -> 'z' target.
+        import numpy as np
+        ja = JArray(JBoolean)(3)
+        a = np.array([1, 0, 1], dtype=np.float64)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [True, False, True])
+
+    def testArraySetRangeBufferFallbackFloat64SourceSwapped(self):
+        import numpy as np
+        ja = JArray(JBoolean)(3)
+        a = np.array([1, 0, 1], dtype='>f8')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [True, False, True])
+
+    def testArraySetRangeBufferFallbackFloat16SourceSwapped(self):
+        # getConverter's float16 source case (from[0] == 'e', swapped) ->
+        # 'z' target -- Reverse<Half<Convert<float>::toZ>::convert>::call4.
+        import numpy as np
+        ja = JArray(JBoolean)(3)
+        a = np.array([1, 0, 1], dtype='>f2')
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [True, False, True])
+
+    def testArraySetRangeBufferFallbackFloat16InfNan(self):
+        # jp_convert.cpp's Half<Convert<float>::toZ>::convert -- the "to
+        # infinity and beyond" branch (exp==31): all nonzero, so all true.
+        import numpy as np
+        bits = np.array([0x7C00, 0xFC00, 0x7E00], dtype=np.uint16)
+        a = bits.view(np.float16)
+        ja = JArray(JBoolean)(3)
+        ja[0:3] = a[::-1]
+        self.assertEqual(list(ja), [True, True, True])
+
     @common.requireNumpy
     def testSetFromNPBoolArray(self):
         import numpy as np
