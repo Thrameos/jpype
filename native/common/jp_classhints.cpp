@@ -697,6 +697,13 @@ public:
 		JPJavaFrame frame(*match.frame);
 		auto *acls = (JPArrayClass *) match.closure;
 		JPPrimitiveType *pcls = acls->getMultiArrayLeaf();
+		// matches() above already declined (returned _none) whenever
+		// getMultiArrayLeaf() is null, so convert() -- only ever called on
+		// the winning candidate -- can't actually reach here with a null
+		// pcls. Checked anyway to keep this call site consistent with
+		// every other getMultiArrayLeaf() caller, which do check.
+		if (pcls == nullptr)  // GCOVR_EXCL_LINE
+			JP_RAISE(PyExc_TypeError, "No multi-array leaf type");  // GCOVR_EXCL_LINE
 
 		JPPyBuffer buffer(match.object, PyBUF_STRIDES | PyBUF_FORMAT);
 		if (!buffer.valid())

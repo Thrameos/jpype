@@ -32,12 +32,11 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from _common import timeit, format_row, CsvLog
 
-import jpype
-from jpype import JInt, JLong, JFloat, JDouble
+from jpype import startJVM, shutdownJVM, JClass, JInt, JLong, JFloat, JDouble
 
-jpype.startJVM(classpath=['test/classes', 'test/harness'])
+startJVM(classpath=['test/classes', 'test/harness'])
 
-DeepBench = jpype.JClass('jpype.benchmark.DeepBench')
+DeepBench = JClass('jpype.benchmark.DeepBench')
 
 SIZES = [100, 1_000, 10_000, 100_000]
 
@@ -89,4 +88,4 @@ for label, jtype, crossType, makefn in TYPES:
             'toList_forced_cast_plain', label)
 
 csv_log.close()
-jpype.shutdownJVM()
+shutdownJVM()

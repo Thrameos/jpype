@@ -73,10 +73,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from _common import timeit, format_row, CsvLog
 
 import numpy as np
-import jpype
-from jpype import JArray, JInt, JLong, JFloat, JDouble
+from jpype import startJVM, shutdownJVM, JArray, JInt, JLong, JFloat, JDouble
 
-jpype.startJVM(classpath=['test/classes', 'test/harness'])
+startJVM(classpath=['test/classes', 'test/harness'])
 
 SIZES = [100, 1_000, 10_000, 100_000]
 DIMS = [2, 3, 4, 5]
@@ -145,4 +144,4 @@ for label, dtype, cross_dtype, jtype in TYPES:
             'manual_ctor_nd', label, dims)
 
 csv_log.close()
-jpype.shutdownJVM()
+shutdownJVM()

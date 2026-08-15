@@ -42,7 +42,15 @@ JPArrayClass::JPArrayClass(JPJavaFrame& frame,
 	} else
 	{
 		m_MultiArrayDepth = 1;
-		m_MultiArrayLeaf = dynamic_cast<JPPrimitiveType*>(componentType);
+		// componentType is never a caller-local stack object here: array
+		// classes are built bottom-up (see comment above) from a
+		// componentType that is always an already-fully-constructed,
+		// heap-allocated JPClass registered with the context, so this
+		// dynamic_cast only ever repositions that same long-lived pointer
+		// -- it doesn't manufacture a new local whose address could
+		// outlive the caller. Matches the plain (unflagged) m_ComponentType
+		// = componentType store just above.
+		m_MultiArrayLeaf = dynamic_cast<JPPrimitiveType*>(componentType); // lgtm [cpp/local-variable-address-stored-in-non-local-memory]
 	}
 }
 

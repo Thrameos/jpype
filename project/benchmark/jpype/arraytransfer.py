@@ -21,12 +21,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from _common import timeit, format_row
 
 import numpy as np
-import jpype
-from jpype import JArray, JDouble
+from jpype import startJVM, shutdownJVM, JClass, JArray, JDouble
 
-jpype.startJVM(classpath=['test/classes', 'test/harness'])
+startJVM(classpath=['test/classes', 'test/harness'])
 
-DeepBench = jpype.JClass('jpype.benchmark.DeepBench')
+DeepBench = JClass('jpype.benchmark.DeepBench')
 
 SIZES = [1_000, 100_000, 1_000_000]
 
@@ -198,7 +197,7 @@ for size in SIZES:
 # ---- Model 2: direct-buffer-shared (steady-state zero-copy) ----
 
 print("=== JPype: direct java.nio.DoubleBuffer -> numpy, steady-state ===")
-ByteBuffer = jpype.JClass('java.nio.ByteBuffer')
+ByteBuffer = JClass('java.nio.ByteBuffer')
 for size in SIZES:
     bb = ByteBuffer.allocateDirect(size * 8)
     buf = bb.asDoubleBuffer()
@@ -258,4 +257,4 @@ for rows, cols in MAT_SHAPES:
             return total_
         run(f"multidim_looped {rows}x{cols}", sum_2d_looped, total)
 
-jpype.shutdownJVM()
+shutdownJVM()
