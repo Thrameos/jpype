@@ -181,6 +181,14 @@ void copyFlatToBufferView(const char *src, Py_ssize_t itemsize, Py_ssize_t len, 
 	for (Py_ssize_t idx = 0; idx < len; ++idx)
 	{
 		char *pointer = (char*) view.buf;
+		// The Py_buffer feeding this is always opened with PyBUF_STRIDES
+		// (see pullToRectangular below), and the buffer protocol guarantees
+		// a compliant exporter fills view.strides whenever that flag is
+		// requested -- so view.strides == nullptr shouldn't happen for any
+		// real source. Kept as a defensive fallback (same contiguous-index
+		// arithmetic as JPPyBuffer::getBufferPtr's own copy of this case,
+		// jp_pythontypes.cpp) in case that contract is ever violated.
+		// GCOVR_EXCL_START
 		if (view.strides == nullptr)
 		{
 			Py_ssize_t index = 0;
@@ -188,12 +196,18 @@ void copyFlatToBufferView(const char *src, Py_ssize_t itemsize, Py_ssize_t len, 
 				index = index * view.shape[i] + indices[i];
 			pointer += index * view.itemsize;
 		} else
+		// GCOVR_EXCL_STOP
 		{
 			for (int i = 0; i < view.ndim; i++)
 			{
 				pointer += view.strides[i] * indices[i];
-				if (view.suboffsets != nullptr && view.suboffsets[i] >= 0)
-					pointer = *((char**) pointer) + view.suboffsets[i];
+				// suboffsets is only ever populated when PyBUF_INDIRECT is
+				// requested; this call site never requests it, so
+				// view.suboffsets is nullptr by contract, not just in
+				// practice. Kept for the same defense-in-depth reason as
+				// the strides==nullptr branch above.
+				if (view.suboffsets != nullptr && view.suboffsets[i] >= 0)  // GCOVR_EXCL_LINE
+					pointer = *((char**) pointer) + view.suboffsets[i];  // GCOVR_EXCL_LINE
 			}
 		}
 		memcpy(pointer, src + idx * itemsize, (size_t) itemsize);
@@ -219,8 +233,14 @@ void validateRectangularShape(JPJavaFrame &frame, jobjectArray collected, Py_buf
 			&JPJavaFrame::GetIntArrayElements, &JPJavaFrame::ReleaseIntArrayElements);
 	jint *shape = accessor.get();
 	jsize shapeLen = frame.GetArrayLength((jarray) shapeObj);
-	if (shapeLen != view.ndim)
-		JP_RAISE(PyExc_ValueError, "mismatched size");
+	// Both callers already establish view.ndim == depth == the collected
+	// array's own dimensionality before reaching here (pullTo/pushFrom's
+	// own ndim check, and pullToRectangular/pushFromRectangular's recursion
+	// keeping depth and view.ndim in lockstep at every level) -- so
+	// shapeLen and view.ndim can't actually diverge. Kept as a defensive
+	// invariant check, not an expected-reachable path.
+	if (shapeLen != view.ndim)  // GCOVR_EXCL_LINE
+		JP_RAISE(PyExc_ValueError, "mismatched size");  // GCOVR_EXCL_LINE
 	for (int i = 0; i < shapeLen; ++i)
 		if (shape[i] != view.shape[i])
 			JP_RAISE(PyExc_ValueError, "mismatched size");
@@ -241,14 +261,20 @@ Py_buffer sliceOuterDim(Py_buffer &view, jsize i)
 		subView.buf = (char*) view.buf + view.strides[0] * i;
 		subView.strides = view.strides + 1;
 	} else
+	// GCOVR_EXCL_START -- see copyFlatToBufferView's comment: callers always
+	// open with PyBUF_STRIDES, so this contiguous-index fallback is
+	// defensive, not an expected-reachable path.
 	{
 		Py_ssize_t rowElems = 1;
 		for (int d = 1; d < view.ndim; ++d)
 			rowElems *= view.shape[d];
 		subView.buf = (char*) view.buf + rowElems * view.itemsize * i;
 	}
-	if (view.suboffsets != nullptr)
-		subView.suboffsets = view.suboffsets + 1;
+	// GCOVR_EXCL_STOP
+	// suboffsets is only populated under PyBUF_INDIRECT, which callers here
+	// never request -- dead by contract, kept for defense-in-depth.
+	if (view.suboffsets != nullptr)  // GCOVR_EXCL_LINE
+		subView.suboffsets = view.suboffsets + 1;  // GCOVR_EXCL_LINE
 	return subView;
 }
 
@@ -265,6 +291,11 @@ void copyBufferViewToFlat(Py_buffer &view, char *dest, Py_ssize_t itemsize, Py_s
 	for (Py_ssize_t idx = 0; idx < len; ++idx)
 	{
 		char *pointer = (char*) view.buf;
+		// See copyFlatToBufferView's identical comment above -- the source
+		// here is likewise always opened with PyBUF_STRIDES (see
+		// pushFromRectangular below), so this branch is a defensive
+		// fallback, not an expected-reachable path.
+		// GCOVR_EXCL_START
 		if (view.strides == nullptr)
 		{
 			Py_ssize_t index = 0;
@@ -272,12 +303,13 @@ void copyBufferViewToFlat(Py_buffer &view, char *dest, Py_ssize_t itemsize, Py_s
 				index = index * view.shape[i] + indices[i];
 			pointer += index * view.itemsize;
 		} else
+		// GCOVR_EXCL_STOP
 		{
 			for (int i = 0; i < view.ndim; i++)
 			{
 				pointer += view.strides[i] * indices[i];
-				if (view.suboffsets != nullptr && view.suboffsets[i] >= 0)
-					pointer = *((char**) pointer) + view.suboffsets[i];
+				if (view.suboffsets != nullptr && view.suboffsets[i] >= 0)  // GCOVR_EXCL_LINE
+					pointer = *((char**) pointer) + view.suboffsets[i];  // GCOVR_EXCL_LINE
 			}
 		}
 		memcpy(dest + idx * itemsize, pointer, (size_t) itemsize);
@@ -489,8 +521,11 @@ void JPArray::pushFrom(PyObject* src)
 	char code[2] = {(char) tolower(compType->getTypeCode()), 0};
 	const char *format = view.format != nullptr ? view.format : "B";
 	jconverter converter = getConverter(format, (int) view.itemsize, code);
-	if (converter == nullptr)
-		JP_RAISE(PyExc_TypeError, "No type converter found");
+	// getConverter() raises ValueError itself on an unrecognized format
+	// rather than returning nullptr (see jp_convert.cpp) -- dead, kept
+	// defensively in case that contract ever changes.
+	if (converter == nullptr)  // GCOVR_EXCL_LINE
+		JP_RAISE(PyExc_TypeError, "No type converter found");  // GCOVR_EXCL_LINE
 
 	// Fast path: source needs no per-element conversion at all (matching
 	// dtype, native byte order) -- a single Set<Type>ArrayRegion call

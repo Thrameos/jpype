@@ -722,8 +722,8 @@ bool tryFastMultiArrayBuffer(JPJavaFrame &frame, JPPrimitiveType *pcls,
 	// final `default: break;` case above). This check is dead but kept as a
 	// defensive backstop in case that contract ever changes.
 	jconverter converter = getConverter(format, (int) view.itemsize, code);
-	if (converter == nullptr)
-		return false;
+	if (converter == nullptr)  // GCOVR_EXCL_LINE
+		return false;  // GCOVR_EXCL_LINE
 
 	JPRawTransferMode mode = classifyRawTransfer(converter, pcls, format, (int) view.itemsize, code);
 	if (mode == RAW_NONE)

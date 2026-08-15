@@ -26,6 +26,9 @@ an existing Java primitive array in place. pullTo was ported from the
 alongside the byte-order/float16 bulk fast path.
 """
 
+import sys
+import unittest
+
 import jpype
 from jpype import JArray, JInt, JLong, JDouble, JString
 import common
@@ -207,6 +210,40 @@ class ArrayPullToMultiDimTestCase(common.JPypeTestCase):
         with self.assertRaises(TypeError):
             ragged.pullTo(dest)
 
+    def testPullOuterShapeMismatchRaisesDepth5(self):
+        # Same ndim (so pullTo's own view.ndim != depth check upstream
+        # doesn't catch it), but the depth>4 recursive branch's own
+        # n != view.shape[0] check (pullToRectangular, jp_array.cpp) --
+        # unlike testPullShapeMismatchRaises above, which only exercises
+        # this same kind of check at depth<=4 (validateRectangularShape).
+        ja = self._makeJavaArray((3, 3, 3, 3, 3))
+        dest = np.empty((2, 3, 3, 3, 3), dtype=np.int32)
+        with self.assertRaises(ValueError):
+            ja.pullTo(dest)
+
+    def testPullItemSizeMismatchRaisesMultiDim(self):
+        ja = self._makeJavaArray((4, 4))
+        dest = np.empty((4, 4), dtype=np.int64)
+        with self.assertRaises(TypeError):
+            ja.pullTo(dest)
+
+    @unittest.skipUnless(sys.version_info >= (3, 12),
+            "PEP 688 __buffer__ needed to force a buffer export that "
+            "declines PyBUF_STRIDES|PyBUF_FORMAT -- see "
+            "test_arrayMultiDimBuffer.py's own copy of this technique "
+            "for the full rationale.")
+    def testPullBufferInvalidRaisesMultiDim(self):
+        class NoStrides:
+            def __buffer__(self, flags):
+                raise BufferError("declines strides on purpose")
+
+            def __release_buffer__(self, view):
+                pass
+
+        ja = self._makeJavaArray((4, 4))
+        with self.assertRaises(BufferError):
+            ja.pullTo(NoStrides())
+
 
 class ArrayPushFromTestCase(common.JPypeTestCase):
     def setUp(self):
@@ -317,6 +354,26 @@ class ArrayPushFromTestCase(common.JPypeTestCase):
         src = np.empty(0, dtype=np.int32)
         ja.pushFrom(src)
 
+    @unittest.skipUnless(sys.version_info >= (3, 12),
+            "PEP 688 __buffer__ needed to force a buffer export that "
+            "declines PyBUF_STRIDES|PyBUF_FORMAT -- see "
+            "test_arrayMultiDimBuffer.py's own copy of this technique "
+            "for the full rationale.")
+    def testBufferInvalidRaises(self):
+        # Flat (1D) JPArray::pushFrom's own buffer.valid() check -- the
+        # ArrayPushFromMultiDimTestCase copy of this test exercises the
+        # separate multi-dim buffer.valid() check instead.
+        class NoStrides:
+            def __buffer__(self, flags):
+                raise BufferError("declines strides on purpose")
+
+            def __release_buffer__(self, view):
+                pass
+
+        ja = JArray(JInt)(3)
+        with self.assertRaises(BufferError):
+            ja.pushFrom(NoStrides())
+
     def testLargeParallelPath(self):
         # Crosses Support.PARALLEL_THRESHOLD_ELEMENTS were it to apply --
         # it doesn't for the flat push/pull path (no per-row concept), but
@@ -424,6 +481,38 @@ class ArrayPushFromMultiDimTestCase(common.JPypeTestCase):
         src = np.arange(5, dtype=np.int32).reshape(1, 5)
         with self.assertRaises(TypeError):
             ragged.pushFrom(src)
+
+    def testPushOuterShapeMismatchRaisesDepth5(self):
+        # Push-direction counterpart of
+        # testPullOuterShapeMismatchRaisesDepth5 -- pushFromRectangular's
+        # own depth>4 recursive n != view.shape[0] check.
+        ja = self._makeJavaArray((3, 3, 3, 3, 3))
+        src = np.zeros((2, 3, 3, 3, 3), dtype=np.int32)
+        with self.assertRaises(ValueError):
+            ja.pushFrom(src)
+
+    def testPushItemSizeMismatchRaisesMultiDim(self):
+        ja = self._makeJavaArray((4, 4))
+        src = np.zeros((4, 4), dtype=np.int64)
+        with self.assertRaises(TypeError):
+            ja.pushFrom(src)
+
+    @unittest.skipUnless(sys.version_info >= (3, 12),
+            "PEP 688 __buffer__ needed to force a buffer export that "
+            "declines PyBUF_STRIDES|PyBUF_FORMAT -- see "
+            "test_arrayMultiDimBuffer.py's own copy of this technique "
+            "for the full rationale.")
+    def testPushBufferInvalidRaisesMultiDim(self):
+        class NoStrides:
+            def __buffer__(self, flags):
+                raise BufferError("declines strides on purpose")
+
+            def __release_buffer__(self, view):
+                pass
+
+        ja = self._makeJavaArray((4, 4))
+        with self.assertRaises(BufferError):
+            ja.pushFrom(NoStrides())
 
     def testPushPullRoundTrip5D(self):
         ja = self._makeJavaArray((3, 3, 3, 3, 3))
