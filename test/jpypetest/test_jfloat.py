@@ -431,6 +431,19 @@ class JFloatTestCase(common.JPypeTestCase):
         with self.assertRaises(TypeError):
             ja[0:1] = common.GenericSequence([object()])
 
+    def testArraySetRangeListIntWidenOverflow(self):
+        # An int too large for PyLong_AsDouble to represent -- exercises
+        # the LIST loop's int-widening error-check path (the widening
+        # itself, not just the generic-PyFloat_AsDouble fallback).
+        ja = JArray(JFloat)(2)
+        with self.assertRaises(OverflowError):
+            ja[0:2] = [1.5, 10 ** 400]
+
+    def testArraySetRangeTupleIntWidenOverflow(self):
+        ja = JArray(JFloat)(2)
+        with self.assertRaises(OverflowError):
+            ja[0:2] = (1.5, 10 ** 400)
+
     @common.requireNumpy
     def testArraySetRangeBufferFallback(self):
         # A negative-stride (reversed) source declines the bulk

@@ -417,6 +417,13 @@ class JShortTestCase(common.JPypeTestCase):
         with self.assertRaises(TypeError):
             ja[0:1] = common.GenericSequence([object()])
 
+    def testArraySetRangeTupleNonExactIndex(self):
+        # A bool is a valid __index__ object but not PyLong_CheckExact --
+        # exercises the TUPLE loop's PyIndex_Check fallback conversion.
+        ja = JArray(JShort)(2)
+        ja[0:2] = (1, True)
+        self.assertEqual(list(ja[0:2]), [1, 1])
+
     @common.requireNumpy
     def testArraySetRangeBufferFallback(self):
         # A negative-stride (reversed) source declines the bulk

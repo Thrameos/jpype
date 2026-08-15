@@ -136,6 +136,24 @@ class JBooleanTestCase(common.JPypeTestCase):
         ja[0:3] = common.GenericSequence([True, False, 1])
         self.assertEqual(list(ja[0:3]), [True, False, True])
 
+    def testArraySetRangeTupleBoolRaises(self):
+        # PyObject_IsTrue's error path (a __bool__ that raises) in the
+        # TUPLE loop's non-exact-bool fallback.
+        class Bad:
+            def __bool__(self):
+                raise RuntimeError("boom")
+        ja = JArray(JBoolean)(2)
+        with self.assertRaises(RuntimeError):
+            ja[0:2] = (True, Bad())
+
+    def testArraySetRangeSequenceBoolRaises(self):
+        class Bad:
+            def __bool__(self):
+                raise RuntimeError("boom")
+        ja = JArray(JBoolean)(2)
+        with self.assertRaises(RuntimeError):
+            ja[0:2] = common.GenericSequence([True, Bad()])
+
     @common.requireNumpy
     def testArraySetRangeBufferFallback(self):
         # A negative-stride (reversed) source declines the bulk
