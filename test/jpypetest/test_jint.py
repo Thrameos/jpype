@@ -16,6 +16,7 @@
 #
 # *****************************************************************************
 import sys
+import unittest
 import jpype
 import common
 import random
@@ -445,6 +446,27 @@ class JIntTestCase(common.JPypeTestCase):
         a = np.array([1, 2, 3], dtype=np.int64)
         ja[0:3] = a[::-1]
         self.assertEqual(list(ja), [3, 2, 1])
+
+    @unittest.skipUnless(sys.version_info >= (3, 12),
+            "PEP 688 __buffer__ needed to force a buffer export that "
+            "declines PyBUF_STRIDES|PyBUF_FORMAT -- see "
+            "test_arrayMultiDimBuffer.py's own copy of this technique "
+            "for the full rationale.")
+    def testArraySetRangeBufferDeclinesStrides(self):
+        # tryFastBufferPush (jp_convert.cpp): PyObject_CheckBuffer passes
+        # but opening the buffer with PyBUF_STRIDES|PyBUF_FORMAT fails --
+        # must decline (fall through to the general per-element path)
+        # rather than propagate the BufferError.
+        class NoStrides:
+            def __buffer__(self, flags):
+                raise BufferError("declines strides on purpose")
+
+            def __release_buffer__(self, view):
+                pass
+
+        ja = JArray(JInt)(3)
+        with self.assertRaises(TypeError):
+            ja[0:3] = NoStrides()
 
     def testArrayConversionFail(self):
         jarr = JArray(JInt)(VALUES)

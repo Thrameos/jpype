@@ -717,6 +717,10 @@ bool tryFastMultiArrayBuffer(JPJavaFrame &frame, JPPrimitiveType *pcls,
 
 	char code[2] = {(char) tolower(pcls->getTypeCode()), 0};
 	const char *format = view.format != nullptr ? view.format : "B";
+	// getConverter() never actually returns nullptr for an unrecognized
+	// format -- it raises ValueError via JP_RAISE_PYTHON() instead (see its
+	// final `default: break;` case above). This check is dead but kept as a
+	// defensive backstop in case that contract ever changes.
 	jconverter converter = getConverter(format, (int) view.itemsize, code);
 	if (converter == nullptr)
 		return false;
