@@ -218,6 +218,39 @@ void convertPythonToJava(JPContext* context, const char* mesg)
 		}
 	}
 
+	// Prefer building a genuinely-typed python.exceptions.Py*Error via
+	// _pyexc_convert (jpype/_jbridge.py's _jpype._exc dict, built from the
+	// real python.exceptions package at startup and populated into
+	// context->m_PyExcConvert by PyJPModule_loadResources) so Java-side
+	// code can catch a specific exception subtype (PyKeyError, etc.)
+	// instead of only ever seeing the generic rerouting carrier below.
+	// This is reverse's original mechanism - dropped from this call site
+	// during the array-transfer-phase3/reverse merge in favor of the
+	// generic path only, which is why every Java test expecting a typed
+	// catch clause on a proxied Python exception was failing (see
+	// witty-purring-canyon.md plan item 4). _pyexc_convert itself was
+	// never removed - only this call site calling it was.
+	if (context->m_PyExcConvert != nullptr)
+	{
+		JPPyObject typed = JPPyObject::accept(PyObject_CallFunctionObjArgs(
+				context->m_PyExcConvert, eframe.m_ExceptionValue.get(), nullptr));
+		if (typed.isValid() && PyJPValue_getJPClass(typed.get()) != nullptr)
+		{
+			th = (jthrowable) PyJPValue_getJValue(frame, typed.get()).l;
+			eframe.clear();
+			JP_TRACE("Throwing typed Java exception", frame.toString(th));
+			frame.Throw(th);
+			return;
+		}
+		// _pyexc_convert failed/raised internally (should only happen for
+		// exception types it doesn't recognize, and even then it falls
+		// back to wrapping an AssertionError - a hard failure here means
+		// something is badly broken). Clear whatever error that left
+		// behind and fall through to the generic rerouting-proxy path,
+		// which is still always correct, just untyped.
+		PyErr_Clear();
+	}
+
 	// Build a rerouting Java exception carrying the Python exception
 	// class/value (via Support.createException(), a static method - the
 	// JPypeContext instance that used to host this as createException() was
