@@ -16,6 +16,10 @@ Latest Changes:
     that bookkeeping on allocation and deallocation for no benefit. No
     user-visible API change.
     
+  - Fixed classpath directories/jars containing a "+" character having it
+    silently converted to a space on import, corrupting the resolved
+    resource path. #1413
+
   - Reworked the internal object layout for Java-backed Python objects to use
     fixed, type-baked offsets instead of a runtime allocator that re-derived
     each object's layout from version-sensitive CPython internals on every
