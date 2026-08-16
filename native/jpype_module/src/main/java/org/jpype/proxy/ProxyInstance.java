@@ -147,7 +147,6 @@ public class ProxyInstance implements InvocationHandler
   private static native Object hostInvoke(long name, long pyObject,
           long returnType, long[] argsTypes, Object[] args, int numPositional, int numKeyword);
 
-    
   public static PyBuiltIn get(Object obj)
   {
     return ((ProxyInstance) Proxy.getInvocationHandler(obj)).type.builtin;
