@@ -63,8 +63,7 @@ JPPyObject getArgs(JPJavaFrame& frame, jlongArray parameterTypePtrs,
 		// real Python None here - this is a reverse-bridge argument slot,
 		// not the JObject(None, cls) typed-null feature, so a caller-supplied
 		// Java null (e.g. PyCallable.call's unset kwargs) must satisfy
-		// Python-side `is None`/`**kwargs` checks on the far side; see
-		// plan/FunctionRetrieval.md.
+		// Python-side `is None`/`**kwargs` checks on the far side.
 		bool cast = obj != nullptr && type != (JPClass*) (context->_java_lang_String);
 		PyTuple_SetItem(pyargs.get(), i+extra, type->convertToPythonObject(frame, val, cast).keep());
 		frame.DeleteLocalRef(obj);
