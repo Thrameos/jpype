@@ -32,6 +32,7 @@ import java.util.EnumSet;
 import java.nio.Buffer;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.TreeSet;
@@ -55,7 +56,17 @@ public class TypeManager
   private NativeContext context;
   public boolean isStarted = false;
   public boolean isShutdown = false;
-  public HashMap<Class<?>, ClassDescriptor> classMap = new HashMap<>();
+  // ConcurrentHashMap, not HashMap: checkCache() below reads this with no
+  // external synchronization (findClassForObject() -- called once per
+  // proxy-downcall argument, every call -- previously paid a full
+  // monitor acquire/release per argument just to make a HashMap read
+  // safe against concurrent writers; a ConcurrentHashMap makes that read
+  // lock-free without needing the lock at all). Every write site
+  // (createOrdinaryClass/createAnonymous/createPrimitive/createArrayClass)
+  // is still reachable only from the synchronized createClass/
+  // populateMembers/shutdown, so the create/mutate path keeps its
+  // existing monitor-protected coordination unchanged.
+  public ConcurrentHashMap<Class<?>, ClassDescriptor> classMap = new ConcurrentHashMap<>();
   public TypeFactory typeFactory = null;
   public TypeAudit audit = null;
   private ClassDescriptor java_lang_Object;
@@ -157,7 +168,12 @@ public class TypeManager
     }
   }
 
-  private synchronized long checkCache(Class<?> cls)
+  // Not synchronized: classMap is a ConcurrentHashMap, so a bare get() is
+  // already safe to run concurrently with the synchronized writers below
+  // (createClass et al.) -- see classMap's own field comment. This is the
+  // hot path (once per proxy-downcall argument, every call), so avoiding
+  // a monitor acquire/release here matters.
+  private long checkCache(Class<?> cls)
   {
     ClassDescriptor ptr = this.classMap.get(cls);
     if (ptr != null)
