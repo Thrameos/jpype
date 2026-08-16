@@ -38,7 +38,7 @@ public:
 
 public: // JPClass implementation
 	JPMatch::Type findJavaConversionImpl(JPMatch &match) override;
-	void getConversionInfo(JPConversionInfo &info) override;
+	void getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info) override;
 
 } ;
 

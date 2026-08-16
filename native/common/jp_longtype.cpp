@@ -1,3 +1,4 @@
+// --- file: common/jp_longtype.cpp ---
 /*****************************************************************************
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -21,8 +22,8 @@
 #include "jp_primitive_accessor.h"
 #include "jp_longtype.h"
 
-JPLongType::JPLongType()
-: JPPrimitiveType("long")
+JPLongType::JPLongType(JPJavaFrame& frame, jclass cls)
+: JPPrimitiveType(frame, cls, "long")
 {
 }
 
@@ -44,7 +45,7 @@ JPPyObject JPLongType::convertToPythonObject(JPJavaFrame& frame, jvalue val, boo
 JPValue JPLongType::getValueFromObject(JPJavaFrame& frame, const JPValue& obj)
 {
 	jvalue v;
-	jobject jo = obj.getValue().l;
+	jobject jo = obj.getJavaObject(frame);
 	auto* jb = dynamic_cast<JPBoxedType*>( frame.findClassForObject(jo));
 	field(v) = (type_t) frame.CallLongMethodA(jo, jb->m_LongValueID, nullptr);
 	return JPValue(this, v);
@@ -92,15 +93,15 @@ public:
 		return JPMatch::_implicit;
 	}
 
-	void getInfo(JPClass *cls, JPConversionInfo &info) override
+	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
 	{
-		JPContext *context = JPContext_global;
+		JPContext *context = frame.getContext();
 		PyList_Append(info.exact, (PyObject*) context->_long->getHost());
 		PyList_Append(info.implicit, (PyObject*) context->_byte->getHost());
 		PyList_Append(info.implicit, (PyObject*) context->_char->getHost());
 		PyList_Append(info.implicit, (PyObject*) context->_short->getHost());
 		PyList_Append(info.implicit, (PyObject*) context->_int->getHost());
-		unboxConversion->getInfo(cls, info);
+		unboxConversion->getInfo(frame, cls, info);
 	}
 } jlongConversion;
 
@@ -121,13 +122,12 @@ JPMatch::Type JPLongType::findJavaConversionImpl(JPMatch &match)
 	JP_TRACE_OUT;
 }
 
-void JPLongType::getConversionInfo(JPConversionInfo &info)
+void JPLongType::getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info)
 {
-	JPJavaFrame frame = JPJavaFrame::outer();
-	jlongConversion.getInfo(this, info);
-	longConversion.getInfo(this, info);
-	longNumberConversion.getInfo(this, info);
-	PyList_Append(info.ret, (PyObject*) JPContext_global->_long->getHost());
+	jlongConversion.getInfo(frame, this, info);
+	longConversion.getInfo(frame, this, info);
+	longNumberConversion.getInfo(frame, this, info);
+	PyList_Append(info.ret, (PyObject*) frame.getContext()->_long->getHost());
 }
 
 jarray JPLongType::newArrayOf(JPJavaFrame& frame, jsize sz)
@@ -174,7 +174,7 @@ JPPyObject JPLongType::invoke(JPJavaFrame& frame, jobject obj, jclass clazz, jme
 
 void JPLongType::setStaticField(JPJavaFrame& frame, jclass c, jfieldID fid, PyObject* obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java int");
 	type_t val = field(match.convert());
@@ -183,7 +183,7 @@ void JPLongType::setStaticField(JPJavaFrame& frame, jclass c, jfieldID fid, PyOb
 
 void JPLongType::setField(JPJavaFrame& frame, jobject c, jfieldID fid, PyObject* obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java int");
 	type_t val = field(match.convert());
@@ -308,7 +308,7 @@ void JPLongType::setArrayRange(JPJavaFrame& frame, jarray a,
 
 void JPLongType::setArrayItem(JPJavaFrame& frame, jarray a, jsize ndx, PyObject* obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java int");
 	type_t val = field(match.convert());
@@ -354,13 +354,12 @@ JPMatch::Type JPArrayClassLong::findJavaConversionImpl(JPMatch &match)
 	JP_TRACE_OUT;
 }
 
-void JPArrayClassLong::getConversionInfo(JPConversionInfo &info)
+void JPArrayClassLong::getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info)
 {
-	JPJavaFrame frame = JPJavaFrame::outer();
-	objectConversion->getInfo(this, info);
-	bufferConversion->getInfo(this, info);
-	sequenceConversion->getInfo(this, info);
-	hintsConversion->getInfo(this, info);
+	objectConversion->getInfo(frame, this, info);
+	bufferConversion->getInfo(frame, this, info);
+	sequenceConversion->getInfo(frame, this, info);
+	hintsConversion->getInfo(frame, this, info);
 	PyList_Append(info.ret, PyJPClass_create(frame, this).get());
 }
 
@@ -377,8 +376,9 @@ JPArrayLong::JPArrayLong(JPArrayLong* src, jsize start, jsize stop, jsize step)
 JPPyObject JPArrayLong::getItem(jsize ndx)
 {
 	ndx = checkIndex(ndx);
-	JPJavaAccess frame;
-	return m_CompType->getFastArrayItem(frame, m_Object.get(), m_Start + ndx * m_Step);
+	JPJavaAccess frame(m_Context);
+	JPJavaFrame jframe = JPJavaFrame::fast(frame.getEnv(), frame.getContext());
+	return m_CompType->getFastArrayItem(frame, (jarray) jframe.retrieveGlobal(m_Object), m_Start + ndx * m_Step);
 }
 
 JPArray* JPArrayLong::slice(jsize start, jsize stop, jsize step)
@@ -386,21 +386,19 @@ JPArray* JPArrayLong::slice(jsize start, jsize stop, jsize step)
 	return new JPArrayLong(this, start, stop, step);
 }
 
-void JPLongType::getView(JPArrayView& view)
+void JPLongType::getView(JPJavaFrame& frame, JPArrayView& view)
 {
-	JPJavaFrame frame = JPJavaFrame::outer();
 	view.m_Memory = (void*) frame.GetLongArrayElements(
-			(jlongArray) view.m_Array->getJava(), &view.m_IsCopy);
+			(jlongArray) view.m_Array->getJava(frame), &view.m_IsCopy);
 	view.m_Buffer.format = "=q";
 	view.m_Buffer.itemsize = sizeof (jlong);
 }
 
-void JPLongType::releaseView(JPArrayView& view)
+void JPLongType::releaseView(JPJavaFrame& frame, JPArrayView& view)
 {
 	try
 	{
-		JPJavaFrame frame = JPJavaFrame::outer();
-		frame.ReleaseLongArrayElements((jlongArray) view.m_Array->getJava(),
+		frame.ReleaseLongArrayElements((jlongArray) view.m_Array->getJava(frame),
 				(jlong*) view.m_Memory, view.m_Buffer.readonly ? JNI_ABORT : 0);
 	}	catch (...)
 	{

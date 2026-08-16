@@ -37,7 +37,7 @@ public:
 	~ JPInterfaceType() override;
 
 	JPMatch::Type findJavaConversionImpl(JPMatch &match) override;
-	void getConversionInfo(JPConversionInfo &info) override;
+	void getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info) override;
 } ;
 
 #endif // _JPINTERFACETYPE_H_

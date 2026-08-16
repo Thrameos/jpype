@@ -1,3 +1,4 @@
+// --- file: common/jp_boxedtype.cpp ---
 /*****************************************************************************
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -93,22 +94,21 @@ JPMatch::Type JPBoxedType::findJavaConversionImpl(JPMatch &match)
 	JP_TRACE_OUT;
 }
 
-void JPBoxedType::getConversionInfo(JPConversionInfo &info)
+void JPBoxedType::getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info)
 {
 	JP_TRACE_IN("JPBoxedType::getConversionInfo");
-	JPJavaFrame frame = JPJavaFrame::outer();
-	m_PrimitiveType->getConversionInfo(info);
+	m_PrimitiveType->getConversionInfo(frame, info);
 	JPPyObject::call(PyObject_CallMethod(info.expl, "extend", "O", info.implicit));
 	JPPyObject::call(PyObject_CallMethod(info.implicit, "clear", ""));
 	JPPyObject::call(PyObject_CallMethod(info.implicit, "extend", "O", info.exact));
 	JPPyObject::call(PyObject_CallMethod(info.exact, "clear", ""));
-	JPClass::getConversionInfo(info);
+	JPClass::getConversionInfo(frame, info);
 	JP_TRACE_OUT;
 }
 
 jobject JPBoxedType::box(JPJavaFrame &frame, jvalue v)
 {
-	return frame.NewObjectA(m_Class.get(), m_CtorID, &v);
+	return frame.NewObjectA(getJavaClass(frame), m_CtorID, &v);
 }
 
 JPPyObject JPBoxedType::convertToPythonObject(JPJavaFrame& frame, jvalue value, bool cast)
@@ -125,7 +125,7 @@ JPPyObject JPBoxedType::convertToPythonObject(JPJavaFrame& frame, jvalue value, 
 		// See JPClass::convertToPythonObject's identical fast path: skip
 		// the findClassForObject JNI upcall when the runtime class is
 		// already known to be exactly this one.
-		if (!frame.IsSameObject(frame.GetObjectClass(value.l), getJavaClass()))
+		if (!frame.IsSameObject(frame.GetObjectClass(value.l), getJavaClass(frame)))
 		{
 			cls = frame.findClassForObject(value.l);
 			if (cls != this)
@@ -135,7 +135,7 @@ JPPyObject JPBoxedType::convertToPythonObject(JPJavaFrame& frame, jvalue value, 
 
 	JPPyObject wrapper = PyJPClass_create(frame, cls);
 	auto *wrapperType = (PyTypeObject*) wrapper.get();
-	JPContext *context = JPContext_global;
+	JPContext *context = frame.getContext();
 
 	// Reconstructing families (Long/Boolean/Char) keep no per-instance Java
 	// value at all -- a real Java null needs a dedicated singleton instance

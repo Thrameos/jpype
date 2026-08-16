@@ -24,11 +24,17 @@ class JPPrimitiveType;
 class JPArrayView
 {
 public:
-	explicit JPArrayView(JPArray* array);
-	JPArrayView(JPArray* array, jobject collection);
+	JPArrayView(JPJavaFrame& frame, JPArray* array);
+	JPArrayView(JPJavaFrame& frame, JPArray* array, jobject collection);
 	~JPArrayView();
+	// m_Memory is a raw owning allocation; copying would double-free it.
+	// No code path currently copies a JPArrayView, so deleting rather than
+	// implementing is the safe choice - implement properly if a real need
+	// for copying ever comes up.
+	JPArrayView(const JPArrayView&) = delete;
+	JPArrayView& operator=(const JPArrayView&) = delete;
 	void reference();
-	bool unreference();
+	bool unreference(JPJavaFrame& frame);
 public:
 	JPArray *m_Array;
 	void *m_Memory{};
@@ -88,7 +94,7 @@ public:
 	}
 
 	jsize     getLength() const;
-	void       setRange(jsize start, jsize length, jsize step, PyObject* val);
+	void       setRange(JPJavaFrame& frame, jsize start, jsize length, jsize step, PyObject* val);
 
 	/** Get a single element. Overridden per concrete subclass -- see the
 	 * class comment above. Signature deliberately carries no frame
@@ -98,7 +104,7 @@ public:
 	 */
 	virtual JPPyObject getItem(jsize ndx) = 0;
 
-	void       setItem(jsize ndx, PyObject*);
+	void       setItem(JPJavaFrame& frame, jsize ndx, PyObject*);
 
 	/** Construct a slice of this array, preserving the concrete subclass
 	 * (a slice of a JPArrayInt must still be a JPArrayInt, not degrade to
@@ -162,22 +168,41 @@ public:
 	 */
 	JPPyObject toList(JPPrimitiveType* dtype = nullptr, bool wrap = false);
 
+	/**
+	 * Bulk-copy this array's contents into a caller-owned Python buffer,
+	 * contiguous 1-D destination only (no general strided path).
+	 *
+	 * @param frame
+	 * @param dest a Python object supporting the buffer protocol.
+	 */
+	void       copyInto(JPJavaFrame& frame, PyObject* dest);
+
 	bool       isSlice() const
 	{
 		return m_Slice;
 	}
 
-	jarray     getJava()
+	jarray     getJava(JPJavaFrame& frame)
 	{
-		return m_Object.get();
+		return (jarray) frame.retrieveGlobal(m_Object);
 	}
 
 protected:
 	// Accessible to concrete subclasses: JPArrayInt::getItem() etc. need
 	// m_Object/m_Start/m_Step directly; JPArrayObject::getItem() also
 	// needs m_Class.
+	//
+	// m_Context is captured once at construction (m_Class->getContext(),
+	// while m_Class is still guaranteed live) rather than re-derived from
+	// m_Class on every access -- JPContext::shutdownJVM() deletes every
+	// registered JPClass (including m_Class) via m_Resources, but the
+	// JPContext object itself outlives that (only freed later, at Python
+	// module teardown), so a captured m_Context stays valid for a getItem()
+	// call after shutdown (see JVMNotRunning-on-shutdown tests) while
+	// m_Class->getContext() at that point would be a use-after-free.
+	JPContext*    m_Context;
 	JPArrayClass* m_Class;
-	JPArrayRef    m_Object;
+	jref          m_Object;
 	jsize         m_Start;
 	jsize         m_Step;
 	jsize         m_Length;

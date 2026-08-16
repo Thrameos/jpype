@@ -17,6 +17,7 @@
 #define JP_PRIMITIVE_ACCESSOR_H
 #include <cstring>
 #include <Python.h>
+#include <cstring>
 #include "jp_exception.h"
 #include "jp_javaframe.h"
 #include "jp_match.h"
@@ -339,7 +340,7 @@ public:
 		return match.type = JPMatch::_explicit;
 	}
 
-	void getInfo(JPClass *cls, JPConversionInfo &info) override
+	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
 	{
 		PyObject *typing = PyImport_AddModule("jpype.protocol");
 		JPPyObject proto = JPPyObject::call(PyObject_GetAttrString(typing, "SupportsFloat"));
@@ -365,7 +366,7 @@ public:
 		return JPMatch::_none; // Not used
 	}
 
-	void getInfo(JPClass *cls, JPConversionInfo &info)  override
+	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info)  override
 	{
 		// Not used
 	}
@@ -417,7 +418,7 @@ public:
 		return match.type = JPMatch::_implicit;
 	}
 
-	void getInfo(JPClass *cls, JPConversionInfo &info) override
+	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
 	{
 		PyList_Append(info.implicit, (PyObject*) & PyLong_Type);
 	}
@@ -445,7 +446,7 @@ public:
 		return JPMatch::_none;  // not used
 	}
 
-	void getInfo(JPClass *cls, JPConversionInfo &info) override
+	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
 	{
 	}
 	// GCOVR_EXCL_STOP

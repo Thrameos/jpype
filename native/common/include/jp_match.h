@@ -32,8 +32,9 @@ public:
 	} ;
 
 public:
-	JPMatch();
-	JPMatch(JPJavaFrame *frame, PyObject *object);
+	JPMatch() {}
+	JPMatch(const JPMatch&);
+	JPMatch(JPJavaFrame& frame, PyObject *object);
 
 	/**
 	 * Get the JPClass associated with the Python object, if any.
@@ -65,6 +66,8 @@ public:
 	JPConversion *conversion;
 	JPJavaFrame *frame;
 	PyObject *object;
+	JPContext *context;
+	PyJPModuleState *st;
 
 	/**
 	 * Private communication channel from a JPConversion's matches() to its
@@ -129,7 +132,14 @@ private:
 	jvalue m_SlotValue;
 } ;
 
-class JPMethodMatch
+class JPMethodCache
+{
+public:
+	jlong m_Hash{-1};
+	JPMethod* m_Overload{nullptr};
+} ;
+
+class JPMethodMatch : public JPMethodCache
 {
 public:
 

@@ -1,3 +1,4 @@
+// --- file: common/jp_interfacetype.cpp ---
 /*****************************************************************************
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,12 +45,13 @@ JPMatch::Type JPInterfaceType::findJavaConversionImpl(JPMatch &match)
 	JP_TRACE_OUT;
 }
 
-void JPInterfaceType::getConversionInfo(JPConversionInfo &info)
+void JPInterfaceType::getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info)
 {
-	JPJavaFrame frame = JPJavaFrame::outer();
-	nullConversion->getInfo(this, info);
-	objectConversion->getInfo(this, info);
-	proxyConversion->getInfo(this, info);
-	hintsConversion->getInfo(this, info);
+	JP_TRACE_IN("JPInterfaceType::getConversionInfo");
+	nullConversion->getInfo(frame, this, info);
+	objectConversion->getInfo(frame, this, info);
+	proxyConversion->getInfo(frame, this, info);
+	hintsConversion->getInfo(frame, this, info);
 	PyList_Append(info.ret, PyJPClass_create(frame, this).get());
+	JP_TRACE_OUT;
 }

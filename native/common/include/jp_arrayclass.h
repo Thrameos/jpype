@@ -48,7 +48,7 @@ public:
 
 	JPPyObject convertToPythonObject(JPJavaFrame& frame, jvalue val, bool cast) override;
 	JPMatch::Type findJavaConversionImpl(JPMatch &match) override;
-	void getConversionInfo(JPConversionInfo &info) override;
+	void getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info) override;
 
 	// Reaching this override means the *component type of the array being
 	// constructed* is itself an array class (this is componentType's own
@@ -132,7 +132,7 @@ class JPArrayClassBoolean : public JPArrayClass
 public:
 	using JPArrayClass::JPArrayClass;
 	JPMatch::Type findJavaConversionImpl(JPMatch &match) override;
-	void getConversionInfo(JPConversionInfo &info) override;
+	void getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info) override;
 } ;
 
 class JPArrayClassByte : public JPArrayClass
@@ -140,7 +140,7 @@ class JPArrayClassByte : public JPArrayClass
 public:
 	using JPArrayClass::JPArrayClass;
 	JPMatch::Type findJavaConversionImpl(JPMatch &match) override;
-	void getConversionInfo(JPConversionInfo &info) override;
+	void getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info) override;
 } ;
 
 class JPArrayClassChar : public JPArrayClass
@@ -148,7 +148,7 @@ class JPArrayClassChar : public JPArrayClass
 public:
 	using JPArrayClass::JPArrayClass;
 	JPMatch::Type findJavaConversionImpl(JPMatch &match) override;
-	void getConversionInfo(JPConversionInfo &info) override;
+	void getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info) override;
 } ;
 
 class JPArrayClassShort : public JPArrayClass
@@ -156,7 +156,7 @@ class JPArrayClassShort : public JPArrayClass
 public:
 	using JPArrayClass::JPArrayClass;
 	JPMatch::Type findJavaConversionImpl(JPMatch &match) override;
-	void getConversionInfo(JPConversionInfo &info) override;
+	void getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info) override;
 } ;
 
 class JPArrayClassInt : public JPArrayClass
@@ -164,7 +164,7 @@ class JPArrayClassInt : public JPArrayClass
 public:
 	using JPArrayClass::JPArrayClass;
 	JPMatch::Type findJavaConversionImpl(JPMatch &match) override;
-	void getConversionInfo(JPConversionInfo &info) override;
+	void getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info) override;
 } ;
 
 class JPArrayClassLong : public JPArrayClass
@@ -172,7 +172,7 @@ class JPArrayClassLong : public JPArrayClass
 public:
 	using JPArrayClass::JPArrayClass;
 	JPMatch::Type findJavaConversionImpl(JPMatch &match) override;
-	void getConversionInfo(JPConversionInfo &info) override;
+	void getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info) override;
 } ;
 
 class JPArrayClassFloat : public JPArrayClass
@@ -180,7 +180,7 @@ class JPArrayClassFloat : public JPArrayClass
 public:
 	using JPArrayClass::JPArrayClass;
 	JPMatch::Type findJavaConversionImpl(JPMatch &match) override;
-	void getConversionInfo(JPConversionInfo &info) override;
+	void getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info) override;
 } ;
 
 class JPArrayClassDouble : public JPArrayClass
@@ -188,7 +188,7 @@ class JPArrayClassDouble : public JPArrayClass
 public:
 	using JPArrayClass::JPArrayClass;
 	JPMatch::Type findJavaConversionImpl(JPMatch &match) override;
-	void getConversionInfo(JPConversionInfo &info) override;
+	void getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info) override;
 } ;
 
 /** A nested array (component type is itself an array class) whose leaf is
@@ -205,7 +205,7 @@ class JPArrayClassNested : public JPArrayClass
 public:
 	using JPArrayClass::JPArrayClass;
 	JPMatch::Type findJavaConversionImpl(JPMatch &match) override;
-	void getConversionInfo(JPConversionInfo &info) override;
+	void getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info) override;
 } ;
 
 /** A nested array that bottoms out in a ragged-eligible primitive leaf
@@ -220,7 +220,7 @@ class JPArrayClassNestedRagged : public JPArrayClass
 public:
 	using JPArrayClass::JPArrayClass;
 	JPMatch::Type findJavaConversionImpl(JPMatch &match) override;
-	void getConversionInfo(JPConversionInfo &info) override;
+	void getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info) override;
 } ;
 
 #endif // _JPARRAYCLASS_H_

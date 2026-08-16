@@ -1,3 +1,4 @@
+// --- file: common/jp_doubletype.cpp ---
 /*****************************************************************************
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -21,8 +22,8 @@
 #include "jp_primitive_accessor.h"
 #include "jp_doubletype.h"
 
-JPDoubleType::JPDoubleType()
-: JPPrimitiveType("double")
+JPDoubleType::JPDoubleType(JPJavaFrame& frame, jclass cls)
+: JPPrimitiveType(frame, cls, "double")
 {
 }
 
@@ -43,7 +44,7 @@ JPPyObject JPDoubleType::convertToPythonObject(JPJavaFrame& frame, jvalue value,
 JPValue JPDoubleType::getValueFromObject(JPJavaFrame& frame, const JPValue& obj)
 {
 	jvalue v;
-	jobject jo = obj.getValue().l;
+	jobject jo = obj.getJavaObject(frame);
 	auto* jb = dynamic_cast<JPBoxedType*>( frame.findClassForObject(jo));
 	field(v) = (type_t) frame.CallDoubleMethodA(jo, jb->m_DoubleValueID, nullptr);
 	return JPValue(this, v);
@@ -108,9 +109,9 @@ public:
 
 	}
 
-	void getInfo(JPClass *cls, JPConversionInfo &info) override
+	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
 	{
-		JPContext *context = JPContext_global;
+		JPContext *context = frame.getContext();
 		PyList_Append(info.exact, (PyObject*) context->_double->getHost());
 		PyList_Append(info.implicit, (PyObject*) context->_byte->getHost());
 		PyList_Append(info.implicit, (PyObject*) context->_char->getHost());
@@ -118,7 +119,7 @@ public:
 		PyList_Append(info.implicit, (PyObject*) context->_int->getHost());
 		PyList_Append(info.implicit, (PyObject*) context->_long->getHost());
 		PyList_Append(info.implicit, (PyObject*) context->_float->getHost());
-		unboxConversion->getInfo(cls, info);
+		unboxConversion->getInfo(frame, cls, info);
 	}
 } asJDoubleConversion;
 
@@ -139,13 +140,12 @@ JPMatch::Type JPDoubleType::findJavaConversionImpl(JPMatch &match)
 	JP_TRACE_OUT;
 }
 
-void JPDoubleType::getConversionInfo(JPConversionInfo &info)
+void JPDoubleType::getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info)
 {
-	JPJavaFrame frame = JPJavaFrame::outer();
-	asJDoubleConversion.getInfo(this, info);
-	asDoubleExactConversion.getInfo(this, info);
-	asDoubleLongConversion.getInfo(this, info);
-	asDoubleConversion.getInfo(this, info);
+	asJDoubleConversion.getInfo(frame, this, info);
+	asDoubleExactConversion.getInfo(frame, this, info);
+	asDoubleLongConversion.getInfo(frame, this, info);
+	asDoubleConversion.getInfo(frame, this, info);
 	PyList_Append(info.ret, PyJPClass_create(frame, this).get());
 }
 
@@ -193,7 +193,7 @@ JPPyObject JPDoubleType::invoke(JPJavaFrame& frame, jobject obj, jclass clazz, j
 
 void JPDoubleType::setStaticField(JPJavaFrame& frame, jclass c, jfieldID fid, PyObject* obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java double");
 	type_t val = field(match.convert());
@@ -202,7 +202,7 @@ void JPDoubleType::setStaticField(JPJavaFrame& frame, jclass c, jfieldID fid, Py
 
 void JPDoubleType::setField(JPJavaFrame& frame, jobject c, jfieldID fid, PyObject* obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java double");
 	type_t val = field(match.convert());
@@ -331,7 +331,7 @@ void JPDoubleType::setArrayRange(JPJavaFrame& frame, jarray a,
 
 void JPDoubleType::setArrayItem(JPJavaFrame& frame, jarray a, jsize ndx, PyObject* obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java double");
 	type_t val = field(match.convert());
@@ -384,13 +384,12 @@ JPMatch::Type JPArrayClassDouble::findJavaConversionImpl(JPMatch &match)
 	JP_TRACE_OUT;
 }
 
-void JPArrayClassDouble::getConversionInfo(JPConversionInfo &info)
+void JPArrayClassDouble::getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info)
 {
-	JPJavaFrame frame = JPJavaFrame::outer();
-	objectConversion->getInfo(this, info);
-	bufferConversion->getInfo(this, info);
-	sequenceConversion->getInfo(this, info);
-	hintsConversion->getInfo(this, info);
+	objectConversion->getInfo(frame, this, info);
+	bufferConversion->getInfo(frame, this, info);
+	sequenceConversion->getInfo(frame, this, info);
+	hintsConversion->getInfo(frame, this, info);
 	PyList_Append(info.ret, PyJPClass_create(frame, this).get());
 }
 
@@ -407,8 +406,9 @@ JPArrayDouble::JPArrayDouble(JPArrayDouble* src, jsize start, jsize stop, jsize 
 JPPyObject JPArrayDouble::getItem(jsize ndx)
 {
 	ndx = checkIndex(ndx);
-	JPJavaAccess frame;
-	return m_CompType->getFastArrayItem(frame, m_Object.get(), m_Start + ndx * m_Step);
+	JPJavaAccess frame(m_Context);
+	JPJavaFrame jframe = JPJavaFrame::fast(frame.getEnv(), frame.getContext());
+	return m_CompType->getFastArrayItem(frame, (jarray) jframe.retrieveGlobal(m_Object), m_Start + ndx * m_Step);
 }
 
 JPArray* JPArrayDouble::slice(jsize start, jsize stop, jsize step)
@@ -416,21 +416,19 @@ JPArray* JPArrayDouble::slice(jsize start, jsize stop, jsize step)
 	return new JPArrayDouble(this, start, stop, step);
 }
 
-void JPDoubleType::getView(JPArrayView& view)
+void JPDoubleType::getView(JPJavaFrame& frame, JPArrayView& view)
 {
-	JPJavaFrame frame = JPJavaFrame::outer();
 	view.m_Memory = (void*) frame.GetDoubleArrayElements(
-			(jdoubleArray) view.m_Array->getJava(), &view.m_IsCopy);
+			(jdoubleArray) view.m_Array->getJava(frame), &view.m_IsCopy);
 	view.m_Buffer.format = "d";
 	view.m_Buffer.itemsize = sizeof (jdouble);
 }
 
-void JPDoubleType::releaseView(JPArrayView& view)
+void JPDoubleType::releaseView(JPJavaFrame& frame, JPArrayView& view)
 {
 	try
 	{
-		JPJavaFrame frame = JPJavaFrame::outer();
-		frame.ReleaseDoubleArrayElements((jdoubleArray) view.m_Array->getJava(),
+		frame.ReleaseDoubleArrayElements((jdoubleArray) view.m_Array->getJava(frame),
 				(jdouble*) view.m_Memory, view.m_Buffer.readonly ? JNI_ABORT : 0);
 	}	catch (...)
 	{

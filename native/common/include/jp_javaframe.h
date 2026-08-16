@@ -46,12 +46,13 @@ static const int LOCAL_FRAME_DEFAULT = 8;
 class JPJavaFrame
 {
 	JNIEnv* m_Env;
+	JPContext* m_Context;
 	bool m_Popped;
 	bool m_Outer;
 
 private:
-	JPJavaFrame(JNIEnv* env, int size, bool outer);
-	explicit JPJavaFrame(JNIEnv* env);  // fast(): no PushLocalFrame
+	JPJavaFrame(JNIEnv* env, JPContext* ctx, int size, bool outer);
+	JPJavaFrame(JNIEnv* env, JPContext* ctx);  // fast(): no PushLocalFrame
 
 public:
 
@@ -66,9 +67,9 @@ public:
 	 * @throws JPBaseError if the jpype cannot
 	 * acquire an env handle to work with jvm.
 	 */
-	static JPJavaFrame outer(int size = LOCAL_FRAME_DEFAULT)
+	static JPJavaFrame outer(JPContext* ctx, int size = LOCAL_FRAME_DEFAULT)
 	{
-		return {nullptr, size, true};
+		return {nullptr, ctx, size, true};
 	}
 
 	/** Create a new JavaFrame when called internal when
@@ -80,10 +81,10 @@ public:
 	 * @throws JPBaseError if the jpype cannot
 	 * acquire an env handle to work with jvm.
 	 */
-	static JPJavaFrame inner(int size = LOCAL_FRAME_DEFAULT)
-	{
-		return {nullptr, size, false};
-	}
+//	static JPJavaFrame inner(int size = LOCAL_FRAME_DEFAULT)
+//	{
+//		return {nullptr, size, false};
+//	}
 
 	/** Create a new JavaFrame when called from Java.
 	 *
@@ -95,9 +96,9 @@ public:
 	 * @throws JPBaseError if the jpype cannot
 	 * acquire an env handle to work with jvm.
 	 */
-	static JPJavaFrame external(JNIEnv* env, int size = LOCAL_FRAME_DEFAULT)
+	static JPJavaFrame external(JNIEnv* env, JPContext* ctx, int size = LOCAL_FRAME_DEFAULT)
 	{
-		return {env, size, false};
+		return {env, ctx, size, false};
 	}
 
 	/** Create a lightweight frame that does not push a JNI local frame.
@@ -109,21 +110,14 @@ public:
 	 * using fast() does not create a new safety scope of its own. See the
 	 * JP_ASSERT_FAST_FRAMES build (JP_ASSERT_HAS_FRAME/g_frameDepth in
 	 * jp_javaframe.cpp) for the mechanism that checks this contract.
+	 *
+	 * context is whatever the caller already has in hand (e.g.
+	 * JPJavaAccess::getContext()) -- there is no ambient fallback here,
+	 * for the same reason JPJavaAccess itself requires one explicitly.
 	 */
-	static JPJavaFrame fast()
+	static JPJavaFrame fast(JNIEnv* env, JPContext* context)
 	{
-		return JPJavaFrame((JNIEnv*) nullptr);
-	}
-
-	/** Same as fast(), but for a caller that already holds this thread's
-	 * JNIEnv* (e.g. JPJavaAccess::getEnv()) -- skips the redundant
-	 * JPContext::getEnv() lookup (a real JNI call, not free) that the
-	 * no-arg fast() would otherwise repeat right after the caller already
-	 * paid for it once.
-	 */
-	static JPJavaFrame fast(JNIEnv* env)
-	{
-		return JPJavaFrame(env);
+		return JPJavaFrame(env, context);
 	}
 
 	JPJavaFrame(const JPJavaFrame& frame);
@@ -135,8 +129,6 @@ public:
 	 * by the keep method will be kept alive.
 	 */
 	~JPJavaFrame();
-
-	JPContext* getContext();
 
 	void check();
 
@@ -181,9 +173,26 @@ public:
 	jweak NewWeakGlobalRef(jobject obj);
 	void DeleteWeakGlobalRef(jweak obj);
 
+	/** Stores obj in this frame's interpreter's Java-side GlobalPool
+	 * (org.jpype.internal.NativeContext#storeGlobal) and returns a handle
+	 * for it, in place of a JNI NewGlobalRef.
+	 */
+	jref storeGlobal(jobject obj);
+
+	/** Resolves a handle from storeGlobal() back to a local reference
+	 * scoped to this frame (org.jpype.internal.NativeContext#retrieveGlobal),
+	 * or nullptr if it's stale/foreign/already released.
+	 */
+	jobject retrieveGlobal(jref ref);
+
 	JNIEnv* getEnv() const
 	{
 		return m_Env;
+	}
+	JPContext* getContext() const
+	{
+		// We can add guard statements here.
+		return m_Context;
 	}
 
 	string toString(jobject o);
@@ -255,14 +264,14 @@ public:
 	jstring fromStringUTF8(const string& str);
 	jobject callMethod(jobject method, jobject obj, jobject args);
 	jobject toCharArray(jstring jstr);
-	string getFunctional(jclass c);
+	PyObject* getFunctional(jclass c);
 
 	JPClass *findClass(jclass obj);
 	JPClass *findClassByName(const string& name);
 	JPClass *findClassForObject(jobject obj);
 
-    // not implemented
-    JPJavaFrame& operator= (const JPJavaFrame& frame) = delete;
+	// not implemented
+	JPJavaFrame& operator= (const JPJavaFrame& frame) = delete;
 
 private:
 	jint PushLocalFrame(jint);
@@ -270,7 +279,6 @@ private:
 
 public:
 
-	bool ExceptionCheck();
 	void ExceptionDescribe();
 	void ExceptionClear();
 	jthrowable ExceptionOccurred();
@@ -490,20 +498,31 @@ public:
 class JPJavaAccess
 {
 	JNIEnv* m_Env;
+	JPContext* m_Context;
 
 public:
-	JPJavaAccess();
+	/** context is whatever the caller already has in hand (e.g. a
+	 * JPClass::getContext()) -- there is no ambient fallback, since this
+	 * class exists precisely for hot per-element call sites that must not
+	 * silently resolve the wrong sub-interpreter's context.
+	 */
+	explicit JPJavaAccess(JPContext* context);
 
 	void checkFast();
 
 	/** For a caller that needs to escalate to a real JPJavaFrame (e.g. to
 	 * call the shared convertToPythonObject) -- pass to
-	 * JPJavaFrame::fast(env) so it doesn't redundantly re-fetch this
-	 * thread's JNIEnv*, which is a real JNI call, not free.
+	 * JPJavaFrame::fast(env, context) so it doesn't redundantly re-fetch
+	 * this thread's JNIEnv*, which is a real JNI call, not free.
 	 */
 	JNIEnv* getEnv() const
 	{
 		return m_Env;
+	}
+
+	JPContext* getContext() const
+	{
+		return m_Context;
 	}
 
 	jsize GetArrayLength(jarray a0);

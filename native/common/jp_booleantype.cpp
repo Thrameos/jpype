@@ -1,3 +1,4 @@
+// --- file: common/jp_booleantype.cpp ---
 /*****************************************************************************
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -22,8 +23,8 @@
 #include "jp_booleantype.h"
 #include "jp_boxedtype.h"
 
-JPBooleanType::JPBooleanType()
-: JPPrimitiveType("boolean")
+JPBooleanType::JPBooleanType(JPJavaFrame& frame, jclass cls)
+: JPPrimitiveType(frame, cls, "boolean")
 {
 }
 
@@ -43,7 +44,7 @@ JPPyObject JPBooleanType::convertToPythonObject(JPJavaFrame& frame, jvalue val, 
 JPValue JPBooleanType::getValueFromObject(JPJavaFrame& frame, const JPValue& obj)
 {
 	jvalue v;
-	field(v) = frame.CallBooleanMethodA(obj.getValue().l, frame.getContext()->_java_lang_Boolean->m_BooleanValueID, nullptr) != 0;
+	field(v) = frame.CallBooleanMethodA(obj.getJavaObject(frame), frame.getContext()->_java_lang_Boolean->m_BooleanValueID, nullptr) != 0;
 	return JPValue(this, v);
 }
 
@@ -51,20 +52,20 @@ class JPConversionAsBoolean : public JPConversion
 {
 public:
 
-    JPMatch::Type matches(JPClass *cls, JPMatch &match) override
-    {
-        PyObject* obj = match.object;
+	JPMatch::Type matches(JPClass *cls, JPMatch &match) override
+	{
+		PyObject* obj = match.object;
+		PyJPModuleState* st = match.frame->getContext()->modulestate;
+		if (PyBool_Check(obj) || PyJP_IsInstanceSingle(obj, (PyTypeObject*) st->numpy_bool_type))
+		{
+			match.conversion = this;
+			return match.type = JPMatch::_exact;
+		}
 
-        if (PyBool_Check(obj) || PyJP_IsInstanceSingle(obj, (PyTypeObject*)_numpy_bool_type))
-        {
-            match.conversion = this;
-            return match.type = JPMatch::_exact;
-        }
+		return match.type = JPMatch::_none;
+	}
 
-        return match.type = JPMatch::_none;
-    }
-
-    void getInfo(JPClass * cls, JPConversionInfo &info) override
+	void getInfo(JPJavaFrame& frame, JPClass * cls, JPConversionInfo &info) override
 	{
 		PyList_Append(info.exact, (PyObject*) & PyBool_Type);
 	}
@@ -99,11 +100,11 @@ public:
 		return JPMatch::_implicit; // search no further.
 	}
 
-	void getInfo(JPClass *cls, JPConversionInfo &info) override
+	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
 	{
-		JPContext *context = JPContext_global;
+		JPContext *context = frame.getContext();
 		PyList_Append(info.exact, (PyObject*) context->_boolean->getHost());
-		unboxConversion->getInfo(cls, info);
+		unboxConversion->getInfo(frame, cls, info);
 	}
 
 } asBooleanJBool;
@@ -121,7 +122,7 @@ public:
 		return match.type = JPMatch::_implicit;
 	}
 
-	void getInfo(JPClass *cls, JPConversionInfo &info) override
+	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
 	{
 		PyObject *typing = PyImport_AddModule("jpype.protocol");
 		JPPyObject proto = JPPyObject::call(PyObject_GetAttrString(typing, "SupportsIndex"));
@@ -142,7 +143,7 @@ public:
 		return match.type = JPMatch::_explicit;
 	}
 
-	void getInfo(JPClass * cls, JPConversionInfo &info) override
+	void getInfo(JPJavaFrame& frame, JPClass * cls, JPConversionInfo &info) override
 	{
 		PyObject *typing = PyImport_AddModule("jpype.protocol");
 		JPPyObject proto = JPPyObject::call(PyObject_GetAttrString(typing, "SupportsFloat"));
@@ -168,13 +169,12 @@ JPMatch::Type JPBooleanType::findJavaConversionImpl(JPMatch &match)
 	JP_TRACE_OUT;
 }
 
-void JPBooleanType::getConversionInfo(JPConversionInfo &info)
+void JPBooleanType::getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info)
 {
-	JPJavaFrame frame = JPJavaFrame::outer();
-	asBooleanExact.getInfo(this, info);
-	asBooleanJBool.getInfo(this, info);
-	asBooleanLong.getInfo(this, info);
-	asBooleanNumber.getInfo(this, info);
+	asBooleanExact.getInfo(frame, this, info);
+	asBooleanJBool.getInfo(frame, this, info);
+	asBooleanLong.getInfo(frame, this, info);
+	asBooleanNumber.getInfo(frame, this, info);
 	PyList_Append(info.ret, (PyObject*) & PyBool_Type);
 }
 
@@ -222,7 +222,7 @@ JPPyObject JPBooleanType::invoke(JPJavaFrame& frame, jobject obj, jclass clazz, 
 
 void JPBooleanType::setStaticField(JPJavaFrame& frame, jclass c, jfieldID fid, PyObject* obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java boolean");
 	type_t val = field(match.convert());
@@ -231,7 +231,7 @@ void JPBooleanType::setStaticField(JPJavaFrame& frame, jclass c, jfieldID fid, P
 
 void JPBooleanType::setField(JPJavaFrame& frame, jobject c, jfieldID fid, PyObject* obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java boolean");
 	type_t val = field(match.convert());
@@ -348,7 +348,7 @@ void JPBooleanType::setArrayRange(JPJavaFrame& frame, jarray a,
 
 void JPBooleanType::setArrayItem(JPJavaFrame& frame, jarray a, jsize ndx, PyObject* obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java boolean");
 	type_t val = field(match.convert());
@@ -395,13 +395,12 @@ JPMatch::Type JPArrayClassBoolean::findJavaConversionImpl(JPMatch &match)
 	JP_TRACE_OUT;
 }
 
-void JPArrayClassBoolean::getConversionInfo(JPConversionInfo &info)
+void JPArrayClassBoolean::getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info)
 {
-	JPJavaFrame frame = JPJavaFrame::outer();
-	objectConversion->getInfo(this, info);
-	bufferConversion->getInfo(this, info);
-	sequenceConversion->getInfo(this, info);
-	hintsConversion->getInfo(this, info);
+	objectConversion->getInfo(frame, this, info);
+	bufferConversion->getInfo(frame, this, info);
+	sequenceConversion->getInfo(frame, this, info);
+	hintsConversion->getInfo(frame, this, info);
 	PyList_Append(info.ret, PyJPClass_create(frame, this).get());
 }
 
@@ -418,8 +417,9 @@ JPArrayBoolean::JPArrayBoolean(JPArrayBoolean* src, jsize start, jsize stop, jsi
 JPPyObject JPArrayBoolean::getItem(jsize ndx)
 {
 	ndx = checkIndex(ndx);
-	JPJavaAccess frame;
-	return m_CompType->getFastArrayItem(frame, m_Object.get(), m_Start + ndx * m_Step);
+	JPJavaAccess frame(m_Context);
+	JPJavaFrame jframe = JPJavaFrame::fast(frame.getEnv(), frame.getContext());
+	return m_CompType->getFastArrayItem(frame, (jarray) jframe.retrieveGlobal(m_Object), m_Start + ndx * m_Step);
 }
 
 JPArray* JPArrayBoolean::slice(jsize start, jsize stop, jsize step)
@@ -427,21 +427,19 @@ JPArray* JPArrayBoolean::slice(jsize start, jsize stop, jsize step)
 	return new JPArrayBoolean(this, start, stop, step);
 }
 
-void JPBooleanType::getView(JPArrayView& view)
+void JPBooleanType::getView(JPJavaFrame& frame, JPArrayView& view)
 {
-	JPJavaFrame frame = JPJavaFrame::outer();
 	view.m_Memory = (void*) frame.GetBooleanArrayElements(
-			(jbooleanArray) view.m_Array->getJava(), &view.m_IsCopy);
+			(jbooleanArray) view.m_Array->getJava(frame), &view.m_IsCopy);
 	view.m_Buffer.format = "?";
 	view.m_Buffer.itemsize = sizeof (jboolean);
 }
 
-void JPBooleanType::releaseView(JPArrayView& view)
+void JPBooleanType::releaseView(JPJavaFrame& frame, JPArrayView& view)
 {
 	try
 	{
-		JPJavaFrame frame = JPJavaFrame::outer();
-		frame.ReleaseBooleanArrayElements((jbooleanArray) view.m_Array->getJava(),
+		frame.ReleaseBooleanArrayElements((jbooleanArray) view.m_Array->getJava(frame),
 				(jboolean*) view.m_Memory, view.m_Buffer.readonly ? JNI_ABORT : 0);
 	}	catch (...)
 	{

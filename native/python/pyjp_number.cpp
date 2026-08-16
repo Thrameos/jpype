@@ -1,3 +1,4 @@
+// --- file: python/pyjp_number.cpp ---
 /*****************************************************************************
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -96,6 +97,15 @@ struct PyJPFloat
 // runs under the GIL today so a lock would cost nothing extra either way,
 // but the lock-free form costs nothing extra either and stays correct if
 // this is ever reached under free-threaded CPython.
+//
+// The pool itself lives on PyJPModuleState (st->intfreelist), not as a
+// process-wide static, because it recycles raw allocated blocks -- under a
+// per-interpreter GIL/allocator build (PEP 684), a block freed under one
+// interpreter's obmalloc arena and popped back out under another's would
+// corrupt that interpreter's heap. Every entry point below takes the
+// PyJPModuleState* of the type it's working with, resolved by the caller
+// the same way this file already resolves it elsewhere (via
+// ((PyJPClass*) type)->m_State).
 namespace intfreelist
 {
 
@@ -105,48 +115,43 @@ struct Node
 };
 
 constexpr int CAP = 4096;
-static std::atomic<Node*> head{nullptr};
-static std::atomic<int> count{0};
 
-// Populated once, from PyJPNumber_initType, with the four leaves'
-// concrete type objects (JByte/JShort/JInt/JLong) -- fixed for the
-// process's lifetime after that, same as the leaves themselves.
-static PyTypeObject* eligibleTypes[4] = {nullptr, nullptr, nullptr, nullptr};
-
-inline bool isEligible(PyTypeObject* type)
+inline bool isEligible(PyJPModuleState* st, PyTypeObject* type)
 {
-	for (auto* t : eligibleTypes)
+	for (auto* t : st->intfreelist.eligibleTypes)
 		if (t == type)
 			return true;
 	return false;
 }
 
-inline void* pop()
+inline void* pop(PyJPModuleState* st)
 {
-	Node* n = head.load(std::memory_order_acquire);
+	std::atomic<void*>& head = st->intfreelist.head;
+	auto* n = (Node*) head.load(std::memory_order_acquire);
 	while (n != nullptr)
 	{
 		Node* next = n->next.load(std::memory_order_relaxed);
-		if (head.compare_exchange_weak(n, next, std::memory_order_acq_rel, std::memory_order_acquire))
+		if (head.compare_exchange_weak((void*&) n, (void*) next, std::memory_order_acq_rel, std::memory_order_acquire))
 		{
-			count.fetch_sub(1, std::memory_order_relaxed);
+			st->intfreelist.count.fetch_sub(1, std::memory_order_relaxed);
 			return (void*) n;
 		}
 	}
 	return nullptr;
 }
 
-inline bool push(void* p)
+inline bool push(PyJPModuleState* st, void* p)
 {
-	if (count.load(std::memory_order_relaxed) >= CAP)
+	std::atomic<void*>& head = st->intfreelist.head;
+	if (st->intfreelist.count.load(std::memory_order_relaxed) >= CAP)
 		return false;
 	auto* n = (Node*) p;
-	Node* old = head.load(std::memory_order_relaxed);
+	auto* old = (Node*) head.load(std::memory_order_relaxed);
 	do
 	{
 		n->next.store(old, std::memory_order_relaxed);
-	} while (!head.compare_exchange_weak(old, n, std::memory_order_release, std::memory_order_relaxed));
-	count.fetch_add(1, std::memory_order_relaxed);
+	} while (!head.compare_exchange_weak((void*&) old, (void*) n, std::memory_order_release, std::memory_order_relaxed));
+	st->intfreelist.count.fetch_add(1, std::memory_order_relaxed);
 	return true;
 }
 
@@ -160,7 +165,8 @@ inline bool push(void* p)
 // tp_dealloc to tear down first -- a bare recycle-or-free is the whole job.
 static void PyJPNumberInt_freelistDealloc(PyObject* self)
 {
-	if (intfreelist::push(self))
+	PyJPModuleState* st = ((PyJPClass*) Py_TYPE(self))->m_State;
+	if (intfreelist::push(st, self))
 		return;
 	PyObject_Free(self);
 }
@@ -192,10 +198,11 @@ PyObject* PyJPNumber_longFromLongLong(PyTypeObject* type, long long value)
 	while (ndigits > 0 && digits[ndigits - 1] == 0)
 		ndigits--;
 
+	PyJPModuleState* st = ((PyJPClass*) type)->m_State;
 	PyLongObject* self;
-	if (intfreelist::isEligible(type))
+	if (intfreelist::isEligible(st, type))
 	{
-		self = (PyLongObject*) intfreelist::pop();
+		self = (PyLongObject*) intfreelist::pop(st);
 		if (self != nullptr)
 		{
 			// Reused block: still carries its previous occupant's
@@ -257,7 +264,7 @@ static bool isNull(PyObject *self)
 	// is an identity check, not a value read.
 	if (PyJPClass_GetJValueFn(Py_TYPE(self)) != nullptr)
 		return self == PyJPClass_GetNullBoxed(Py_TYPE(self));
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext(self));
 	return PyJPValue_getJValue(frame, self).l == nullptr;
 }
 
@@ -287,20 +294,22 @@ extern "C"
 {
 #endif
 
+
 static PyObject *PyJPNumber_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
 	JP_PY_TRY("PyJPNumber_new", type);
 	auto *cls = (JPClass*) PyJPClass_getJPClass((PyObject*) type);
 	if (cls == nullptr)
 		JP_RAISE(PyExc_TypeError, "Class type incorrect");
+	PyJPModuleState* st = ((PyJPClass*) type)->m_State;
+	JPJavaFrame frame = JPJavaFrame::outer(st->context);
 
-	JPJavaFrame frame = JPJavaFrame::outer();
 	jvalue val;
 	// One argument tries Java conversion first
 	if (PyTuple_Size(args) == 1)
 	{
 		PyObject *arg = PyTuple_GetItem(args, 0);
-		JPMatch match(&frame, arg);
+		JPMatch match(frame, arg);
 		cls->findJavaConversion(match);
 		if (match.type >= JPMatch::_implicit)
 		{
@@ -312,18 +321,18 @@ static PyObject *PyJPNumber_new(PyTypeObject *type, PyObject *args, PyObject *kw
 		}
 	}
 
-	if (PyObject_IsSubclass((PyObject*) type, (PyObject*) & PyLong_Type))
+	if (PyObject_IsSubclass((PyObject*) type, (PyObject*) &PyLong_Type))
 	{
 		JPPyObject self = JPPyObject::call(PyLong_Type.tp_new(&PyLong_Type, args, kwargs));
-		JPMatch match(&frame, self.get());
+		JPMatch match(frame, self.get());
 		cls->findJavaConversion(match);
 		match.type = JPMatch::_exact;
 		val = match.convert();
 		return cls->convertToPythonObject(frame, val, true).keep();
-	} else if (PyObject_IsSubclass((PyObject*) type, (PyObject*) & PyFloat_Type))
+	} else if (PyObject_IsSubclass((PyObject*) type, (PyObject*) &PyFloat_Type))
 	{
 		JPPyObject self = JPPyObject::call(PyFloat_Type.tp_new(&PyFloat_Type, args, kwargs));
-		JPMatch match(&frame, self.get());
+		JPMatch match(frame, self.get());
 		cls->findJavaConversion(match);
 		match.type = JPMatch::_exact;
 		val = match.convert();
@@ -339,7 +348,7 @@ static PyObject *PyJPNumber_new(PyTypeObject *type, PyObject *args, PyObject *kw
 static PyObject *PyJPNumberLong_int(PyObject *self)
 {
 	JP_PY_TRY("PyJPNumberLong_int");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext(self));
 	if (!isNull(self))
 		return PyLong_Type.tp_as_number->nb_int(self);
 	PyErr_SetString(PyExc_TypeError, "cast of null pointer would return non-int");
@@ -349,7 +358,7 @@ static PyObject *PyJPNumberLong_int(PyObject *self)
 static PyObject *PyJPNumberLong_float(PyObject *self)
 {
 	JP_PY_TRY("PyJPNumberLong_float");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext(self));
 	if (!isNull(self))
 		return PyLong_Type.tp_as_number->nb_float(self);
 	PyErr_SetString(PyExc_TypeError, "cast of null pointer would return non-float");
@@ -359,7 +368,7 @@ static PyObject *PyJPNumberLong_float(PyObject *self)
 static PyObject *PyJPNumberFloat_int(PyObject *self)
 {
 	JP_PY_TRY("PyJPNumberFloat_int");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext(self));
 	if (!isNull(self))
 		return PyFloat_Type.tp_as_number->nb_int(self);
 	PyErr_SetString(PyExc_TypeError, "cast of null pointer would return non-int");
@@ -369,7 +378,7 @@ static PyObject *PyJPNumberFloat_int(PyObject *self)
 static PyObject *PyJPNumberFloat_float(PyObject *self)
 {
 	JP_PY_TRY("PyJPNumberFloat_float");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext(self));
 	if (!isNull(self))
 		return PyFloat_Type.tp_as_number->nb_float(self);
 	PyErr_SetString(PyExc_TypeError, "cast of null pointer would return non-float");
@@ -379,7 +388,7 @@ static PyObject *PyJPNumberFloat_float(PyObject *self)
 static PyObject *PyJPNumberLong_str(PyObject *self)
 {
 	JP_PY_TRY("PyJPNumberLong_str");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext(self));
 	if (isNull(self))
 		return Py_TYPE(Py_None)->tp_str(Py_None);
 	return PyLong_Type.tp_str(self);
@@ -389,7 +398,7 @@ static PyObject *PyJPNumberLong_str(PyObject *self)
 static PyObject *PyJPNumberFloat_str(PyObject *self)
 {
 	JP_PY_TRY("PyJPNumberFloat_str");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext(self));
 	if (isNull(self))
 		return Py_TYPE(Py_None)->tp_str(Py_None);
 	return PyFloat_Type.tp_str(self);
@@ -399,17 +408,18 @@ static PyObject *PyJPNumberFloat_str(PyObject *self)
 static PyObject *PyJPNumberLong_repr(PyObject *self)
 {
 	JP_PY_TRY("PyJPNumberLong_repr");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext(self));
 	if (isNull(self))
 		return Py_TYPE(Py_None)->tp_str(Py_None);
 	return PyLong_Type.tp_repr(self);
 	JP_PY_CATCH(nullptr);
 }
 
+
 static PyObject *PyJPNumberFloat_repr(PyObject *self)
 {
 	JP_PY_TRY("PyJPNumberFloat_repr");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext(self));
 	if (isNull(self))
 		return Py_TYPE(Py_None)->tp_str(Py_None);
 	return PyFloat_Type.tp_repr(self);
@@ -423,7 +433,7 @@ static const char* op_names[] = {
 static PyObject *PyJPNumberLong_compare(PyObject *self, PyObject *other, int op)
 {
 	JP_PY_TRY("PyJPNumberLong_compare");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext(self));
 	if (isNull(self))
 	{
 		if (op == Py_EQ)
@@ -446,7 +456,7 @@ static PyObject *PyJPNumberLong_compare(PyObject *self, PyObject *other, int op)
 static PyObject *PyJPNumberFloat_compare(PyObject *self, PyObject *other, int op)
 {
 	JP_PY_TRY("PyJPNumberFloat_compare");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext(self));
 	if (isNull(self))
 	{
 		if (op == Py_EQ)
@@ -469,7 +479,7 @@ static PyObject *PyJPNumberFloat_compare(PyObject *self, PyObject *other, int op
 static Py_hash_t PyJPNumberLong_hash(PyObject *self)
 {
 	JP_PY_TRY("PyJPNumberLong_hash");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext(self));
 	JPClass *cls = PyJPValue_getJPClass(self);
 	if (cls == nullptr)
 		return Py_TYPE(Py_None)->tp_hash(Py_None);
@@ -486,7 +496,7 @@ static Py_hash_t PyJPNumberLong_hash(PyObject *self)
 static Py_hash_t PyJPNumberFloat_hash(PyObject *self)
 {
 	JP_PY_TRY("PyJPNumberFloat_hash");
-	JPJavaFrame frame = JPJavaFrame::outer();
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext(self));
 	JPClass *cls = PyJPValue_getJPClass(self);
 	if (cls == nullptr)
 		return Py_TYPE(Py_None)->tp_hash(Py_None);
@@ -514,13 +524,10 @@ static Py_hash_t PyJPNumberFloat_hash(PyObject *self)
 // identity, same reasoning as intfreelist::isEligible above) -- the boxed
 // java.lang.Boolean path doesn't come through here at all (PyJPNumber_create
 // special-cases Boolean and calls PyJPNumber_longFromLongLong directly).
-static PyObject *g_boolSingleton[2] = {nullptr, nullptr};
-// Set once below, right after the leaf is built: PyJPBoolean_new is wired
-// as tp_new on the *root* spec (numberBooleanSlots) but inherited by the
-// leaf, and it's the leaf (_jpype.JBoolean) that every real `JBoolean(x)`
-// call actually constructs, not the root (_jpype._JBoolean).
-static PyTypeObject *g_boolLeafType = nullptr;
-
+// Cached on PyJPModuleState (st->boolSingleton/st->boolLeafType), not as a
+// process-wide static -- each (sub)interpreter builds its own JBoolean leaf
+// type, so a cached instance from one interpreter must never be handed back
+// to another.
 static PyObject *PyJPBoolean_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
 	JP_PY_TRY("PyJPBoolean_new", type);
@@ -529,11 +536,12 @@ static PyObject *PyJPBoolean_new(PyTypeObject *type, PyObject *args, PyObject *k
 		PyErr_SetString(PyExc_TypeError, "Requires one argument");
 		return nullptr;
 	}
+	PyJPModuleState* st = ((PyJPClass*) type)->m_State;
 	int i = PyObject_IsTrue(PyTuple_GetItem(args, 0));
-	if (type == g_boolLeafType && g_boolSingleton[i] != nullptr)
+	if (type == st->boolLeafType && st->boolSingleton[i] != nullptr)
 	{
-		Py_INCREF(g_boolSingleton[i]);
-		return g_boolSingleton[i];
+		Py_INCREF(st->boolSingleton[i]);
+		return st->boolSingleton[i];
 	}
 	JPClass *cls = PyJPClass_getJPClass((PyObject*) type);
 	if (cls == nullptr)
@@ -543,16 +551,16 @@ static PyObject *PyJPBoolean_new(PyTypeObject *type, PyObject *args, PyObject *k
 	}
 	JPPyObject self = JPPyObject::call(PyJPNumber_longFromLongLong(type, i));
 	JP_PY_CHECK();
-	JPJavaFrame frame = JPJavaFrame::outer();
-	JPMatch match(&frame, self.get());
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPType_getContext(type));
+	JPMatch match(frame, self.get());
 	cls->findJavaConversion(match);
 	jvalue val = match.convert();
 	PyJPValue_assignJavaSlot(frame, self.get(), JPValue(cls, val));
 	JP_TRACE("new", self.get());
-	if (type == g_boolLeafType && g_boolSingleton[i] == nullptr)
+	if (type == st->boolLeafType && st->boolSingleton[i] == nullptr)
 	{
 		Py_INCREF(self.get());
-		g_boolSingleton[i] = self.get();
+		st->boolSingleton[i] = self.get();
 	}
 	return self.keep();
 	JP_PY_CATCH(nullptr);
@@ -571,30 +579,29 @@ static PyObject* PyJPBoolean_str(PyObject* self)
 
 static PyObject *PyJPNumber_initSubclass(PyObject *cls, PyObject* args, PyObject *kwargs)
 {
-        Py_RETURN_NONE;
+		Py_RETURN_NONE;
 }
 
 static PyMethodDef numberMethods[] = {
-    {"__init_subclass__", (PyCFunction) PyJPNumber_initSubclass, METH_CLASS | METH_VARARGS | METH_KEYWORDS, ""},
-    {0}
+	{"__init_subclass__", (PyCFunction) PyJPNumber_initSubclass, METH_CLASS | METH_VARARGS | METH_KEYWORDS, ""},
+	{0}
 };
 
 
 static PyType_Slot numberLongSlots[] = {
-	{Py_tp_new,      (void*) &PyJPNumber_new},
+	{Py_tp_new,	  (void*) &PyJPNumber_new},
 	{Py_tp_getattro, (void*) &PyJPValue_getattro},
 	{Py_tp_setattro, (void*) &PyJPValue_setattro},
-	{Py_nb_int,      (void*) &PyJPNumberLong_int},
-	{Py_nb_float,    (void*) &PyJPNumberLong_float},
-	{Py_tp_str,      (void*) &PyJPNumberLong_str},
-	{Py_tp_repr,     (void*) &PyJPNumberLong_repr},
-	{Py_tp_hash,     (void*) &PyJPNumberLong_hash},
+	{Py_nb_int,	  (void*) &PyJPNumberLong_int},
+	{Py_nb_float,	(void*) &PyJPNumberLong_float},
+	{Py_tp_str,	  (void*) &PyJPNumberLong_str},
+	{Py_tp_repr,	 (void*) &PyJPNumberLong_repr},
+	{Py_tp_hash,	 (void*) &PyJPNumberLong_hash},
 	{Py_tp_richcompare, (void*) &PyJPNumberLong_compare},
 	{Py_tp_methods,  (void*) numberMethods},
 	{0}
 };
 
-PyTypeObject *PyJPNumberLong_Type = nullptr;
 PyType_Spec numberLongSpec = {
 	"_jpype._JNumberLong",
 	0,
@@ -604,20 +611,19 @@ PyType_Spec numberLongSpec = {
 };
 
 static PyType_Slot numberFloatSlots[] = {
-	{Py_tp_new,      (void*) &PyJPNumber_new},
+	{Py_tp_new,	  (void*) &PyJPNumber_new},
 	{Py_tp_getattro, (void*) &PyJPValue_getattro},
 	{Py_tp_setattro, (void*) &PyJPValue_setattro},
-	{Py_nb_int,      (void*) &PyJPNumberFloat_int},
-	{Py_nb_float,    (void*) &PyJPNumberFloat_float},
-	{Py_tp_str,      (void*) &PyJPNumberFloat_str},
-	{Py_tp_repr,     (void*) &PyJPNumberFloat_repr},
-	{Py_tp_hash,     (void*) &PyJPNumberFloat_hash},
+	{Py_nb_int,	  (void*) &PyJPNumberFloat_int},
+	{Py_nb_float,	(void*) &PyJPNumberFloat_float},
+	{Py_tp_str,	  (void*) &PyJPNumberFloat_str},
+	{Py_tp_repr,	 (void*) &PyJPNumberFloat_repr},
+	{Py_tp_hash,	 (void*) &PyJPNumberFloat_hash},
 	{Py_tp_richcompare, (void*) &PyJPNumberFloat_compare},
 	{Py_tp_methods,  (void*) numberMethods},
 	{0}
 };
 
-PyTypeObject *PyJPNumberFloat_Type = nullptr;
 PyType_Spec numberFloatSpec = {
 	"_jpype._JNumberFloat",
 	sizeof (struct PyJPFloat),
@@ -627,20 +633,19 @@ PyType_Spec numberFloatSpec = {
 };
 
 static PyType_Slot numberBooleanSlots[] = {
-	{Py_tp_new,      (void*) PyJPBoolean_new},
+	{Py_tp_new,	  (void*) PyJPBoolean_new},
 	{Py_tp_getattro, (void*) PyJPValue_getattro},
 	{Py_tp_setattro, (void*) PyJPValue_setattro},
-	{Py_tp_str,      (void*) PyJPBoolean_str},
-	{Py_tp_repr,     (void*) PyJPBoolean_str},
-	{Py_nb_int,      (void*) PyJPNumberLong_int},
-	{Py_nb_float,    (void*) PyJPNumberLong_float},
-	{Py_tp_hash,     (void*) PyJPNumberLong_hash},
+	{Py_tp_str,	  (void*) PyJPBoolean_str},
+	{Py_tp_repr,	 (void*) PyJPBoolean_str},
+	{Py_nb_int,	  (void*) PyJPNumberLong_int},
+	{Py_nb_float,	(void*) PyJPNumberLong_float},
+	{Py_tp_hash,	 (void*) PyJPNumberLong_hash},
 	{Py_tp_richcompare, (void*) PyJPNumberLong_compare},
 	{Py_tp_methods,  (void*) numberMethods},
 	{0}
 };
 
-PyTypeObject *PyJPNumberBool_Type = nullptr;
 PyType_Spec numberBooleanSpec = {
 	"_jpype._JBoolean",
 	0,
@@ -706,7 +711,7 @@ static PyTypeObject* PyJPNumber_createLeaf(PyType_Spec *spec, PyTypeObject *base
 		Py_ssize_t offset, PyObject *module, const char *attrName)
 {
 	JPPyObject bases = JPPyTuple_Pack(base);
-	auto *type = (PyTypeObject*) PyJPClass_FromSpecWithBases(spec, bases.get(), offset);
+	auto *type = (PyTypeObject*) PyJPClass_FromSpecWithBases(module, spec, bases.get(), offset);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
 	// Types built through PyJPClass_FromSpecWithBases are permanent for the
 	// JVM's session (never deallocated), so replacing tp_name with a static
@@ -722,7 +727,7 @@ static PyTypeObject* PyJPNumber_createLeaf(PyType_Spec *spec, PyTypeObject *base
 	return type;
 }
 
-void PyJPNumber_initType(PyObject* module)
+void PyJPNumber_initType(PyObject* module, PyJPModuleState* st)
 {
 	// Long/Boolean keep no per-instance storage at all any more (see
 	// longJValue above), so the offset passed to PyJPClass_FromSpecWithBases
@@ -732,71 +737,71 @@ void PyJPNumber_initType(PyObject* module)
 	// return before touching instance memory at this offset.
 	Py_ssize_t longOffset = (Py_ssize_t) PyLong_Type.tp_basicsize;
 
-	JPPyObject bases = JPPyTuple_Pack(&PyLong_Type, PyJPObject_Type);
-	PyJPNumberLong_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&numberLongSpec, bases.get(), longOffset);
+	JPPyObject bases = JPPyTuple_Pack(&PyLong_Type, st->PyJPObject_Type);
+	st->PyJPNumberLong_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(module, &numberLongSpec, bases.get(), longOffset);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
-	PyJPClass_SetJValueFn(PyJPNumberLong_Type, &longJValue);
-	PyModule_AddObject(module, "_JNumberLong", (PyObject*) PyJPNumberLong_Type);
+	PyJPClass_SetJValueFn(st->PyJPNumberLong_Type, &longJValue);
+	PyModule_AddObject(module, "_JNumberLong", (PyObject*) st->PyJPNumberLong_Type);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
 
-	bases = JPPyTuple_Pack(&PyFloat_Type, PyJPObject_Type);
-	PyJPNumberFloat_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&numberFloatSpec, bases.get(),
+	bases = JPPyTuple_Pack(&PyFloat_Type, st->PyJPObject_Type);
+	st->PyJPNumberFloat_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(module, &numberFloatSpec, bases.get(),
 			offsetof (struct PyJPFloat, extra));
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
-	PyModule_AddObject(module, "_JNumberFloat", (PyObject*) PyJPNumberFloat_Type);
+	PyModule_AddObject(module, "_JNumberFloat", (PyObject*) st->PyJPNumberFloat_Type);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
 
 	// Boolean is its own family root (not a subclass of PyJPNumberLong_Type)
 	// but shares the identical PyLong_Type-based layout, so it reuses the
 	// same sentinel offset and jvalue-reconstruction function.
-	bases = JPPyTuple_Pack(&PyLong_Type, PyJPObject_Type);
-	PyJPNumberBool_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(&numberBooleanSpec, bases.get(), longOffset);
+	bases = JPPyTuple_Pack(&PyLong_Type, st->PyJPObject_Type);
+	st->PyJPNumberBool_Type = (PyTypeObject*) PyJPClass_FromSpecWithBases(module, &numberBooleanSpec, bases.get(), longOffset);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
-	PyJPClass_SetJValueFn(PyJPNumberBool_Type, &longJValue);
-	PyModule_AddObject(module, "_JBoolean", (PyObject*) PyJPNumberBool_Type);
+	PyJPClass_SetJValueFn(st->PyJPNumberBool_Type, &longJValue);
+	PyModule_AddObject(module, "_JBoolean", (PyObject*) st->PyJPNumberBool_Type);
 	JP_PY_CHECK(); // GCOVR_EXCL_LINE
 
 	// The eight concrete leaves. Each shares its root's sentinel offset
 	// (identical layout, no new fields), and each inherits longJValue/
 	// tp_jvalue from its root via the tp_base walk in
 	// PyJPClass_GetJValueFn -- nothing extra to wire up here.
-	intfreelist::eligibleTypes[0] = PyJPNumber_createLeaf(&byteSpec, PyJPNumberLong_Type, longOffset, module, "JByte");
-	intfreelist::eligibleTypes[1] = PyJPNumber_createLeaf(&shortSpec, PyJPNumberLong_Type, longOffset, module, "JShort");
-	intfreelist::eligibleTypes[2] = PyJPNumber_createLeaf(&intSpec, PyJPNumberLong_Type, longOffset, module, "JInt");
-	intfreelist::eligibleTypes[3] = PyJPNumber_createLeaf(&longSpec, PyJPNumberLong_Type, longOffset, module, "JLong");
-	PyJPNumber_createLeaf(&floatSpec, PyJPNumberFloat_Type, offsetof (struct PyJPFloat, extra), module, "JFloat");
-	PyJPNumber_createLeaf(&doubleSpec, PyJPNumberFloat_Type, offsetof (struct PyJPFloat, extra), module, "JDouble");
-	g_boolLeafType = PyJPNumber_createLeaf(&booleanLeafSpec, PyJPNumberBool_Type, longOffset, module, "JBoolean");
+	st->intfreelist.eligibleTypes[0] = PyJPNumber_createLeaf(&byteSpec, st->PyJPNumberLong_Type, longOffset, module, "JByte");
+	st->intfreelist.eligibleTypes[1] = PyJPNumber_createLeaf(&shortSpec, st->PyJPNumberLong_Type, longOffset, module, "JShort");
+	st->intfreelist.eligibleTypes[2] = PyJPNumber_createLeaf(&intSpec, st->PyJPNumberLong_Type, longOffset, module, "JInt");
+	st->intfreelist.eligibleTypes[3] = PyJPNumber_createLeaf(&longSpec, st->PyJPNumberLong_Type, longOffset, module, "JLong");
+	PyJPNumber_createLeaf(&floatSpec, st->PyJPNumberFloat_Type, offsetof (struct PyJPFloat, extra), module, "JFloat");
+	PyJPNumber_createLeaf(&doubleSpec, st->PyJPNumberFloat_Type, offsetof (struct PyJPFloat, extra), module, "JDouble");
+	st->boolLeafType = PyJPNumber_createLeaf(&booleanLeafSpec, st->PyJPNumberBool_Type, longOffset, module, "JBoolean");
 }
 
 JPPyObject PyJPNumber_create(JPJavaFrame &frame, JPPyObject& wrapper, const JPValue& value)
 {
-	JPContext *context = PyJPModule_getContext();
+	JPContext *context = frame.getContext();
 	// Bools are not numbers in Java
 	if (value.getClass() == context->_java_lang_Boolean)
 	{
 		jlong l = 0;
-		if (value.getValue().l != nullptr)
-			l = frame.CallBooleanMethodA(value.getJavaObject(), context->_java_lang_Boolean->m_BooleanValueID, nullptr);
+		if (!value.isJavaNull())
+			l = frame.CallBooleanMethodA(value.getJavaObject(frame), context->_java_lang_Boolean->m_BooleanValueID, nullptr);
 		return JPPyObject::call(PyJPNumber_longFromLongLong((PyTypeObject*) wrapper.get(), l));
 	}
 	if (PyObject_IsSubclass(wrapper.get(), (PyObject*) & PyLong_Type))
 	{
 		jlong l = 0;
-		if (value.getValue().l != nullptr)
+		if (!value.isJavaNull())
 		{
 			auto* jb = dynamic_cast<JPBoxedType*>( value.getClass());
-			l = frame.CallLongMethodA(value.getJavaObject(), jb->m_LongValueID, nullptr);
+			l = frame.CallLongMethodA(value.getJavaObject(frame), jb->m_LongValueID, nullptr);
 		}
 		return JPPyObject::call(PyJPNumber_longFromLongLong((PyTypeObject*) wrapper.get(), l));
 	}
 	if (PyObject_IsSubclass(wrapper.get(), (PyObject*) & PyFloat_Type))
 	{
 		jdouble l = 0;
-		if (value.getValue().l != nullptr)
+		if (!value.isJavaNull())
 		{
 			auto* jb = dynamic_cast<JPBoxedType*>( value.getClass());
-			l = frame.CallDoubleMethodA(value.getJavaObject(), jb->m_DoubleValueID, nullptr);
+			l = frame.CallDoubleMethodA(value.getJavaObject(frame), jb->m_DoubleValueID, nullptr);
 		}
 		return JPPyObject::call(newFloatFixed((PyTypeObject*) wrapper.get(), l));
 	}

@@ -1,3 +1,4 @@
+// --- file: common/jp_floattype.cpp ---
 /*****************************************************************************
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -22,8 +23,8 @@
 #include "jp_floattype.h"
 #include "jp_boxedtype.h"
 
-JPFloatType::JPFloatType()
-: JPPrimitiveType("float")
+JPFloatType::JPFloatType(JPJavaFrame& frame, jclass cls)
+: JPPrimitiveType(frame, cls, "float")
 {
 }
 
@@ -47,7 +48,7 @@ JPPyObject JPFloatType::convertToPythonObject(JPJavaFrame& frame, jvalue value, 
 JPValue JPFloatType::getValueFromObject(JPJavaFrame& frame, const JPValue& obj)
 {
 	jvalue v;
-	jobject jo = obj.getValue().l;
+	jobject jo = obj.getJavaObject(frame);
 	auto* jb = dynamic_cast<JPBoxedType*>( frame.findClassForObject(jo));
 	field(v) = (type_t) frame.CallFloatMethodA(jo, jb->m_FloatValueID, nullptr);
 	return JPValue(this, v);
@@ -96,16 +97,16 @@ public:
 		return JPMatch::_implicit; // stop search
 	}
 
-	void getInfo(JPClass *cls, JPConversionInfo &info) override
+	void getInfo(JPJavaFrame& frame, JPClass *cls, JPConversionInfo &info) override
 	{
-		JPContext *context = JPContext_global;
+		JPContext *context = frame.getContext();
 		PyList_Append(info.exact, (PyObject*) context->_float->getHost());
 		PyList_Append(info.implicit, (PyObject*) context->_byte->getHost());
 		PyList_Append(info.implicit, (PyObject*) context->_char->getHost());
 		PyList_Append(info.implicit, (PyObject*) context->_short->getHost());
 		PyList_Append(info.implicit, (PyObject*) context->_int->getHost());
 		PyList_Append(info.implicit, (PyObject*) context->_long->getHost());
-		unboxConversion->getInfo(cls, info);
+		unboxConversion->getInfo(frame, cls, info);
 	}
 
 } asJFloatConversion;
@@ -126,13 +127,12 @@ JPMatch::Type JPFloatType::findJavaConversionImpl(JPMatch &match)
 	JP_TRACE_OUT;
 }
 
-void JPFloatType::getConversionInfo(JPConversionInfo &info)
+void JPFloatType::getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info)
 {
-	JPJavaFrame frame = JPJavaFrame::outer();
-	asJFloatConversion.getInfo(this, info);
-	asFloatLongConversion.getInfo(this, info);
-	asFloatConversion.getInfo(this, info);
-	PyList_Append(info.ret, (PyObject*) JPContext_global->_float->getHost());
+	asJFloatConversion.getInfo(frame, this, info);
+	asFloatLongConversion.getInfo(frame, this, info);
+	asFloatConversion.getInfo(frame, this, info);
+	PyList_Append(info.ret, (PyObject*) frame.getContext()->_float->getHost());
 }
 
 jarray JPFloatType::newArrayOf(JPJavaFrame& frame, jsize sz)
@@ -179,7 +179,7 @@ JPPyObject JPFloatType::invoke(JPJavaFrame& frame, jobject obj, jclass clazz, jm
 
 void JPFloatType::setStaticField(JPJavaFrame& frame, jclass c, jfieldID fid, PyObject *obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java float");
 	type_t val = field(match.convert());
@@ -188,7 +188,7 @@ void JPFloatType::setStaticField(JPJavaFrame& frame, jclass c, jfieldID fid, PyO
 
 void JPFloatType::setField(JPJavaFrame& frame, jobject c, jfieldID fid, PyObject *obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java float");
 	type_t val = field(match.convert());
@@ -319,7 +319,7 @@ void JPFloatType::setArrayRange(JPJavaFrame& frame, jarray a,
 
 void JPFloatType::setArrayItem(JPJavaFrame& frame, jarray a, jsize ndx, PyObject* obj)
 {
-	JPMatch match(&frame, obj);
+	JPMatch match(frame, obj);
 	if (findJavaConversion(match) < JPMatch::_implicit)
 		JP_RAISE(PyExc_TypeError, "Unable to convert to Java float");
 	type_t val = field(match.convert());
@@ -376,13 +376,12 @@ JPMatch::Type JPArrayClassFloat::findJavaConversionImpl(JPMatch &match)
 	JP_TRACE_OUT;
 }
 
-void JPArrayClassFloat::getConversionInfo(JPConversionInfo &info)
+void JPArrayClassFloat::getConversionInfo(JPJavaFrame& frame, JPConversionInfo &info)
 {
-	JPJavaFrame frame = JPJavaFrame::outer();
-	objectConversion->getInfo(this, info);
-	bufferConversion->getInfo(this, info);
-	sequenceConversion->getInfo(this, info);
-	hintsConversion->getInfo(this, info);
+	objectConversion->getInfo(frame, this, info);
+	bufferConversion->getInfo(frame, this, info);
+	sequenceConversion->getInfo(frame, this, info);
+	hintsConversion->getInfo(frame, this, info);
 	PyList_Append(info.ret, PyJPClass_create(frame, this).get());
 }
 
@@ -399,8 +398,9 @@ JPArrayFloat::JPArrayFloat(JPArrayFloat* src, jsize start, jsize stop, jsize ste
 JPPyObject JPArrayFloat::getItem(jsize ndx)
 {
 	ndx = checkIndex(ndx);
-	JPJavaAccess frame;
-	return m_CompType->getFastArrayItem(frame, m_Object.get(), m_Start + ndx * m_Step);
+	JPJavaAccess frame(m_Context);
+	JPJavaFrame jframe = JPJavaFrame::fast(frame.getEnv(), frame.getContext());
+	return m_CompType->getFastArrayItem(frame, (jarray) jframe.retrieveGlobal(m_Object), m_Start + ndx * m_Step);
 }
 
 JPArray* JPArrayFloat::slice(jsize start, jsize stop, jsize step)
@@ -408,21 +408,19 @@ JPArray* JPArrayFloat::slice(jsize start, jsize stop, jsize step)
 	return new JPArrayFloat(this, start, stop, step);
 }
 
-void JPFloatType::getView(JPArrayView& view)
+void JPFloatType::getView(JPJavaFrame& frame, JPArrayView& view)
 {
-	JPJavaFrame frame = JPJavaFrame::outer();
 	view.m_Memory = (void*) frame.GetFloatArrayElements(
-			(jfloatArray) view.m_Array->getJava(), &view.m_IsCopy);
+			(jfloatArray) view.m_Array->getJava(frame), &view.m_IsCopy);
 	view.m_Buffer.format = "f";
 	view.m_Buffer.itemsize = sizeof (jfloat);
 }
 
-void JPFloatType::releaseView(JPArrayView& view)
+void JPFloatType::releaseView(JPJavaFrame& frame, JPArrayView& view)
 {
 	try
 	{
-		JPJavaFrame frame = JPJavaFrame::outer();
-		frame.ReleaseFloatArrayElements((jfloatArray) view.m_Array->getJava(),
+		frame.ReleaseFloatArrayElements((jfloatArray) view.m_Array->getJava(frame),
 				(jfloat*) view.m_Memory, view.m_Buffer.readonly ? JNI_ABORT : 0);
 	}	catch (...)
 	{

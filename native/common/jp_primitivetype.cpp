@@ -1,3 +1,4 @@
+// --- file: common/jp_primitivetype.cpp ---
 /*****************************************************************************
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -18,8 +19,8 @@
 #include "jpype.h"
 #include "pyjp.h"
 
-JPPrimitiveType::JPPrimitiveType(const string& name)
-: JPClass(name, 0x411)
+JPPrimitiveType::JPPrimitiveType(JPJavaFrame& frame, jclass cls, const string& name)
+: JPClass(frame, cls, name, 0x411)
 {
 }
 

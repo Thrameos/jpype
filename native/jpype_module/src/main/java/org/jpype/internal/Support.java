@@ -16,6 +16,8 @@
 package org.jpype.internal;
 
 import java.lang.reflect.Array;
+import java.net.URISyntaxException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.CharBuffer;
@@ -24,10 +26,14 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.IntStream;
+import org.jpype.PyExceptionProxy;
+import org.jpype.annotation.Exported;
 
 /**
  * Static helpers for multi-dimensional primitive array transfer, called
@@ -42,6 +48,27 @@ class Support
 
   private Support()
   {
+  }
+
+  /**
+   * The directory containing the jar (or class directory) c was loaded
+   * from. Restored from the pre-merge Support.java (was silently dropped
+   * during the array-transfer-phase3/reverse reconciliation - its own
+   * test, SupportNGTest, still referenced it) - not currently called from
+   * C++, but a small self-contained utility worth keeping alongside its
+   * test rather than deleting the test.
+   */
+  @Exported
+  public static Path getJarPath(Class<?> c)
+  {
+    try
+    {
+      return Paths.get(c.getProtectionDomain().getCodeSource().getLocation()
+              .toURI()).getParent();
+    } catch (URISyntaxException ex)
+    {
+      return null;
+    }
   }
 
   /**
@@ -2300,6 +2327,119 @@ class Support
       default:
         throw new IllegalArgumentException("Unsupported ragged leaf type code: " + typeCode);
     }
+  }
+
+  // --- Ported from the old JPypeContext singleton -- these have no
+  // array-transfer overlap with the methods above, just relocated here
+  // as part of retiring JPypeContext's per-process singleton in favor of
+  // NativeContext's per-context instance. ---
+
+  @Exported
+  public static long getExcClass(Throwable th)
+  {
+    if (th instanceof PyExceptionProxy)
+      return ((PyExceptionProxy) th).cls;
+    return 0;
+  }
+
+  @Exported
+  public static long getExcValue(Throwable th)
+  {
+    if (th instanceof PyExceptionProxy)
+      return ((PyExceptionProxy) th).value;
+    return 0;
+  }
+
+  @Exported
+  public static Exception createException(long l0, long l1)
+  {
+    return new PyExceptionProxy(l0, l1);
+  }
+
+  @Exported
+  public static boolean order(Buffer b)
+  {
+    if (b instanceof java.nio.ByteBuffer)
+      return ((java.nio.ByteBuffer) b).order() == ByteOrder.LITTLE_ENDIAN;
+    if (b instanceof java.nio.ShortBuffer)
+      return ((java.nio.ShortBuffer) b).order() == ByteOrder.LITTLE_ENDIAN;
+    if (b instanceof java.nio.CharBuffer)
+      return ((java.nio.CharBuffer) b).order() == ByteOrder.LITTLE_ENDIAN;
+    if (b instanceof java.nio.IntBuffer)
+      return ((java.nio.IntBuffer) b).order() == ByteOrder.LITTLE_ENDIAN;
+    if (b instanceof java.nio.LongBuffer)
+      return ((java.nio.LongBuffer) b).order() == ByteOrder.LITTLE_ENDIAN;
+    if (b instanceof java.nio.FloatBuffer)
+      return ((java.nio.FloatBuffer) b).order() == ByteOrder.LITTLE_ENDIAN;
+    if (b instanceof java.nio.DoubleBuffer)
+      return ((java.nio.DoubleBuffer) b).order() == ByteOrder.LITTLE_ENDIAN;
+    return true;
+  }
+
+  @Exported
+  public static Object[] getStackTrace(Throwable th, Throwable enclosing)
+  {
+    StackTraceElement[] trace = th.getStackTrace();
+    if (trace == null || enclosing == null)
+      return toFrames(trace);
+    StackTraceElement[] te = enclosing.getStackTrace();
+    if (te == null)
+      return toFrames(trace);
+    for (int i = 0; i < trace.length; ++i)
+    {
+      if (trace[i].equals(te[0]))
+      {
+        return toFrames(Arrays.copyOfRange(trace, 0, i));
+      }
+    }
+    return toFrames(trace);
+  }
+
+  private static Object[] toFrames(StackTraceElement[] stackTrace)
+  {
+    if (stackTrace == null)
+      return null;
+    Object[] out = new Object[4 * stackTrace.length];
+    int i = 0;
+    for (StackTraceElement fr : stackTrace)
+    {
+      out[i++] = fr.getClassName();
+      out[i++] = fr.getMethodName();
+      out[i++] = fr.getFileName();
+      out[i++] = fr.getLineNumber();
+    }
+    return out;
+  }
+
+  @Exported
+  public static long getTotalMemory()
+  {
+    return Runtime.getRuntime().totalMemory();
+  }
+
+  @Exported
+  public static long getFreeMemory()
+  {
+    return Runtime.getRuntime().freeMemory();
+  }
+
+  @Exported
+  public static long getMaxMemory()
+  {
+    return Runtime.getRuntime().maxMemory();
+  }
+
+  @Exported
+  public static long getUsedMemory()
+  {
+    return Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+  }
+
+  @Exported
+  public static long getHeapMemory()
+  {
+    java.lang.management.MemoryMXBean memoryBean = java.lang.management.ManagementFactory.getMemoryMXBean();
+    return memoryBean.getHeapMemoryUsage().getUsed();
   }
 
 }

@@ -7,6 +7,36 @@ Latest Changes:
 
 - **1.7.2.dev0**
 
+  - Added ``jpype.addJVMOption()``/``jpype.getJVMOptions()``, mirroring
+    ``addClassPath()``/``getClassPath()``. Independent libraries can each
+    accumulate JVM flags (memory settings, GC settings, ``-D`` properties,
+    ...) prior to ``startJVM()`` without needing to own the
+    ``startJVM()`` call site.
+
+  - Added ``toPython()`` customizer to ``java.io.Writer``/``Reader``/
+    ``OutputStream``/``InputStream``, wrapping a Java stream as a Python
+    ``io.TextIOBase`` object suitable for ``sys.stdout``/``sys.stderr``/
+    ``sys.stdin``. Java embedders can trigger this explicitly via
+    ``Interpreter.setOutput()``/``setError()``/``setInput()``.
+
+  - Added ``toPython()`` customizer to ``java.time.Instant``,
+    ``java.nio.file.Path``, and ``java.io.File``, returning a genuine
+    ``datetime.datetime``/``pathlib.Path`` value. Renamed the existing
+    ``_py()`` customizer on ``java.sql.Date``/``Time``/``Timestamp`` and
+    ``java.math.BigDecimal`` to ``toPython()`` for the same public,
+    documented convention.
+
+  - Added ``toPython()`` customizer to ``java.lang.reflect.Method``, binding
+    one already-resolved overload to a plain Python callable (instance
+    methods take the instance as an explicit first argument) and skipping
+    JPype's normal per-call overload search.
+
+  - Added ``org.jpype.SubInterpreterBuilder``, a ``ProcessBuilder``-style
+    configuration object for launching PEP 684 subinterpreters with
+    non-default ``PyInterpreterConfig`` options (own GIL, own obmalloc,
+    allow fork/exec/threads), including an ``ownGil()`` preset for genuine
+    interpreter isolation.
+
   - Added ``JArray.pullTo(dest)`` and ``JArray.pushFrom(src)`` for bulk
     in-place transfer between a primitive Java array and an existing
     caller-supplied Python buffer (e.g. a preallocated numpy array), and
@@ -83,25 +113,6 @@ Latest Changes:
     while a Python exception was mid-unwind through the reverse-bridge
     C++ layer could corrupt the in-flight exception. #1415
 
-  - Reworked the internal object layout for Java-backed Python objects to use
-    fixed, type-baked offsets instead of a runtime allocator that re-derived
-    each object's layout from version-sensitive CPython internals on every
-    access. For the boxed `Long`/`Boolean`/`Character` wrapper types this
-    also removes their per-instance Java-value storage entirely (reconstructed
-    on demand instead), shrinking those instances and eliminating a
-    version-gated digit-layout workaround. No user-visible API change; boxed
-    wrapper instances no longer retain Java-side reference identity across
-    repeated round-trips through Python.
-
-  - Fixed heap corruption when boxing large `JLong`/`JInt`/`JShort`/`JByte`/`JBoolean`
-    values on Python 3.8-3.11, caused by a fixed-offset allocator layout
-    assumption colliding with CPython's own implicit `__dict__` slot for
-    variable-length int subclasses.
-
-  - Fixed a GC refcount-accounting bug in the internal Java-class metaclass
-    where `tp_traverse`/`tp_clear` did not chain to `type`'s own
-    implementation.
-
   - Fixed memory leak with int and float conversions. #1379
 
   - Fixed instablity in threading for method dispatch. #1366
@@ -127,9 +138,8 @@ Latest Changes:
   - Added fallback conversion path for JArray.of() to support non-primitive types like JString, enabling conversion of numpy string arrays. #953
 
   - Improved implicit conversion from Python primitives to Java boxed types (Integer, Long, Short, Double, Float). #1098
-  
-  - Fixed ambiguous overload resolution for bytearray between byte[] and char[]. #598
 
+  - Fixed ambiguous overload resolution for bytearray between byte[] and char[]. #598
 
 - **1.7.1 - 2026-05-06**
 

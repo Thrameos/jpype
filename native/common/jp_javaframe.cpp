@@ -1,3 +1,4 @@
+// --- file: common/jp_javaframe.cpp ---
 /*****************************************************************************
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -53,11 +54,9 @@ static void jpype_assert_has_frame(const char* where)
 #define JP_ASSERT_HAS_FRAME(where) if (false) while (false)
 #endif
 
-JPJavaFrame::JPJavaFrame(JNIEnv* p_env, int size, bool outer)
-: m_Env(p_env), m_Popped(false), m_Outer(outer)
+JPJavaFrame::JPJavaFrame(JNIEnv* p_env, JPContext* context, int size, bool outer)
+: m_Env(p_env), m_Context(context), m_Popped(false), m_Outer(outer)
 {
-	JPContext* context = JPContext_global;
-
 	if (p_env == nullptr)
 	{
 		if (outer)
@@ -78,20 +77,26 @@ JPJavaFrame::JPJavaFrame(JNIEnv* p_env, int size, bool outer)
 	JP_TRACE_JAVA("JavaFrame", (jobject) - 1);
 }
 
-JPJavaFrame::JPJavaFrame(JNIEnv* p_env)
-: m_Env(p_env), m_Popped(true), m_Outer(false)
+JPJavaFrame::JPJavaFrame(JNIEnv* p_env, JPContext* ctx)
+: m_Env(p_env), m_Context(ctx), m_Popped(true), m_Outer(false)
 {
 	// fast(): deliberately does not push a local frame and does not touch
 	// g_frameDepth -- it borrows whatever real frame already exists. Using
 	// m_Popped=true from construction means the destructor's normal pop
 	// path is a no-op, matching that nothing was ever pushed here.
+	//
+	// m_Context is whatever the caller passed in (JPArrayXxx::getItem()'s
+	// JPJavaAccess::getContext(), for all 8 leaf primitive types) -- never
+	// resolved ambiently. Leaving m_Context uninitialized here once left
+	// retrieveGlobal()/any other m_Context-using call on a fast frame
+	// reading garbage stack memory -- see bugs/ArraySliceContextCorruption.md.
 	if (m_Env == nullptr)
-		m_Env = JPContext_global->getEnv();
+		m_Env = ctx->getEnv();
 	JP_TRACE_JAVA("JavaFrame (fast)", (jobject) - 1);
 }
 
 JPJavaFrame::JPJavaFrame(const JPJavaFrame& frame)
-: m_Env(frame.m_Env), m_Popped(false), m_Outer(false)
+: m_Env(frame.m_Env), m_Context(frame.getContext()), m_Popped(false), m_Outer(false)
 {
 	// Create a memory management frame to live in
 	m_Env->PushLocalFrame(LOCAL_FRAME_DEFAULT);
@@ -99,12 +104,6 @@ JPJavaFrame::JPJavaFrame(const JPJavaFrame& frame)
 	g_frameDepth++;
 #endif
 	JP_TRACE_JAVA("JavaFrame (copy)", (jobject) - 1);
-}
-
-JPContext* JPJavaFrame::getContext()
-{
-	// We can add guard statements here.
-	return JPContext_global;
 }
 
 jobject JPJavaFrame::keep(jobject obj)
@@ -126,7 +125,7 @@ jobject JPJavaFrame::keep(jobject obj)
 JPJavaFrame::~JPJavaFrame()
 {
 	// Check if we have already closed the frame.
-	if (!m_Popped)
+	if (!m_Popped && m_Outer)
 	{
 		JP_TRACE_JAVA("~JavaFrame", (jobject) - 2);
 		m_Env->PopLocalFrame(nullptr);
@@ -185,14 +184,23 @@ jobject JPJavaFrame::NewGlobalRef(jobject obj)
 	return obj;
 }
 
-/*****************************************************************************/
-// Exceptions
-// TODO: why is this never used? Should be deleted if obsolete.
-bool JPJavaFrame::ExceptionCheck()
+jref JPJavaFrame::storeGlobal(jobject obj)
 {
-	return m_Env->ExceptionCheck() != 0;
+	jvalue args[1];
+	args[0].l = obj;
+	jlong handle = CallLongMethodA(m_Context->m_JavaContext, m_Context->m_Context_StoreGlobalID, args);
+	return jref{(long) handle};
 }
 
+jobject JPJavaFrame::retrieveGlobal(jref ref)
+{
+	jvalue args[1];
+	args[0].j = (jlong) ref.value;
+	return CallObjectMethodA(m_Context->m_JavaContext, m_Context->m_Context_RetrieveGlobalID, args);
+}
+
+/*****************************************************************************/
+// Exceptions
 void JPJavaFrame::ExceptionDescribe()
 {
 	m_Env->ExceptionDescribe();
@@ -1109,8 +1117,8 @@ jboolean JPJavaFrame::orderBuffer(jobject obj)
 	jvalue arg;
 	arg.l = obj;
 	JPContext *context = getContext();
-	return CallBooleanMethodA(context->m_JavaContext.get(),
-			context->m_Context_OrderID, &arg);
+	return CallStaticBooleanMethodA(context->m_SupportClass,
+			context->m_Support_OrderID, &arg);
 }
 
 // GCOVR_EXCL_START
@@ -1207,7 +1215,7 @@ jobject JPJavaFrame::collectRectangular(jarray obj)
 	v.l = (jobject) obj;
 	JAVA_RETURN(jobject, "JPJavaFrame::collectRectangular",
 			CallStaticObjectMethodA(
-			context->m_SupportClass.get(),
+			context->m_SupportClass,
 			context->m_Support_collectRectangularID, &v));
 }
 
@@ -1221,7 +1229,7 @@ jobject JPJavaFrame::assemble(jobject dims, jobject parts)
 	v[1].l = (jobject) parts;
 	JAVA_RETURN(jobject, "JPJavaFrame::assemble",
 			CallStaticObjectMethodA(
-			context->m_SupportClass.get(),
+			context->m_SupportClass,
 			context->m_Support_assembleID, v));
 }
 
@@ -1237,7 +1245,7 @@ jobject JPJavaFrame::fillMultiArrayFromBuffer(char typeCode, jint mode, jobject 
 	v[3].l = (jobject) shape;
 	JAVA_RETURN(jobject, "JPJavaFrame::fillMultiArrayFromBuffer",
 			CallStaticObjectMethodA(
-			context->m_SupportClass.get(),
+			context->m_SupportClass,
 			context->m_Support_fillFromBufferID, v));
 }
 
@@ -1252,7 +1260,7 @@ jobject JPJavaFrame::fillRaggedFromBuffer(char typeCode, jint dims, jobject buf)
 	v[2].l = buf;
 	JAVA_RETURN(jobject, "JPJavaFrame::fillRaggedFromBuffer",
 			CallStaticObjectMethodA(
-			context->m_SupportClass.get(),
+			context->m_SupportClass,
 			context->m_Support_fillRaggedFromBufferID, v));
 }
 
@@ -1272,7 +1280,7 @@ jobject JPJavaFrame::fillFlatFromBuffer(char typeCode, char srcKind, jint srcSiz
 	v[6].i = strideBytes;
 	JAVA_RETURN(jobject, "JPJavaFrame::fillFlatFromBuffer",
 			CallStaticObjectMethodA(
-			context->m_SupportClass.get(),
+			context->m_SupportClass,
 			context->m_Support_fillFlatFromBufferID, v));
 }
 
@@ -1295,7 +1303,7 @@ void JPJavaFrame::fillFlatIntoArray(char typeCode, char srcKind, jint srcSize, j
 	v[8].i = destStart;
 	v[9].i = destStep;
 	JAVA_CHECK("JPJavaFrame::fillFlatIntoArray",
-			m_Env->CallStaticVoidMethodA(context->m_SupportClass.get(),
+			m_Env->CallStaticVoidMethodA(context->m_SupportClass,
 			context->m_Support_fillFlatIntoArrayID, v));
 }
 
@@ -1310,7 +1318,7 @@ void JPJavaFrame::collectMultiArrayToBuffer(char typeCode, jobject collected, jo
 	v[2].l = buf;
 	JAVA_CHECK("JPJavaFrame::collectMultiArrayToBuffer",
 			CallStaticVoidMethodA(
-			context->m_SupportClass.get(),
+			context->m_SupportClass,
 			context->m_Support_collectToBufferID, v));
 }
 
@@ -1325,7 +1333,7 @@ void JPJavaFrame::fillBufferIntoMultiArray(char typeCode, jobject collected, job
 	v[2].l = buf;
 	JAVA_CHECK("JPJavaFrame::fillBufferIntoMultiArray",
 			CallStaticVoidMethodA(
-			context->m_SupportClass.get(),
+			context->m_SupportClass,
 			context->m_Support_fillBufferIntoMultiArrayID, v));
 }
 
@@ -1337,7 +1345,7 @@ jobject JPJavaFrame::newArrayInstance(jclass c, jintArray dims)
 	v[1].l = (jobject) dims;
 	JAVA_RETURN(jobject, "JPJavaFrame::newArrayInstance",
 			CallStaticObjectMethodA(
-			context->m_Array.get(),
+			context->m_Array,
 			context->m_Array_NewInstanceID, v));
 }
 
@@ -1345,40 +1353,42 @@ jobject JPJavaFrame::callMethod(jobject method, jobject obj, jobject args)
 {
 	JP_TRACE_IN("JPJavaFrame::callMethod");
 	JPContext* context = getContext();
-	if (context->m_CallMethodID == nullptr)
+	if (context->m_Reflector_CallMethodID == nullptr)
 		return nullptr;
-	JPJavaFrame frame(*this);
 	jvalue v[3];
 	v[0].l = method;
 	v[1].l = obj;
 	v[2].l = args;
-	return frame.keep(frame.CallObjectMethodA(context->m_Reflector.get(), context->m_CallMethodID, v));
+	return CallObjectMethodA(context->m_Reflector, context->m_Reflector_CallMethodID, v);
 	JP_TRACE_OUT;
 }
 
-string JPJavaFrame::getFunctional(jclass c)
+PyObject* JPJavaFrame::getFunctional(jclass c)
 {
 	JPContext* context = getContext();
 	jvalue v;
 	v.l = (jobject) c;
-	return toStringUTF8((jstring) CallStaticObjectMethodA(
-			context->m_ContextClass.get(),
+	if (context->m_JavaContext == nullptr)
+		return nullptr;
+	JPPyCallRelease release;
+	return reinterpret_cast<PyObject*>(CallLongMethodA(
+			context->m_JavaContext,
 			context->m_Context_GetFunctionalID, &v));
 }
 
 JPClass *JPJavaFrame::findClass(jclass obj)
 {
-	return getContext()->getTypeManager()->findClass(obj);
+	return getContext()->getTypeManager()->findClass(*this, obj);
 }
 
 JPClass *JPJavaFrame::findClassByName(const string& name)
 {
-	return getContext()->getTypeManager()->findClassByName(name);
+	return getContext()->getTypeManager()->findClassByName(*this, name);
 }
 
 JPClass *JPJavaFrame::findClassForObject(jobject obj)
 {
-	return getContext()->getTypeManager()->findClassForObject(obj);
+	return getContext()->getTypeManager()->findClassForObject(*this, obj);
 }
 
 jint JPJavaFrame::compareTo(jobject obj, jobject obj2)
@@ -1410,7 +1420,7 @@ jboolean JPJavaFrame::isPackage(const string& str)
 	jvalue v;
 	v.l = fromStringUTF8(str);
 	JAVA_RETURN(jboolean, "JPJavaFrame::isPackage",
-			CallBooleanMethodA(context->m_JavaContext.get(), context->m_Context_IsPackageID, &v));
+			CallBooleanMethodA(context->m_JavaContext, context->m_Context_IsPackageID, &v));
 }
 
 jobject JPJavaFrame::getPackage(const string& str)
@@ -1419,7 +1429,7 @@ jobject JPJavaFrame::getPackage(const string& str)
 	jvalue v;
 	v.l = fromStringUTF8(str);
 	JAVA_RETURN(jobject, "JPJavaFrame::getPackage",
-			CallObjectMethodA(context->m_JavaContext.get(), context->m_Context_GetPackageID, &v));
+			CallObjectMethodA(context->m_JavaContext, context->m_Context_GetPackageID, &v));
 }
 
 jobject JPJavaFrame::getPackageObject(jobject pkg, const string& str)
@@ -1460,23 +1470,23 @@ void JPJavaFrame::registerRef(jobject obj, void* ref, JCleanupHook cleanup)
 /*****************************************************************************/
 // JPJavaAccess -- see jp_javaframe.h for the design rationale.
 
-JPJavaAccess::JPJavaAccess()
-: m_Env(nullptr)
+JPJavaAccess::JPJavaAccess(JPContext* context)
+: m_Env(nullptr), m_Context(context)
 {
 	// outer()'s constructor does this check before fetching env (for the
 	// same reason: without it, an array access after shutdownJVM() fails
 	// deep inside getEnv()'s thread-attach logic with a confusing generic
 	// error instead of the documented jpype.JVMNotRunning -- see
 	// test_shutdown.py). Cheap: a null check and a bool read, no JNI call.
-	assertJVMRunning(JPContext_global, JP_STACKINFO());
-	m_Env = JPContext_global->getEnv();
+	assertJVMRunning(m_Context, JP_STACKINFO());
+	m_Env = m_Context->getEnv();
 }
 
 void JPJavaAccess::checkFast()
 {
 	if (m_Env->ExceptionCheck() != JNI_TRUE)
 		return; // hot path: no exception, no frame ever touched
-	JPJavaFrame frame = JPJavaFrame::inner();
+	JPJavaFrame frame = JPJavaFrame::outer(m_Context);
 	jthrowable th = frame.ExceptionOccurred();
 	frame.ExceptionClear();
 	throw JPJavaError(frame, th, JP_STACKINFO());
@@ -1576,6 +1586,6 @@ void JPJavaFrame::clearInterrupt(bool throws)
 	JPPyCallRelease call;
 	jvalue jv;
 	jv.z = throws;
-	CallVoidMethodA(context->m_ContextClass.get(),
+	CallVoidMethodA(context->m_JavaContext,
 			context->m_Context_ClearInterruptID, &jv);
 }

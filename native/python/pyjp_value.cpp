@@ -1,3 +1,4 @@
+// --- file: python/pyjp_value.cpp ---
 /*****************************************************************************
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -71,7 +72,7 @@ JPClass* PyJPValue_getJPClass(PyObject* self)
 	Py_ssize_t offset = PyJPClass_getOffset(type);
 	if (offset == 0)
 		return nullptr;
-	if (type == (PyTypeObject*) PyJPClass_Type)
+	if (PyJPClass_Check(self))
 	{
 		auto* value = (JPValue*) (((char*) self) + offset);
 		return value->getClass();
@@ -93,6 +94,10 @@ void PyJPValue_free(void* obj)
 	JP_PY_CATCH_NONE();
 }
 
+// Global controlled by context start/shutdown attach/detach
+#define USE_JNI_VERSION JNI_VERSION_1_4
+extern JavaVM* _JavaVM;
+
 void PyJPValue_finalize(void* obj)
 {
 	JP_PY_TRY("PyJPValue_finalize", obj);
@@ -103,16 +108,20 @@ void PyJPValue_finalize(void* obj)
 	if (offset == 0)
 		return;
 
-	// We can skip if the JVM is stopped.  No need for an exception here.
-	JPContext *context = JPContext_global;
-	if (context == nullptr || !context->isRunning())
+	// Safety net: if the JVM has completely detached or never started, bail early
+	if (_JavaVM == nullptr)
 		return;
 
-	if (type == (PyTypeObject*) PyJPClass_Type)
+	if (PyJPClass_Check(self))
 	{
 		// self is itself a _JClass type object -- still a full inline
 		// JPValue at this offset, untouched by the per-instance-storage
-		// migration (see PyJPValue_getJPClass).
+		// migration (see PyJPValue_getJPClass). Context is captured off
+		// self directly (self IS the struct PyJPClass instance here), not
+		// via Py_TYPE(self) (the metaclass, which carries no m_State).
+		JPContext *context = ((PyJPClass*) self)->m_State->context;
+		if (context == nullptr || !context->isRunning())
+			return;
 		auto* value = (JPValue*) (((char*) self) + offset);
 		JPClass* cls = value->getClass();
 		// This one can't check for initialized because we may need to
@@ -126,6 +135,12 @@ void PyJPValue_finalize(void* obj)
 		}
 		return;
 	}
+
+	// Ordinary Java object instance -- context comes from the wrapper
+	// class type (Py_TYPE(self), itself a struct PyJPClass instance).
+	JPContext *context = PyJPObject_getContext(self);
+	if (context == nullptr || !context->isRunning())
+		return;
 
 	// Families reconstructing their jvalue on demand (see PyJPValueFn) don't
 	// own a persistent global ref here at all -- nothing to release.
@@ -151,14 +166,15 @@ void PyJPValue_finalize(void* obj)
 PyObject* PyJPValue_str(PyObject* self)
 {
 	JP_PY_TRY("PyJPValue_str", self);
-	JPContext *context = PyJPModule_getContext();
-	JPJavaFrame frame = JPJavaFrame::outer();
 	JPClass* cls = PyJPValue_getJPClass(self);
 	if (cls == nullptr)
 	{
 		PyErr_SetString(PyExc_TypeError, "Not a Java value");
 		return nullptr;
 	}
+
+	JPContext *context = PyJPObject_getContext(self);
+	JPJavaFrame frame = JPJavaFrame::outer(context);
 	if (cls->isPrimitive())
 	{
 		PyErr_SetString(PyExc_TypeError, "toString requires a Java object");
@@ -217,7 +233,8 @@ PyObject *PyJPValue_getattro(PyObject *obj, PyObject *name)
 		return attr.keep();
 
 	// Methods
-	if (Py_TYPE(attr.get()) == (PyTypeObject*) PyJPMethod_Type)
+	PyJPModuleState* st = ((PyJPClass*)Py_TYPE(obj))->m_State;
+	if (Py_TYPE(attr.get()) == (PyTypeObject*) st->PyJPMethod_Type)
 		return attr.keep();
 
 	// Don't allow properties to be rewritten
@@ -253,9 +270,6 @@ int PyJPValue_setattro(PyObject *self, PyObject *name, PyObject *value)
 	JP_PY_CATCH(-1);
 }
 
-#ifdef __cplusplus
-}
-#endif
 
 // These are from the internal methods when we already have the jvalue
 
@@ -271,7 +285,7 @@ void PyJPValue_assignJavaSlot(JPJavaFrame &frame, PyObject* self, const JPValue&
 	}
 	// GCOVR_EXCL_STOP
 
-	if (Py_TYPE(self) == (PyTypeObject*) PyJPClass_Type)
+	if (PyJPClass_Check(self))
 	{
 		// self is itself a _JClass type object -- still a full inline
 		// JPValue at this offset (see PyJPValue_getJPClass).
@@ -331,13 +345,17 @@ bool PyJPValue_isSetJavaSlot(PyObject* self)
 	return slot->getClass() != nullptr;
 }
 
+#ifdef __cplusplus
+}
+#endif
+
 jvalue PyJPValue_getJValue(JPJavaFrame &frame, PyObject* self)
 {
 	PyTypeObject *type = Py_TYPE(self);
 	Py_ssize_t offset = PyJPClass_getOffset(type);
 	if (offset == 0)
 		return jvalue{};
-	if (type == (PyTypeObject*) PyJPClass_Type)
+	if (PyJPClass_Check(self))
 	{
 		auto* value = (JPValue*) (((char*) self) + offset);
 		return value->getValue();
@@ -347,4 +365,3 @@ jvalue PyJPValue_getJValue(JPJavaFrame &frame, PyObject* self)
 		return fn(frame, self);
 	return *(jvalue*) (((char*) self) + offset);
 }
-

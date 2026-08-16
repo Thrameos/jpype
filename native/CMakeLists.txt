@@ -11,6 +11,7 @@ set(JPYPE_NATIVE_SRC
         common/jp_arrayclass.cpp
         common/jp_booleantype.cpp
         common/jp_boxedtype.cpp
+        common/jp_bridge.cpp
         common/jp_buffer.cpp
         common/jp_buffertype.cpp
         common/jp_bytetype.cpp
@@ -41,13 +42,14 @@ set(JPYPE_NATIVE_SRC
         common/jp_platform.cpp
         common/jp_primitivetype.cpp
         common/jp_proxy.cpp
+        common/jp_pybasetype.cpp
+        common/jp_pythontype.cpp
         common/jp_reference_queue.cpp
         common/jp_shorttype.cpp
         common/jp_stringtype.cpp
         common/jp_tracer.cpp
         common/jp_typefactory.cpp
         common/jp_typemanager.cpp
-        common/jp_value.cpp
         common/jp_voidtype.cpp
         python/jp_pythontypes.cpp
         python/pyjp_array.cpp
@@ -57,12 +59,15 @@ set(JPYPE_NATIVE_SRC
         python/pyjp_classhints.cpp
         python/pyjp_field.cpp
         python/pyjp_method.cpp
+        python/pyjp_misc.cpp
         python/pyjp_module.cpp
         python/pyjp_monitor.cpp
         python/pyjp_number.cpp
         python/pyjp_object.cpp
         python/pyjp_package.cpp
+        python/pyjp_probe.cpp
         python/pyjp_proxy.cpp
+        python/pyjp_util.cpp
         python/pyjp_value.cpp
 )
 
