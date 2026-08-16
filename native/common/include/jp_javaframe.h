@@ -495,6 +495,39 @@ public:
  * the JPJavaError from it may create more), which needs somewhere real to
  * be popped from.
  */
+/** RAII guard for a single local reference obtained on a JPJavaAccess/
+ * fast() call path that pushes no frame of its own (see JPJavaFrame::fast's
+ * ctor comment) -- deletes the reference when it goes out of scope,
+ * including via an exception unwinding past it, unlike a bare
+ * DeleteLocalRef() call placed after the code that uses the reference
+ * (which is skipped if that code throws). Not needed on a path with a
+ * real enclosing frame (outer()/inner()/external()), which already
+ * reclaims every local reference created under it on its own.
+ */
+class JPLocalRef
+{
+	JNIEnv* m_Env;
+	jobject m_Ref;
+public:
+	JPLocalRef(JNIEnv* env, jobject ref) : m_Env(env), m_Ref(ref)
+	{
+	}
+
+	JPLocalRef(const JPLocalRef&) = delete;
+	JPLocalRef& operator=(const JPLocalRef&) = delete;
+
+	~JPLocalRef()
+	{
+		if (m_Ref != nullptr)
+			m_Env->DeleteLocalRef(m_Ref);
+	}
+
+	jobject get() const
+	{
+		return m_Ref;
+	}
+} ;
+
 class JPJavaAccess
 {
 	JNIEnv* m_Env;

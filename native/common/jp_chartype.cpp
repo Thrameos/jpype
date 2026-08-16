@@ -345,15 +345,20 @@ JPPyObject JPArrayChar::getItem(jsize ndx)
 	// retrieveGlobal() is a JNI method call, so it mints a real local
 	// reference -- fast() deliberately pushes no frame of its own (see its
 	// ctor comment in jp_javaframe.cpp), and there is no enclosing real
-	// frame on this call path (PyJPArrayIter_next() calls getItem() with
-	// none, by design). Left unreleased, every element read leaked one
-	// local ref to the whole array, pinning it in the JVM's local ref
-	// table for the thread's lifetime -- with no cap, a single list(ja)
-	// over a large array leaked that whole array's worth of heap per call.
-	jobject arr = jframe.retrieveGlobal(m_Object);
-	JPPyObject result = m_CompType->getFastArrayItem(frame, (jarray) arr, m_Start + ndx * m_Step);
-	jframe.DeleteLocalRef(arr);
-	return result;
+	// frame on this single-element-access call path, so nothing else
+	// reclaims it. JPLocalRef (RAII) releases it even if getItem(ndx,
+	// resolved) below throws. Only paid here, on the single-index path
+	// (ja[5]) -- PyJPArrayIter's per-element hot loop resolves the array
+	// once, as a real global ref for the whole iterator, and calls
+	// getItem(ndx, resolved) directly. See bugs/ArrayIterLocalRefLeak.md.
+	JPLocalRef arr(jframe.getEnv(), jframe.retrieveGlobal(m_Object));
+	return getItem(ndx, arr.get());
+}
+
+JPPyObject JPArrayChar::getItem(jsize ndx, jobject resolved)
+{
+	JPJavaAccess frame(m_Context);
+	return m_CompType->getFastArrayItem(frame, (jarray) resolved, m_Start + ndx * m_Step);
 }
 
 JPArray* JPArrayChar::slice(jsize start, jsize stop, jsize step)

@@ -104,6 +104,29 @@ public:
 	 */
 	virtual JPPyObject getItem(jsize ndx) = 0;
 
+	/** Get a single element given an already-resolved reference to the
+	 * underlying Java array (real local or global ref -- JNI element
+	 * reads don't care which), instead of resolving m_Object fresh.
+	 *
+	 * Used by PyJPArrayIter's hot loop: rather than pay a
+	 * retrieveGlobal()+release JNI round trip on every single element
+	 * (see bugs/ArrayIterLocalRefLeak.md), it resolves the array once, as
+	 * a genuine NewGlobalRef held for the iterator's own lifetime, and
+	 * calls this directly for every element. Not pure virtual -- the
+	 * default just falls back to getItem(ndx), so a subclass that has no
+	 * per-element resolve cost to amortize (JPArrayObject/JPArrayNested,
+	 * which already push a real frame per call for other reasons) simply
+	 * doesn't need to override it. The 8 leaf primitive types do.
+	 *
+	 * ndx is assumed already range-checked by the caller (the iterator
+	 * only ever calls this with 0 <= ndx < getLength()) -- unlike
+	 * getItem(jsize), this does not call checkIndex() itself.
+	 */
+	virtual JPPyObject getItem(jsize ndx, jobject resolved)
+	{
+		return getItem(ndx);
+	}
+
 	void       setItem(JPJavaFrame& frame, jsize ndx, PyObject*);
 
 	/** Construct a slice of this array, preserving the concrete subclass
@@ -242,6 +265,7 @@ public:
 	JPArrayBoolean(JPArrayBoolean* src, jsize start, jsize stop, jsize step);
 
 	JPPyObject getItem(jsize ndx) override;
+	JPPyObject getItem(jsize ndx, jobject resolved) override;
 	JPArray* slice(jsize start, jsize stop, jsize step) override;
 } ;
 
@@ -253,6 +277,7 @@ public:
 	JPArrayByte(JPArrayByte* src, jsize start, jsize stop, jsize step);
 
 	JPPyObject getItem(jsize ndx) override;
+	JPPyObject getItem(jsize ndx, jobject resolved) override;
 	JPArray* slice(jsize start, jsize stop, jsize step) override;
 } ;
 
@@ -264,6 +289,7 @@ public:
 	JPArrayChar(JPArrayChar* src, jsize start, jsize stop, jsize step);
 
 	JPPyObject getItem(jsize ndx) override;
+	JPPyObject getItem(jsize ndx, jobject resolved) override;
 	JPArray* slice(jsize start, jsize stop, jsize step) override;
 } ;
 
@@ -275,6 +301,7 @@ public:
 	JPArrayShort(JPArrayShort* src, jsize start, jsize stop, jsize step);
 
 	JPPyObject getItem(jsize ndx) override;
+	JPPyObject getItem(jsize ndx, jobject resolved) override;
 	JPArray* slice(jsize start, jsize stop, jsize step) override;
 } ;
 
@@ -286,6 +313,7 @@ public:
 	JPArrayInt(JPArrayInt* src, jsize start, jsize stop, jsize step);
 
 	JPPyObject getItem(jsize ndx) override;
+	JPPyObject getItem(jsize ndx, jobject resolved) override;
 	JPArray* slice(jsize start, jsize stop, jsize step) override;
 } ;
 
@@ -297,6 +325,7 @@ public:
 	JPArrayLong(JPArrayLong* src, jsize start, jsize stop, jsize step);
 
 	JPPyObject getItem(jsize ndx) override;
+	JPPyObject getItem(jsize ndx, jobject resolved) override;
 	JPArray* slice(jsize start, jsize stop, jsize step) override;
 } ;
 
@@ -308,6 +337,7 @@ public:
 	JPArrayFloat(JPArrayFloat* src, jsize start, jsize stop, jsize step);
 
 	JPPyObject getItem(jsize ndx) override;
+	JPPyObject getItem(jsize ndx, jobject resolved) override;
 	JPArray* slice(jsize start, jsize stop, jsize step) override;
 } ;
 
@@ -319,6 +349,7 @@ public:
 	JPArrayDouble(JPArrayDouble* src, jsize start, jsize stop, jsize step);
 
 	JPPyObject getItem(jsize ndx) override;
+	JPPyObject getItem(jsize ndx, jobject resolved) override;
 	JPArray* slice(jsize start, jsize stop, jsize step) override;
 } ;
 

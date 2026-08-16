@@ -47,10 +47,36 @@ struct PyJPArrayIter
 	PyObject_HEAD
 	PyJPArray *m_Array; // strong ref, cleared once exhausted
 	Py_ssize_t m_Index;
+	// A genuine JNI global reference to the underlying Java array,
+	// resolved once (in PyJPArray_iter) and held for this iterator's own
+	// lifetime -- not a pooled jref (that pool exists so a coordinated
+	// group of long-lived C++ wrapper objects can all die together at
+	// interpreter teardown; this is a single, short-lived handle scoped
+	// to one Python-level iteration, so a plain NewGlobalRef/
+	// ReleaseGlobalRef pair is the right tool). Lets every element read
+	// call JPArray::getItem(ndx, resolved) directly instead of paying a
+	// retrieveGlobal()+release JNI round trip per element -- see
+	// bugs/ArrayIterLocalRefLeak.md. Released (and nulled) together with
+	// m_Array, whether iteration runs to exhaustion or the iterator is
+	// abandoned early.
+	jobject m_Resolved;
 };
+
+// Shared by the exhaustion branch below and dealloc() -- an abandoned
+// (not-run-to-exhaustion) iterator must release m_Resolved too.
+static void PyJPArrayIter_release(PyJPArrayIter *self)
+{
+	if (self->m_Array != nullptr && self->m_Resolved != nullptr)
+	{
+		JPContext *context = PyJPObject_getContext((PyObject*) self->m_Array);
+		context->ReleaseGlobalRef(self->m_Resolved);
+		self->m_Resolved = nullptr;
+	}
+}
 
 static void PyJPArrayIter_dealloc(PyJPArrayIter *self)
 {
+	PyJPArrayIter_release(self);
 	Py_CLEAR(self->m_Array);
 	Py_TYPE(self)->tp_free(self);
 }
@@ -78,10 +104,11 @@ static PyObject *PyJPArrayIter_next(PyJPArrayIter *self)
 	if (array == nullptr || self->m_Index >= array->getLength())
 	{
 		// Clean stop, no exception -- see the design note above.
+		PyJPArrayIter_release(self);
 		Py_CLEAR(self->m_Array);
 		return nullptr;
 	}
-	PyObject *result = array->getItem((jsize) self->m_Index).keep();
+	PyObject *result = array->getItem((jsize) self->m_Index, self->m_Resolved).keep();
 	self->m_Index++;
 	return result;
 	JP_PY_CATCH(nullptr);
@@ -111,6 +138,15 @@ static PyObject *PyJPArray_iter(PyJPArray *self)
 	auto *it = (PyJPArrayIter*) st->PyJPArrayIter_Type->tp_alloc(st->PyJPArrayIter_Type, 0);
 	if (it == nullptr)
 		return nullptr; // GCOVR_EXCL_LINE
+
+	// Resolve the underlying Java array once, up front, as a real global
+	// reference this iterator holds for its own lifetime -- see
+	// PyJPArrayIter::m_Resolved's comment above for why a plain
+	// NewGlobalRef (not the pooled jref mechanism) is the right tool
+	// here.
+	JPJavaFrame frame = JPJavaFrame::outer(PyJPObject_getContext((PyObject*) self));
+	it->m_Resolved = frame.NewGlobalRef(self->m_Array->getJava(frame));
+
 	Py_INCREF(self);
 	it->m_Array = self;
 	it->m_Index = 0;
