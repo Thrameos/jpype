@@ -488,36 +488,6 @@ void JPArray::pullTo(PyObject* dest)
 	JP_TRACE_OUT;
 }
 
-void JPArray::copyInto(JPJavaFrame& frame, PyObject* dest)
-{
-	JP_TRACE_IN("JPArray::copyInto");
-	auto *compType = dynamic_cast<JPPrimitiveType*>(m_Class->getComponentType());
-	if (compType == nullptr)
-		JP_RAISE(PyExc_TypeError, "copyInto requires a primitive array");
-
-	JPPyBuffer buffer(dest, PyBUF_WRITABLE | PyBUF_STRIDES | PyBUF_FORMAT);
-	JP_PY_CHECK();
-	Py_buffer& view = buffer.getView();
-
-	Py_ssize_t total = 1;
-	for (int i = 0; i < view.ndim; ++i)
-		total *= view.shape[i];
-	if (total != m_Length)
-		JP_RAISE(PyExc_ValueError, "mismatched size");
-	if (view.itemsize != compType->getItemSize())
-		JP_RAISE(PyExc_TypeError, "mismatched item size");
-
-	if (m_Step == 1 && view.suboffsets == nullptr && PyBuffer_IsContiguous(&view, 'C'))
-	{
-		compType->copyElements(frame, getJava(frame), m_Start, m_Length, view.buf, 0);
-	} else
-	{
-		copyArrayToBuffer(frame, getJava(frame), m_Start, m_Step, m_Length,
-				compType->getItemSize(), buffer);
-	}
-	JP_TRACE_OUT;
-}
-
 void JPArray::pushFrom(PyObject* src)
 {
 	JP_TRACE_IN("JPArray::pushFrom");

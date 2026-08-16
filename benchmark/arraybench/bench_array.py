@@ -14,16 +14,16 @@ except Exception:
     _HAVE_JPYPE_FORWARD = False
 
 
-# ---- Model 1: copyInto (bulk-copy, jpype-only fast path) ----
+# ---- Model 1: pullTo (bulk-copy, jpype-only fast path) ----
 
 def make_java_double_array(n):
     """Returns a jpype.JArray(JDouble) of n random values - the 'Java has
-    a real double[]' starting point for the copyInto benchmark."""
+    a real double[]' starting point for the pullTo benchmark."""
     values = np.random.random(n)
     return JArray(JDouble)(values.tolist())
 
 
-_COPY_INTO_STATE = {}
+_PULL_TO_STATE = {}
 
 
 def setup_copy_into(n):
@@ -31,17 +31,17 @@ def setup_copy_into(n):
     make_java_double_array/make_dest but keeps both ends of the jpype.JArray
     <-> numpy relationship inside this interpreter, since a jpype.JArray
     handed back out to Java as generic PyObject and passed back in loses
-    its concrete type (arrives as a plain PyJavaObject, no .copyInto)."""
+    its concrete type (arrives as a plain PyJavaObject, no .pullTo)."""
     values = np.random.random(n)
-    _COPY_INTO_STATE['ja'] = JArray(JDouble)(values.tolist())
-    _COPY_INTO_STATE['dest'] = np.empty(n, dtype=np.float64)
+    _PULL_TO_STATE['ja'] = JArray(JDouble)(values.tolist())
+    _PULL_TO_STATE['dest'] = np.empty(n, dtype=np.float64)
 
 
 def copy_into():
-    """ja.copyInto(dest) is jpype's bulk-copy fast path
+    """ja.pullTo(dest) is jpype's bulk-copy fast path
     (native/python/pyjp_array.cpp)."""
-    _COPY_INTO_STATE['ja'].copyInto(_COPY_INTO_STATE['dest'])
-    return float(_COPY_INTO_STATE['dest'][0])
+    _PULL_TO_STATE['ja'].pullTo(_PULL_TO_STATE['dest'])
+    return float(_PULL_TO_STATE['dest'][0])
 
 
 def naive_list_sum(lst):

@@ -20,8 +20,7 @@
 Tests for JArray.pullTo()/JArray.pushFrom() -- bulk-copy a Java primitive
 array's elements out to a caller-supplied writable buffer, and the mirror
 operation, bulk-copying a caller-supplied readable buffer's elements into
-an existing Java primitive array in place. pullTo was ported from the
-`reverse` branch as JArray.copyInto; pushFrom and the naming
+an existing Java primitive array in place. pushFrom and the naming
 (pullTo/pushFrom, matching the J2NI View.pull/push precedent) were added
 alongside the byte-order/float16 bulk fast path.
 """
@@ -121,6 +120,25 @@ class ArrayPullToTestCase(common.JPypeTestCase):
         dest.flags.writeable = False
         with self.assertRaises((TypeError, ValueError)):
             ja.pullTo(dest)
+
+    def testOtherTypes(self):
+        ivals = list(range(-5, 15))
+        jai = JArray(JInt)(ivals)
+        desti = np.empty(len(ivals), dtype=np.int32)
+        jai.pullTo(desti)
+        self.assertEqual(list(desti), ivals)
+
+        bvals = [True, False, True, True, False]
+        jab = JArray(JBoolean)(bvals)
+        destb = np.empty(len(bvals), dtype=np.bool_)
+        jab.pullTo(destb)
+        self.assertEqual(list(destb), bvals)
+
+        byvals = [1, 2, 3, -1, -128, 127]
+        jaby = JArray(JByte)(byvals)
+        destby = np.empty(len(byvals), dtype=np.int8)
+        jaby.pullTo(destby)
+        self.assertEqual(list(destby), byvals)
 
 
 class ArrayPullToMultiDimTestCase(common.JPypeTestCase):

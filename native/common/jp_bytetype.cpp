@@ -376,7 +376,18 @@ JPPyObject JPArrayByte::getItem(jsize ndx)
 	ndx = checkIndex(ndx);
 	JPJavaAccess frame(m_Context);
 	JPJavaFrame jframe = JPJavaFrame::fast(frame.getEnv(), frame.getContext());
-	return m_CompType->getFastArrayItem(frame, (jarray) jframe.retrieveGlobal(m_Object), m_Start + ndx * m_Step);
+	// retrieveGlobal() is a JNI method call, so it mints a real local
+	// reference -- fast() deliberately pushes no frame of its own (see its
+	// ctor comment in jp_javaframe.cpp), and there is no enclosing real
+	// frame on this call path (PyJPArrayIter_next() calls getItem() with
+	// none, by design). Left unreleased, every element read leaked one
+	// local ref to the whole array, pinning it in the JVM's local ref
+	// table for the thread's lifetime -- with no cap, a single list(ja)
+	// over a large array leaked that whole array's worth of heap per call.
+	jobject arr = jframe.retrieveGlobal(m_Object);
+	JPPyObject result = m_CompType->getFastArrayItem(frame, (jarray) arr, m_Start + ndx * m_Step);
+	jframe.DeleteLocalRef(arr);
+	return result;
 }
 
 JPArray* JPArrayByte::slice(jsize start, jsize stop, jsize step)
