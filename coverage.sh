@@ -74,10 +74,16 @@ CPP_BUILD_DIR="$(echo "$REPO_ROOT"/build/$PYTAG-*)"
 
 echo "=== 2. pytest suite (Python -> Java), with --jacoco ==="
 mkdir -p build/coverage
+# Not fatal to this script (matches the Maven suite below): test_fault.py
+# deliberately requires JP_INSTRUMENTATION (this build's ENABLE_COVERAGE
+# turns it on) but its fault-injection markers have drifted from actual
+# native call sites -- known, pre-existing, unrelated to coverage itself.
+# See plan/FaultInjectionMarkerDrift.md.
 "$VENV/bin/python" -m pytest -q test/jpypetest \
   --cov=jpype --cov-report=xml:build/coverage/coverage_py.xml --cov-report=term \
   --classpath="native/jpype_module/target/classes:test/classes" \
-  --jacoco --checkjni
+  --jacoco --checkjni \
+  || echo "    pytest reported failures (see above) -- continuing to build the rest of the report."
 
 echo "=== 3. Java report for suite 1 (against the real org.jpype.jar) ==="
 rm -rf build/coverage/jar_extract
@@ -127,7 +133,8 @@ mkdir -p build/coverage/cpp
   --html-details -o build/coverage/cpp/jpype.html \
   --xml build/coverage/coverage_cpp.xml \
   --print-summary \
-  --exclude-unreachable-branches --exclude-throw-branches
+  --exclude-unreachable-branches --exclude-throw-branches \
+  --gcov-ignore-parse-errors=negative_hits.warn_once_per_file
 
 echo "=== Done ==="
 echo "Python coverage:      build/coverage/coverage_py.xml"
