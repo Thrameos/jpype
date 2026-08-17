@@ -33,14 +33,18 @@ GENERIC:test_attr.py:AttributeTestCase.testPassedObjectGetsCleanedUp:60:2
 # Array-iteration path (the ArrayIterLocalRefLeak.md fix's regression coverage).
 GENERIC:test_array.py:ArrayTestCase.testIterateArray:60:200
 
-# JPProxy dynamic-class-generation path -- flagged LEAK during initial
-# validation (steady ~5-7KB/call RSS growth, JVM heap flat) but PASSED on
-# two later full-config runs at the same budget/size; plausibly expected
-# per-call dynamic-class/metaspace cost near the "4 clean batches" noise
-# boundary rather than a real leak, since this test defines a brand-new
-# @JImplements class every call. Left in deliberately as an open, flaky
-# finding for later investigation, not yet a filed bug -- do not treat a
-# LEAK (or a PASS) here as conclusive without re-reading this note first.
+# JPProxy dynamic-class-generation path. Was a real leak (see
+# bugs/ProxyClassRefcountLeak.md): every @JImplements-decorated class is a
+# CPython heap type, and PyJPProxy_dealloc (native/python/pyjp_proxy.cpp)
+# never decref'd an instance's own type on dealloc -- normally
+# subtype_dealloc does this for you, except when (as here) the nearest
+# non-subtype_dealloc base is itself a heap type, in which case that
+# base's own dealloc is responsible. Not metaspace, not JVM heap (both
+# confirmed flat) -- every fresh class defined by this test's per-call
+# @JImplements usage was permanently leaked, never freed. Fixed; the
+# ~5-7KB/call growth is gone, down to the same ~262 bytes/call
+# harness-noise floor documented in bugs/DirectBufferLeak.md. Now a clean
+# regression check for this fix.
 GENERIC:test_proxy.py:ProxyTestCase.testProxyLeak:60:200
 
 # Direct ByteBuffer conversion + an internal exception round-trip.

@@ -120,10 +120,20 @@ static int PyJPProxy_clear(PyJPProxy *self)
 void PyJPProxy_dealloc(PyJPProxy* self)
 {
 	JP_PY_TRY("PyJPProxy_dealloc");
+	// self's type is itself a heap type (this type and every @JImplements
+	// subclass are created via PyType_FromSpec/type()), so instance
+	// creation holds an implicit reference on it that the default
+	// subtype_dealloc would normally release on our behalf -- but since
+	// this is a custom tp_dealloc, that release doesn't happen unless we
+	// do it ourselves. Grab the type before tp_free(self) invalidates
+	// self's memory.
+	PyTypeObject *tp = Py_TYPE(self);
 	delete self->m_Proxy;
 	PyObject_GC_UnTrack(self);
 	PyJPProxy_clear(self);
-	Py_TYPE(self)->tp_free(self);
+	tp->tp_free(self);
+	if (tp->tp_flags & Py_TPFLAGS_HEAPTYPE)
+		Py_DECREF(tp);
 	JP_PY_CATCH_NONE();
 }
 
