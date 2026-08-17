@@ -73,11 +73,16 @@ set(JPYPE_NATIVE_SRC
 
 Python3_add_library(_jpype MODULE ${JPYPE_NATIVE_SRC})
 target_link_libraries(_jpype PRIVATE Python3::Module)
-# Set target properties for scikit-build export
+# Set target properties for scikit-build export.
+# LIBRARY_OUTPUT_DIRECTORY is deliberately left at its CMake default (the
+# build tree), not DEST_EXTENSION: a non-editable wheel build re-stages the
+# wheel platlib directory between the build and install sub-phases, so
+# linking straight into DEST_EXTENSION gets wiped before the install(TARGETS)
+# rule below runs. install() is the only step that should populate the
+# wheel/editable-redirect destination.
 set_target_properties(_jpype PROPERTIES
         PREFIX ""  # remove 'lib' prefix
         OUTPUT_NAME "_jpype"
-        LIBRARY_OUTPUT_DIRECTORY ${DEST_EXTENSION}
 )
 
 if(ENABLE_TRACING)
