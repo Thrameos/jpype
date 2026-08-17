@@ -34,17 +34,18 @@ GENERIC:test_attr.py:AttributeTestCase.testPassedObjectGetsCleanedUp:60:2
 GENERIC:test_array.py:ArrayTestCase.testIterateArray:60:200
 
 # JPProxy dynamic-class-generation path. Was a real leak (see
-# bugs/ProxyClassRefcountLeak.md): every @JImplements-decorated class is a
-# CPython heap type, and PyJPProxy_dealloc (native/python/pyjp_proxy.cpp)
-# never decref'd an instance's own type on dealloc -- normally
-# subtype_dealloc does this for you, except when (as here) the nearest
-# non-subtype_dealloc base is itself a heap type, in which case that
-# base's own dealloc is responsible. Not metaspace, not JVM heap (both
-# confirmed flat) -- every fresh class defined by this test's per-call
-# @JImplements usage was permanently leaked, never freed. Fixed; the
-# ~5-7KB/call growth is gone, down to the same ~262 bytes/call
-# harness-noise floor documented in bugs/DirectBufferLeak.md. Now a clean
-# regression check for this fix.
+# bugs/ProxyClassRefcountLeak.md and bugs/ReferenceQueueTestRefsLeak.md):
+# every @JImplements-decorated class is a CPython heap type, and
+# PyJPProxy_dealloc (native/python/pyjp_proxy.cpp) never decref'd an
+# instance's own type on dealloc -- normally subtype_dealloc does this for
+# you, except when (as here) the nearest non-subtype_dealloc base is itself
+# a heap type, in which case that base's own dealloc is responsible. Not
+# metaspace, not JVM heap (both confirmed flat) -- every fresh class
+# defined by this test's per-call @JImplements usage was permanently
+# leaked, never freed. Fixed; the ~5-7KB/call growth is gone, down to the
+# same ~262 bytes/call harness-noise floor documented in
+# bugs/DirectBufferLeak.md. Now a clean regression check for this fix
+# (this fix also resolved the testRefs entry below, same root cause).
 GENERIC:test_proxy.py:ProxyTestCase.testProxyLeak:60:200
 
 # Direct ByteBuffer conversion + an internal exception round-trip.
@@ -135,17 +136,14 @@ GENERIC:test_varargs.py:VarArgsTestCase.testVarArgsMethod:60:200
 # the machinery whose detachJVM()/_JavaVM accounting bug was the actual
 # root cause of the already-fixed testPassedObjectGetsCleanedUp leak (see
 # bugs/PassedObjectGetsCleanedUpFlake.md). High-value regression coverage
-# for that mechanism specifically. CAVEAT (same class as testProxyLeak
-# above): defines a fresh @JImplements class every call, so some growth
-# here may be expected per-call dynamic-class/metaspace cost rather than a
-# real leak. ALSO FLAKY, like testProxyLeak, confirmed by direct
-# contradiction across this entry's own verification: an isolated run
-# (budget 20s, size 100) showed steady, unclean ~13-14KB/call growth
-# every single batch for 25 straight batches -- looked like a strong
-# signal -- but the very next run, inside the full leak_targets.txt sweep
-# at the committed budget/size, PASSED cleanly in 5.6s (4 clean batches
-# immediately). Do not treat either a LEAK or a PASS here as conclusive
-# without re-running and reading this note first; not yet investigated.
+# for that mechanism specifically. Was ALSO a real leak in its own right
+# (same PyJPProxy_dealloc heap-type-refcount bug as testProxyLeak above --
+# see bugs/ReferenceQueueTestRefsLeak.md for the full investigation,
+# including why an isolated run reliably showed steady ~13-14KB/call growth
+# while a short/early-exiting full-sweep run could PASS cleanly: too few
+# batches to clear the 4-bytes/call noise threshold before "4 clean
+# batches" triggers an early PASS). Fixed in native/python/pyjp_proxy.cpp;
+# now a clean regression check.
 GENERIC:test_ref.py:ReferenceQueueTestCase.testRefs:60:100
 
 # --- Third curation round: SQL/JDBC + previously-proposed candidates + ---

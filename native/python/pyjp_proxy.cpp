@@ -126,7 +126,8 @@ void PyJPProxy_dealloc(PyJPProxy* self)
 	// subtype_dealloc would normally release on our behalf -- but since
 	// this is a custom tp_dealloc, that release doesn't happen unless we
 	// do it ourselves. Grab the type before tp_free(self) invalidates
-	// self's memory.
+	// self's memory. See bugs/ProxyClassRefcountLeak.md and
+	// bugs/ReferenceQueueTestRefsLeak.md.
 	PyTypeObject *tp = Py_TYPE(self);
 	delete self->m_Proxy;
 	PyObject_GC_UnTrack(self);
