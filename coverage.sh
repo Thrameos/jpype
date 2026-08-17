@@ -36,6 +36,21 @@ VENV="${1:-/tmp/jpype-coverage-venv}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO_ROOT"
 
+echo "=== 0. Clean stale build outputs ==="
+# Both ant (native/build/classes, the jar suite 1 instruments) and Maven
+# (native/jpype_module/target/classes, suite 2) do incremental compiles
+# that do NOT delete .class files for source files that were since removed
+# -- a coverage report built from either without cleaning first can report
+# a deleted class as still 0%-covered dead weight, which is exactly
+# backwards for a script whose whole job is telling you what's real.
+#
+# org.jpype.jar at repo root also needs removing, separately: the
+# top-level CMakeLists.txt deliberately CACHES it (`if(EXISTS SRC_JAR) ...
+# use from cache` -- lets a plain C++-only build skip needing a JDK at
+# all) and will happily keep reusing a stale one indefinitely rather than
+# ever re-invoking ant, even after `native/build` itself is removed.
+rm -rf native/build native/jpype_module/target build org.jpype.jar
+
 echo "=== 1. Disposable venv + editable build ($VENV) ==="
 python3.12 -m venv "$VENV"
 "$VENV/bin/pip" install --upgrade pip -q
