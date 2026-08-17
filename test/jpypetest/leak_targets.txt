@@ -143,3 +143,87 @@ GENERIC:test_varargs.py:VarArgsTestCase.testVarArgsMethod:60:200
 # immediately). Do not treat either a LEAK or a PASS here as conclusive
 # without re-running and reading this note first; not yet investigated.
 GENERIC:test_ref.py:ReferenceQueueTestCase.testRefs:60:100
+
+# --- Third curation round: SQL/JDBC + previously-proposed candidates + ---
+# --- broad sampling across previously-untouched categories.           ---
+
+# SQL/JDBC: connection open/close lifecycle via dbapi2's context-manager
+# protocol (sqlite, in-memory, no external server needed). Structurally
+# distinct from every entry above -- exercises Connection resource cleanup,
+# not just object conversion.
+GENERIC:test_sql_sqlite.py:ConnectTestCase.testScope:60:200
+
+# SQL/JDBC: full connection+cursor+statement+resultset cycle (create table,
+# insert, select, fetchall) via context managers, sqlite driver.
+GENERIC:test_sql_sqlite.py:CursorTestCase.test_execute:60:200
+
+# SQL/JDBC: same cycle as above but the h2 driver -- distinct JDBC driver
+# class-loading/type-mapping path from sqlite.
+GENERIC:test_sql_h2.py:CursorTestCase.test_execute:60:200
+
+# Object hashCode() round-trip (java.lang.Object, not a primitive wrapper --
+# the other testHash* methods mostly cover boxed-primitive hashing already
+# implied by boxing/comparable coverage above).
+GENERIC:test_hash.py:HashTestCase.testHashObject:60
+
+# Functional-interface lambda binding against an interface with BOTH static
+# and default methods (java.util.function.Predicate) -- distinct overload
+# path from testLambdasFunction above (single abstract method only).
+GENERIC:test_functional.py:FunctionalTestCase.testStaticDefaultMethods:60
+
+# Overload resolution against multiple candidate Java interfaces.
+GENERIC:test_overloads.py:OverloadTestCase.testInterfaces1:60
+
+# JProxy dynamic-proxy instance creation against one/multiple interfaces.
+# Distinct from testProxyLeak above: uses JProxy(dict=...) directly rather
+# than @JImplements, so no fresh Python class is defined per call -- a
+# useful contrast target for that entry's still-open flakiness question.
+GENERIC:test_proxy.py:ProxyTestCase.testProxyDecl:60
+
+# Numeric conversion baseline, short (rounds out the int/long coverage
+# already present above with testIntFromInt/testLongFromInt).
+GENERIC:test_conversionShort.py:ConversionShortTestCase.testShortFromInt:60
+
+# float -> double widening round-trip through a custom Java class method.
+GENERIC:test_numeric.py:NumericTestCase.testDoubleConversion:60
+
+# Bulk round-trip of every Java primitive wrapper type via JNumberTestCase.
+GENERIC:test_number.py:JNumberTestCase.testJavaPrimitives:60
+
+# str()/repr() on a wrapped JObject.
+GENERIC:test_repr.py:ReprTestCase.testObject:60
+
+# JPickler/JUnpickler round-trip of a dict containing a Java collection and
+# a Java string -- real file I/O per call (writes/reads self.filename).
+GENERIC:test_pickle.py:PickleTestCase.testMixed:60:200
+
+# Class resolution for a Java class implementing multiple interfaces (MRO
+# construction path).
+GENERIC:test_mro.py:MroTestCase.testMultipleInterfaces:60
+
+# Generic-signature JClass lookup with a wildcard type parameter.
+GENERIC:test_generic.py:GenericTestCase.testMap1:60
+
+# Type-hints/customizer metadata lookup on java.util.Collection.
+GENERIC:test_hints.py:HintsTestCase.testCollection:60
+
+# Virtual-dispatch call resolution across three call paths (direct, via
+# static-typed interface method, via class method) against a Java-side
+# object returned from a factory method -- no per-call dynamic class
+# generation (contrast the @JImplements-based entries above).
+GENERIC:test_virtual.py:VirtualsTestCase.testCallBooleanImplements:60
+
+# Python-list -> Java-Iterable implicit-conversion customizer path.
+# FLAKY, found during this round's own sanity pass: one short (~8s budget)
+# run showed steady ~262-524 bytes/call RSS growth with no plateau across
+# 690+ batches (looked like a strong signal); the very next run of the same
+# entry, same config, PASSED cleanly in ~1.6s (4 clean batches immediately).
+# Not investigated -- this is a distinct caveat class from the
+# testProxyLeak/testRefs entries above (this target does not define a
+# per-call dynamic class; it exercises PyJBridge/customizer implicit
+# conversion of a Python list into a Java Iterable). Do not treat either a
+# LEAK or a PASS here as conclusive without re-running first.
+GENERIC:test_bridge.py:JBridgeTestCase.testIterable:60
+
+# JInterface meta-class identity/subclass check.
+GENERIC:test_inherit.py:InheritTestCase.testInterface:60

@@ -53,6 +53,13 @@ def startSmallHeapJVM(search_dir):
         return
     root = os.path.dirname(os.path.abspath(search_dir))
     jpype.addClassPath(os.path.join(root, 'classes'))
+    # Mirrors conftest.py's jvm_session fixture: JDBC driver jars (sqlite,
+    # h2, hsqldb) and other test-only dependencies live here, not under
+    # classes/. Without these, any GENERIC target that opens a JDBC
+    # connection fails with "No suitable driver found" even though the
+    # equivalent test passes fine under pytest.
+    jpype.addClassPath(os.path.join(root, '..', 'lib', '*'))
+    jpype.addClassPath(os.path.join(search_dir, '..', 'jar', '*'))
     jvm_path = jpype.getDefaultJVMPath()
     classpath_arg = "-Djava.class.path=%s" % jpype.getClassPath()
     jpype.startJVM(jvm_path, "-ea", "-Xmx256M", "-Xms16M", classpath_arg)
