@@ -36,11 +36,35 @@ importable as a normal test module) -- it is an opt-in sweep, run directly:
 
 Entries run concurrently across a process pool (default: one job per 2
 cores), since each entry already isolates itself into its own subprocess.
+
+Two config-line shapes are supported, both `:`-separated:
+
+  module.py:ClassName.testMethod:budget_seconds
+      Legacy shape (the original 5 curated entries). Targets a
+      subrun.TestCase(individual=True)-decorated test method that calls
+      assertNotLeaky(closure) itself -- the loop/isolation is the target's
+      own subrun-provided JVM restart, driven for budget_seconds via the
+      JPYPE_LEAK_BUDGET_SECONDS env var test_leak.py's assertNotLeaky reads.
+
+  GENERIC:module.py:Class.method:budget_seconds[:size]
+  GENERIC:module.py:function:budget_seconds[:size]
+      Generic shape: wraps an *existing, unmodified* function or test
+      method -- one never written with leak-checking in mind, no
+      assertNotLeaky call inside it -- via leakharness.runTargetBudget().
+      This driver supplies the loop, JVM isolation (its own fresh
+      small-heap JVM per entry, started directly rather than relying on
+      the target class's own setUp), and measurement itself. The optional
+      trailing `size` overrides the default 1000-calls-per-batch (needed
+      for a target that is already heavy per call, e.g. one that does its
+      own internal allocation loop -- a much smaller size keeps a batch's
+      wall-clock cost reasonable).
 """
 import argparse
 import concurrent.futures
 import importlib.util
+import multiprocessing
 import os
+import queue as queue_module
 import sys
 import time
 import unittest
@@ -51,9 +75,11 @@ DEFAULT_TIMEOUT_MARGIN = 30.0  # seconds of IPC slack on top of a target's own b
 
 
 def parse_config(config_path):
-    """Parses `module.py:ClassName.testMethod:budget_seconds` lines.
+    """Parses config lines -- see module docstring for the two shapes.
 
-    Returns a list of (module_file, clsname, methodname, budget_seconds).
+    Returns a list of entries, each either:
+      ('legacy', module_file, clsname, methodname, budget_seconds)
+      ('generic', module_file, qualname, budget_seconds)
     """
     entries = []
     with open(config_path) as f:
@@ -61,21 +87,37 @@ def parse_config(config_path):
             line = raw_line.strip()
             if not line or line.startswith('#'):
                 continue
+
+            generic = False
+            if line.upper().startswith('GENERIC:'):
+                generic = True
+                line = line[len('GENERIC:'):]
+
             parts = line.split(':')
+            if generic and len(parts) == 4:
+                module_file, qualname, budget, size = parts
+                entries.append(('generic', module_file, qualname, float(budget), int(size)))
+                continue
             if len(parts) != 3:
                 raise ValueError(
                     "%s:%d: malformed entry %r, expected "
-                    "module.py:ClassName.testMethod:budget_seconds" %
-                    (config_path, lineno, line))
+                    "module.py:ClassName.testMethod:budget_seconds "
+                    "(optionally GENERIC:-prefixed, optionally :size-suffixed)" %
+                    (config_path, lineno, raw_line.strip()))
             module_file, qualname, budget = parts
+
+            if generic:
+                entries.append(('generic', module_file, qualname, float(budget), 1000))
+                continue
+
             qualparts = qualname.split('.')
             if len(qualparts) != 2:
                 raise ValueError(
                     "%s:%d: malformed entry %r, expected "
                     "module.py:ClassName.testMethod:budget_seconds" %
-                    (config_path, lineno, line))
+                    (config_path, lineno, raw_line.strip()))
             clsname, methodname = qualparts
-            entries.append((module_file, clsname, methodname, float(budget)))
+            entries.append(('legacy', module_file, clsname, methodname, float(budget)))
     return entries
 
 
@@ -90,14 +132,14 @@ def _import_module(module_file):
     return module
 
 
-def run_entry(module_file, clsname, methodname, budget_seconds,
-               timeout_margin=DEFAULT_TIMEOUT_MARGIN):
-    """Runs one config entry to completion. Executes in a worker process of
-    this module's own pool (see main()) -- sets the env vars test_leak.py
-    (JPYPE_LEAK_BUDGET_SECONDS) and subrun.py (JPYPE_SUBRUN_TIMEOUT) read,
-    then drives the named test method the same way pytest would, relying on
-    the target class's own subrun.TestCase(individual=True) decoration for
-    JVM isolation.
+def run_legacy_entry(module_file, clsname, methodname, budget_seconds,
+                      timeout_margin=DEFAULT_TIMEOUT_MARGIN):
+    """Runs one legacy-shape config entry to completion. Executes in a
+    worker process of this module's own pool (see main()) -- sets the env
+    vars test_leak.py (JPYPE_LEAK_BUDGET_SECONDS) and subrun.py
+    (JPYPE_SUBRUN_TIMEOUT) read, then drives the named test method the same
+    way pytest would, relying on the target class's own
+    subrun.TestCase(individual=True) decoration for JVM isolation.
     """
     if HERE not in sys.path:
         sys.path.insert(0, HERE)
@@ -117,10 +159,74 @@ def run_entry(module_file, clsname, methodname, budget_seconds,
     elapsed = time.monotonic() - start
 
     if result.wasSuccessful():
-        return (label, True, elapsed, None)
-    problems = result.failures + result.errors
-    message = problems[0][1] if problems else "unknown failure"
-    return (label, False, elapsed, message)
+        return (label, True, elapsed, None, None)
+    # assertNotLeaky's own AssertionError lands in .failures (a genuine
+    # measured leak); anything else (import error, JVM startup failure,
+    # ...) lands in .errors -- worth telling apart in the report.
+    if result.failures:
+        return (label, False, elapsed, result.failures[0][1], 'leak')
+    return (label, False, elapsed, result.errors[0][1], 'error')
+
+
+def _generic_worker(module_file, qualname, budget_seconds, size, result_queue):
+    """Runs in its own freshly spawned, dedicated process (see
+    run_generic_entry) -- unlike the legacy shape, a generic target has no
+    subrun.TestCase of its own to provide JVM isolation, so this process
+    starts its own small-heap JVM directly (leakharness.startSmallHeapJVM,
+    same -Xmx256M/-Xms16M convention as test_leak.py/conftest.py) before
+    resolving and running the target. One process per entry, never reused,
+    so there is no risk of a second startJVM() in the same process.
+    """
+    try:
+        import leakharness
+        leakharness.startSmallHeapJVM(HERE)
+        label, leaky = leakharness.runTargetBudget(
+            module_file, qualname, budget_seconds, size=size, search_dir=HERE)
+        result_queue.put((label, leaky, None, 'leak' if leaky else None))
+    except BaseException as e:  # noqa: BLE001 -- must reach the parent regardless
+        import traceback
+        result_queue.put((
+            "%s:%s" % (module_file, qualname), True, traceback.format_exc(), 'error'))
+
+
+def run_generic_entry(module_file, qualname, budget_seconds, size=1000,
+                       timeout_margin=DEFAULT_TIMEOUT_MARGIN):
+    """Runs one GENERIC-shape config entry in its own dedicated subprocess
+    (spawned directly by this function, not the legacy shape's
+    subrun.Client) so it gets the same "fresh JVM per entry" isolation
+    without requiring the target to be a subrun-decorated class.
+    """
+    label = "%s:%s" % (module_file, qualname)
+    ctx = multiprocessing.get_context("spawn")
+    result_q = ctx.Queue()
+    proc = ctx.Process(
+        target=_generic_worker, args=(module_file, qualname, budget_seconds, size, result_q),
+        daemon=True)
+    start = time.monotonic()
+    proc.start()
+    try:
+        label, is_leaky, message, kind = result_q.get(True, budget_seconds + timeout_margin)
+    except queue_module.Empty:
+        proc.terminate()
+        elapsed = time.monotonic() - start
+        return (label, False, elapsed,
+                "timed out after %.1fs waiting for a result "
+                "(budget %.1fs + %.1fs margin)" %
+                (elapsed, budget_seconds, timeout_margin), 'error')
+    finally:
+        proc.join(timeout=5)
+        if proc.is_alive():
+            proc.terminate()
+    elapsed = time.monotonic() - start
+    return (label, not is_leaky, elapsed, message, kind)
+
+
+def run_entry(entry):
+    if entry[0] == 'legacy':
+        _, module_file, clsname, methodname, budget_seconds = entry
+        return run_legacy_entry(module_file, clsname, methodname, budget_seconds)
+    _, module_file, qualname, budget_seconds, size = entry
+    return run_generic_entry(module_file, qualname, budget_seconds, size=size)
 
 
 def main(argv=None):
@@ -141,19 +247,19 @@ def main(argv=None):
 
     failed = []
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.jobs) as pool:
-        futures = {pool.submit(run_entry, *entry): entry for entry in entries}
+        futures = {pool.submit(run_entry, entry): entry for entry in entries}
         for future in concurrent.futures.as_completed(futures):
-            label, ok, elapsed, message = future.result()
-            status = "PASS" if ok else "LEAK"
+            label, ok, elapsed, message, kind = future.result()
+            status = "PASS" if ok else ("ERROR" if kind == 'error' else "LEAK")
             print("[%s] %s (%.1fs)" % (status, label, elapsed))
             if not ok:
-                failed.append((label, message))
+                failed.append((label, message, kind))
 
     if failed:
         print()
-        print("Leaky entries:")
-        for label, message in failed:
-            print("  %s" % label)
+        print("Failed entries:")
+        for label, message, kind in failed:
+            print("  [%s] %s" % (kind.upper() if kind else "?", label))
             if message:
                 print("    %s" % message.strip().splitlines()[-1])
         return 1
