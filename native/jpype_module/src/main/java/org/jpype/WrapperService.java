@@ -34,14 +34,6 @@ public interface WrapperService {
     String getVersion();
 
     /**
-     * Optional: Provides specialized logic for the backend to handle
-     * this specific type (e.g., custom memory mapping for buffers).
-     */
-    default void initialize(Backend backend) {
-        // Default: no specialized backend initialization
-    }
-
-    /**
      * Classpath paths (resolved relative to this service's own class, e.g.
      * via {@code getClass().getResourceAsStream(path)}) to every one of
      * this provider's {@code .pyspi} resources — one per Python class it
