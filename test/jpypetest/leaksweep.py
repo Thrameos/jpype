@@ -246,12 +246,20 @@ def main(argv=None):
         return 1
 
     failed = []
+    sweep_start = time.monotonic()
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.jobs) as pool:
         futures = {pool.submit(run_entry, entry): entry for entry in entries}
+        # +submit offsets let a sweep watcher (or, e.g., a later automated
+        # check) see actual concurrency from the log directly: entries
+        # whose [+submit, +submit+elapsed] windows overlap really did run
+        # at the same time, not queued serially behind each other.
+        for future, entry in futures.items():
+            print("[submit +%.1fs] %s" % (time.monotonic() - sweep_start, entry))
         for future in concurrent.futures.as_completed(futures):
             label, ok, elapsed, message, kind = future.result()
             status = "PASS" if ok else ("ERROR" if kind == 'error' else "LEAK")
-            print("[%s] %s (%.1fs)" % (status, label, elapsed))
+            print("[%s +%.1fs] %s (%.1fs)" %
+                  (status, time.monotonic() - sweep_start, label, elapsed))
             if not ok:
                 failed.append((label, message, kind))
 
