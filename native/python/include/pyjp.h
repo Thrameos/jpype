@@ -259,6 +259,7 @@ struct PyJPModuleState
 	PyObject* abc_coroutine;
 	PyObject* abc_awaitable;
 	PyObject* abc_set;
+	PyObject* abc_mutable_set;
 	PyObject* abc_collection;
 	PyObject* abc_container;
 
@@ -269,7 +270,7 @@ struct PyJPModuleState
 	PyObject* numpy_int16_type;
 	PyObject* numpy_int32_type;
 
-	PyObject* protocol_pipeline[15];
+	PyObject* protocol_pipeline[16];
 
 	int numpy_typepos;
 	int numpy_genericpos;

@@ -212,6 +212,7 @@ static void PyJPModule_clearResources(PyObject *module)
 	Py_CLEAR(st->abc_coroutine);
 	Py_CLEAR(st->abc_awaitable);
 	Py_CLEAR(st->abc_set);
+	Py_CLEAR(st->abc_mutable_set);
 	Py_CLEAR(st->abc_collection);
 	Py_CLEAR(st->abc_container);
 
@@ -221,7 +222,7 @@ static void PyJPModule_clearResources(PyObject *module)
 	Py_CLEAR(st->numpy_int16_type);
 	Py_CLEAR(st->numpy_int32_type);
 
-	for (int i = 0; i < 15; ++i)
+	for (int i = 0; i < 16; ++i)
 	{
 		Py_CLEAR(st->protocol_pipeline[i]);
 	}
@@ -293,6 +294,7 @@ void PyJPModule_loadResources(PyObject* module, PyJPModuleState *st)
 			st->abc_coroutine = loadAttrFrom(abc_module.get(), "Coroutine");
 			st->abc_awaitable = loadAttrFrom(abc_module.get(), "Awaitable");
 			st->abc_set = loadAttrFrom(abc_module.get(), "Set");
+			st->abc_mutable_set = loadAttrFrom(abc_module.get(), "MutableSet");
 			st->abc_collection = loadAttrFrom(abc_module.get(), "Collection");
 			st->abc_container = loadAttrFrom(abc_module.get(), "Container");
 		}
@@ -415,7 +417,7 @@ static PyObject* PyJPModule_ready(PyObject* self, PyObject* args)
 		context->m_PyExcConvert = exc_func.keep();
 	}
 
-	for (int i = 0; i < 15; ++i)
+	for (int i = 0; i < 16; ++i)
 		Py_CLEAR(st->protocol_pipeline[i]);
 
 	if (st->protocolDict != nullptr)
@@ -423,10 +425,11 @@ static PyObject* PyJPModule_ready(PyObject* self, PyObject* args)
 		static const char* names[] = {
 			"callable", "buffer", "sequence", "mapping", "iterable",
 			"iter", "generator", "coroutine", "awaitable", "abstract_set",
-			"collection", "container", "index", "number", "combinable"
+			"collection", "container", "index", "number", "combinable",
+			"mutable_set"
 		};
 
-		for (int i = 0; i < 15; ++i)
+		for (int i = 0; i < 16; ++i)
 		{
 			PyObject* proto = PyDict_GetItemString(st->protocolDict, names[i]);
 			Py_XINCREF(proto);
@@ -1252,6 +1255,7 @@ static int PyJPModule_traverse(PyObject *module, visitproc visit, void *arg)
 	Py_VISIT(st->abc_coroutine);
 	Py_VISIT(st->abc_awaitable);
 	Py_VISIT(st->abc_set);
+	Py_VISIT(st->abc_mutable_set);
 	Py_VISIT(st->abc_collection);
 	Py_VISIT(st->abc_container);
 
@@ -1263,7 +1267,7 @@ static int PyJPModule_traverse(PyObject *module, visitproc visit, void *arg)
 	Py_VISIT(st->numpy_int32_type);
 
 	// Traverse the protocol pipeline array
-	for (int i = 0; i < 15; ++i)
+	for (int i = 0; i < 16; ++i)
 	{
 		Py_VISIT(st->protocol_pipeline[i]);
 	}

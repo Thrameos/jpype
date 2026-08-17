@@ -62,6 +62,8 @@ static void interrogate(PyJPModuleState* st, JPPyObject& interfaces, PyTypeObjec
 			&& PyObject_IsSubclass((PyObject*) type, st->abc_mapping) != 0);
 	bool is_set = (st->abc_set != nullptr
 			&& PyObject_IsSubclass((PyObject*) type, st->abc_set) != 0);
+	bool is_mutable_set = (st->abc_mutable_set != nullptr
+			&& PyObject_IsSubclass((PyObject*) type, st->abc_mutable_set) != 0);
 	bool is_generator = (st->abc_generator != nullptr
 			&& PyObject_IsSubclass((PyObject*) type, st->abc_generator) != 0);
 	bool is_iterable = (st->abc_iterable != nullptr
@@ -128,14 +130,22 @@ static void interrogate(PyJPModuleState* st, JPPyObject& interfaces, PyTypeObjec
 	// into iter()/iterator() forever, blowing the native stack (SIGSEGV,
 	// see plan/GeneratorCastCrash.md). Suppress is_iterable whenever
 	// is_iterator already holds so the two interfaces are never combined.
-	bool flags[15] = {
+	//
+	// PyMutableSet DOES Java-extend PyAbstractSet (a real interface
+	// subtype, not an independent pair like Iterable/Iterator), so there's
+	// no method-collision risk in principle - but suppress is_set whenever
+	// is_mutable_set already holds anyway, for the same "keep the matched
+	// interface set minimal/most-specific" reason abstract_set doesn't get
+	// added redundantly alongside e.g. a concrete set match elsewhere.
+	bool flags[16] = {
 		is_callable, is_buffer, is_sequence, is_mapping,
 		is_iterable && !is_iterator, is_iterator, is_generator, is_coroutine,
-		is_awaitable, is_set, is_collection, is_container,
-		as_index, (as_int || as_float), (!as_int && !as_float && nb_or)
+		is_awaitable, is_set && !is_mutable_set, is_collection, is_container,
+		as_index, (as_int || as_float), (!as_int && !as_float && nb_or),
+		is_mutable_set
 	};
 
-	for (int i = 0; i < 15; ++i)
+	for (int i = 0; i < 16; ++i)
 	{
 		if (flags[i] && st->protocol_pipeline[i] != nullptr)
 			PyList_Append(interfaces.get(), st->protocol_pipeline[i]);
