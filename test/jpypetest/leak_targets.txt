@@ -44,11 +44,15 @@ GENERIC:test_array.py:ArrayTestCase.testIterateArray:60:200
 GENERIC:test_proxy.py:ProxyTestCase.testProxyLeak:60:200
 
 # Direct ByteBuffer conversion + an internal exception round-trip.
-# Flagged LEAK during smoke validation (steady growth, not yet
-# investigated -- direct/off-heap buffers are freed via a Cleaner on GC of
-# the Java DirectByteBuffer object, so this may be a real accounting gap
-# or may just need the measurement's GC pass to be more aggressive for
-# off-heap memory specifically; do not treat as confirmed either way yet).
+# Investigated -- see bugs/DirectBufferLeak.md. Real, confirmed live-RSS
+# growth (not a high-water-mark artifact); JPype's own phantom-ref cleanup
+# path has zero accounting gap. Most of the growth (~1300-2800 -> ~262
+# bytes/call once the test's exception-throwing line is removed) looks
+# like the same jp_exception.cpp tb_create traceback leak the parallel
+# testCause investigation found and fixed -- re-verify against that fix.
+# A smaller ~262 bytes/call residual persists even exception-free and is
+# still unexplained (real small leak vs. harness-threshold miscalibration
+# for this async-cleanup workload shape -- not yet distinguished).
 GENERIC:test_bytebuffer.py:ByteBufferCase.testConvertToDirectBuffer:60
 
 # Multi-dimensional (3D) rectangular array push.
