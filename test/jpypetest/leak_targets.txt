@@ -67,10 +67,10 @@ GENERIC:test_attr.py:AttributeTestCase.testGetNonStatic:60
 GENERIC:test_boxing.py:BoxingTestCase.testBoxedLongFromPythonInt:60
 
 # Java exception throw/catch round-trip with __cause__ traceback chaining.
-# Flagged LEAK on a full-budget (60s) run (never reached 4 clean batches);
-# not yet investigated -- a traceback chain holding frame references is a
-# plausible innocent explanation (Python frames referencing the loop's
-# locals kept alive across iterations), but this has not been checked.
+# Was a real leak (see bugs/ExceptionCauseTracebackLeak.md): tb_create()'s
+# last_traceback local was reassigned each loop iteration without a decref,
+# leaking every non-final synthetic traceback frame -- fixed in
+# native/common/jp_exception.cpp. Now a clean regression check.
 GENERIC:test_exc.py:ExceptionTestCase.testCause:60
 
 # java.util.HashMap conversion (dict-like put/get).
