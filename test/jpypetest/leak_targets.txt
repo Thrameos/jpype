@@ -1,0 +1,21 @@
+# Curated leak-sweep targets for leaksweep.py.
+#
+# One entry per line: module.py:ClassName.testMethod:budget_seconds
+# '#'-prefixed lines and blank lines are ignored.
+#
+# This list is meant to be hand-curated and reviewed like the original
+# test_leak.py spot checks were (see plan/LeakCheckHarness.md) -- not
+# auto-generated or auto-discovered. Add a new entry when a leak is found
+# and fixed, so the fix gets permanent, systematic regression coverage
+# instead of relying on another investigation getting lucky again.
+#
+# The budgets below are smoke-test sized (60s) so a full sweep finishes in
+# a few minutes for local/CI sanity checks. A dedicated overnight/opt-in run
+# should use much larger budgets (e.g. 300s+) for real sensitivity, since a
+# bigger budget means more batches sampled, not a bigger/slower batch.
+
+test_leak.py:LeakTestCase.testStringLeak:60
+test_leak.py:LeakTestCase.testStringLeak__str__:60
+test_leak.py:LeakTestCase.testClassLeak:60
+test_leak.py:LeakTestCase.testCtorLeak:60
+test_leak.py:LeakTestCase.testInvokeLeak:60

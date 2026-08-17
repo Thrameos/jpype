@@ -17,7 +17,7 @@ SENTINEL := .build_history
 #       COVERAGE_FILTER=native/python/pyjp_array.cpp
 COVERAGE_FILTER := native/
 
-.PHONY: all clean compile test-java test-python jar coverage
+.PHONY: all clean compile test-java test-python jar coverage leak-sweep
 
 # Default target
 all: resolve $(SENTINEL)
@@ -103,6 +103,17 @@ coverage:
 	$(PYTHON) -m gcovr --root . --filter $(COVERAGE_FILTER) \
 		--gcov-executable $(GCOV) \
 		--object-directory build --print-summary -k
+
+# Curated, time-budgeted leak-detection sweep (see plan/LeakCheckHarness.md).
+# Opt-in and separate from the normal fast correctness run above -- each
+# target in leak_targets.txt gets its own fresh, isolated small-heap JVM and
+# runs for its own configured wall-clock budget, so this is meant for a
+# dedicated (multi-minute-to-multi-hour) run, not every `make test`. Per
+# CLAUDE.md, PYTHON must point at a disposable venv; this target does not
+# create one.
+leak-sweep:
+	@echo "Running curated leak-detection sweep..."
+	cd test/jpypetest && $(PYTHON) leaksweep.py
 
 clean:
 	@echo "Cleaning up build artifacts..."
