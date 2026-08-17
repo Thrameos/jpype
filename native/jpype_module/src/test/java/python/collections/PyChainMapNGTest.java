@@ -167,6 +167,41 @@ public class PyChainMapNGTest extends PyTestHarness
     cm.keySet().add(context.str("z"));
   }
 
+  @Test(expectedExceptions = UnsupportedOperationException.class)
+  public void testKeySetAddAllUnsupported()
+  {
+    PyDict first = dictOf("a", 1);
+    PyChainMap cm = PyCollections.using(context).chainMap(Arrays.asList(first));
+    cm.keySet().addAll(Arrays.asList(context.str("z")));
+  }
+
+  @Test
+  public void testKeySetRemoveAll()
+  {
+    PyDict first = dictOf("a", 1);
+    PyDict second = dictOf("b", 2);
+    PyChainMap cm = PyCollections.using(context).chainMap(Arrays.asList(first, second));
+
+    boolean changed = cm.keySet().removeAll(Arrays.asList(context.str("a")));
+
+    assertTrue(changed);
+    assertFalse(cm.containsKey(context.str("a")));
+  }
+
+  @Test
+  public void testKeySetRetainAll()
+  {
+    PyDict first = dictOf("a", 1);
+    first.put(context.str("b"), context.$int(2));
+    PyChainMap cm = PyCollections.using(context).chainMap(Arrays.asList(first));
+
+    boolean changed = cm.keySet().retainAll(Arrays.asList(context.str("a")));
+
+    assertTrue(changed);
+    assertTrue(cm.containsKey(context.str("a")));
+    assertFalse(cm.containsKey(context.str("b")));
+  }
+
   @Test
   public void testKeySetRemove()
   {
@@ -217,6 +252,53 @@ public class PyChainMapNGTest extends PyTestHarness
     PyDict first = dictOf("a", 1);
     PyChainMap cm = PyCollections.using(context).chainMap(Arrays.asList(first));
     cm.values().add(context.$int(9));
+  }
+
+  @Test(expectedExceptions = UnsupportedOperationException.class)
+  public void testValuesAddAllUnsupported()
+  {
+    PyDict first = dictOf("a", 1);
+    PyChainMap cm = PyCollections.using(context).chainMap(Arrays.asList(first));
+    cm.values().addAll(Arrays.asList(context.$int(9)));
+  }
+
+  @Test
+  public void testValuesRemove()
+  {
+    PyDict first = dictOf("a", 1);
+    PyChainMap cm = PyCollections.using(context).chainMap(Arrays.asList(first));
+
+    boolean changed = cm.values().remove(context.$int(1));
+
+    assertTrue(changed);
+    assertFalse(cm.containsKey(context.str("a")));
+  }
+
+  @Test
+  public void testValuesRemoveAll()
+  {
+    PyDict first = dictOf("a", 1);
+    PyDict second = dictOf("b", 2);
+    PyChainMap cm = PyCollections.using(context).chainMap(Arrays.asList(first, second));
+
+    boolean changed = cm.values().removeAll(Arrays.asList(context.$int(1)));
+
+    assertTrue(changed);
+    assertFalse(cm.containsKey(context.str("a")));
+  }
+
+  @Test
+  public void testValuesRetainAll()
+  {
+    PyDict first = dictOf("a", 1);
+    first.put(context.str("b"), context.$int(2));
+    PyChainMap cm = PyCollections.using(context).chainMap(Arrays.asList(first));
+
+    boolean changed = cm.values().retainAll(Arrays.asList(context.$int(1)));
+
+    assertTrue(changed);
+    assertTrue(cm.containsKey(context.str("a")));
+    assertFalse(cm.containsKey(context.str("b")));
   }
 
   @Test
@@ -299,6 +381,25 @@ public class PyChainMapNGTest extends PyTestHarness
 
     entries.clear();
     assertTrue(cm.isEmpty());
+  }
+
+  @Test
+  public void testEntrySetAddAll()
+  {
+    PyDict first = dictOf("a", 1);
+    PyChainMap cm = PyCollections.using(context).chainMap(Arrays.asList(first));
+    Set<Map.Entry<PyObject, PyObject>> entries = cm.entrySet();
+
+    java.util.List<Map.Entry<PyObject, PyObject>> toAdd = Arrays.asList(
+            new java.util.AbstractMap.SimpleEntry<>(context.str("y"), context.$int(8)),
+            new java.util.AbstractMap.SimpleEntry<>(context.str("z"), context.$int(9)));
+
+    boolean result = entries.addAll(toAdd);
+
+    assertTrue(result);
+    assertEquals(cm.get(context.str("y")).toString(), "8");
+    assertEquals(cm.get(context.str("z")).toString(), "9");
+    assertEquals(cm.size(), 3);
   }
 
   @Test

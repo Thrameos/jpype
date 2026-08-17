@@ -20,11 +20,15 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.testng.annotations.Test;
 import python.exceptions.PySystemExit;
 import python.lang.PyObject;
 import python.lang.PyTestHarness;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertSame;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 /**
@@ -128,5 +132,65 @@ public class MainInterpreterDispatchNGTest extends PyTestHarness
     {
     }
     assertEquals(context.eval("1+1").toString(), "2");
+  }
+
+  /**
+   * Exercises the actual {@code main(String[])} CLI entry point, not just
+   * {@code dispatch}. Safe to call here because {@code start()} is
+   * idempotent: {@code PyTestHarness.setUpClass} has already started the
+   * singleton interpreter, so {@code main}'s call to {@code start(args)}
+   * hits the {@code backend != null} early-return and only its
+   * {@code dispatch(args)} call actually does anything - equivalent to
+   * running {@code python -c ...} from the real CLI without spinning up a
+   * second interpreter or process.
+   */
+  @Test
+  public void testMainEntryPointDispatchesDashC()
+  {
+    MainInterpreter.main(new String[]
+    {
+      "-c", "_main_entry_result = 6 * 7"
+    });
+    // main() doesn't return the executed namespace (unlike
+    // Runner.runCommand), so just confirm the interpreter is still alive
+    // and usable afterward.
+    assertEquals(context.eval("1+1").toString(), "2");
+  }
+
+  @Test
+  public void testGetInstallerReturnsSpiInstallerAfterStart()
+  {
+    // PyTestHarness.setUpClass() has already started the real embedded
+    // interpreter for this suite, and the native bridge always calls
+    // MainInterpreter.setInstaller(...) (from _jbridge.py's initialize())
+    // as part of that startup - so by the time any @Test method runs, a
+    // real Installer must be registered.
+    MainInterpreter interpreter = MainInterpreter.getInstance();
+    Installer installer = interpreter.getInstaller();
+    assertNotNull(installer, "installer should be set once the interpreter has started");
+    // Repeated calls just return the same registered singleton.
+    assertSame(interpreter.getInstaller(), installer);
+  }
+
+  @Test
+  public void testGetModulePathsReturnsLiveList()
+  {
+    MainInterpreter interpreter = MainInterpreter.getInstance();
+    List<String> paths = interpreter.getModulePaths();
+    assertNotNull(paths);
+    // No defensive copy is made - callers observe (and can mutate) the
+    // interpreter's actual module-path list.
+    assertSame(interpreter.getModulePaths(), paths);
+
+    int before = paths.size();
+    paths.add("some/extra/module/path");
+    try
+    {
+      assertTrue(interpreter.getModulePaths().contains("some/extra/module/path"));
+      assertEquals(interpreter.getModulePaths().size(), before + 1);
+    } finally
+    {
+      paths.remove("some/extra/module/path");
+    }
   }
 }

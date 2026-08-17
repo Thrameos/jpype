@@ -43,6 +43,44 @@ public class PyAttributesNGTest extends PyTestHarness
   }
 
   @Test
+  public void testContainsKey()
+  {
+    PyObject obj = newObjectWithAttributes();
+    PyAttributes attrs = new PyAttributes(obj);
+
+    assertTrue(attrs.containsKey(context.str("name")));
+    assertFalse(attrs.containsKey(context.str("missing")));
+  }
+
+  // Note: containsValue's implementation (PyAttributes.java) calls
+  // `builtin.vars(this)` rather than `builtin.vars(obj)` - i.e. it looks up
+  // `vars()` of the PyAttributes wrapper itself, not the wrapped Python
+  // object. If that turns out to be a real bug rather than something the
+  // bridge quietly tolerates, this test is expected to be the one that
+  // surfaces it.
+  @Test
+  public void testContainsValue()
+  {
+    PyObject obj = newObjectWithAttributes();
+    PyAttributes attrs = new PyAttributes(obj);
+
+    assertTrue(attrs.containsValue(context.str("alice")));
+    assertFalse(attrs.containsValue(context.str("nobody")));
+  }
+
+  @Test
+  public void testSizeReflectsAttributeCount()
+  {
+    PyObject obj = newObjectWithAttributes();
+    PyAttributes attrs = new PyAttributes(obj);
+
+    assertEquals(attrs.size(), 2);
+
+    attrs.put(context.str("extra"), context.$int(1));
+    assertEquals(attrs.size(), 3);
+  }
+
+  @Test
   public void testDirContainsKnownAttributes()
   {
     PyObject obj = newObjectWithAttributes();

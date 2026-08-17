@@ -84,6 +84,18 @@ public class ProxyTypeBridgeNGTest extends PyTestHarness
     }, proxy), 424242L);
   }
 
+  @Test
+  public void testGetTypeReturnsTheOwningProxyType() throws Exception
+  {
+    NativeContext ctx = nativeContext();
+    ProxyType type = ctx.getProxyFactory().getProxyType(0L, new Class<?>[]
+    {
+      Runnable.class
+    });
+    ProxyInstance handler = new ProxyInstance(type, 555555L);
+    assertSame(handler.getType(), type);
+  }
+
   /** Marker interface unique to this test, so {@code getProxyType} always
    * takes the cache-miss path here regardless of what other tests in the
    * suite have already cached. */

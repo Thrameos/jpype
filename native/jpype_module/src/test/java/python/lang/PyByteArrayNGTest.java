@@ -86,6 +86,30 @@ public class PyByteArrayNGTest extends PyTestHarness
     instance.get(5);
   }
 
+  // Exercises the single-argument get(PySubscript) overload, which
+  // PyByteArray overrides from PySequence with a covariant PyInt return
+  // type. A plain PySlice would make Python's bytearray.__getitem__ return
+  // a length-N bytearray (not an int), so this uses a structural probe
+  // implementing __index__ - the actual kind of object that overload is
+  // meant for (anything usable as a single subscript position).
+  @Test
+  public void testGetBySubscriptIndex()
+  {
+    PyByteArray instance = context.bytearrayFromHex("414243");
+    context.exec(
+            "import _jpype, jpype\n"
+            + "class _PiBaIndex:\n"
+            + "    def __init__(self, i): self.i = i\n"
+            + "    def __index__(self): return self.i\n"
+            + "_pi_ba_index = _jpype.pyobject(jpype.JClass('python.lang.PyIndex'), _PiBaIndex(1))\n"
+    );
+    PySubscript index = (PySubscript) context.eval("_pi_ba_index");
+
+    PyInt value = instance.get(index);
+
+    assertEquals(value.toNumber().intValue(), 66);
+  }
+
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testGetWithTupleSubscriptRejected()
   {
@@ -157,5 +181,21 @@ public class PyByteArrayNGTest extends PyTestHarness
   {
     PyByteArray instance = context.bytearrayFromHex("41");
     instance.set(5, context.$int(1));
+  }
+
+  @Test
+  public void testSetBySubscriptSlice()
+  {
+    PyByteArray instance = context.bytearrayFromHex("414243");
+    PySlice slice = context.slice(1, 2);
+    PyByteArray replacement = context.bytearrayFromHex("5A5A");
+
+    instance.set(slice, replacement);
+
+    assertEquals(instance.size(), 4);
+    assertEquals(instance.get(0).toNumber().intValue(), 65);
+    assertEquals(instance.get(1).toNumber().intValue(), 90);
+    assertEquals(instance.get(2).toNumber().intValue(), 90);
+    assertEquals(instance.get(3).toNumber().intValue(), 67);
   }
 }

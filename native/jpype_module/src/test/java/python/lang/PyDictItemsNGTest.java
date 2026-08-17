@@ -105,6 +105,73 @@ public class PyDictItemsNGTest extends PyTestHarness
     assertEquals(dict.size(), 1);
   }
 
+  @Test
+  public void testAddAll()
+  {
+    PyDict dict = context.dict();
+    PyDictItems items = new PyDictItems(dict);
+
+    java.util.List<Map.Entry<PyObject, PyObject>> toAdd = java.util.Arrays.asList(
+            new AbstractMap.SimpleEntry<>(context.str("a"), context.$int(1)),
+            new AbstractMap.SimpleEntry<>(context.str("b"), context.$int(2)));
+
+    boolean changed = items.addAll(toAdd);
+
+    assertTrue(changed);
+    assertEquals(dict.size(), 2);
+    assertEquals(dict.get(context.str("a")).toString(), "1");
+    assertEquals(dict.get(context.str("b")).toString(), "2");
+  }
+
+  @Test
+  public void testAddAllReportsNoChangeWhenValuesIdentical()
+  {
+    // Re-add using the *same* PyObject value instance already in the dict,
+    // not just an equal-looking freshly-constructed one - PyObject.equals()
+    // isn't guaranteed to do cross-instance Python `__eq__` value comparison
+    // (no other test in this suite relies on that), so pinning down "no
+    // change" unambiguously requires the identical reference round-tripping
+    // back out of putAny().
+    PyObject one = context.$int(1);
+    PyDict dict = context.dict();
+    dict.putAny("a", one);
+    PyDictItems items = new PyDictItems(dict);
+
+    java.util.List<Map.Entry<PyObject, PyObject>> toAdd = java.util.Arrays.asList(
+            new AbstractMap.SimpleEntry<>(context.str("a"), one));
+
+    boolean changed = items.addAll(toAdd);
+
+    assertFalse(changed);
+    assertEquals(dict.size(), 1);
+  }
+
+  @Test
+  public void testContainsAllTrue()
+  {
+    PyDict dict = dictOf("a", 1, "b", 2);
+    PyDictItems items = new PyDictItems(dict);
+
+    java.util.List<Map.Entry<PyObject, PyObject>> toCheck = java.util.Arrays.asList(
+            new AbstractMap.SimpleEntry<>(context.str("a"), context.$int(1)),
+            new AbstractMap.SimpleEntry<>(context.str("b"), context.$int(2)));
+
+    assertTrue(items.containsAll(toCheck));
+  }
+
+  @Test
+  public void testContainsAllFalseWhenOneEntryMissing()
+  {
+    PyDict dict = dictOf("a", 1);
+    PyDictItems items = new PyDictItems(dict);
+
+    java.util.List<Map.Entry<PyObject, PyObject>> toCheck = java.util.Arrays.asList(
+            new AbstractMap.SimpleEntry<>(context.str("a"), context.$int(1)),
+            new AbstractMap.SimpleEntry<>(context.str("missing"), context.$int(99)));
+
+    assertFalse(items.containsAll(toCheck));
+  }
+
   @Test(expectedExceptions = UnsupportedOperationException.class)
   public void testRemoveUnsupported()
   {

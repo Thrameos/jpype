@@ -98,6 +98,15 @@ public class ProtocolInterfaceCoverageNGTest extends PyTestHarness
     );
     PyContainer<?> container = (PyContainer<?>) context.eval("_pi_container");
     assertNotNull(container);
+
+    // PyContainer.contains is the interface's own default method body.
+    // Every concrete class in this codebase that implements PyContainer
+    // (via PyCollection -> PyAbstractSet/PyMapping/PySequence) overrides
+    // contains() itself, so this structural probe - a plain object with
+    // only __contains__, cast to the bare PyContainer interface - is the
+    // only way to actually reach it.
+    assertTrue(container.contains(context.eval("1")));
+    assertFalse(container.contains(context.eval("99")));
   }
 
   // Regression test for the JVM crash documented in
