@@ -450,7 +450,17 @@ void JPContext::detachJVM()
 
 	m_JavaVM = nullptr;
 	m_Running = false;
-	_JavaVM = nullptr;
+	// _JavaVM is the single process-wide JVM pointer, shared by every
+	// attached/embedded JPContext (see attachJVM() above) -- it names the
+	// one real JVM, not this context's own attachment to it. An embedded
+	// context (e.g. a subinterpreter's context, attached via attachJVM())
+	// detaching must not clear it: the JVM itself is still alive and owned
+	// by whichever context actually started it. shutdownJVM() already
+	// encodes the same rule the other way (refuses to run at all when
+	// m_Embedded), so only a non-embedded context's detach may clear the
+	// process-wide pointer here.
+	if (!m_Embedded)
+		_JavaVM = nullptr;
 
 	JP_TRACE("Delete resources");
 	for (auto & m_Resource : m_Resources)

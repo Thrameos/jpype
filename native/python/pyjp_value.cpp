@@ -94,10 +94,6 @@ void PyJPValue_free(void* obj)
 	JP_PY_CATCH_NONE();
 }
 
-// Global controlled by context start/shutdown attach/detach
-#define USE_JNI_VERSION JNI_VERSION_1_4
-extern JavaVM* _JavaVM;
-
 void PyJPValue_finalize(void* obj)
 {
 	JP_PY_TRY("PyJPValue_finalize", obj);
@@ -108,10 +104,15 @@ void PyJPValue_finalize(void* obj)
 	if (offset == 0)
 		return;
 
-	// Safety net: if the JVM has completely detached or never started, bail early
-	if (_JavaVM == nullptr)
-		return;
-
+	// Note: deliberately no ambient "is the JVM up at all" bail here.
+	// _JavaVM is a single process-wide pointer, but detachJVM() clears it
+	// unconditionally on whichever JPContext detaches -- with more than one
+	// JPContext live (e.g. a subinterpreter attached to the same embedding
+	// JVM), closing the subinterpreter's context zeroes _JavaVM even though
+	// the main context is still running, silently skipping every subsequent
+	// finalize()'s global-ref release process-wide. The per-branch
+	// context->isRunning() checks below are the real, per-context-correct
+	// safety net and already cover "this object's own JVM is gone".
 	if (PyJPClass_Check(self))
 	{
 		// self is itself a _JClass type object -- still a full inline
