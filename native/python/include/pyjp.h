@@ -494,14 +494,35 @@ inline JPContext* PyJPObject_getContext(PyObject* self)
 	// treated a wrapper type's own metaclass (PyJPClass_Type) as if it
 	// were a struct PyJPClass instance, reading garbage past its real
 	// PyHeapTypeObject layout.
+	//
+	// m_State is set exactly once, at type-creation time, and no code
+	// path ever nulls it out afterward -- but CPython's interpreter
+	// shutdown does not guarantee a type outlives its instances'
+	// tp_finalize calls the way ordinary runtime GC does, so a still-
+	// pending instance's tp_finalize can run after its own type's C-level
+	// state has already been torn down as part of unwinding the owning
+	// module. Every caller of this function already tolerates a null
+	// JPContext* return (context == nullptr is the first thing checked);
+	// this null-checks m_State itself so that shutdown-time race doesn't
+	// crash before reaching those checks (see the "no ambient is-the-JVM-
+	// up-at-all bail here" comment in PyJPValue_finalize for the sibling
+	// per-context safety net this complements).
 	if (PyJPClass_Check(self))
-		return ((PyJPClass*) self)->m_State->context;
-	return ((PyJPClass*) Py_TYPE(self))->m_State->context;
+	{
+		auto* state = ((PyJPClass*) self)->m_State;
+		return state == nullptr ? nullptr : state->context;
+	}
+	auto* state = ((PyJPClass*) Py_TYPE(self))->m_State;
+	return state == nullptr ? nullptr : state->context;
 }
 
 static inline JPContext* PyJPType_getContext(PyTypeObject* type)
 {
-	return ((PyJPClass*) type)->m_State->context;
+	// See PyJPObject_getContext's comment: m_State can be null here during
+	// interpreter shutdown, when a type's own C-level state may already be
+	// torn down by the time some instance's cleanup path still runs.
+	auto* state = ((PyJPClass*) type)->m_State;
+	return state == nullptr ? nullptr : state->context;
 }
 
 // Build a boxed/primitive-wrapper int value directly: an ordinary PyLong

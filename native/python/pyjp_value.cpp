@@ -120,7 +120,14 @@ void PyJPValue_finalize(void* obj)
 		// migration (see PyJPValue_getJPClass). Context is captured off
 		// self directly (self IS the struct PyJPClass instance here), not
 		// via Py_TYPE(self) (the metaclass, which carries no m_State).
-		JPContext *context = ((PyJPClass*) self)->m_State->context;
+		//
+		// m_State itself can be null here: CPython's interpreter shutdown
+		// doesn't guarantee a type outlives its instances' tp_finalize the
+		// way ordinary runtime GC does, so this type's own C-level state
+		// can already be torn down by the time a still-pending finalize()
+		// runs (see PyJPObject_getContext's matching guard in pyjp.h).
+		auto* state = ((PyJPClass*) self)->m_State;
+		JPContext *context = state == nullptr ? nullptr : state->context;
 		if (context == nullptr || !context->isRunning())
 			return;
 		auto* value = (JPValue*) (((char*) self) + offset);
