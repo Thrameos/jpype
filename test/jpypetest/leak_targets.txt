@@ -91,3 +91,55 @@ GENERIC:test_conversionInt.py:ConversionIntTestCase.testIntFromInt:60
 
 # Numeric widening (Python int -> Java long).
 GENERIC:test_conversionLong.py:ConversionLongTestCase.testLongFromInt:60
+
+# Java-side lambda/Function invoked from Python -- reverse direction of
+# testProxyLeak (Python-implementing-a-Java-interface); this is
+# Java-owning-the-callable, no per-call dynamic class generation.
+GENERIC:test_lambdas.py:LambdasTestCase.testLambdasFunction:60
+
+# JNI thread attach/detach/reattach cycle, plus an auto-attach triggered by
+# a Java call after an explicit detach.
+GENERIC:test_thread.py:ThreadTestCase.testAttach:60
+
+# java.util.TreeMap iteration round-trip.
+GENERIC:test_map.py:JMapTestCase.testIter:60
+
+# java.util.ArrayList iteration round-trip (distinct from testListAdd above,
+# which only covers add(), not iteration).
+GENERIC:test_list.py:JListTestCase.testIter:60
+
+# Non-ASCII / surrogate-pair string round-trip -- the other string coverage
+# in this file (test_leak.py's testStringLeak) only uses plain ASCII.
+GENERIC:test_utf8.py:Utf8TestCase.test_string_upload_with_surrogates:60:100
+
+# numpy -> JArray(JByte) slice WRITE. The array entries above (testIterateArray,
+# testRectangularInt3D, testMultiDimJagged, testEachPrimitiveType) all cover
+# reads/pulls; this is the write/push direction. Requires numpy.
+GENERIC:test_array.py:ArrayTestCase.testSetFromNPByteArray:60:200
+
+# java.time.Instant comparison operators (Comparable round-trip).
+GENERIC:test_comparable.py:ComparableTestCase.testComparable:60
+
+# java.math.BigInteger hashing.
+GENERIC:test_comparable.py:ComparableTestCase.testComparableHash:60
+
+# Varargs overload resolution -- calls the same method at 1/2/3 args each
+# call, exercising three overload-resolution paths per iteration.
+GENERIC:test_varargs.py:VarArgsTestCase.testVarArgsMethod:60:200
+
+# Directly exercises org.jpype.ref.GlobalPool/NativeReference cleanup --
+# the machinery whose detachJVM()/_JavaVM accounting bug was the actual
+# root cause of the already-fixed testPassedObjectGetsCleanedUp leak (see
+# bugs/PassedObjectGetsCleanedUpFlake.md). High-value regression coverage
+# for that mechanism specifically. CAVEAT (same class as testProxyLeak
+# above): defines a fresh @JImplements class every call, so some growth
+# here may be expected per-call dynamic-class/metaspace cost rather than a
+# real leak. ALSO FLAKY, like testProxyLeak, confirmed by direct
+# contradiction across this entry's own verification: an isolated run
+# (budget 20s, size 100) showed steady, unclean ~13-14KB/call growth
+# every single batch for 25 straight batches -- looked like a strong
+# signal -- but the very next run, inside the full leak_targets.txt sweep
+# at the committed budget/size, PASSED cleanly in 5.6s (4 clean batches
+# immediately). Do not treat either a LEAK or a PASS here as conclusive
+# without re-running and reading this note first; not yet investigated.
+GENERIC:test_ref.py:ReferenceQueueTestCase.testRefs:60:100
