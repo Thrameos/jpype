@@ -216,15 +216,23 @@ GENERIC:test_hints.py:HintsTestCase.testCollection:60
 GENERIC:test_virtual.py:VirtualsTestCase.testCallBooleanImplements:60
 
 # Python-list -> Java-Iterable implicit-conversion customizer path.
-# FLAKY, found during this round's own sanity pass: one short (~8s budget)
-# run showed steady ~262-524 bytes/call RSS growth with no plateau across
-# 690+ batches (looked like a strong signal); the very next run of the same
-# entry, same config, PASSED cleanly in ~1.6s (4 clean batches immediately).
-# Not investigated -- this is a distinct caveat class from the
-# testProxyLeak/testRefs entries above (this target does not define a
-# per-call dynamic class; it exercises PyJBridge/customizer implicit
-# conversion of a Python list into a Java Iterable). Do not treat either a
-# LEAK or a PASS here as conclusive without re-running first.
+# Investigated: the original FLAKY sanity-pass result (one short run showing
+# steady ~262-524 bytes/call growth, followed immediately by a clean PASS at
+# the same config) did not reproduce across 7 further runs at varying
+# budget/size (a 30-batch/200-call run plus 6 shorter budget-based runs) --
+# all clean, zero RSS/JVM growth. Traced `PyIterable@obj`'s actual path
+# (JPConversionPython::convert() in jp_classhints.cpp): it builds a JPProxy
+# via the org.jpype ProxyFactory, which deduplicates/caches the *dynamic
+# Java proxy Type* by interface set (so this is NOT the same
+# per-call-fresh-class mechanism as testProxyLeak above -- confirmed, not
+# assumed); only a Java proxy *instance* is created fresh per call, and its
+# lifetime is tied to the Python-side PyJPProxy object via
+# JPProxy::getProxy()'s Py_INCREF + the JPProxy::releaseProxyPython cleanup
+# callback, released through the same NativeReferenceQueue/phantom-ref async
+# cleanup machinery already verified leak-free elsewhere in this file (see
+# testPassedObjectGetsCleanedUp above). No accounting gap found. Conclusion:
+# most likely GC-timing/measurement noise from a single short run, not a
+# real leak -- downgrading this from an open flaky finding.
 GENERIC:test_bridge.py:JBridgeTestCase.testIterable:60
 
 # JInterface meta-class identity/subclass check.
