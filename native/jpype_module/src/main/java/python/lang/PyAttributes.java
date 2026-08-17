@@ -155,7 +155,7 @@ public class PyAttributes implements Map<PyObject, PyObject>
   @Override
   public boolean containsValue(Object value)
   {
-    return builtin.vars(this).containsValue(value);
+    return asDict().containsValue(value);
   }
 
   /**
