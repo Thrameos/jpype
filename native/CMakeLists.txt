@@ -74,15 +74,30 @@ set(JPYPE_NATIVE_SRC
 Python3_add_library(_jpype MODULE ${JPYPE_NATIVE_SRC})
 target_link_libraries(_jpype PRIVATE Python3::Module)
 # Set target properties for scikit-build export.
-# LIBRARY_OUTPUT_DIRECTORY is deliberately left at its CMake default (the
-# build tree), not DEST_EXTENSION: a non-editable wheel build re-stages the
-# wheel platlib directory between the build and install sub-phases, so
-# linking straight into DEST_EXTENSION gets wiped before the install(TARGETS)
-# rule below runs. install() is the only step that should populate the
-# wheel/editable-redirect destination.
+#
+# LIBRARY_OUTPUT_DIRECTORY is pinned to CMAKE_BINARY_DIR (the top-level
+# per-Python-version build dir, e.g. build/cp312-cp312-linux_x86_64/) --
+# deliberately NOT DEST_EXTENSION (a real, non-editable SKBUILD wheel
+# build re-stages that directory between the build and install
+# sub-phases, so linking straight into it gets wiped before the
+# install(TARGETS) rule below runs), and NOT this subdirectory's own
+# default binary dir either (CMAKE_CURRENT_BINARY_DIR, which for a
+# target defined via add_subdirectory(native) is one level deeper, under
+# native/).
+#
+# The second part matters just as much as the first: `_jpyne` (defined
+# directly in the top-level CMakeLists.txt, never overridden) always
+# builds straight to CMAKE_BINARY_DIR. project/dev.mk's ABI-tagged-copy
+# step and org.jpype.Launcher's native/reverse-embedding dev-tree
+# detection both locate `_jpyne` by assuming it sits right next to
+# `_jpype` in the raw build tree -- independent of wherever install()
+# or an editable-mode redirect later copies things to. Pointing here at
+# anything other than CMAKE_BINARY_DIR silently breaks both. See
+# plan/NativeDevTreeLayout.md for how this was found.
 set_target_properties(_jpype PROPERTIES
         PREFIX ""  # remove 'lib' prefix
         OUTPUT_NAME "_jpype"
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 
 if(ENABLE_TRACING)
