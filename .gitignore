@@ -102,6 +102,7 @@ org.jpype.jar
 .build_history
 CLAUDE.md
 plan/
+bugs/
 project/issues
 project/pr
 project/codescan

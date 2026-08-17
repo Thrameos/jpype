@@ -27,7 +27,8 @@ resources set up, exercised below via the java.io.InputStream/
 OutputStream JConversion (jpype/protocol.py), which is built on top of
 PyBufferedIOBase.asInputStream()/asOutputStream().
 
-See plan/SPI.md and plan/IO.md.
+Not collected by pytest (deliberately outside the test_*.py naming
+pattern) -- run directly, e.g. `python launched_script_io.py`.
 """
 import io
 
