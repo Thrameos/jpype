@@ -237,3 +237,112 @@ GENERIC:test_bridge.py:JBridgeTestCase.testIterable:60
 
 # JInterface meta-class identity/subclass check.
 GENERIC:test_inherit.py:InheritTestCase.testInterface:60
+
+# --- Fourth curation round: remaining 51 previously-unreviewed test files ---
+# --- (annotations, buffers/arrays, boxing, reflection, sql/serial, etc.) ---
+
+# Annotation lookup + virtual-JNI method call on the annotation instance
+# (issue #880 regression coverage -- CallNonvirtual vs CallVirtual).
+GENERIC:test_annotation.py:AnnotationTestCase.testAnnotationMethodCall:60
+
+# numpy string-array -> Java String[] conversion (JArray.of with dtype).
+GENERIC:test_arrayFromBuffer.py:ArrayFromBufferTestCase.testStringArray1D:60
+
+# Multi-dimensional (2D) numpy buffer push into a Java array.
+GENERIC:test_arrayMultiDimBuffer.py:ArrayMultiDimBufferTestCase.testPush2D:60
+
+# Java array -> Python buffer pull, contiguous fast path.
+GENERIC:test_arrayPullPush.py:ArrayPullToTestCase.testContiguousFastPath:60
+
+# Boxed java.lang.Integer construction/round-trip.
+GENERIC:test_boxed.py:BoxedTestCase.testInteger:60
+
+# Boolean boxing round-trip.
+GENERIC:test_boxing_comprehensive.py:BoxingComprehensiveTestCase.testBooleanBoxing:60
+
+# DirectByteBuffer -> Python memoryview (distinct call shape from
+# testConvertToDirectBuffer above -- no exception round-trip in this one).
+GENERIC:test_buffer.py:BufferTestCase.testToMemoryview:60
+
+# Caller-sensitive static method dispatch (stack-walking to find caller's
+# class each call).
+GENERIC:test_caller_sensitive.py:JCallerSensitiveCase.testCallStatic:60
+
+# CharSequence implicit-conversion customizer path.
+GENERIC:test_charSequence.py:ConversionCharSequenceTestCase.testAutoConvert:60
+
+# AutoCloseable context-manager protocol (open/close cycle).
+GENERIC:test_closeable.py:CloseableTestCase.testCloseable:60
+
+# Access to a Java object/array/static member after the owning JPype
+# wrapper considers it "closed" -- exercises the closed-state check path.
+GENERIC:test_closed.py:ClosedTestCase.testObjects:60
+
+# JPype's exact-match implicit-conversion path (canConvertToJava/EXACT).
+GENERIC:test_conversion.py:ConversionTestCase.testConvertExact:60
+
+# Java int[] iteration via __iter__.
+GENERIC:test_coverage.py:CoverageCase.testJArrayIter:60
+
+# DirectByteBuffer allocation + byte-granularity memoryview view.
+GENERIC:test_directbuffer.py:JBufferTestCase.testMemoryViewByte:60
+
+# Instance/static java.lang.Object field get/set round-trip (distinct
+# primitive-type coverage from testGetNonStatic above).
+GENERIC:test_fields.py:FieldsTestCase.testObject:60
+
+# JInt/JBoolean wrapper round-trip under the gc-free-leaves (non-tracked)
+# object path.
+GENERIC:test_gcfree_leaves.py:GcFreeLeavesTestCase.testRoundTrip:60
+
+# AttributeError path for a non-static field accessed on the class itself.
+GENERIC:test_jclass.py:JClassTestCase.testGetAttrField:60
+
+# JInt construction-failure path (TypeError on non-convertible objects) --
+# exception-heavy per-call shape, contrast the happy-path conversion entries.
+GENERIC:test_jint.py:JIntTestCase.testFromObject:60
+
+# String.substring() instance method call.
+GENERIC:test_jmethod.py:JMethodTestCase.testMethodCall:60
+
+# AttributeError path for a non-static field accessed on the class itself
+# (test_jobject.py's own JClassTestCase -- distinct fixture/module from the
+# test_jclass.py entry above despite the same class name).
+GENERIC:test_jobject.py:JClassTestCase.testGetAttrField:60
+
+# JPackage attribute resolution to a JClass.
+GENERIC:test_jpackage.py:JPackageTestCase.testCreate:60
+
+# Reflected java.lang.reflect.Method.toPython() dispatch cache.
+GENERIC:test_jreflect.py:JReflectMethodTestCase.testInstanceMethodTakesInstanceFirst:60
+
+# JString construction from str and from bytes.
+GENERIC:test_jstring.py:JStringTestCase.testConversion:60
+
+# Explicit Tracer-based leak check (testArrayCall/testBufferCall) --
+# already self-checking via Tracer.leaked(), but not previously wired into
+# the curated sweep for time-budgeted (rather than fixed-100-iteration)
+# sensitivity. Array-of-int + object-arg callObject() round-trip.
+GENERIC:test_leak2.py:Leak2TestCase.testArrayCall:60:50
+
+# Same Tracer-based check, DirectByteBuffer + object-arg callObject()
+# round-trip.
+GENERIC:test_leak2.py:Leak2TestCase.testBufferCall:60:50
+
+# Low-level _jpype._getClass() lookup (below the JClass()/JPackage() layer).
+GENERIC:test_module.py:ModuleTestCase.testGetClass:60
+
+# _JMonitor construction-failure path on a non-monitorable (String) object.
+GENERIC:test_module2.py:ModuleTestCase2.testMonitorOnString:60
+
+# JObject() wrapping of an existing Java object instance.
+GENERIC:test_objectwrapper.py:ObjectWrapperTestCase.testWrapJavaObject:60
+
+# java.lang.reflect.Method.invoke() on a public method (raw reflection
+# path, distinct from JPype's own method-dispatch machinery).
+GENERIC:test_reflect.py:ReflectCase.testCallPublicMethod:60
+
+# java.io.ObjectOutputStream serialization of a Java object -- real file
+# I/O per call (writes self.tempname); smaller batch size to keep the
+# per-batch wall-clock cost reasonable.
+GENERIC:test_serial.py:SerializationTestCase.testSerialize:60:100
