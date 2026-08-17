@@ -49,6 +49,13 @@ class JPJavaFrame
 	JPContext* m_Context;
 	bool m_Popped;
 	bool m_Outer;
+	// True only for a fast()-constructed frame: m_Popped is permanently
+	// true for these from birth (fast() never pushes a real frame to pop),
+	// which is their normal, valid resting state for their entire
+	// lifetime -- not a "this frame was already used up" signal the way
+	// m_Popped==true means for every other constructor. check()'s
+	// JP_FRAME_CHECK() needs to tell the two apart; see its use below.
+	bool m_Fast;
 
 private:
 	JPJavaFrame(JNIEnv* env, JPContext* ctx, int size, bool outer);
@@ -121,6 +128,32 @@ public:
 	}
 
 	JPJavaFrame(const JPJavaFrame& frame);
+
+	/** Transfer ownership of an already-pushed frame without pushing a
+	 * second one.
+	 *
+	 * Required because the copy constructor above pushes a brand new real
+	 * JNI local frame rather than sharing the source's -- correct for an
+	 * explicit, intentional copy, but C++14 (this project's standard, see
+	 * CMAKE_CXX_STANDARD) only makes copy elision for a function's
+	 * by-value return *encouraged*, not mandatory the way C++17 does. A
+	 * `JPJavaFrame frame = JPJavaFrame::outer(ctx);`-style call whose
+	 * compiler/optimization level doesn't elide the temporary falls back
+	 * to constructing `frame` from that temporary -- via this move
+	 * constructor if one exists, otherwise silently via the copy
+	 * constructor instead, pushing an extra, unaccounted-for real JNI
+	 * frame every such call makes. That extra frame was invisible before
+	 * the JPJavaFrame destructor fix that made ~JPJavaFrame() always pop
+	 * an unpopped frame regardless of m_Outer -- the accidental frame
+	 * used to just leak instead of ever being popped. Once real leaks
+	 * started being caught, unoptimized (-O0) builds started reliably
+	 * hitting "local reference outside of frame" instead, because the
+	 * extra copy-constructed frame's own destructor now pops a real JNI
+	 * frame layer code elsewhere doesn't know exists, invalidating local
+	 * refs created in what calling code assumes is still the same,
+	 * still-open frame.
+	 */
+	JPJavaFrame(JPJavaFrame&& frame) noexcept;
 
 	/** Exit the local scope and clean up all java
 	 * objects.

@@ -25,12 +25,22 @@
 
 #if defined(JP_TRACING_ENABLE) || defined(JP_INSTRUMENTATION)
 
-static void jpype_frame_check(int popped)
+static void jpype_frame_check(int popped, int fast)
 {
-	if (popped)
+	// A fast() frame's m_Popped is permanently true from construction (it
+	// never pushes a real frame to pop) -- that's its normal, valid
+	// resting state for its whole lifetime, not a "used after being
+	// popped/kept" violation the way m_Popped==true means for every other
+	// constructor. See JPJavaFrame::m_Fast's declaration for the full
+	// rationale; skip the check entirely for these. fast() frames still
+	// carry their own documented contract (no jobject-returning JNI call
+	// unless the caller separately, explicitly manages that ref's
+	// lifetime, e.g. via JPLocalRef) -- that contract isn't something
+	// this generic check can verify, by design.
+	if (popped && !fast)
 		JP_RAISE(PyExc_SystemError, "Local reference outside of frame");
 }
-#define JP_FRAME_CHECK() jpype_frame_check(m_Popped)
+#define JP_FRAME_CHECK() jpype_frame_check(m_Popped, m_Fast)
 #else
 #define JP_FRAME_CHECK() if (false) while (false)
 #endif
@@ -55,7 +65,7 @@ static void jpype_assert_has_frame(const char* where)
 #endif
 
 JPJavaFrame::JPJavaFrame(JNIEnv* p_env, JPContext* context, int size, bool outer)
-: m_Env(p_env), m_Context(context), m_Popped(false), m_Outer(outer)
+: m_Env(p_env), m_Context(context), m_Popped(false), m_Outer(outer), m_Fast(false)
 {
 	if (p_env == nullptr)
 	{
@@ -78,7 +88,7 @@ JPJavaFrame::JPJavaFrame(JNIEnv* p_env, JPContext* context, int size, bool outer
 }
 
 JPJavaFrame::JPJavaFrame(JNIEnv* p_env, JPContext* ctx)
-: m_Env(p_env), m_Context(ctx), m_Popped(true), m_Outer(false)
+: m_Env(p_env), m_Context(ctx), m_Popped(true), m_Outer(false), m_Fast(true)
 {
 	// fast(): deliberately does not push a local frame and does not touch
 	// g_frameDepth -- it borrows whatever real frame already exists. Using
@@ -96,7 +106,7 @@ JPJavaFrame::JPJavaFrame(JNIEnv* p_env, JPContext* ctx)
 }
 
 JPJavaFrame::JPJavaFrame(const JPJavaFrame& frame)
-: m_Env(frame.m_Env), m_Context(frame.getContext()), m_Popped(false), m_Outer(false)
+: m_Env(frame.m_Env), m_Context(frame.getContext()), m_Popped(false), m_Outer(false), m_Fast(false)
 {
 	// Create a memory management frame to live in
 	m_Env->PushLocalFrame(LOCAL_FRAME_DEFAULT);
@@ -106,10 +116,30 @@ JPJavaFrame::JPJavaFrame(const JPJavaFrame& frame)
 	JP_TRACE_JAVA("JavaFrame (copy)", (jobject) - 1);
 }
 
+JPJavaFrame::JPJavaFrame(JPJavaFrame&& frame) noexcept
+: m_Env(frame.m_Env), m_Context(frame.m_Context), m_Popped(frame.m_Popped), m_Outer(frame.m_Outer), m_Fast(frame.m_Fast)
+{
+	// Transfer ownership of whatever frame.m_Popped/m_Outer already
+	// describe (a real pushed-and-not-yet-popped frame, an already-kept
+	// one, or a fast() frame that never pushed at all) without pushing a
+	// new one. Mark the source as already popped so its own destructor
+	// becomes a no-op instead of double-popping the frame this object now
+	// owns.
+	frame.m_Popped = true;
+	JP_TRACE_JAVA("JavaFrame (move)", (jobject) - 1);
+}
+
 jobject JPJavaFrame::keep(jobject obj)
 {
 	if (m_Outer)
 		JP_RAISE(PyExc_SystemError, "Keep on outer frame");
+	// Always checked, not just under JP_TRACING_ENABLE/JP_INSTRUMENTATION
+	// like JP_FRAME_CHECK() below: a fast() frame owns no pushed frame to
+	// pop, so PopLocalFrame() here would erroneously pop whatever real
+	// frame is merely ambient on this thread -- a real crash risk in any
+	// build, not just a debug-only invariant.
+	if (m_Fast)
+		JP_RAISE(PyExc_SystemError, "Keep on fast frame");
 	JP_FRAME_CHECK();
 	m_Popped = true;
 #ifdef JP_ASSERT_FAST_FRAMES
