@@ -4,27 +4,37 @@
 # logic ad hoc from plan/*.md notes (those are transient, gitignored, and
 # not guaranteed current). See CLAUDE.md.
 #
-# Combines coverage from TWO separate test suites that exercise opposite
-# directions of the bridge and are NOT run by the same JVM:
-#   1. test/jpypetest (pytest, Python calling into Java) -- always run.
-#   2. native/jpype_module's Maven/TestNG suite (Java hosting Python,
-#      "reverse embedding", 938 tests as of 2026-08-17) -- attempted;
-#      failure here is reported but not fatal to this script, since it's
-#      a separate/newer harness than suite 1 and shouldn't block getting
-#      suite 1's numbers. If it fails, don't add `-DforkCount=0` or other
-#      single-test-class isolation flags to debug it in place -- that
-#      changes the suite's execution model (runs the embedded-Python
-#      bootstrap inside the already-running Maven JVM instead of a clean
-#      fork) and produces misleading crashes unrelated to the real
-#      suite (see plan/archive/ReverseEmbeddingBootstrapSegfault.md).
-#
-# The two suites' JaCoCo output can't be `jacoco:merge`'d directly: ant
-# (suite 1's org.jpype.jar) and Maven (suite 2's target/classes) don't
-# produce CRC-identical classfiles for the same source, so JaCoCo can't
-# correlate one suite's exec data against the other's classes. Instead
-# plan/tools/merge_jacoco_reports.py merges at the method level (a method
-# counts as covered if EITHER suite covered it) -- see that script's
-# docstring for the full rationale.
+# Combines coverage from THREE languages/toolchains:
+#   1. Python (jpype/) -- coverage.py, via the pytest suite below.
+#   2. Java (native/jpype_module/src/main/java) -- JaCoCo, from TWO
+#      separate test suites that exercise opposite directions of the
+#      bridge and are NOT run by the same JVM:
+#        a. test/jpypetest (pytest, Python calling into Java) -- always run.
+#        b. native/jpype_module's Maven/TestNG suite (Java hosting Python,
+#           "reverse embedding", 938 tests as of 2026-08-17) -- attempted;
+#           failure here is reported but not fatal to this script, since
+#           it's a separate/newer harness than (a) and shouldn't block
+#           getting its numbers. If it fails, don't add `-DforkCount=0` or
+#           other single-test-class isolation flags to debug it in place
+#           -- that changes the suite's execution model (runs the
+#           embedded-Python bootstrap inside the already-running Maven JVM
+#           instead of a clean fork) and produces misleading crashes
+#           unrelated to the real suite (see
+#           plan/archive/ReverseEmbeddingBootstrapSegfault.md).
+#      The two suites' JaCoCo output can't be `jacoco:merge`'d directly:
+#      ant (suite a's org.jpype.jar) and Maven (suite b's target/classes)
+#      don't produce CRC-identical classfiles for the same source, so
+#      JaCoCo can't correlate one suite's exec data against the other's
+#      classes. Instead plan/tools/merge_jacoco_reports.py merges at the
+#      method level (a method counts as covered if EITHER suite covered
+#      it) -- see that script's docstring for the full rationale.
+#   3. C++ (native/common/, native/python/ -- the _jpype.so/_jpyne.so
+#      source) -- gcov/gcovr, instrumented via CMake's ENABLE_COVERAGE
+#      option. Both test suites above run against the SAME instrumented
+#      build (the Maven suite runs against ABI-tagged copies of the exact
+#      .so files the pytest suite's venv install also uses), so their
+#      .gcda counters accumulate together automatically -- no merge step
+#      needed here, unlike the Java side.
 #
 # Usage: ./coverage.sh [venv_dir]
 #   venv_dir defaults to /tmp/jpype-coverage-venv (disposable, per
@@ -51,11 +61,16 @@ echo "=== 0. Clean stale build outputs ==="
 # ever re-invoking ant, even after `native/build` itself is removed.
 rm -rf native/build native/jpype_module/target build org.jpype.jar
 
-echo "=== 1. Disposable venv + editable build ($VENV) ==="
+echo "=== 1. Disposable venv + editable build ($VENV), with C++ gcov instrumentation ==="
 python3.12 -m venv "$VENV"
 "$VENV/bin/pip" install --upgrade pip -q
-"$VENV/bin/pip" install -q scikit-build-core pybind11 pytest pytest-randomly pytest-cov numpy build
-"$VENV/bin/pip" install --no-build-isolation -e . --config-settings=cmake.define.BUILD_TEST_HARNESS=ON
+"$VENV/bin/pip" install -q scikit-build-core pybind11 pytest pytest-randomly pytest-cov numpy build gcovr
+"$VENV/bin/pip" install --no-build-isolation -e . \
+  --config-settings=cmake.define.BUILD_TEST_HARNESS=ON \
+  --config-settings=cmake.define.ENABLE_COVERAGE=ON
+
+PYTAG=$("$VENV/bin/python" -c "import sys; print('cp%d%d' % sys.version_info[:2])")
+CPP_BUILD_DIR="$(echo "$REPO_ROOT"/build/$PYTAG-*)"
 
 echo "=== 2. pytest suite (Python -> Java), with --jacoco ==="
 mkdir -p build/coverage
@@ -82,9 +97,8 @@ MAVEN_OK=0
   # and findable from a plain `import _jpype` (see
   # plan/archive/NativeDevTreeLayout.md for how this was found).
   EXT_SUFFIX=$("$VENV/bin/python" -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
-  PYTAG=$("$VENV/bin/python" -c "import sys; print('cp%d%d' % sys.version_info[:2])")
-  cp "$REPO_ROOT"/build/$PYTAG-*/_jpype.so "$REPO_ROOT/_jpype$EXT_SUFFIX"
-  cp "$REPO_ROOT"/build/$PYTAG-*/_jpyne.so "$REPO_ROOT/_jpyne$EXT_SUFFIX"
+  cp "$CPP_BUILD_DIR/_jpype.so" "$REPO_ROOT/_jpype$EXT_SUFFIX"
+  cp "$CPP_BUILD_DIR/_jpyne.so" "$REPO_ROOT/_jpyne$EXT_SUFFIX"
   PYTHONPATH="$REPO_ROOT" mvn -o test -Djpype.nocache=true
 ) && MAVEN_OK=1 || echo "    Maven suite failed. Skipping its coverage -- see output above."
 
@@ -103,9 +117,22 @@ else
   echo "    Script, SubInterpreter*, Runner, Launcher -- see native/jpype_module/src/test/java)."
 fi
 
+echo "=== 6. C++ coverage (native/common/, native/python/) ==="
+# .gcda counters from BOTH suites above have already accumulated against
+# this same instrumented build by this point (see the header comment) --
+# nothing suite-specific to run here, just report.
+mkdir -p build/coverage/cpp
+"$VENV/bin/gcovr" -r . --object-directory "$CPP_BUILD_DIR" \
+  --filter 'native/common/' --filter 'native/python/' \
+  --html-details -o build/coverage/cpp/jpype.html \
+  --xml build/coverage/coverage_cpp.xml \
+  --print-summary \
+  --exclude-unreachable-branches --exclude-throw-branches
+
 echo "=== Done ==="
 echo "Python coverage:      build/coverage/coverage_py.xml"
 echo "Java coverage (pytest-only): build/coverage/coverage_java_pytest.xml / build/coverage/java_pytest/"
 if [ "$MAVEN_OK" = "1" ]; then
   echo "Java coverage (merged, both suites): build/coverage/coverage_java_merged.tsv"
 fi
+echo "C++ coverage:          build/coverage/coverage_cpp.xml / build/coverage/cpp/jpype.html"
