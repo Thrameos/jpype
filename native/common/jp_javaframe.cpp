@@ -124,8 +124,17 @@ jobject JPJavaFrame::keep(jobject obj)
 
 JPJavaFrame::~JPJavaFrame()
 {
-	// Check if we have already closed the frame.
-	if (!m_Popped && m_Outer)
+	// Pop whenever a real frame was pushed and hasn't been popped yet
+	// (via keep()) -- m_Outer only gates keep()'s misuse check below, it
+	// is not a "was a frame pushed" flag. external()/the copy constructor
+	// both unconditionally push in their ctor with m_Outer=false; gating
+	// this on m_Outer as well left every non-keep()'d return path from an
+	// external()-constructed frame (e.g. any early return in a
+	// Java-calls-into-native entry point that never reaches its own
+	// keep() call, and the NativeReferenceQueue async cleanup callback in
+	// jp_reference_queue.cpp, which never calls keep() at all) leaking
+	// one JNI local-frame handle block per call.
+	if (!m_Popped)
 	{
 		JP_TRACE_JAVA("~JavaFrame", (jobject) - 2);
 		m_Env->PopLocalFrame(nullptr);
