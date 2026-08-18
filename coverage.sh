@@ -98,14 +98,23 @@ echo "=== 4. Maven/TestNG suite (Java -> Python, reverse embedding) ==="
 MAVEN_OK=0
 (
   cd native/jpype_module
-  # ABI-tagged copies at repo root, same convention project/dev.mk uses --
-  # org.jpype.Launcher's dev-tree detection needs _jpype/_jpyne co-located
-  # and findable from a plain `import _jpype` (see
-  # plan/archive/NativeDevTreeLayout.md for how this was found).
-  EXT_SUFFIX=$("$VENV/bin/python" -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
-  cp "$CPP_BUILD_DIR/_jpype.so" "$REPO_ROOT/_jpype$EXT_SUFFIX"
-  cp "$CPP_BUILD_DIR/_jpyne.so" "$REPO_ROOT/_jpyne$EXT_SUFFIX"
-  PYTHONPATH="$REPO_ROOT" mvn -o test -Djpype.nocache=true
+  # Do NOT stage ABI-tagged _jpype/_jpyne copies at the repo root here (an
+  # earlier version of this script did, matching project/dev.mk's dev-tree
+  # convention). This build uses scikit-build-core's editable.mode=redirect
+  # (see pyproject.toml), which already makes the venv's installed
+  # _jpype/_jpyne/jpype properly importable -- a second copy staged ahead of
+  # it on PYTHONPATH shadows the exact file org.jpype.Launcher's
+  # System.load() already dlopen'd from site-packages, so the embedded
+  # interpreter's own `import _jpype` loads a SECOND, independent copy of
+  # the same native code instead of reusing it. That breaks the
+  # per-interpreter metaclass identity check in PyJPClass_isWrapperMeta
+  # (tp_dealloc compared against a PyJPClass_dealloc resolved from whichever
+  # copy happens to be running), surfacing as a 100%-reproducible
+  # `SystemError: Missing Java slot on `_jpype._JClass`` crash on the very
+  # first class construction of every run. See
+  # plan/MissingJavaSlotBootstrapBug.md for the full trace (dladdr-verified:
+  # the two addresses resolve to two different .so files on disk).
+  mvn -o test -Djpype.nocache=true
 ) && MAVEN_OK=1 || echo "    Maven suite failed. Skipping its coverage -- see output above."
 
 if [ "$MAVEN_OK" = "1" ]; then

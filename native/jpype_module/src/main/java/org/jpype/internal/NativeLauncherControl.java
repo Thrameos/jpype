@@ -28,7 +28,8 @@ public class NativeLauncherControl
   public native static NativeContext startMain(String[] modulePaths, String[] args,
           String name, String home, String executable,
           boolean isolated, boolean fault_handler, boolean quiet, boolean verbose,
-          boolean site_import, boolean user_site, boolean write_bytecode, Object interpreter);
+          boolean site_import, boolean user_site, boolean write_bytecode, Object interpreter,
+          String expectedJpypeLibrary);
 
   public native static void interactive(long context);
 

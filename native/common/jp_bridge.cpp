@@ -11,8 +11,10 @@
 #include "jp_gc.h"
 #include <list>
 #include <iostream>
+#include <sstream>
 #include <cwchar>
 #include <cstdlib>
+#include <climits>
 
 #ifdef __cplusplus
 extern "C" {
@@ -139,7 +141,34 @@ static bool assignWideString(
 	return true;
 }
 
-JPContext* launch(JNIEnv* env, jobject interpreter)
+// Resolves both paths to a canonical, symlink-free absolute form before
+// comparing, so a bind mount, a relative path, or a symlinked venv doesn't
+// produce a false-positive mismatch. Falls back to a literal compare if
+// either path can't be resolved (e.g. doesn't exist) -- that's still a
+// meaningful signal (they clearly aren't "the same file" if one can't even
+// be stat'd), not a reason to skip the check.
+static bool sameFile(const char* a, const char* b)
+{
+#ifdef WIN32
+	char ra[MAX_PATH];
+	char rb[MAX_PATH];
+	char* pa = _fullpath(ra, a, MAX_PATH);
+	char* pb = _fullpath(rb, b, MAX_PATH);
+	if (pa == nullptr || pb == nullptr)
+		return std::string(a) == std::string(b);
+	return _stricmp(pa, pb) == 0;
+#else
+	char ra[PATH_MAX];
+	char rb[PATH_MAX];
+	char* pa = realpath(a, ra);
+	char* pb = realpath(b, rb);
+	if (pa == nullptr || pb == nullptr)
+		return std::string(a) == std::string(b);
+	return std::string(pa) == std::string(pb);
+#endif
+}
+
+JPContext* launch(JNIEnv* env, jobject interpreter, const char* expectedJpypeLib)
 {
 	JPContext* context;
 
@@ -162,6 +191,39 @@ JPContext* launch(JNIEnv* env, jobject interpreter)
 		fflush(stdout);
 		fail(env, "jpype module not found");
 		return nullptr;
+	}
+
+	// Consistency guard: Java's installNatives() already dlopen'd a
+	// specific _jpype.so via System.load() -- the exact file the detective
+	// probe resolved (expectedJpypeLib, passed down from
+	// Launcher.getJpypeLibrary()). If Python's own `import _jpype` just
+	// above landed on a *different* file (e.g. a stray dev-tree copy
+	// shadowing the real install on PYTHONPATH/sys.path), this process now
+	// has two independently-loaded copies of the same native code, and
+	// every pointer-identity check in the C++ layer (starting with
+	// PyJPClass_isWrapperMeta's tp_dealloc comparison) silently breaks --
+	// surfacing many frames later as a baffling "Missing Java slot" crash
+	// on the very first class constructed, with no hint of the real cause.
+	// Catch it here instead, immediately and by name. See
+	// plan/MissingJavaSlotBootstrapBug.md for the incident this guards
+	// against.
+	if (expectedJpypeLib != nullptr)
+	{
+		JPPyObject fileAttr = JPPyObject::accept(PyObject_GetAttrString(jpypep.get(), "__file__"));
+		const char* actualPath = fileAttr.isValid() ? PyUnicode_AsUTF8(fileAttr.get()) : nullptr;
+		if (actualPath != nullptr && !sameFile(actualPath, expectedJpypeLib))
+		{
+			std::stringstream ss;
+			ss << "_jpype loaded from two different files in the same process: "
+				<< "Java's System.load() loaded '" << expectedJpypeLib << "', but "
+				<< "Python's own `import _jpype` resolved to '" << actualPath << "'. "
+				<< "This leaves two independent copies of the native module loaded "
+				<< "at once and corrupts interpreter state. This almost always means "
+				<< "a stray _jpype.so/_jpyne.so is shadowing the real install on "
+				<< "PYTHONPATH/sys.path -- remove it.";
+			fail(env, ss.str().c_str());
+			return nullptr;
+		}
 	}
 
 	// The interpreter specific context will contain our fresh JPContext
@@ -209,7 +271,8 @@ JNIEXPORT jobject JNICALL Java_org_jpype_internal_NativeLauncherControl_startMai
 (JNIEnv *env, jclass cls, jobjectArray modulePath, jobjectArray args,
 	jstring name, jstring home, jstring executable,
 	jboolean isolated, jboolean faulthandler, jboolean quiet, jboolean verbose,
-	jboolean site_import, jboolean user_site, jboolean bytecode, jobject interpreter)
+	jboolean site_import, jboolean user_site, jboolean bytecode, jobject interpreter,
+	jstring expectedJpypeLibrary)
 {
 	PyStatus status;
 	PyConfig config;
@@ -302,7 +365,19 @@ success_config:
 		// post-init append here. There used to be one; it duplicated every
 		// entry in sys.path, since Py_InitializeFromConfig already applies
 		// config.module_search_paths to sys.path during initialization.
-		JPContext* context = launch(env, interpreter);
+		const char* expectedLibCstr = expectedJpypeLibrary == nullptr
+			? nullptr : env->GetStringUTFChars(expectedJpypeLibrary, nullptr);
+		JPContext* context = launch(env, interpreter, expectedLibCstr);
+		if (expectedLibCstr != nullptr)
+			env->ReleaseStringUTFChars(expectedJpypeLibrary, expectedLibCstr);
+		if (context == nullptr)
+		{
+			// launch() already raised a Java exception (fail()/convertException)
+			// on every failure path - just unwind without touching a null
+			// context, matching startSubInterpreter's identical check below.
+			PyEval_SaveThread();
+			return nullptr;
+		}
 		// Py_InitializeFromConfig() leaves the calling thread already holding
 		// the GIL, so the PyGILState_Ensure() above found it already locked
 		// and returned PyGILState_LOCKED. Per the GILState API contract,
@@ -382,7 +457,13 @@ JNIEXPORT jobject JNICALL Java_org_jpype_internal_NativeLauncherControl_startSub
 			return 0;
 		}
 
-		JPContext* context = launch(env, interpreter);
+		// A subinterpreter re-imports _jpype into its own sys.modules by
+		// design (per-interpreter GIL support - see PyJPClass_isWrapperMeta's
+		// comment), but always from the one file already `dlopen`'d for the
+		// main interpreter -- there's no separate System.load() here to
+		// diverge from, so the two-different-files guard in launch() doesn't
+		// apply and there's no expected path to pass.
+		JPContext* context = launch(env, interpreter, nullptr);
 		// launch() already raised a Java exception (fail()/convertException) on
 		// any failure path - don't dereference a null context here.
 		if (context == nullptr)

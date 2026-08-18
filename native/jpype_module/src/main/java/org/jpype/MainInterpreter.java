@@ -409,7 +409,8 @@ public class MainInterpreter implements Interpreter
             getBool(CONF_SITEIMPORT, "true"),
             getBool(CONF_USERSITE, "true"),
             getBool(CONF_WRITEBC, "true"),
-            this);
+            this,
+            launcher.getJpypeLibrary());
     LOGGER.info("Python launched");
 
     // Control is back on the Java thread here. Confirm the launch didn't
