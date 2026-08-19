@@ -7,6 +7,10 @@ Latest Changes:
 
 - **1.7.2.dev0**
 
+  - Fixed classpath directories/jars containing a "+" character having it
+    silently converted to a space on import, corrupting the resolved
+    resource path. #1413
+
   - Reworked the internal object layout for Java-backed Python objects to use
     fixed, type-baked offsets instead of a runtime allocator that re-derived
     each object's layout from version-sensitive CPython internals on every
@@ -75,6 +79,18 @@ Latest Changes:
 
   - Documented the "JVM DLL not found" error on Apple Silicon Macs and its
     cause (a Python/JDK CPU architecture mismatch, e.g. arm64 vs x86_64). #994
+
+  - Added a customizer example to the quickstart guide and fixed the
+    "Extending classes" entry, which had been carrying a leftover
+    "lambda is WIP" note since before lambdas were documented. #792
+
+  - Documented the Windows ``ImportError: DLL load failed while importing
+    _jpype`` error and its fix (installing the Microsoft Visual C++
+    Redistributable). #1167
+
+  - Documented a pattern for pickling plain Python objects that hold
+    Java-backed attributes, using ``__getstate__``/``__setstate__`` to
+    exclude and regenerate them. #1019
 
 
 - **1.7.1 - 2026-05-06**

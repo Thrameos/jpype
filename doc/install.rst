@@ -211,6 +211,21 @@ a JDK build matching Python's architecture and point ``JAVA_HOME`` at it.
 This is the same underlying requirement as the mixed 32-bit/64-bit
 limitation below - Python and the JVM must be built for the same
 architecture - just easier to hit unintentionally on Apple Silicon.
+Windows: ``ImportError: DLL load failed while importing _jpype``
+------------------------------------------------------------------
+
+This error happens while importing the ``_jpype`` extension module itself,
+before JPype ever gets to looking for a JVM, so it is not a ``JAVA_HOME`` or
+``PATH`` problem like the one above. ``_jpype`` is a compiled C++ extension,
+and on Windows it depends on the Microsoft Visual C++ runtime DLLs. If those
+are missing, Python reports the failure as an opaque ``DLL load failed``
+rather than naming the missing runtime library.
+
+The fix is to install the `Microsoft Visual C++ Redistributable
+<https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist>`__
+(the x64 version, for a 64-bit Python) and retry the import. This has
+resolved the error for every user who has hit it, including on fresh Windows
+installs where no other C++ software had been installed yet.
 
 
 Known Bugs/Limitations
