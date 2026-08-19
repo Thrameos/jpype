@@ -77,6 +77,9 @@ Latest Changes:
   
   - Fixed ambiguous overload resolution for bytearray between byte[] and char[]. #598
 
+  - Documented the "JVM DLL not found" error on Apple Silicon Macs and its
+    cause (a Python/JDK CPU architecture mismatch, e.g. arm64 vs x86_64). #994
+
   - Added a customizer example to the quickstart guide and fixed the
     "Extending classes" entry, which had been carrying a leftover
     "lambda is WIP" note since before lambdas were documented. #792
