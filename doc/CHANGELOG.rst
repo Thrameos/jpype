@@ -77,6 +77,10 @@ Latest Changes:
   
   - Fixed ambiguous overload resolution for bytearray between byte[] and char[]. #598
 
+  - Added a customizer example to the quickstart guide and fixed the
+    "Extending classes" entry, which had been carrying a leftover
+    "lambda is WIP" note since before lambdas were documented. #792
+
   - Documented the Windows ``ImportError: DLL load failed while importing
     _jpype`` error and its fix (installing the Microsoft Visual C++
     Redistributable). #1167
