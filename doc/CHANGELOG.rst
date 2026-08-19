@@ -5,12 +5,33 @@ This changelog *only* contains changes from the *first* pypi release (0.5.4.3) o
 
 Latest Changes:
 
-- **1.7.2.dev0**  - Fixed jedi tab-completion registration patching the wrong internal list
+- **1.7.2.dev0**
+
+  - Fixed jedi tab-completion registration patching the wrong internal list
     (``ALLOWED_GETITEM_TYPES``, which only guards ``__getitem__`` access on
     builtin containers) instead of ``ALLOWED_DESCRIPTOR_ACCESS`` (what jedi
     actually checks before invoking a descriptor during completion) for
     jedi >= 0.18. #1240
+
+  - ``JBoolean``/``JByte``/``JChar``/``JInt``/``JShort``/``JLong``/``JFloat``/
+    ``JDouble`` are no longer tracked by the cyclic garbage collector. They
+    were previously declared as ordinary Python ``class`` statements, which
+    unconditionally pick up GC tracking from CPython even when none of these
+    types can ever hold an arbitrary Python reference or participate in a
+    reference cycle; every boxed array element pulled into Python paid for
+    that bookkeeping on allocation and deallocation for no benefit. No
+    user-visible API change.
     
+  - Fixed Javadoc extraction (``help()``/``__doc__`` on Java classes) being
+    silently broken on JDK 17+: an unhandled ``<wbr>`` tag (used by JDK 21+'s
+    javadoc output to hint line-wraps in long signatures) crashed extraction
+    outright, and a ``https:`` typo in the external-link check caused every
+    reference to a JDK platform class to render as a mangled path instead of
+    a clean link, since JDK 12+ auto-links platform classes to
+    https://docs.oracle.com even without an explicit ``-link`` argument.
+    Also fixed a related double-rendering bug for ``<a><code>...</code></a>``
+    links exposed by the above fix. #963, #1116
+
   - Fixed classpath directories/jars containing a "+" character having it
     silently converted to a space on import, corrupting the resolved
     resource path. #1413
@@ -52,6 +73,25 @@ Latest Changes:
   - Fixed a rare crash where Python's cyclic garbage collector firing
     while a Python exception was mid-unwind through the reverse-bridge
     C++ layer could corrupt the in-flight exception. #1415
+
+  - Reworked the internal object layout for Java-backed Python objects to use
+    fixed, type-baked offsets instead of a runtime allocator that re-derived
+    each object's layout from version-sensitive CPython internals on every
+    access. For the boxed `Long`/`Boolean`/`Character` wrapper types this
+    also removes their per-instance Java-value storage entirely (reconstructed
+    on demand instead), shrinking those instances and eliminating a
+    version-gated digit-layout workaround. No user-visible API change; boxed
+    wrapper instances no longer retain Java-side reference identity across
+    repeated round-trips through Python.
+
+  - Fixed heap corruption when boxing large `JLong`/`JInt`/`JShort`/`JByte`/`JBoolean`
+    values on Python 3.8-3.11, caused by a fixed-offset allocator layout
+    assumption colliding with CPython's own implicit `__dict__` slot for
+    variable-length int subclasses.
+
+  - Fixed a GC refcount-accounting bug in the internal Java-class metaclass
+    where `tp_traverse`/`tp_clear` did not chain to `type`'s own
+    implementation.
 
   - Fixed memory leak with int and float conversions. #1379
 
