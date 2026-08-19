@@ -77,6 +77,10 @@ Latest Changes:
   
   - Fixed ambiguous overload resolution for bytearray between byte[] and char[]. #598
 
+  - Documented the Windows ``ImportError: DLL load failed while importing
+    _jpype`` error and its fix (installing the Microsoft Visual C++
+    Redistributable). #1167
+
   - Documented a pattern for pickling plain Python objects that hold
     Java-backed attributes, using ``__getstate__``/``__setstate__`` to
     exclude and regenerate them. #1019
