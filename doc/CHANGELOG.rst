@@ -7,6 +7,29 @@ Latest Changes:
 
 - **1.7.2.dev0**
 
+  - Fixed classpath directories/jars containing a "+" character having it
+    silently converted to a space on import, corrupting the resolved
+    resource path. #1413
+
+  - Reworked the internal object layout for Java-backed Python objects to use
+    fixed, type-baked offsets instead of a runtime allocator that re-derived
+    each object's layout from version-sensitive CPython internals on every
+    access. For the boxed `Long`/`Boolean`/`Character` wrapper types this
+    also removes their per-instance Java-value storage entirely (reconstructed
+    on demand instead), shrinking those instances and eliminating a
+    version-gated digit-layout workaround. No user-visible API change; boxed
+    wrapper instances no longer retain Java-side reference identity across
+    repeated round-trips through Python.
+
+  - Fixed heap corruption when boxing large `JLong`/`JInt`/`JShort`/`JByte`/`JBoolean`
+    values on Python 3.8-3.11, caused by a fixed-offset allocator layout
+    assumption colliding with CPython's own implicit `__dict__` slot for
+    variable-length int subclasses.
+
+  - Fixed a GC refcount-accounting bug in the internal Java-class metaclass
+    where `tp_traverse`/`tp_clear` did not chain to `type`'s own
+    implementation.
+
   - Fixed a random segmentation fault at JVM shutdown when Python tooling
     (such as pytest's built-in faulthandler plugin) restored pre-JVM signal
     handlers over HotSpot's, leaving safepoint polls in compiled code
@@ -15,6 +38,13 @@ Latest Changes:
     pre-JVM handlers once the JVM is destroyed, making the JVM's lifetime
     signal-handler transparent on POSIX systems.
 
+  - Refactored internal exception handling: replaced the single
+    ``JPypeException`` tag-plus-union class with distinct C++ types per
+    exception origin (``JPJavaError``, ``JPPythonError``,
+    ``JPInternalError``), so each type only carries the payload valid for
+    it instead of relying on convention. No user-facing behavior change;
+    done to prevent future bugs of the class fixed by #1415 below.
+
   - Fixed a rare crash where Python's cyclic garbage collector firing
     while a Python exception was mid-unwind through the reverse-bridge
     C++ layer could corrupt the in-flight exception. #1415
@@ -22,6 +52,8 @@ Latest Changes:
   - Fixed memory leak with int and float conversions. #1379
 
   - Fixed instablity in threading for method dispatch. #1366
+
+  - Fixed overloading ambiguity issue. #1371
 
   - Fixed caching issue with method overloading for functors. #1366
 
@@ -32,8 +64,33 @@ Latest Changes:
   - Fixed JArray constructor ignoring slice bounds when creating from sliced array. #845
 
   - Added jdk.zipfs module dependency to module-info for proper jlink/jdeps detection. #908
-  
+
   - Fixed overloaded methods from multiple interfaces not being detected. #844
+
+  - Fixed annotation and interface methods using incorrect JNI call type. #880
+
+  - Fixed crash when calling isinstance(obj, JException) before JVM starts or after JVM shutdown. #1329
+
+  - Added fallback conversion path for JArray.of() to support non-primitive types like JString, enabling conversion of numpy string arrays. #953
+
+  - Improved implicit conversion from Python primitives to Java boxed types (Integer, Long, Short, Double, Float). #1098
+  
+  - Fixed ambiguous overload resolution for bytearray between byte[] and char[]. #598
+
+  - Documented the "JVM DLL not found" error on Apple Silicon Macs and its
+    cause (a Python/JDK CPU architecture mismatch, e.g. arm64 vs x86_64). #994
+
+  - Added a customizer example to the quickstart guide and fixed the
+    "Extending classes" entry, which had been carrying a leftover
+    "lambda is WIP" note since before lambdas were documented. #792
+
+  - Documented the Windows ``ImportError: DLL load failed while importing
+    _jpype`` error and its fix (installing the Microsoft Visual C++
+    Redistributable). #1167
+
+  - Documented a pattern for pickling plain Python objects that hold
+    Java-backed attributes, using ``__getstate__``/``__setstate__`` to
+    exclude and regenerate them. #1019
 
 
 - **1.7.1 - 2026-05-06**
