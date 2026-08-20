@@ -4,6 +4,16 @@ on:
   push:
   pull_request:
 
+  workflow_dispatch:
+    inputs:
+      py_version:
+        description: Python version to build
+        default: "3.13"
+        type: string
+
+env:
+  PY_VERSION: ${{ inputs.py_version || '3.13' }}
+
 jobs:
   conda_build:
     runs-on: ubuntu-latest
@@ -29,4 +39,5 @@ jobs:
 
           conda mambabuild project/conda_recipe/ \
             -c conda-forge \
-            --variant-config-files "$INTERNAL_PREFIX/conda_build_config.yaml"
+            --variant-config-files "$INTERNAL_PREFIX/conda_build_config.yaml" \
+            --python "$PY_VERSION"
