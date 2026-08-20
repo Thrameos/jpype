@@ -29,6 +29,7 @@ jobs:
         shell: bash
         run: |
           eval "$(micromamba shell hook --shell bash)"
+          micromamba activate base
           micromamba install -y -c conda-forge \
             boa \
             conda-forge-pinning \
