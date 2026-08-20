@@ -38,7 +38,7 @@ jobs:
           INTERNAL_PREFIX=$(conda info --base)
           PINNING="$INTERNAL_PREFIX/conda_build_config.yaml"
 
-          python3 - "$PINNING" <<'PYEOF'
+          python - "$PINNING" <<'PYEOF'
           import sys, yaml
           
           path = sys.argv[1]
