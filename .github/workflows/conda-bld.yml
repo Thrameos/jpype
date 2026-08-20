@@ -4,16 +4,6 @@ on:
   push:
   pull_request:
 
-  workflow_dispatch:
-    inputs:
-      py_version:
-        description: Python version to build
-        default: "3.13"
-        type: string
-
-env:
-  PY_VERSION: ${{ inputs.py_version || '3.13' }}
-
 jobs:
   conda_build:
     runs-on: ubuntu-latest
