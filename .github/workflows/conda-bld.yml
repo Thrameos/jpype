@@ -33,17 +33,25 @@ jobs:
             boa \
             conda-forge-pinning \
             conda-verify \
-            yq
+            pyyaml
 
           INTERNAL_PREFIX=$(conda info --base)
           PINNING="$INTERNAL_PREFIX/conda_build_config.yaml"
 
-          # Take just the last (=latest) entry of each key zipped with python
-          yq eval '
-            .zip_keys[] | select(contains(["python"]))
-          ' "$PINNING" -o json | jq -r '.[]' | while read -r key; do
-            yq eval ".${key} = [.${key}[-1]]" -i "$PINNING"
-          done
+          python3 - "$PINNING" <<'PYEOF'
+          import sys, yaml
+          
+          path = sys.argv[1]
+          with open(path) as f:
+              cfg = yaml.safe_load(f)
+          
+          zip_group = next(g for g in cfg["zip_keys"] if "python" in g)
+          for key in zip_group:
+              cfg[key] = [cfg[key][-1]]
+          
+          with open(path, "w") as f:
+              yaml.dump(cfg, f, default_flow_style=False)
+          PYEOF
 
           conda mambabuild project/conda_recipe/ \
             -c conda-forge \
