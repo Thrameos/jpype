@@ -29,15 +29,22 @@ jobs:
         shell: bash
         run: |
           eval "$(micromamba shell hook --shell bash)"
-
           micromamba install -y -c conda-forge \
             boa \
             conda-forge-pinning \
-            conda-verify
+            conda-verify \
+            yq
 
           INTERNAL_PREFIX=$(conda info --base)
+          PINNING="$INTERNAL_PREFIX/conda_build_config.yaml"
+
+          # Take just the last (=latest) entry of each key zipped with python
+          yq eval '
+            .zip_keys[] | select(contains(["python"]))
+          ' "$PINNING" -o json | jq -r '.[]' | while read -r key; do
+            yq eval ".${key} = [.${key}[-1]]" -i "$PINNING"
+          done
 
           conda mambabuild project/conda_recipe/ \
             -c conda-forge \
-            --variant-config-files "$INTERNAL_PREFIX/conda_build_config.yaml" \
-            --python "$PY_VERSION"
+            --variant-config-files "$PINNING"
