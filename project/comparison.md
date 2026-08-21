@@ -936,6 +936,105 @@ not assumed from the others:
    something. Meant for direct, idiomatic object-level Java code -- no
    string-based `exec`/`eval` required for most uses.
 
+**How `python.lang` actually gets populated is itself a fourth, distinct
+proxy model, and it's built on top of the other two rather than being a
+separate implementation.** jpype has three ways to make a Python object
+answer to a Java interface, and it's worth being precise about which is
+which, since all three ultimately construct the same underlying object:
+
+1. **Bare-callable SAM duck typing** — a plain Python `lambda`/callable
+   passed directly where a Java functional interface argument is
+   expected, no proxy class or registration involved.
+2. **`@JImplements`** — the modern, type-checked decorator: a Python
+   class declares which Java interface(s) it implements, once, ahead of
+   time (`jpype/_jproxy.py`).
+3. **`JProxy(interfaces, dict=... | inst=...)`** — the older, manual
+   form: hand a dict of callables or an object instance straight to
+   `JProxy`'s constructor, still supported, `@JImplements`'s
+   predecessor (`_jproxy.py:186-234`).
+4. **Automatic, structural, no user call at all** — `JPConversionPython`
+   (`native/common/jp_classhints.cpp:1908-1992`), one of the conversion
+   rules `JPPybaseType::findJavaConversionImpl` (`jp_pybasetype.cpp:34-48`)
+   tries for `java.lang.Object` and, by inheritance, every interface
+   type that falls through to it. Whenever *any* Python value needs to
+   become *any* Java-typed value — an argument, a return, a field, not
+   just an explicit user-declared proxy site — `matches()` calls
+   `PyJP_probe(st, Py_TYPE(object))` (`native/python/pyjp_probe.cpp`),
+   which interrogates the Python type's own CPython C-level protocol
+   slots directly (`tp_call`, `tp_as_buffer`, `tp_as_sequence`,
+   `tp_as_mapping`, `tp_as_number`, `__enter__`/`__index__`) plus
+   `collections.abc` subclass checks, to derive which `python.lang`
+   interfaces that type structurally satisfies — genuinely structural
+   introspection of Python's own protocol machinery, not a fixed table
+   of hardcoded per-type branches. If one of the probed interfaces
+   matches the declared target, `convert()`
+   (`jp_classhints.cpp:1972-1991`) **dynamically constructs a `JProxy`
+   on the spot** — it literally instantiates `_jpype._JProxy`
+   (`PyJPProxy_Type->tp_new(...)`), the exact same class backing models
+   2 and 3 above, wrapping the value with the method table the probe
+   resolved — and returns the resulting Java-side proxy object. So
+   model 4 isn't a fourth *implementation*; it's models 2/3's own
+   machinery, invoked automatically by structural type-probing instead
+   of an explicit decorator or constructor call. This is the real
+   engine behind `python.lang` looking like 54 concretely-typed classes
+   without 54 hand-written JNI wrapper implementations: `_jbridge.py`'s
+   `_concrete`/`_protocol`/`_methods` tables (already described above)
+   supply the per-type method dictionaries; `PyJP_probe` + `JPConversionPython`
+   supply the automatic, no-call-site-changes-needed dispatch that picks
+   the right one and proxies it into place.
+
+Neither jpy nor jep has anything at this level. jpy's typed wrappers
+(`PyModule`, `PyDictWrapper`, `PyListWrapper` — three classes total) must
+be constructed explicitly by the caller around a generic `PyObject`; there
+is no probe-driven automatic selection, and its own general-proxy support
+(`PyObject.createProxy()`) didn't produce a usable object in this
+checkout regardless. jep comes closer on one narrow slice: its own
+Python-to-Java dispatcher, `PyObject_As_jobject`
+(`~/devel/jep/src/main/c/Jep/convert_p2j.c:1050-1116`), does have one
+genuinely automatic, declared-type-driven case — `PyCallable_Check(pyobject)
+&& isFunctionalInterfaceType(env, expectedType)` triggers
+`PyCallable_as_functional_interface` (lines 1091-1097), converting any
+Python callable into any SAM-shaped target interface automatically, on
+both argument *and* return paths, no explicit proxy construction needed.
+That's real, and closer to jpype's model 1 generalized to return
+positions than the feature matrix's "Yes, argument-only" framing gave it
+credit for. But everything else in that same function is a fixed,
+hardcoded C-level `if`/`else` chain (`PyLong_Check`/`PyDict_Check`/
+`PyUnicode_Check`/buffer/numpy) mapping to a **closed, compiled-in** set
+of concrete Java types, with the single generic `jep.python.PyObject` as
+the catch-all for anything else — no equivalent of probing a Python
+type's own protocol slots to decide it structurally satisfies some
+*arbitrary* multi-method interface (jpype's `python.lang.PyMapping`,
+`PyIterable`, or a third-party `WrapperService`-registered one). Adding
+a new target interface to jep's version means patching and recompiling
+its C source — the same extensibility gap already established in the
+`WrapperService`/`.pyspi` section below, showing up again here in the
+proxy-selection mechanism specifically, not just the type-registration
+surface.
+
+**All four models, side by side, across all four libraries:**
+
+| Model | jpype | jpy | jep | pyjnius |
+|---|:---:|:---:|:---:|:---:|
+| 1. Bare lambda/callable → SAM argument (forward: Python passes a callable where Java wants a functional interface) | Yes | **No** — only explicit proxy objects, no implicit lambda conversion | Yes (`pyjtype.c`'s `functionalInterface`) | Yes (`jnius_conversion.pxi`) |
+| 1b. Same idea, declared-type-driven on the **reverse** side (Java expects a functional interface back from Python, no proxy call) | Yes (subsumed into model 4 below) | N/A — no reverse direction | **Yes** — `PyCallable_as_functional_interface`, `convert_p2j.c:1091-1097` | N/A — no reverse direction |
+| 2/3. Explicit proxy (decorator and/or manual dict/inst construction) | Two distinct forms: `@JImplements` (typed, modern) and `JProxy(dict=...\|inst=...)` (manual, older, still supported) | One form, `PyObject.createProxy()` — confirmed **broken in this checkout**, didn't produce a usable object | One form, `jep.jproxy()` — real, working, no defect found | One form, `PythonJavaClass` + `@java_method(...)` subclassing — works for the common case, but has the reproduced null-`Object`-argument segfault and a silent wrong-return-value bug |
+| 4. Automatic, structural, no proxy call at all — Java just declares the type it wants (any multi-method interface, not just functional ones) and gets a live proxy for free | **Yes** — `JPConversionPython`/`PyJP_probe`, probes Python's own C-level protocol slots, extensible to arbitrary `WrapperService`-registered interfaces | **No** — three hand-written wrapper classes (`PyModule`/`PyDictWrapper`/`PyListWrapper`), must be constructed explicitly by the caller, no probing | **No** — `PyObject_As_jobject` is a fixed, hardcoded C-level type chain to a closed set of concrete Java types (plus the model-1b functional-interface case above); adding a new target interface means patching and recompiling jep's C source | N/A — no Java-hosts-Python direction exists at all |
+
+The shape that falls out: jpype is the only one of the four with a
+structural, extensible, no-call-site-changes automatic path (model 4) —
+the other three all require the Python side to either be plain-callable
+(model 1) or to explicitly opt into a proxy at construction time (models
+2/3), and none of them can say "Java declared it wants a `Mapping`-shaped
+thing back, and any Python object that happens to support
+`__getitem__`/`__setitem__` just satisfies that automatically." jep is
+the interesting middle case: it independently arrived at the *same idea*
+model 4 embodies, but scoped narrowly to callables-as-functional-
+interfaces rather than generalized to arbitrary multi-method interfaces
+via real protocol introspection. jpy and pyjnius don't have a reverse
+direction to compare model 4 against at all (jpy's exists but is
+unused/broken for this purpose; pyjnius's doesn't exist).
+
 For scale: jep has **no JSR-223 `ScriptEngine` implementation at all**
 (checked `~/devel/jep/src/main/java/jep/` -- no `javax.script` reference
 anywhere), and its public embedding surface is essentially one class
