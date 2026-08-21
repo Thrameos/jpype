@@ -209,6 +209,54 @@ not (established earlier in this doc) -- there is no non-contiguous case
 to test for the same reason there's no contiguous one; its
 `array_noncontig.py` is an intentional stub, not a benchmark.
 
+### Fast bulk-transfer path coverage: counting genuine paths, not just presence of *a* path
+
+The sections above establish each path individually; laid out as one
+matrix, the real story is how *few* of these eight push/pull paths jpy,
+jep, and pyjnius actually have as genuine bulk operations, versus how
+many of them turn out to be a slower fallback dressed up to look like
+one. "Genuine" here means what Sections 3-5 above verified empirically,
+not what a library's API merely accepts without erroring -- a call that
+succeeds via a per-element/per-row walk is a correctness pass, not a
+bulk-path pass, and is marked accordingly.
+
+| Path | jpype | jpy | jep | pyjnius |
+|---|:---:|:---:|:---:|:---:|
+| `list->array` push, flat (1D) | Y | Y | ⚠ | Y |
+| `list->array` push, multi-dim (rectangular) | Y | Y | ⚠ | Y |
+| `buffer->array` push, flat (1D), contiguous | Y | Y\* | Y | N |
+| `buffer->array` push, flat (1D), non-contiguous | Y | N | Y | N |
+| `buffer->array` push, multi-dim, contiguous | Y | N | N | N |
+| `buffer->array` push, multi-dim, non-contiguous (transposed) | Y | N | ⚠ | N |
+| `array->buffer` pull, flat (1D) | Y | Y | N | N |
+| `array->buffer` pull, multi-dim | Y | Y | N | N |
+| **Genuine bulk paths (of 8)** | **8** | **5** | **2** | **2** |
+
+Legend: **Y** = a real, verified bulk path. **N** = no bulk path --
+rejected outright, falls back to a fully general per-element walk with
+no dedicated fast-path code, or (jep's/pyjnius's `array->buffer` rows)
+returns real data but by paying `array->list`'s per-element cost plus a
+redundant wrapping step, landing *worse* than the library's own list-pull
+number rather than faster (Section 3's `array->buffer` result). **⚠** = a
+path exists and executes, but isn't bulk in the sense the others are:
+jep's `list->array` rows are incomplete at multi-dim depth (its own
+`float`/`double` sweeps didn't finish -- see the OOM finding below, so Y
+above for jep's flat `list->array` row is provisional on `int`/`long`
+only), and jep's transposed-ND `buffer->array` push is a manual,
+user-written per-row Python walk, not an automatic argument-conversion
+path the way every other Y in this table is (Section 4's own text: "not
+a like-for-like comparison to jpype's single-JNI-call path"). \* jpy's
+flat contiguous `buffer->array` push is real and bulk, but see the
+"serious jpy correctness bug" above -- it's the one Y in this table that
+should be read with a caveat, not the one to imitate.
+
+Framed this way: jpype has all eight, jpy has five of eight (with one of
+those five silently wrong on dtype mismatch), and jep and pyjnius each
+have two of eight, genuinely bulk, no caveats. The "Other" table below
+adds the non-buffer feature gaps on top of this -- this table is scoped
+specifically to bulk numeric array transfer, the one category where raw
+path *count*, not just per-path speed, is itself the finding.
+
 ### Other
 
 | Feature | jpype | jpy | jep | pyjnius |
@@ -447,6 +495,262 @@ is a separate, real defect in the same subsystem.)
 | Javadoc-derived docstrings, Jedi/IDE completion, module/typing-stub generation | `test_docstring.py`, `test_jedi.py`, `test_module.py`, `test_module2.py` | Only bare `dir()` listing method names (`test_dir.py`) — no docstrings, no stub generation | `pyjobject`/`pyjtype` expose method names via `dir()` but no docstring text sourced from Javadoc |
 | Caller-sensitive JDK method handling | `test_caller_sensitive.py` (20 tests) | Not handled as a distinct case | no reference found in jep source |
 | Per-class conversion caching with generation-based invalidation | Yes (this session's `caching` branch) | Not applicable the same way — jep's overload resolution already short-circuits on arity before doing any per-argument type work (see below) | `pyjmultimethod.c:118-155`, `pyjmethod.c:284`, read this session |
+
+### jep, past the feature table: the same threading/lifecycle lens applied
+
+The table above and the earlier feature matrices came from a
+features/speed angle. Applying the same misfeature-hunting lens used on
+jpy (thread attachment, GIL discipline, sub-interpreter shutdown,
+exception fidelity, boxed-type selection, JVM-destroy-vs-daemon-thread
+guarding, native-object lifetime safety) to jep's own source
+(`~/devel/jep/src/main/c/Jep/*.c`, `src/main/java/jep/**/*.java`) turns
+up a mixed picture -- three real gaps, several places jep's engineering is
+at least as careful as jpype's, and one architectural choice that's
+neither library's approach.
+
+**Java-to-Python exceptions collapse into one generic type,
+`JepException` — the same misfeature class as jpy's `RuntimeError`
+collapse.** `process_py_exception` (`src/main/c/Jep/jep_exceptions.c:42-175`)
+is jep's only Python-to-Java exception path, and every Python exception
+— regardless of its real type — becomes a `JepException(String, long)`
+built from `"ExcType: message"` string concatenation (lines 148-163),
+not a distinct Java exception class per Python exception type. `catch
+SomeSpecificPythonException` is as impossible through jep as it is
+through jpy. One partial mitigation jpy lacks: if the Python exception
+is itself wrapping a Java exception that crossed into Python and back
+out (a `PyJObject`-backed exception), jep does preserve that as a real
+`Throwable` cause via a second constructor, `JepException(String,
+Throwable)` (lines 162-167) — genuine cause-chaining, but only for that
+round-trip case, not for exceptions that originate natively in Python.
+jpype's per-class `JException` mapping (`jpype/_jexception.py`) still
+has no counterpart in jep for either case.
+
+**No shutdown guard on the proxy-invocation path — matches jpy's gap,
+not jpype's protection.** `jep.python.InvocationHandler.invoke()`
+(`src/main/java/jep/python/InvocationHandler.java:132-141`) calls
+straight into native code with no liveness check first, and the native
+side, `Java_jep_python_InvocationHandler_invoke`
+(`src/main/c/Jep/python/invocationhandler.c`), has no
+`Py_IsFinalizing()`/interpreter-liveness check anywhere in the file. A
+Java thread mid-callback into a Python-implemented proxy (`jep.jproxy()`)
+when the interpreter is closing has nothing stopping it — no equivalent
+of jpype's `jp_proxy.cpp:161` `isRunning()`/`is_shutting_down` guard, and
+not even jpy's TOCTOU-racy `Py_IsFinalizing()` check on the *other*
+direction. This is the one place jep is flatly behind both.
+
+**No smuggler guard: jep has nothing checking that a `PyObject` is being
+touched by the interpreter that actually created it.** jpype's own guard
+for this (`JPClass::convertToPythonObject`, `native/common/jp_class.cpp:379-403`)
+exists precisely because own-GIL subinterpreters have separate
+allocators/arenas — handing one interpreter's `PyObject*` back into
+another's Python code is memory corruption, not just a wrong answer, so
+`proxy->m_Context != context` is checked explicitly and raises a clean
+`RuntimeError` ("Python object crossed into a different interpreter than
+the one that created it (smuggled proxy)") rather than touching the
+pointer. jep has the identical hazard — `jep.python.PyObject`'s own
+javadoc names the constraint outright: *"This class is not thread safe
+and PyObjects can only be used on the Thread where they were created.
+When an Interpreter instance is closed all PyObjects from that instance
+will be invalid"* (`src/main/java/jep/python/PyObject.java:36-38`) — but
+that's a documented caller contract, not an enforced one. Tracing the
+actual call path: `PyObject.tstate()` calls
+`MemoryManager.getThreadState()` → `getThreadLocalJep()`
+(`src/main/java/jep/python/MemoryManager.java:124-134`), which looks up
+*whatever* `Jep` instance is bound to the *calling* thread via a plain
+`ThreadLocal<Jep>` and throws only if none is bound at all
+("`Invalid thread access.`") — it never checks that this specific
+`PyObject`'s originating interpreter is the one now resolved. That
+`tstate` (the calling thread's interpreter) is then passed straight into
+native code together with the object's raw pointer
+(`Java_jep_python_PyObject_getAttr` and five sibling functions,
+`src/main/c/Jep/python/jep_object.c:36-278`, each doing
+`jepThread = (JepThread*) tstate; PyEval_AcquireThread(jepThread->tstate); ...`
+against `pyobj` with no ownership check at all). No thread-crossing is
+even required to hit this: one thread opens interpreter A, creates a
+proxy/`PyObject`, stores it in an ordinary `java.util.List` (plain Java
+state, outside any interpreter's scope), and returns; the same thread
+later opens interpreter B and something reads the stashed object back
+off the list and touches it — `getThreadLocalJep()` resolves *B* (the
+one now bound to this thread), against *A*'s raw pointer. The hazard is
+general: any Java-side storage of a `PyObject`/proxy outside the
+interpreter call that produced it is a potential smuggling site, not
+just a deliberately cross-thread one.
+
+Tried to reproduce this live, same-thread, two ways, rather than leave
+it as a source-only claim:
+
+1. `SharedInterpreter` A creates an object, is never closed (a realistic
+   forget-to-close leak), and a second `SharedInterpreter` B opens on the
+   same thread — blocked outright: opening B while A is still open throws
+   `JepException: "Unsafe reuse of thread main for another Python
+   Interpreter. Please close() the previous Interpreter to ensure
+   stability"` (a real, if incidental, guard — not the principled
+   ownership check jpype has, but it does close this specific door).
+2. Closed A first (with a second, unrelated `SharedInterpreter` kept
+   alive on another thread so `MemoryManager.closeInterpreter`'s
+   `interpreterSet.size() == 1` branch — which synchronously disposes
+   every tracked pointer when true — does *not* fire), then opened B on
+   the freed thread and touched A's stashed object. No crash: it returned
+   the correct-looking `<class '__main__.Foo'>`. Root cause of the
+   non-crash, checked afterward: `SharedInterpreter` instances aren't
+   separate own-GIL subinterpreters at the CPython level at all — its own
+   javadoc says instances "share all imported modules" and only keep
+   *globals* distinct, so there's no real separate interpreter/arena
+   boundary for a `SharedInterpreter`-only reproduction to actually
+   violate. A genuine own-GIL `SubInterpreter`-vs-`SubInterpreter` version
+   of this same experiment wasn't reproduced this session (each plain
+   `new SubInterpreter()` gets its own private `MemoryManager`, so its
+   objects always resolve back through their own dedicated `ThreadLocal`
+   regardless of what else is active on the thread — the cross-manager
+   mixup this guard-gap would need requires either `attach()` sharing,
+   which is explicitly documented as safe to share objects across, or
+   some less obvious path not yet found).
+
+Net honest result: the structural gap is real and confirmed by
+source — there is no `proxy->m_Context != context`-style identity check
+anywhere in jep, unlike jpype's explicit one. But jep's *other*,
+incidental protections (the same-thread-reuse rejection, and synchronous
+pointer disposal when an interpreter's own manager is solely used) close
+off the two concrete repro paths tried this session — a live crash was
+not produced. That's a weaker finding than "reproduced," but the
+underlying point stands regardless of whether the specific repro
+succeeds: the safety here comes from a patchwork of situational checks
+jep happens to have for other reasons, not from a principled per-object
+ownership check the way jpype's is — so *any* Java-side stash of a
+`PyObject`/proxy outside its producing interpreter's own scope remains
+an unguarded hazard in general, even where the two paths tried this
+session didn't happen to trigger it.
+
+**Why repro attempt 2 came back clean, stated plainly so it isn't
+mistaken for "jep is safe here": `SharedInterpreter` isn't a real
+subinterpreter at all.** Checked directly: opening one does
+`globals = PyDict_New(); PyDict_SetItemString(globals, "__builtins__",
+...)` (`src/main/c/Jep/pyembed.c:766-768`) — a fresh Python dict, not
+`Py_NewInterpreter`/`Py_NewInterpreterFromConfig` anywhere in that path.
+Every `SharedInterpreter` instance runs in the *same* single underlying
+CPython interpreter, one GIL, one `sys.modules`, and only gets its own
+`globals` dict — architecturally the same thing as jpype's `Script`
+(`org.jpype.Script`, "a scope of variables in the Python interpreter...
+housed in Java space"), not the same thing as `jep.SubInterpreter` or
+jpype's own `SubInterpreter` (both real, `Py_NewInterpreter`-backed
+isolation). `Script`'s reason for existing is exactly this: a Python
+*module* is itself nothing more than a `dict` of globals bound to a
+name — `sys.modules['foo'].__dict__` — and a single interpreter already
+supports as many of those as you want, no isolation machinery required.
+`Script` is jpype giving that existing, cheap, arbitrarily-repeatable
+concept (one interpreter, N independent globals dicts, i.e. N modules)
+a first-class Java-side handle, rather than inventing a new isolation
+primitive for something the interpreter already does for free.
+`SharedInterpreter` is jep doing the same thing, just not naming it that
+way. So repro attempt 2's clean result doesn't show jep's missing
+ownership check is harmless — it shows that test picked the one jep
+class where there was never a real interpreter boundary to smuggle
+across in the first place. `jep.SubInterpreter` — genuinely own-GIL
+isolated, confirmed earlier in this section — goes through the identical
+unchecked `tstate()`/`getThreadLocalJep()` path and was *not* the one
+tested; a `SubInterpreter`-vs-`SubInterpreter` repro is the one that
+would actually exercise this gap for real, and remains untried.
+Separately worth a features-table row on its own merits regardless of
+the smuggling question: jep gives this shared-globals-one-interpreter
+pattern its own class with its own name in a family that otherwise means
+"isolated interpreter" (`SubInterpreter`/`SharedInterpreter` share the
+`Interpreter` API), where jpype keeps the always-cheap, never-isolated
+version (`Script`) visibly separate from the opt-in real-isolation one
+(`SubInterpreter`) rather than naming them as siblings — a real
+usability/naming difference, not just an implementation-detail one.
+
+**Credit due — three places jep's engineering matches or exceeds jpy's,
+worth recording so the two gaps above don't read as "jep is jpy with a
+different name":**
+
+| Concern | jep's approach | Verdict | Evidence |
+|---|---|---|---|
+| Thread attachment for calls crossing into Java | `AttachCurrentThreadAsDaemon`, with a comment explicitly reasoning through why: "there are no hooks to detach the thread later[, so] daemon is the only way to let the process exit normally" | Correct and *deliberate* — jep's authors clearly understood the exact hazard jpy's plain-`AttachCurrentThread`-without-detach bug creates, and designed around it up front rather than patching it after the fact | `src/main/c/Jep/pyembed.c:817-834` |
+| Boxed numeric type selection for a generic Java target | `pylong_as_jobject` dispatches on the *declared/expected* Java type via `IsAssignableFrom` checks (Long → Integer → Byte → Short → BigInteger fallback on overflow), never on the Python value's magnitude | Type-stable, matching jpype's fixed-boxing approach, not jpy's magnitude-dependent bug | `src/main/c/Jep/convert_p2j.c:317-368` |
+| Sub-interpreter shutdown | `pyembed_thread_close` calls a genuine `Py_EndInterpreter(jepThread->tstate)` when closing a non-main interpreter thread — no `stopIsNoOp`-style flag anywhere in the source | Real, not faked — jep's multi-`Jep`-instance isolation claim holds up architecturally, the same honest shape as jpype's `SubInterpreter.close()` | `src/main/c/Jep/pyembed.c:794-805` |
+
+**A third, distinct object-lifetime model — not jpy's hazard, not
+jpype's phantom-reference safety net, its own tradeoff.**
+`jep.python.PyObject` (Java) has no `PhantomReference`/`Cleaner`/
+`reachabilityFence` anywhere — cleanup is exclusively manual, via
+explicit `close()`; its own javadoc states a `PyObject` becomes invalid
+once its owning interpreter closes. This sidesteps jpy's live-pointer
+race entirely (there's no GC-triggered decref racing a JNI call, because
+there's no GC-triggered decref at all), but trades it for a pure
+manual-lifetime contract: forget to call `close()`, and the native
+object simply leaks until its whole sub-interpreter tears down. Neither
+a bug fixed with a fence (jpy) nor a bug that structurally can't happen
+(jpype) — a third, stricter-but-leak-prone design, worth naming as its
+own category rather than forcing it into "matches jpy" or "matches
+jpype."
+
+**GIL discipline uses a different, coherent mechanism — no bug found, but
+less defensive than jpy's.** jep acquires/releases via
+`PyEval_AcquireThread(jepThread->tstate)`/`PyEval_ReleaseThread` against
+a per-`JepThread`-cached `PyThreadState` (12+ call sites in
+`pyembed.c`), not the `PyGILState_*` TLS API jpy and jpype both use — a
+architectural choice consistent with jep predating PEP 684's cleaner
+sub-interpreter story. No shutdown-race guard comparable to jpy's
+`Py_IsFinalizing()` check (racy as it is) was found anywhere in this
+path — not confirmed as a live bug, just less defended than either
+jpy's checked-but-racy approach or jpype's structural one.
+
+**Adversarial concurrency, checked against jep's own test suite rather
+than assumed: it holds up, but for a narrower claim than jpype/jpy's.**
+Built jep's existing native lib (`build/lib.linux-x86_64-cpython-312`,
+already exports the `Java_jep_*` JNI symbols — the same `.so` serves both
+embedding directions in this jep version) and ran its two adversarial
+multithreading tests directly rather than reading them and assuming:
+`jep.test.synchronization.TestCrossLangSync` (16 Python-sub-interpreter
+threads + 16 Java threads, all hammering one shared lock/`AtomicInteger`
+via `obj.synchronized()`) and `jep.test.TestSharedModulesThreads` (16
+threads concurrently creating `SubInterpreter`s and importing the same
+shared module). Both exited 0, clean, this session. But neither is the
+same claim `GilConcurrencyParityNGTest`
+(`native/jpype_module/src/test/java/org/jpype/GilConcurrencyParityNGTest.java`)
+or jpy's `MultiThreadedEvalTestFixture` test: **jep has no way to construct
+the scenario those two check** — N uncoordinated threads mutating *one
+shared interpreter's globals* with no explicit lock, relying entirely on
+the automatic per-call GIL guard for correctness. `SharedInterpreter`'s
+own javadoc states it plainly: "each `SharedInterpreter` still maintains
+distinct global variables" even though modules are shared, and mixing
+`Interpreter` instances on the same thread at the same time is
+unsupported outright (`SharedInterpreter.java:34-44`). `MainInterpreter`
+looks like it could be that shared interpreter but isn't one in the
+usable sense — its own javadoc frames it purely as GIL-deadlock-avoidance
+bootstrap machinery ("the main Python interpreter that all
+sub-interpreters will be created from... used to avoid potential
+deadlocks", `MainInterpreter.java`), not something application code
+executes against directly. So jep's concurrency safety comes from
+architecturally not sharing mutable interpreter state across threads,
+rather than from an automatic guard proven safe under shared mutable
+state the way jpype's now is (`[[jvm_shutdown_daemon_thread_safety]]`-
+adjacent territory, same session that produced the `PyCallable.call()`→
+`invoker()` fix). Narrower guarantee, but a real one, and its own tests
+for it pass.
+
+**From the benchmark side, not the source dive — two more real, empirical
+findings folded in here rather than left only in `RESULTS.md`:**
+
+- **A reproducible `OutOfMemoryError` in jep's own multi-dimensional
+  array benchmark**, `array_multidim.py`, partway through its combined
+  `int`/`long`/`float`/`double` sweep, even at `-Xmx3g` — raising the
+  heap to 4GB then 6GB only postpones it. It's specific to that one
+  long-running combined-sweep process; the narrower single-scenario jep
+  scripts (`array_ragged.py`, `array_noncontig.py`, `array_shape.py`)
+  complete cleanly at the same depths/sizes under the stock default
+  heap, pointing at an allocation-rate-vs-GC-throughput problem rather
+  than a fixed working-set size (`RESULTS.md` Section 10). Flagged as
+  real and reproducible, not root-caused at the source level in this
+  pass.
+- **jep has no genuine `array->buffer` (Java array → numpy) return path
+  at any depth** — its numbers are `array->list`'s per-element cost plus
+  a redundant `np.asarray()` wrap, not a bulk buffer read, which is why
+  jep lands *worse* than its own list-pull number instead of better:
+  **~180x slower than jpype/jpy at `long[100000]`** (10.7M ns vs.
+  111-116K ns, `RESULTS.md` Section 3). Same architectural gap as
+  pyjnius; see the fast-bulk-path-coverage table earlier in this doc for
+  the full accounting across all eight push/pull paths.
 
 ### Features jep has that jpy lacks (closer to jpype here)
 
