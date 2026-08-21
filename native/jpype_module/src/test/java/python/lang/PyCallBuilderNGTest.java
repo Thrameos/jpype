@@ -34,7 +34,7 @@ public class PyCallBuilderNGTest extends PyTestHarness
   public void testArgOnly()
   {
     PyCallable fn = (PyCallable) context.eval("lambda x, y: x + y");
-    PyObject result = fn.call().arg(2).arg(3).execute();
+    PyObject result = fn.invoker().arg(2).arg(3).execute();
     assertEquals(result.toString(), "5");
   }
 
@@ -42,7 +42,7 @@ public class PyCallBuilderNGTest extends PyTestHarness
   public void testArgsVarargs()
   {
     PyCallable fn = (PyCallable) context.eval("lambda x, y, z: x + y + z");
-    PyObject result = fn.call().args(1, 2, 3).execute();
+    PyObject result = fn.invoker().args(1, 2, 3).execute();
     assertEquals(result.toString(), "6");
   }
 
@@ -50,7 +50,7 @@ public class PyCallBuilderNGTest extends PyTestHarness
   public void testKwargOnly()
   {
     PyCallable fn = (PyCallable) context.eval("lambda x, y=10: x - y");
-    PyObject result = fn.call().arg(3).kwarg("y", 1).execute();
+    PyObject result = fn.invoker().arg(3).kwarg("y", 1).execute();
     assertEquals(result.toString(), "2");
   }
 
@@ -61,7 +61,7 @@ public class PyCallBuilderNGTest extends PyTestHarness
     Map<Object, PyObject> kwargs = new LinkedHashMap<>();
     kwargs.put("x", context.eval("3"));
     kwargs.put("y", context.eval("4"));
-    PyObject result = fn.call().kwargs(kwargs).execute();
+    PyObject result = fn.invoker().kwargs(kwargs).execute();
     assertEquals(result.toString(), "12");
   }
 
@@ -69,7 +69,7 @@ public class PyCallBuilderNGTest extends PyTestHarness
   public void testClearResetsBuilder()
   {
     PyCallable fn = (PyCallable) context.eval("lambda *a, **k: (len(a), len(k))");
-    CallBuilder builder = fn.call().arg(1).arg(2).kwarg("z", 3);
+    CallBuilder builder = fn.invoker().arg(1).arg(2).kwarg("z", 3);
     builder.clear();
     PyObject result = builder.execute();
     assertEquals(result.toString(), "(0, 0)");
@@ -79,7 +79,7 @@ public class PyCallBuilderNGTest extends PyTestHarness
   public void testChainingReturnsSameBuilder()
   {
     PyCallable fn = (PyCallable) context.eval("lambda x: x");
-    CallBuilder builder = fn.call();
+    CallBuilder builder = fn.invoker();
     assertSame(builder.arg(1), builder);
     assertSame(builder.args(2, 3), builder);
     assertSame(builder.kwarg("k", 1), builder);
@@ -90,7 +90,7 @@ public class PyCallBuilderNGTest extends PyTestHarness
   public void testExecuteAsync() throws Exception
   {
     PyCallable fn = (PyCallable) context.eval("lambda x, y: x + y");
-    Future<PyObject> future = fn.call().arg(4).arg(5).executeAsync();
+    Future<PyObject> future = fn.invoker().arg(4).arg(5).executeAsync();
     PyObject result = future.get(10, TimeUnit.SECONDS);
     assertEquals(result.toString(), "9");
   }
@@ -99,7 +99,7 @@ public class PyCallBuilderNGTest extends PyTestHarness
   public void testExecuteAsyncWithTimeoutSucceeds() throws Exception
   {
     PyCallable fn = (PyCallable) context.eval("lambda: 42");
-    Future<PyObject> future = fn.call().executeAsync(5000);
+    Future<PyObject> future = fn.invoker().executeAsync(5000);
     PyObject result = future.get(10, TimeUnit.SECONDS);
     assertEquals(result.toString(), "42");
   }
@@ -108,7 +108,7 @@ public class PyCallBuilderNGTest extends PyTestHarness
   public void testExecuteAsyncWithTimeoutExpires() throws Exception
   {
     PyCallable fn = (PyCallable) context.eval("__import__('time').sleep");
-    Future<PyObject> future = fn.call().arg(2.0).executeAsync(200);
+    Future<PyObject> future = fn.invoker().arg(2.0).executeAsync(200);
     future.get(10, TimeUnit.SECONDS);
   }
 

@@ -123,7 +123,7 @@ public class PyCallableNGTest extends PyTestHarness
   {
     PyCallable fn = (PyCallable) context.eval("lambda x, y: x - y");
 
-    PyObject result = fn.call().arg(10).arg(3).execute();
+    PyObject result = fn.invoker().arg(10).arg(3).execute();
 
     assertEquals(result.toString(), "7");
   }

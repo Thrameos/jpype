@@ -36,8 +36,8 @@ import org.jpype.annotation.Bypass;
  * such as its documentation string and signature.
  *
  * Use one of the {@code call(...)} overloads for a fixed set of positional
- * and/or keyword arguments, {@link #call()} to build up a call incrementally
- * via {@link CallBuilder}, or {@code callAsync(...)}/
+ * and/or keyword arguments, {@link #invoker()} to build up a call
+ * incrementally via {@link CallBuilder}, or {@code callAsync(...)}/
  * {@code callAsyncWithTimeout(...)} to invoke without blocking the current
  * thread.
  */
@@ -49,12 +49,15 @@ public interface PyCallable extends PyObject
    * callable object.
    *
    * The {@link CallBuilder} allows for flexible configuration of arguments and
-   * keyword arguments before executing the call.
+   * keyword arguments before executing the call. Unlike the {@code call(...)}
+   * overloads below, this does not invoke anything by itself - the callable
+   * is only actually invoked once a terminal method ({@code execute()},
+   * {@code executeAsync()}, ...) is called on the returned builder.
    *
    * @return a new {@link CallBuilder} instance associated with this callable
    */
     @Bypass
-  default CallBuilder call()
+  default CallBuilder invoker()
   {
     return new CallBuilder(this);
   }
