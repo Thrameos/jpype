@@ -442,7 +442,7 @@ exposes attach/detach as a call a user can make directly.
 | Thread attachment for calls crossing into Java | Daemon (`AttachCurrentThreadAsDaemon`), with explicit `attach()`/`attachAsDaemon()`/`detach()` API | Non-daemon (`AttachCurrentThread`), no detach call anywhere in source | Daemon (`AttachCurrentThreadAsDaemon`), with a comment explaining why: no hooks exist to detach later | Non-daemon (plain `AttachCurrentThread`), but with an explicit `jnius.detach()` call exposed — the one place pyjnius offers something jpy doesn't |
 | GIL acquisition at native entry points | `PyGILState_Ensure`/`Release`, `PyGILState_Check()` for subinterpreter reliability | `PyGILState_Ensure`/`Release`, ~35 call sites, rejects a call made mid-shutdown | `PyEval_AcquireThread`/`ReleaseThread` against a per-thread cached `PyThreadState` — different API family, same underlying discipline | Cython's `with gil` clause on the proxy-callback entry point — compiler-generated `PyGILState_Ensure`/`Release`, not hand-written, but the same underlying primitive |
 | Shutdown-race guard on a callback still in flight | `isRunning()`/`is_shutting_down` check (`jp_proxy.cpp:161`), on top of `DestroyJavaVM`'s own JNI-mandated block on non-daemon threads | `Py_IsFinalizing()` check, one direction only, self-acknowledged racy (TOCTOU) | None found in the proxy-invocation path, either direction | None found in the proxy-callback path — matches jep's gap, not jpy's/jpype's guard |
-| Adversarial concurrency test (many threads, shared mutable interpreter state, relying on automatic locking) | `GilConcurrencyParityNGTest` — passes | `MultiThreadedEvalTestFixture` — passes | jep's own tests pass, but exercise a narrower scenario — see below | Not established in this pass |
+| Adversarial concurrency test (many threads, shared mutable interpreter state, relying on automatic locking) | `GilConcurrencyParityNGTest` — passes | `MultiThreadedEvalTestFixture` — passes | jep's own tests pass, but exercise a narrower scenario — see below | Written for this document, no pre-existing test found in pyjnius's own suite — passes, see below |
 
 **jpy: threads that call from Python into Java are attached as
 non-daemon, and never detached.** `JPy_GetJNIEnv`
@@ -576,6 +576,29 @@ not hand-written here. No `Py_IsFinalizing()`-style check or equivalent
 of jpype's `is_shutting_down` guard was found anywhere in this path,
 either function — the same gap as jep's proxy-invocation path above, not
 jpy's (racy but present) or jpype's (targeted, non-racy) protection.
+
+**pyjnius: no pre-existing adversarial concurrency test was found in its
+own suite, so one was written for this document, matching jpype's/jpy's
+scenario rather than jep's narrower one.** 16 Java threads, each running
+a `PythonJavaClass` `Runnable` proxy that increments one shared,
+unlocked Python `dict` value 200 times, running concurrently with 16
+Python threads independently constructing `java.lang.Integer` objects —
+no lock anywhere around the shared counter, relying entirely on the
+`with gil` discipline confirmed above. Ran cleanly three times in a
+disposable venv (`python3.12`, matching the pre-built extension's ABI):
+final counter value exactly matched the expected total (3200) every
+time, no lost updates, no crash. One dead end worth naming so it isn't
+mistaken for a finding: an earlier draft passed the raw
+`PythonJavaClass` proxy object directly to `Thread(runnable)` instead of
+`Thread(cast('java/lang/Runnable', runnable.j_self))` — pyjnius's
+overload matching didn't reject this, it silently matched `Thread`'s
+zero-argument constructor instead, so `run()` was never invoked at all
+(counter stayed at 0) and, in one run, that malformed setup crashed the
+JVM with a `SIGSEGV` during the JVM's own secondary error reporting.
+That crash didn't reproduce with the corrected test across three runs,
+and the corrected test is the one that actually exercises the proxy
+callback path this row is about — recorded here as a caution about
+`autoclass`/proxy argument typing, not as a concurrency defect.
 
 ### Syntax: explicit attach/detach
 
