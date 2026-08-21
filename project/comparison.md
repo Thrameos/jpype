@@ -283,6 +283,158 @@ numeric/boxing, buffers, inherit, hash, synchronized) is the realistic
 portable subset if this comparison is ever turned into an actual ported
 test run.
 
+### Five jpy misfeatures: things that look like features but aren't
+
+Recorded separately from the tables above because these aren't gaps or
+tradeoffs — they're jpy behaviors that present as a capability while
+actually being broken or unstable, confirmed by reading jpy's own source.
+
+**"Restarting the interpreter" is faked by a flag that skips `Py_Finalize`
+entirely.** `PyLib.stopPython()`'s own javadoc
+(`~/devel/jpy/src/main/java/org/jpy/PyLib.java:243-259`) states plainly
+that stopping the interpreter again after a restart "currently causes a
+fatal error in the Java Runtime Environment" and links jpy's own
+[issue #70](https://github.com/bcdev/jpy/issues/70) — there is no working
+restart. `STOP_IS_NO_OP` (`PyLib.java:57`,
+`Boolean.getBoolean("jpy.stopIsNoOp") || ON_WINDOWS`) makes `stopPython()`
+skip `Py_Finalize` altogether when set, so "stop" becomes a no-op that
+leaves the interpreter fully alive — no module teardown, no `sys.modules`
+clear, nothing reclaimed. jpy's own `setup.py:226-232` (`test_maven`) sets
+`-Djpy.stopIsNoOp=true` for every Maven test run specifically because
+"multiple start/stop cycles in the same JVM crash CPython." The one test
+that would exercise a real stop/start/stop cycle,
+`LifeCycleTest.testCanStartAndStopWithoutException`, self-skips under
+exactly that flag (`Assume.assumeFalse(..., "jpy.stopIsNoOp")`) —
+i.e. it never runs under the config the suite always uses. The API shape
+(call `stop`, call `start` again) still typechecks; the semantics ("the
+interpreter restarted") are false. jpype doesn't claim this either, and
+doesn't need the equivalent of a no-op flag to avoid the crash: it exposes
+real PEP 684 subinterpreters (`Py_NewInterpreterFromConfig`/
+`Py_EndInterpreter`, `native/common/jp_bridge.cpp:454-560`) as
+independently disposable instances (`org.jpype.SubInterpreter`) instead of
+pretending the single root interpreter can be torn down and revived.
+
+**Boxed-type selection for a generic `Object`/`Number` argument is
+magnitude-dependent, not type-stable.** `JType_CreateJavaNumberFromPythonInt`
+(`~/devel/jpy/src/main/c/jpy_jtype.c:542-563`) picks `Byte`/`Short`/
+`Integer`/`Long` by testing whether the Python int's value survives a
+narrowing cast (`b`/`s`/`i` vs. `j`), not from anything about the
+argument's Python type or the target parameter's declared type. The same
+Python `int` literal boxes to a different Java runtime class depending
+purely on its magnitude at that call: `foo(5)` boxes as `Byte`,
+`foo(5000)` as `Short`, `foo(5_000_000)` as `Integer`,
+`foo(5_000_000_000)` as `Long`. Since Java-side overload resolution and
+`instanceof` both dispatch on the boxed object's runtime class, this means
+`someMethod(x)`'s effective behavior on the Java side can change based on
+how large `x` happens to be at a given call, for arguments that are all
+equally plain Python `int`s — a "works until the value grows past the
+next boundary" trap, not a documented or predictable conversion contract.
+jpype's equivalent path, `JPConversionBoxLong::convert`
+(`native/common/jp_classhints.cpp:1662-1697`), boxes a plain Python `int`
+to `java.lang.Long` unconditionally — fixed and size-independent. The one
+place jpype *does* vary the box class is for numpy scalar types
+(`numpy.int32` → `Integer`, `numpy.int16` → `Short`, etc., same function,
+just below), and that's driven by the input's actual dtype identity, not
+its magnitude — a type-preserving choice, not a magnitude heuristic, and
+not the same kind of trap.
+
+**Every Java exception collapses into a single, generic Python
+`RuntimeError`, with no real cause-chaining.** `JPy_HandleJavaException`
+(`~/devel/jpy/src/main/c/jpy_module.c:1244-1420`) is jpy's only
+Java-to-Python exception path, and it always ends in
+`PyErr_Format(PyExc_RuntimeError, ...)` (lines 1398/1411) — regardless of
+whether the underlying Java exception was a `NullPointerException`, an
+`IllegalArgumentException`, or an application-defined checked exception.
+`getCause()` is walked (line 1394) only to splice `"caused by "` text into
+that one flat message (lines 1259-1284); there is no `__cause__`, no
+`__context__`, and no distinct Python exception object per cause — just
+string concatenation. The whole stack-trace walk that produces a useful
+message only runs at all when `JPy_VerboseExceptions` is set (line 1255);
+otherwise the message is bare `error.toString()`. Net effect: Python code
+calling into Java through jpy can never write `except SomeSpecificException`
+— every failure looks identical (`RuntimeError`) to the caller, and how
+much detail even ends up in the message text depends on a debug flag.
+jpype's `JException` (`jpype/_jexception.py`, `@JImplementationFor
+("java.lang.Throwable", base=True)`) instead maps each real Java exception
+class onto its own Python exception type, mirroring the actual Java
+`Throwable` hierarchy — `except java.lang.NullPointerException` and
+`except java.lang.IllegalArgumentException` are genuinely distinguishable,
+and `getCause()`/`getMessage()`/`printStackTrace()` stay available as real
+methods on the exception object rather than being pre-flattened into a
+string.
+
+**Threads that call from Python into Java are attached to the JVM as
+non-daemon, and never detached.** `JPy_GetJNIEnv` (`jpy_module.c:267-298`)
+is jpy's one auto-attach path: on `JNI_EDETACHED` it calls plain
+`AttachCurrentThread` (line 281) — not `AttachCurrentThreadAsDaemon` —
+whenever a Python thread first calls into Java. There is no
+`DetachCurrentThread` call anywhere in jpy's C source (confirmed by grep
+across `src/main/c/*.c`) or its Java source. Two compounding problems from
+one omission: (1) every Python thread that ever calls a Java method
+leaks a JVM-side thread registration for its entire life, with no jpy API
+to release it, and (2) because the attach is non-daemon, `DestroyJavaVM`
+(JNI-mandated to block until all non-daemon threads exit) will hang
+waiting on any such thread that's still alive but idle — a Python thread
+that made one Java call ten minutes ago and is now just sitting in a
+`time.sleep()` can still block JVM shutdown indefinitely, for a reason
+completely invisible from the call site that triggered the attach. jpype
+auto-attaches too, but deliberately as a daemon and with the leak named
+in its own public API: `JPContext::getEnv()`
+(`native/common/jp_context.cpp:870-894`) attaches via
+`AttachCurrentThreadAsDaemon` specifically "so that the newly attached
+thread does not deadlock the shutdown" (its own comment, line 885-886),
+and `java.lang.Thread.isAttached()`/`.attach()`/`.attachAsDaemon()`/
+`.detach()` (`jpype/_jthread.py:22-84`) are exposed precisely so
+long-running threads can detach and avoid the leak jpy has unconditionally
+and silently.
+
+**"Restarting"'s JVM-side counterpart has the identical asymmetry as the
+interpreter-restart misfeature above, just on the other embedding
+direction.** `JPy_destroy_jvm` (`jpy_module.c:510-521`) calls
+`DestroyJavaVM()` with no `isRunning()`/shutting-down guard anywhere in
+jpy's proxy-invocation path — nothing checks whether a Java daemon thread
+is mid-callback into a Python-implemented proxy before or after the call.
+jpy's only shutdown-race guard at all is `Py_IsFinalizing()`
+(`org_jpy_PyLib.c:57-86`), checked at the top of every native entry point
+for the *opposite* direction (a Java thread calling into Python while
+Python is finalizing) — and even that guard's own comment admits it
+"doesn't completely prevent the race condition (TOCTOU), but... mitigates
+the risk significantly." So jpy has a partial, self-acknowledged-racy
+guard for one direction and nothing at all for the other. jpype's model
+(`[[jvm_shutdown_daemon_thread_safety]]`) relies on `DestroyJavaVM`'s own
+JNI-mandated block on non-daemon threads for the general case, documented
+explicitly in `jp_context.cpp:97-101` ("VM_Exit parks all remaining
+daemon threads at the final safepoint; nothing executes Java code after
+DestroyJavaVM returns"), plus one targeted, non-racy check
+(`jp_proxy.cpp:161`, `context->isRunning() || ...is_shutting_down`) for
+the one gap that guarantee doesn't cover — a daemon-thread proxy callback
+still parked when shutdown completes underneath it.
+
+**Credit where it's due, so this section doesn't read as "jpy is bad at
+everything":** two things jpy actually gets right are properties of its
+Java-side/threading engineering, not its C-side conversion logic (where
+all three misfeatures above live) — and jpype already has equivalent, or
+architecturally stronger, coverage of both. Not gaps jpy fills that jpype
+lacks; independent-design parity, worth recording as such rather than
+silently, since the previous revision of this doc almost filed them as
+open gaps before checking.
+
+| Concern | jpy's approach | jpype's approach | Evidence |
+|---|---|---|---|
+| GIL acquisition at native entry points, called from arbitrary (Java) threads | `PyGILState_Ensure`/`Release` around every JNI entry point, ~35 call sites; explicitly rejects a Python call made mid-interpreter-shutdown rather than racing it | Same primitive, same discipline: `PyGILState_Ensure`/`Release` around Python calls from Java threads, including explicit handling of the reentrant case (`PyGILState_LOCKED` → release is a documented no-op) and `PyGILState_Check()` used specifically because it stays reliable across subinterpreters, not just the main interpreter | jpy: `~/devel/jpy/src/main/c/jni/org_jpy_PyLib.c:65-86` and ~35 call sites (e.g. 284, 407, 501, 881). jpype: `native/common/jp_bridge.cpp:280-390,601-624`, `native/python/jp_pythontypes.cpp:407-476` |
+| Preventing a native pointer from being reclaimed/reused while a JNI call using it is still in flight | Reads the native pointer off the *live* wrapper object, then relies on `Reference.reachabilityFence(this)` (`PyObject.java:33-40`) as an explicit, manually-placed guard against the JIT deciding the wrapper is dead early and letting GC collect it mid-call | Never reads the pointer off a live object at cleanup time at all: `org.jpype.ref.NativeReference` is a `PhantomReference` that copies the native handle onto *itself* at construction (`hostReference` field); a `PhantomReference` is only enqueued once the JVM has already proven the referent unreachable, so there's no live-object race to fence against in the first place | jpy: `~/devel/jpy/src/main/java/org/jpy/PyObject.java:33-40`. jpype: `native/jpype_module/src/main/java/org/jpype/ref/NativeReference.java:62-108` |
+
+Same outcome (no use-after-free of the native handle, no unsafe call
+during shutdown), reached two different ways: jpy patches a hazard its
+design creates; jpype's design doesn't create that hazard shape to begin
+with. Neither row is a jpy misfeature — they're included so the "five
+misfeatures" above don't get read as "jpy's engineering is uniformly
+worse," which the C-side evidence alone would wrongly imply. (The thread-
+attachment misfeature above is the one place this section's "credit"
+doesn't extend to jpy's threading engineering generally — GIL discipline
+and the reachability fence are sound; the never-detach non-daemon attach
+is a separate, real defect in the same subsystem.)
+
 ## jpype vs. jep
 
 ### Features jpype has that jep does not
