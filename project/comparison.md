@@ -1096,6 +1096,30 @@ no-recompile, ordinary-Java-service-provider addition. jpy has no
 collection-protocol support at all to compare against (established
 earlier in this doc), let alone an extension mechanism for one.
 
+**The sharper point underneath "no editing of jpype's own source
+required": neither side of the bridge needs any awareness of the other
+at all.** `JClassHints.registerClassImplementation(classname, proto)`
+(`jpype/_jcustomizer.py:222-231`, the machinery behind
+`@JImplementationFor`) keys purely on a *string* class name -- it
+requires no marker interface, no annotation, no jpype dependency on the
+target's classpath, not even that the class exists yet at registration
+time (the retroactive path, `_applyCustomizerPost`, exists precisely for
+"customize a class that's already loaded"). `WrapperService`/`.pyspi`
+has the identical property from the other side: a Python module gets
+declared as satisfying a Java interface by name, with the Python module
+itself needing no jpype awareness either. The practical consequence: a
+private, closed-source, never-published Java library -- or Python
+module -- can be customized to feel completely native, with the
+customization living entirely in a third location (glue code the end
+user writes themselves), while the library or module being customized
+stays exactly what it always was, unaware anything is bridging into it.
+jep and jpy have no equivalent gate at all, so the only way to get
+comparable ergonomics for a private class there is patching and
+recompiling jep's or jpy's own C source -- not a real option for someone
+else's internal library, which in practice means private code using jep
+or jpy is permanently stuck with whichever generic, un-customized
+wrapper each library ships.
+
 **The key point this adds up to: the reverse direction wasn't just given
 a feature set, it was given parity of *extensibility* with the forward
 direction jpype already had -- deliberately, not as an accidental
