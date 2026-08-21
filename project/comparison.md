@@ -333,13 +333,13 @@ here: a **Java exception surfacing in Python** (the common case — Python
 code calls a Java method that throws) and, where a library has a
 Java-hosts-Python direction at all, a **Python exception surfacing in
 Java** (embedded Python code raises, the host JVM code needs to see it).
-This document's source reading covered the first direction for jpy and
-jpype, and the second for jep specifically — not every cell is filled
-from equally deep verification.
+This document's source reading covered the first direction for jpy,
+jpype, and pyjnius, and the second for jep specifically — not every cell
+is filled from equally deep verification.
 
 | Direction | jpype | jpy | jep | pyjnius |
 |---|---|---|---|---|
-| Java exception → Python | Per-class mapping — `except java.lang.NullPointerException` distinguishable from `except java.lang.IllegalArgumentException` | Collapses to a single `RuntimeError` for every Java exception type | Not established in this pass | Not established in this pass |
+| Java exception → Python | Per-class mapping — `except java.lang.NullPointerException` distinguishable from `except java.lang.IllegalArgumentException` | Collapses to a single `RuntimeError` for every Java exception type | Not established in this pass | Collapses to a single `JavaException` for every Java exception type, but with more structured payload than jpy's — see below |
 | Python exception → Java | N/A in the scope checked here | N/A — jpy's embeddable direction (`PyLib.startPython()`) wasn't checked for this | Collapses to a single `JepException`, with partial cause-chaining for one specific case (see below) | N/A — no Java-hosts-Python direction |
 
 **Java exception → Python: jpy collapses to one type, no per-type
@@ -364,6 +364,23 @@ java.lang.IllegalArgumentException` are distinguishable, and
 `getCause()`/`getMessage()`/`printStackTrace()` remain available as
 methods on the exception object.
 
+**Java exception → Python: pyjnius also collapses to one type, but
+carries more structured data than jpy's flat string.**
+`check_exception` (`jnius_utils.pxi:41-79`) is pyjnius's only
+Java-to-Python exception path: it calls `ExceptionOccurred`/`ExceptionClear`,
+walks `getMessage()`/`getCause()`/`getStackTrace()` to build a Python
+list of trace frames, and raises a single `JavaException` class
+(`jnius_export_class.pxi:4`) regardless of the real Java exception type
+— `except java.lang.NullPointerException` isn't available, the same
+shape as jpy's collapse. Unlike jpy's flat string-concatenated message,
+`JavaException` carries the original class name, message, and stack
+trace as separate constructor arguments/attributes
+(`.classname`/`.innermessage`/`.stacktrace`), always populated rather
+than gated behind a verbosity flag — so `except JavaException as e: if
+e.classname == 'java.lang.NullPointerException':` is a workable, if
+manual, substitute for jpype's/jpy's `except SomeSpecificException` that
+neither jpy nor pyjnius offer directly.
+
 **Python exception → Java: jep collapses to one type too, with one
 partial exception.** `process_py_exception`
 (`src/main/c/Jep/jep_exceptions.c:42-175`) is jep's only
@@ -383,7 +400,7 @@ natively in Python.
 
 | | jpype | jpy | jep | pyjnius |
 |---|---|---|---|---|
-| Catch a specific Java exception in Python | `except java.lang.NullPointerException:` | `except RuntimeError:` (only option — no per-type distinction) | Not established in this pass | Not established in this pass |
+| Catch a specific Java exception in Python | `except java.lang.NullPointerException:` | `except RuntimeError:` (only option — no per-type distinction) | Not established in this pass | `except JavaException as e:`, then inspect `e.classname` — no per-type distinction at the `except` clause itself, but structured data is available inside the handler |
 | Catch a specific Python exception in Java | N/A in the scope checked here | N/A | `catch (JepException e)` (only option — no per-type distinction, except the one wrapped-Java-exception case above) | N/A |
 
 ## Axis 4: Threading & GIL discipline
@@ -397,9 +414,9 @@ exposes attach/detach as a call a user can make directly.
 
 | Concern | jpype | jpy | jep | pyjnius |
 |---|---|---|---|---|
-| Thread attachment for calls crossing into Java | Daemon (`AttachCurrentThreadAsDaemon`), with explicit `attach()`/`attachAsDaemon()`/`detach()` API | Non-daemon (`AttachCurrentThread`), no detach call anywhere in source | Daemon (`AttachCurrentThreadAsDaemon`), with a comment explaining why: no hooks exist to detach later | Not established in this pass |
-| GIL acquisition at native entry points | `PyGILState_Ensure`/`Release`, `PyGILState_Check()` for subinterpreter reliability | `PyGILState_Ensure`/`Release`, ~35 call sites, rejects a call made mid-shutdown | `PyEval_AcquireThread`/`ReleaseThread` against a per-thread cached `PyThreadState` — different API family, same underlying discipline | Not established in this pass |
-| Shutdown-race guard on a callback still in flight | `isRunning()`/`is_shutting_down` check (`jp_proxy.cpp:161`), on top of `DestroyJavaVM`'s own JNI-mandated block on non-daemon threads | `Py_IsFinalizing()` check, one direction only, self-acknowledged racy (TOCTOU) | None found in the proxy-invocation path, either direction | Not established in this pass |
+| Thread attachment for calls crossing into Java | Daemon (`AttachCurrentThreadAsDaemon`), with explicit `attach()`/`attachAsDaemon()`/`detach()` API | Non-daemon (`AttachCurrentThread`), no detach call anywhere in source | Daemon (`AttachCurrentThreadAsDaemon`), with a comment explaining why: no hooks exist to detach later | Non-daemon (plain `AttachCurrentThread`), but with an explicit `jnius.detach()` call exposed — the one place pyjnius offers something jpy doesn't |
+| GIL acquisition at native entry points | `PyGILState_Ensure`/`Release`, `PyGILState_Check()` for subinterpreter reliability | `PyGILState_Ensure`/`Release`, ~35 call sites, rejects a call made mid-shutdown | `PyEval_AcquireThread`/`ReleaseThread` against a per-thread cached `PyThreadState` — different API family, same underlying discipline | Cython's `with gil` clause on the proxy-callback entry point — compiler-generated `PyGILState_Ensure`/`Release`, not hand-written, but the same underlying primitive |
+| Shutdown-race guard on a callback still in flight | `isRunning()`/`is_shutting_down` check (`jp_proxy.cpp:161`), on top of `DestroyJavaVM`'s own JNI-mandated block on non-daemon threads | `Py_IsFinalizing()` check, one direction only, self-acknowledged racy (TOCTOU) | None found in the proxy-invocation path, either direction | None found in the proxy-callback path — matches jep's gap, not jpy's/jpype's guard |
 | Adversarial concurrency test (many threads, shared mutable interpreter state, relying on automatic locking) | `GilConcurrencyParityNGTest` — passes | `MultiThreadedEvalTestFixture` — passes | jep's own tests pass, but exercise a narrower scenario — see below | Not established in this pass |
 
 **jpy: threads that call from Python into Java are attached as
@@ -508,11 +525,38 @@ state across threads, rather than from a guard proven safe under shared
 mutable state the way jpype's is
 (`[[jvm_shutdown_daemon_thread_safety]]`-adjacent).
 
+**pyjnius: thread attachment is non-daemon like jpy's, but with an
+explicit release call jpy lacks.** `get_jnienv()`
+(`jnius_env.pxi:9-22`), the function nearly every native call site in
+pyjnius goes through, calls plain `AttachCurrentThread` (line 21), not
+`AttachCurrentThreadAsDaemon` — the same non-daemon shape as jpy's gap
+above, with the same underlying hazard (`DestroyJavaVM` will wait on a
+still-alive, idle thread that was attached this way). The function's own
+comment names a related, narrower leak too: `# XXX if threads are
+created from C (not java), we'll leak here.` Unlike jpy, though, pyjnius
+does expose a release call: `detach()` (`jnius_env.pxi:25-26`, calling
+`DetachCurrentThread` directly) is in the module's public `__all__`
+(`jnius.pyx:91`) as `jnius.detach()` — a user can call it manually,
+which jpy offers no equivalent of, though nothing calls it automatically
+the way jpype's daemon-by-default attachment sidesteps needing to.
+
+**pyjnius: the proxy-callback entry point acquires the GIL via Cython's
+`with gil`, with no shutdown-race guard.** `invoke0`/`py_invoke0`
+(`jnius_proxy.pxi:79-157`), the JNI-registered native method a Java
+thread calls into when invoking a Python-implemented proxy
+(`PythonJavaClass`), are declared `with gil` in Cython — the compiler
+generates the `PyGILState_Ensure`/`Release` pair automatically around
+the function body, the same primitive jpy and jpype use by hand, just
+not hand-written here. No `Py_IsFinalizing()`-style check or equivalent
+of jpype's `is_shutting_down` guard was found anywhere in this path,
+either function — the same gap as jep's proxy-invocation path above, not
+jpy's (racy but present) or jpype's (targeted, non-racy) protection.
+
 ### Syntax: explicit attach/detach
 
 | | jpype | jpy | jep | pyjnius |
 |---|---|---|---|---|
-| Explicit thread attach/detach call | `java.lang.Thread.attach()` / `.attachAsDaemon()` / `.detach()` (`jpype/_jthread.py:22-84`) | None — attachment is automatic and permanent, no release call | None — attachment is automatic (daemon), no release call needed since it's daemon | Not established in this pass |
+| Explicit thread attach/detach call | `java.lang.Thread.attach()` / `.attachAsDaemon()` / `.detach()` (`jpype/_jthread.py:22-84`) | None — attachment is automatic and permanent, no release call | None — attachment is automatic (daemon), no release call needed since it's daemon | `jnius.detach()` (`jnius_env.pxi:25-26`) — attachment itself is automatic and non-daemon (see above), but a release call exists, unlike jpy |
 
 ## Axis 5: Native object lifetime / GC
 
@@ -528,7 +572,7 @@ object-model axis) — no syntax table here.
 | jpype | `org.jpype.ref.NativeReference`, a `PhantomReference` that copies the native handle onto itself at construction (`hostReference` field) | A `PhantomReference` is only enqueued once the referent is already proven unreachable, so there's no live-object race to fence against in the first place — no explicit fence needed by construction |
 | jpy | `Reference.reachabilityFence(this)` (`PyObject.java:33-40`) | Reads the native pointer off the live wrapper object, then relies on an explicit, manually-placed fence to stop the JIT from deciding the wrapper is dead early and letting GC collect it mid-call |
 | jep | Manual only — no `PhantomReference`/`Cleaner`/`reachabilityFence` anywhere in `jep.python.PyObject` | Cleanup exclusively via explicit `close()`; a `PyObject` becomes invalid once its owning interpreter closes (per its own javadoc) |
-| pyjnius | Not established in this pass | — |
+| pyjnius | `LocalRef`, a Cython extension type whose `__dealloc__` calls `DeleteGlobalRef` (`jnius_localref.pxi:1-18`) | Despite the name, holds a Java *global* ref (`NewGlobalRef` in `create()`) released synchronously when CPython's own refcounting drops the Python wrapper to zero — no phantom reference, no explicit fence |
 
 jpy's and jpype's mechanisms reach the same outcome — no use-after-free
 of the native handle — two different ways: jpy adds an explicit guard
@@ -545,6 +589,19 @@ model and jpype's phantom-reference model, rather than a strictly better
 or worse one — leak-on-`close()`-omission versus a fencing discipline
 that has to be applied correctly at every call site are different
 failure modes, not directly ranked here.
+
+pyjnius's model is a fourth point again, and structurally simpler than
+any of the three above for a specific reason: CPython's reference
+counting is synchronous and deterministic, not a concurrent collector
+the way the JVM's is, so a `LocalRef` held by an active Python call
+frame can't be dealloc'd out from under that call the way jpy's fence
+guards against — there's no equivalent of the JIT deciding a wrapper is
+provably dead early. That's a narrower version of jpype's own reasoning
+(no race by construction) reached for a different underlying reason
+(deterministic refcounting vs. phantom-reference timing), not the same
+mechanism wearing a different name. It doesn't, by itself, say anything
+about whether the *Java*-side global ref could be freed while some other
+Java thread is still using it — that direction wasn't checked here.
 
 ## Axis 6: Interpreter lifecycle
 
@@ -845,7 +902,7 @@ is current, shipped jpype behavior.
 
 | Concern | jpype | jpy | jep | pyjnius |
 |---|---|---|---|---|
-| Customize how an existing Java class looks to Python, by class name, no source changes to the target | Yes — `@JImplementationFor`/`@JConversion` (`jpype/_jcustomizer.py`), string-keyed, works retroactively on an already-loaded class | Not established in this pass | Not established in this pass | Not established in this pass |
+| Customize how an existing Java class looks to Python, by class name, no source changes to the target | Yes — `@JImplementationFor`/`@JConversion` (`jpype/_jcustomizer.py`), string-keyed, works retroactively on an already-loaded class | Not established in this pass | Not established in this pass | No equivalent found — `jclass_register` (`jnius_export_class.pxi:118`) is a memoization cache keyed by `(classname, params)` for `autoclass()`'s own generated wrapper classes, not a third-party customization point |
 | Automatic structural proxy: Java declares an interface, any Python object that structurally satisfies it gets proxied with no explicit call (`origin/reverse`) | Yes — `JPConversionPython`/`PyJP_probe` | No — three hand-written wrapper classes, constructed explicitly, no probing | No — fixed C-level type chain to a closed set of concrete Java types (plus one functional-interface special case, see below) | N/A — no Java-hosts-Python direction |
 | User-extensible SPI: expose a new Python class as a typed Java interface, by dropping a file, no library source changes (`origin/reverse`) | Yes — `WrapperService`/`.pyspi`, `java.util.ServiceLoader`-discovered | No equivalent | No equivalent — a new target interface means patching and recompiling jep's C source | No equivalent |
 
