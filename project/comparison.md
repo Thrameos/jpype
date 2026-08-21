@@ -1055,6 +1055,97 @@ claim that must be checked against that library's own branches/plans
 before being written down, not inferred from "that's not what the
 `review` branch does today." This doc got that wrong once already.
 
+### Launching embedded Python from Java: three different discovery models
+
+The other half of "Java hosts Python" that hasn't been compared yet:
+before any of the API surface above can run, something has to find the
+right `python`/`libpython` on disk and load it into the JVM process.
+pyjnius doesn't have this problem at all (no Java-hosts-Python direction
+to compare, established earlier). jpype, jpy, and jep each answer it
+completely differently.
+
+**jpy: fully static, ahead-of-time, no runtime discovery at all.**
+`PyLibConfig`'s static initializer (`~/devel/jpy/src/main/java/org/jpy/PyLibConfig.java:53-71`)
+only ever reads a `jpyconfig.properties` file — from the classpath, from
+`-Djpy.config=<path>`, or from the current working directory — and
+copies its keys into `System` properties. That file isn't generated at
+run time; it's written once, ahead of time, by a separate Python-side
+step (`jpyutil.write_config()`, run manually from Python during setup).
+`PyLib.loadLib()` then reads `jpy.jpyLib`/`jpy.pythonLib` straight out of
+that config via `getProperty(key, mustHave=true)`
+(`PyLib.java:521-546`) and calls `System.load()` directly — no search,
+no fallback. If the config is missing or stale (Python reinstalled, venv
+moved, wheel rebuilt), the failure is immediate and unhelpful:
+`RuntimeException("missing configuration property 'jpy.jpyLib'")`
+(`PyLibConfig.java:120-122`). The entire discovery problem is pushed
+onto the user/build system, once, before Java ever runs.
+
+**jep: real runtime discovery, but by re-deriving Python's own search
+path in Java rather than asking Python directly.** `MainInterpreter.initialize()`
+first tries the conventional `System.loadLibrary("jep")` (i.e. whatever
+`-Djava.library.path` already points at); only on `UnsatisfiedLinkError`
+does it fall back to `LibraryLocator.findJepLibrary()`
+(`~/devel/jep/src/main/java/jep/MainInterpreter.java:124-135`). That
+locator is a genuine search, not a stub: it walks `PYTHONPATH`
+(`searchPythonPath`), then reimplements CPython's own
+`site.py`-`getsitepackages()` layout against `PYTHONHOME`/`VIRTUAL_ENV`
+(`searchSitePackages` — `lib`/`lib64`/`Lib`, `site-packages`,
+`site-python`, versioned `pythonX.Y/site-packages`), then user-site
+locations per PEP 370 across all three OS conventions
+(`searchUserSitePackages` — `~/.local/lib/pythonX.Y/site-packages`,
+Windows `%APPDATA%/Python`, macOS `~/Library/Python/X.Y`) —
+`LibraryLocator.java:100-227`. It even has a narrow self-healing step:
+if `libjep`'s own `System.load()` fails because the *specific*
+`libpython*.so` it needs isn't found, it regex-parses the exact missing
+library name out of the `UnsatisfiedLinkError` message and searches
+`PYTHONHOME` for it by that exact name (`findPythonLibrary`,
+`LibraryLocator.java:253-292`). But every bit of this is a Java-side
+*mirror* of Python's layout logic, not a query against a live Python
+process — the class's own doc comment admits the risk directly: "this is
+just a mirror of what Python is doing, if there are changes to Python it
+may require changes here" (`LibraryLocator.java:39-46`). No caching (the
+full walk re-runs every failed-`loadLibrary` startup), and no install/
+self-heal step if nothing is found — it just returns `false` and the
+original `UnsatisfiedLinkError` propagates.
+
+**jpype: runs a real Python subprocess to ask the interpreter directly,
+caches the answer, and can self-heal via `pip` if nothing is found.**
+`Launcher.resolveLibraries()` (`native/jpype_module/src/main/java/org/jpype/Launcher.java:417-456`)
+resolves which `python` executable to target (system property →
+`PYTHONHOME` env var → first `python3` on `PATH`,
+`getExecutable`/`checkPath`, lines 190-253), then — unlike jep's static
+path-mirroring — actually launches that executable and runs a bundled
+"detective probe" script inside it (`loadProbeResource`/`executeProbe`,
+lines 167-314): the probe reports back its own real `sys.executable`,
+library paths, and JPype install location as `Properties`, authoritative
+because it comes from the live interpreter itself, not reconstructed
+from directory-layout conventions that can drift. That result is cached
+on disk (`~/.jpype/jpype.properties` or the Windows `AppData`
+equivalent) keyed by a hash of the executable path
+(`saveCache`/`loadFromCache`, lines 255-264, 336-415) — with an explicit
+staleness check on load, verifying the cached library paths still exist
+on disk before trusting the cache, specifically because a `pip install
+--upgrade` can move the native module to a new wheel-cache path while
+leaving the interpreter itself untouched (comment,
+`Launcher.java:397-402`). And if the probe fails outright and
+`jpype.install=true`, `runPipInstall()` (lines 462-504) attempts a real
+self-heal: look for a local matching wheel first (offline-friendly),
+fall back to a network `pip install JPype1>=<version> --only-binary`
+otherwise, then re-probe.
+
+**The shape of the difference**: jpy pushes discovery entirely outside
+the running system (a one-time, ahead-of-time file you must remember to
+regenerate); jep does real runtime discovery but by simulating Python's
+own path logic in Java, which can only ever be as correct as that
+simulation stays in sync with CPython's actual behavior; jpype asks the
+live interpreter what's true, caches the authoritative answer, validates
+that cache before trusting it, and can repair a missing install rather
+than just fail. Three genuinely different engineering answers to the
+same problem, not one library having "a feature" the others lack outright
+— jep's is real discovery, not absent — but jpype's is the only one of
+the three that is both authoritative (asks Python, doesn't guess) and
+resilient (cached-with-validation, self-healing) at the same time.
+
 ## Further out (speculative): J2NI, and what "JPype2" could mean
 
 **Flagged explicitly as speculative** -- this is a separate project
