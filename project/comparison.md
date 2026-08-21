@@ -136,7 +136,6 @@ on numpy array push/pull, since that's where the four libraries differ
 most and where the sharpest correctness bug in this whole comparison
 (jpy's silent dtype bit-reinterpretation) lives.
 
-
 | Feature | jpype | jpy | jep | pyjnius |
 |---|---|---|---|---|
 | Class hints / custom conversions (`@JConversion`) | Yes (54 tests) | No | No | No |
@@ -301,7 +300,6 @@ each have two of eight with no caveats. This table is scoped
 specifically to bulk numeric array transfer; other conversion/array
 gaps (class hints, dtype checking, boxing) are covered elsewhere in this
 axis.
-
 
 ### Boxed numeric type selection for a generic `Object`/`Number` argument
 
@@ -495,7 +493,12 @@ documented no-op) and `PyGILState_Check()`, chosen because it stays
 reliable across subinterpreters (`native/common/jp_bridge.cpp:280-390,601-624`,
 `native/python/jp_pythontypes.cpp:407-476`). The non-daemon
 thread-attachment gap above is a separate point in the same subsystem —
-this GIL-discipline match holds independently of it.
+this GIL-discipline match holds independently of it. Put together with
+the conversion axis's boxing/dtype findings, the shape across this
+document is consistent: jpy's C-side value-conversion logic (boxing,
+buffer dtype checks) has the real gaps; its Java-side threading and
+lifetime engineering (GIL discipline, the reachability fence in the
+next axis) does not.
 
 **jep: the proxy-invocation path has no liveness check at shutdown.**
 `jep.python.InvocationHandler.invoke()`
@@ -516,7 +519,11 @@ counterpart in jep.
 "there are no hooks to detach the thread later[, so] daemon is the only
 way to let the process exit normally" (`src/main/c/Jep/pyembed.c:817-834`)
 — jep's authors designed around the hazard jpy's plain-`AttachCurrentThread`
--without-detach creates, rather than hitting it and patching later.
+-without-detach creates, rather than hitting it and patching later. This
+is one of three places jep's design independently lands on the same
+choice as jpype rather than jpy's: type-stable boxing in the conversion
+axis, and real (not faked) sub-interpreter shutdown in the
+interpreter-lifecycle axis are the other two.
 
 **jep: GIL discipline uses a different mechanism, no shutdown-race guard
 found.** jep acquires/releases via `PyEval_AcquireThread(jepThread->tstate)`/
@@ -554,16 +561,15 @@ mutable state the way jpype's is
 explicit release call jpy lacks.** `get_jnienv()`
 (`jnius_env.pxi:9-22`), the function nearly every native call site in
 pyjnius goes through, calls plain `AttachCurrentThread` (line 21), not
-`AttachCurrentThreadAsDaemon` — the same non-daemon shape as jpy's gap
-above, with the same underlying hazard (`DestroyJavaVM` will wait on a
-still-alive, idle thread that was attached this way). The function's own
-comment names a related, narrower leak too: `# XXX if threads are
-created from C (not java), we'll leak here.` Unlike jpy, though, pyjnius
-does expose a release call: `detach()` (`jnius_env.pxi:25-26`, calling
-`DetachCurrentThread` directly) is in the module's public `__all__`
-(`jnius.pyx:91`) as `jnius.detach()` — a user can call it manually,
-which jpy offers no equivalent of, though nothing calls it automatically
-the way jpype's daemon-by-default attachment sidesteps needing to.
+`AttachCurrentThreadAsDaemon` — the same non-daemon hazard as jpy's,
+above. The function's own comment names a related, narrower leak too:
+`# XXX if threads are created from C (not java), we'll leak here.`
+Unlike jpy, though, pyjnius does expose a release call: `detach()`
+(`jnius_env.pxi:25-26`, calling `DetachCurrentThread` directly) is in
+the module's public `__all__` (`jnius.pyx:91`) as `jnius.detach()` — a
+user can call it manually, which jpy offers no equivalent of, though
+nothing calls it automatically the way jpype's daemon-by-default
+attachment sidesteps needing to.
 
 **pyjnius: the proxy-callback entry point acquires the GIL via Cython's
 `with gil`, with no shutdown-race guard.** `invoke0`/`py_invoke0`
@@ -894,7 +900,6 @@ and with a broader `python.lang` typed-object story than jpy's JSR-223
 alone provides — while pyjnius remains the only one of the four with
 just one direction.
 
-
 ### Launching embedded Python from Java: three discovery models
 
 Before any of the API surface above can run, something has to find the
@@ -975,7 +980,6 @@ validity check, and can repair a missing install rather than fail.
 jep's approach is real discovery, not absent — the difference is that
 jpype's is the only one of the three that both queries Python directly
 and validates/self-heals its cache.
-
 
 **Status, again:** everything above about jpype in this axis describes
 `origin/reverse`, 190 commits ahead of `review` and not yet merged —
