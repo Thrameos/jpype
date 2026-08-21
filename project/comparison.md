@@ -2,56 +2,140 @@
 
 Scope: if jpype's test suite were ported to jpy/jep/pyjnius, how much of it
 would have something to run against (see the testbench-porting discussion
-this doc grew out of). Grounded in each library's own source: jpy's C
-source (`~/devel/jpy/src/main/c`, 21-file/151-test suite), jep's C source
+this doc grew out of). Organized by axis — object model, conversion,
+exceptions, threading, object lifetime, interpreter lifecycle, embedding,
+extensibility, ergonomics — rather than by library pair, so a reader can
+go straight to the axis they care about and see all four libraries
+side by side. Grounded in each library's own source: jpy's C source
+(`~/devel/jpy/src/main/c`, 21-file/151-test suite), jep's C source
 (`~/devel/jep/src/main/c`, 34-file/247-test suite), and pyjnius's Cython
 source (`~/devel/pyjnius/jnius/*.pxi`, `reflect.py`, 37-file/160-test
 suite). See `project/benchmark/RESULTS.md` for the jpype/jpy/jep/pyjnius
 speed comparison.
 
 jpy is architecturally a thin C extension with essentially no Python-side
-wrapper layer — most of jpy's rows below follow from that: jpype spends
+wrapper layer — most of jpy's gaps below follow from that: jpype spends
 effort on Python-idiomatic ergonomics and correctness breadth that jpy's
 design doesn't take on. jep embeds Python inside the JVM (the reverse of
 jpype/jpy's architecture) and, unlike jpy, gives Java collections real
-Python protocol support (`pyjlist.c`, `pyjmap.c`, `pyjcollection.c`,
-`pyjiterable.c`) plus functional-interface duck typing and general
-multi-method proxy support (`pyjtype.c`'s `functionalInterface`
-detection, `jep/Proxy.java` + `java_access/Proxy.c`) — closer to jpype in
-scope than jpy, though still narrower. pyjnius is closer still in *scope*
-(real collection-protocol, `Comparable`, functional-interface, and
-general-proxy support, all verified working — see below), but its
-multi-dimensional/buffer array support is the narrowest of the three, and
-its general-proxy implementation has a reproducible crash under a
-specific input that jpy/jep don't share.
+Python protocol support plus functional-interface duck typing and
+general multi-method proxy support — closer to jpype in scope than jpy,
+though still narrower. pyjnius is closer still in scope (real
+collection-protocol, `Comparable`, functional-interface, and
+general-proxy support, all verified working), but its multi-dimensional/
+buffer array support is the narrowest of the three, and its general-proxy
+implementation has a reproducible crash under a specific input that
+jpy/jep don't share.
 
-## Feature matrix: all four libraries
+Each axis section below follows the same shape: a short intro, a feature
+table, prose analysis for anything that doesn't fit a table cell, and —
+where a direct API mapping exists across libraries — a syntax-equivalence
+table. Not every axis has enough of a direct API mapping to warrant a
+syntax table (internal mechanisms like GIL discipline or GC handling
+aren't something a user calls directly); those axes end with the prose
+analysis instead.
 
-A single-glance summary of the pairwise sections below, which carry the
-full evidence/citations for every row. "Yes"/"No" means fully working and
-verified (empirically, where practical) or confirmed absent from source;
-anything more nuanced gets a footnote.
+## Axis 0: Starting the JVM/interpreter and managing the classpath
 
-### Language / object-model integration
+The first thing any of these libraries does. Grounded here specifically
+in what each library's own startup API looks like and how late a jar or
+directory can be added to the classpath — not a deep dive into general
+class-access syntax (`JClass(...)`, `autoclass(...)`, etc.), which this
+document's source reading didn't go deep enough on for every library to
+put in a verified table; pyjnius's `autoclass()` is the one class-access
+call cited elsewhere in this document with enough grounding to include
+here.
+
+| Concern | jpype | jpy | jep | pyjnius |
+|---|---|---|---|---|
+| JVM/interpreter startup API | Rich, discoverable JVM-finding + startup-option API (`startJVM()`) | Different, narrower launch API (`jpy.create_jvm`) — a different shape, not a subset | N/A — embeds Python inside the JVM, reverse architecture: a Python process doesn't start a JVM here, a JVM starts Python | Auto-starts on first `autoclass()` call from a preset classpath (`jnius_config`) — simplest of the four, least configurable |
+| Add a jar/path to the classpath after startup | Yes — `addClassPath()` live-injects into `org.jpype.JPypeContext`'s custom classloader via JNI | No — `jvm_classpath` is only settable as an argument to `init_jvm()`, no post-startup API found | No — architectural: jep doesn't start its own JVM, it's embedded inside one already launched via `java -classpath ...`; `JepConfig.setClassLoader()` supplies a pre-built `ClassLoader` to a new sub-interpreter at construction time, not a live "add this jar now" call | No, and more deliberately than jpy/jep: `add_classpath()` calls `check_vm_running()` first and raises `ValueError` if the JVM has already started — functionally identical to `set_classpath()`, both pre-startup only |
+
+Class access syntax: pyjnius's `autoclass('java.package.ClassName')`
+(`reflect.py`) is the one call this document verified directly (see the
+object-model axis below, where `protocol_map` is applied "inside
+`autoclass()`"). jpype, jpy, and jep each have their own class-access
+entry point (`JClass`/`JPackage` imports for jpype, a `jpy`-module
+lookup for jpy, an interpreter-level import call for jep) that this
+comparison didn't verify in the same depth — worth a follow-up pass
+before treating exact call signatures as citable here.
+
+## Axis 1: Object-model integration
+
+Whether a Java object behaves like the Python thing it resembles —
+`List`/`Map` as `list`/`dict`, `Comparable`/`Iterable` in Python's own
+operators, `AutoCloseable` under `with`, a Java functional interface
+satisfied by a bare Python callable — and whether a Python object can
+stand in for an arbitrary Java interface via a proxy.
 
 | Feature | jpype | jpy | jep | pyjnius |
 |---|---|---|---|---|
-| Collection protocols (`List`/`Map`/`Iterator` as native Python `list`/`dict`/iterator) | Yes | No | Yes (`pyjlist.c`/`pyjmap.c`/etc.) | Yes (`protocol_map`) |
-| `Comparable`/`Iterable` duck-typing (`<`, `for x in`, `hash()`) | Yes | No | Yes | Yes (`protocol_map`) |
-| `AutoCloseable` → Python context manager (`with obj:`) | Yes (`jpype/_jio.py`) | No | Yes (`pyjautocloseable.c`) | Yes (`protocol_map`) |
-| Functional-interface duck typing (bare `lambda`/callable as a Java SAM arg, no proxy class needed) | Yes | No (explicit proxy object only) | Yes (`pyjtype.c`'s `functionalInterface`) | Yes (`jnius_conversion.pxi`) |
-| General proxy (Python object implementing an arbitrary Java interface) | Yes, multithread-safe | Did not produce a usable object in this checkout\* | Yes | Yes for the common case, with a reproduced crash on one input shape\*\* |
+| Collection protocols (`List`/`Map`/`Iterator` as native Python `list`/`dict`/iterator) | Yes | No — `jpy_jtype.c:2690-91` sets `tp_as_sequence`/`tp_as_mapping` to `NULL` unconditionally | Yes (`pyjlist.c`/`pyjmap.c`/`pyjcollection.c`/`pyjiterable.c`/`pyjiterator.c`) | Yes (`reflect.py`'s `protocol_map`, applied automatically inside `autoclass()`; verified an `ArrayList`/`HashMap` support `len()`, indexing, iteration, and `in` directly) |
+| `Comparable`/`Iterable`/`Hashable` duck-typing (`<`, `for x in`, `hash()`) | Yes | No — no `Comparable`/`Iterable` handling found in `jpy_jtype.c` | Yes (`tp_richcompare` delegates to `compareTo`, `tp_hash` to `hashCode`, `pyjobject.c:155-181,310-312`) | Yes (same `protocol_map`; verified `Integer(3) < Integer(5)` works directly) |
+| `AutoCloseable` → Python context manager (`with obj:`) | Yes (`jpype/_jio.py`) | No | Yes (`pyjautocloseable.c`) | Yes (same `protocol_map`, `__enter__`/`__exit__` delegate to `close()`) |
+| Functional-interface duck typing (bare `lambda`/callable as a Java SAM arg, no proxy class needed) | Yes | No — only explicit proxy objects, no implicit lambda conversion | Yes (`pyjtype.c:259-335`'s `functionalInterface` detection) | Yes (`jnius_conversion.pxi`'s functional-interface detection, ~line 415-451; verified `DeepBench.invokeCallback(lambda x: x + 1, 5)` works directly) |
+| General proxy (Python object implementing an arbitrary Java interface) | Yes, multithread-safe (`test_proxy.py`, `test_proxy_multithreaded.py`) | `PyObject.createProxy()` exists but did not produce a usable object in this checkout | Yes, no defect found (`jep/Proxy.java`, `java_access/Proxy.c`, `test_jproxy.py`) | Works for the common case (verified `int`-arg callback), with a reproduced crash on one input shape — see below |
+| `synchronized` block support | Yes | No equivalent test or source | Yes (`pyjmonitor.c`, `test_synchronized.py`) | Not covered in this pass |
 
-\* jpy's `PyObject.createProxy()` exists but didn't produce a usable
-object from Python in this checkout (see jpy section below).
+### A reproduced defect in pyjnius's proxy implementation
 
-\*\* pyjnius's proxy mechanism works for the common case, but a
-Python-implemented interface method receiving a **null** `Object`
-argument segfaults the JVM (`jni_GetObjectClass` on a null jobject), and
-the non-null case returns `None` instead of the real object — see the
-dedicated section below.
+Unlike jpy's proxy gap (a construction-time failure — `PyObject.createProxy()`
+never produced a usable object in this checkout) and jep's proxy support
+(no defect found), pyjnius's general proxy mechanism crashes on one
+specific input: a Python-implemented Java interface method receiving a
+genuinely **null** `Object` argument (`DeepBench.invokeObjectCallbackWithNull`
+— `jpype.benchmark.DeepBench`'s `ObjectCallback` methods exist
+specifically to cover this case, per `jp_proxy.cpp`'s own history)
+segfaults the JVM with a native `SIGSEGV` in `jni_GetObjectClass`.
+Reproduced independently three times against a fresh build in a
+disposable venv (checked for stale-build-state first, per this repo's
+CLAUDE.md, before treating it as real). pyjnius's proxy-argument-marshalling
+code calls `GetObjectClass`/`IsSameObject` on the argument without a
+null check.
 
-### Conversion / arrays
+The non-crashing case (a real, non-null `Object` argument) also doesn't
+round-trip correctly: `invokeObjectCallback` returns `None` instead of
+the object the Python callback handed back. See
+`project/benchmark/RESULTS.md`'s pyjnius section and
+`project/benchmark/pyjnius/proxy.py`; that script deliberately never
+calls the null-argument variant.
+
+### Where jep does less work per call
+
+Verified by reading `pyjmultimethod.c`/`pyjmethod.c`, not inferred from
+timing. jep's overload resolution filters candidates by parameter count
+only (O(1), no type inspection); the per-argument type-compatibility
+check (`PyJMethod_CheckArguments`) only runs when two or more candidates
+share the same arity. For a method with a single overload (the common
+case, and the case for every array/scalar benchmark in `RESULTS.md`),
+jep converts arguments directly against the one known parameter type in
+a single pass. jpype always runs a full `matches()` scoring scan then a
+separate `convert()`, even with no overload ambiguity, since its
+architecture doesn't special-case "only one candidate" — this is also
+why jep falls behind on the 16-overload dispatch benchmark in
+`RESULTS.md` (all candidates share arity there, so jep's shortcut can't
+fire and the more expensive check runs repeatedly).
+
+### Syntax: constructing a proxy
+
+jpype has three ways to make a Python object answer to a Java interface
+(a fourth, fully automatic path exists too — see the embedding/
+extensibility axis below, since it's tied to interfaces that today live
+on the not-yet-merged `origin/reverse` branch):
+
+| Call shape | jpype | jpy | jep | pyjnius |
+|---|---|---|---|---|
+| Bare callable as a functional-interface argument | Any `lambda`/callable, no wrapping | Not supported — must construct a proxy object explicitly | Any callable, detected via `isInterface` + single-abstract-method check | Any `lambda`/callable, no wrapping |
+| Explicit proxy, modern/typed form | `@JImplements(...)` decorator on a Python class (`jpype/_jproxy.py`) | `PyObject.createProxy()` — did not produce a usable object in this checkout | `jep.jproxy()` | `PythonJavaClass` subclass + `@java_method('<jni-signature>')` |
+| Explicit proxy, manual/dict form | `JProxy(interfaces, dict=... \| inst=...)` — `@JImplements`'s predecessor, still supported (`_jproxy.py:186-234`) | (same call as above — jpy has one proxy form, not two) | (same call as above — jep has one proxy form, not two) | (same call as above — pyjnius has one proxy form, not two) |
+
+## Axis 2: Conversion & array transfer
+
+How Python values become Java-typed arguments, with the heaviest focus
+on numpy array push/pull, since that's where the four libraries differ
+most and where the sharpest correctness bug in this whole comparison
+(jpy's silent dtype bit-reinterpretation) lives.
+
 
 | Feature | jpype | jpy | jep | pyjnius |
 |---|---|---|---|---|
@@ -213,91 +297,270 @@ caveat.
 
 Framed this way: jpype has all eight paths, jpy has five of eight (one
 of those five silently wrong on dtype mismatch), and jep and pyjnius
-each have two of eight with no caveats. The "Other" table below adds the
-non-buffer feature gaps on top; this table is scoped specifically to
-bulk numeric array transfer.
+each have two of eight with no caveats. This table is scoped
+specifically to bulk numeric array transfer; other conversion/array
+gaps (class hints, dtype checking, boxing) are covered elsewhere in this
+axis.
 
-### Other
 
-| Feature | jpype | jpy | jep | pyjnius |
+### Boxed numeric type selection for a generic `Object`/`Number` argument
+
+A separate conversion question from the array/buffer paths above: when a
+plain Python `int` needs to become some boxed Java `Number` type (no
+declared target narrower than `Object`/`Number`), what runtime class does
+it get?
+
+| | jpype | jpy | jep |
+|---|---|---|---|
+| Boxing rule | Fixed: always `java.lang.Long`, independent of magnitude (`JPConversionBoxLong::convert`, `native/common/jp_classhints.cpp:1662-1697`); numpy scalar types vary by dtype identity (`int32`→`Integer`, `int16`→`Short`) | Magnitude-dependent: picks `Byte`/`Short`/`Integer`/`Long` by testing whether the value survives a narrowing cast (`JType_CreateJavaNumberFromPythonInt`, `~/devel/jpy/src/main/c/jpy_jtype.c:542-563`) | Declared-type-driven: `pylong_as_jobject` dispatches on the expected Java type via `IsAssignableFrom` checks (Long → Integer → Byte → Short → BigInteger fallback on overflow), not the Python value's magnitude (`src/main/c/Jep/convert_p2j.c:317-368`) |
+
+jpy's rule means the same Python `int` literal boxes to a different Java
+runtime class depending purely on its magnitude at a given call:
+`foo(5)` boxes as `Byte`, `foo(5000)` as `Short`, `foo(5_000_000)` as
+`Integer`, `foo(5_000_000_000)` as `Long`. Since Java-side overload
+resolution and `instanceof` both dispatch on the boxed object's runtime
+class, `someMethod(x)`'s effective behavior can change based on how
+large `x` happens to be, for arguments that are all equally plain Python
+`int`s — worth flagging because the boundary is a magnitude threshold
+rather than anything visible at the call site. jep's rule is type-stable
+like jpype's, just driven by the declared target type rather than a
+fixed default.
+
+## Axis 3: Exceptions crossing the language boundary
+
+Two distinct directions get conflated easily, so they're kept separate
+here: a **Java exception surfacing in Python** (the common case — Python
+code calls a Java method that throws) and, where a library has a
+Java-hosts-Python direction at all, a **Python exception surfacing in
+Java** (embedded Python code raises, the host JVM code needs to see it).
+This document's source reading covered the first direction for jpy and
+jpype, and the second for jep specifically — not every cell is filled
+from equally deep verification.
+
+| Direction | jpype | jpy | jep | pyjnius |
 |---|---|---|---|---|
-| Pickling / `copyreg` support | Yes (9 tests) | No | No | No |
-| Caller-sensitive JDK method handling | Yes (20 tests) | No | No | No |
-| Javadoc-derived docstrings / Jedi / typing-stub generation | Yes (~37 tests) | No | No (bare `dir()` only) | No (bare `dir()` only, `__doc__ is None`) |
-| Rich JVM-finder / startup-options API | Yes | Different, narrower (`jpy.create_jvm`) | N/A — embeds Python inside the JVM, reverse architecture | Auto-starts on first `autoclass()` call from a preset classpath (`jnius_config`) — simplest of the four, least configurable |
-| Late class loading (add a jar/path to the classpath after the JVM is already running) | Yes — `addClassPath()` live-injects into `org.jpype.JPypeContext`'s custom classloader via JNI | No — `jvm_classpath` is only settable as an argument to `init_jvm()`, no post-startup API found | No — architectural: jep doesn't start its own JVM, it's embedded inside one already launched via `java -classpath ...`; `JepConfig.setClassLoader()` supplies a pre-built `ClassLoader` to a new sub-interpreter at construction time, not a live "add this jar now" call | No: `add_classpath()` calls `check_vm_running()` and raises `ValueError` if the JVM has already started — functionally identical to `set_classpath()`, both pre-startup only |
+| Java exception → Python | Per-class mapping — `except java.lang.NullPointerException` distinguishable from `except java.lang.IllegalArgumentException` | Collapses to a single `RuntimeError` for every Java exception type | Not established in this pass | Not established in this pass |
+| Python exception → Java | N/A in the scope checked here | N/A — jpy's embeddable direction (`PyLib.startPython()`) wasn't checked for this | Collapses to a single `JepException`, with partial cause-chaining for one specific case (see below) | N/A — no Java-hosts-Python direction |
 
-### Test suite size
+**Java exception → Python: jpy collapses to one type, no per-type
+distinction.** `JPy_HandleJavaException`
+(`~/devel/jpy/src/main/c/jpy_module.c:1244-1420`) is jpy's only
+Java-to-Python exception path and always ends in
+`PyErr_Format(PyExc_RuntimeError, ...)` (lines 1398/1411), regardless of
+whether the underlying exception was a `NullPointerException`, an
+`IllegalArgumentException`, or an application-defined checked exception.
+`getCause()` is walked (line 1394) to splice `"caused by "` text into
+that one message (lines 1259-1284) — there is no `__cause__`, no
+`__context__`, and no distinct Python exception object per cause. The
+detailed message text (the stack-trace walk) only runs when
+`JPy_VerboseExceptions` is set (line 1255); otherwise the message is
+`error.toString()`. Net effect: `except SomeSpecificException` isn't
+available through jpy — every failure is a `RuntimeError` to the caller.
+jpype's `JException` (`jpype/_jexception.py`, `@JImplementationFor
+("java.lang.Throwable", base=True)`) maps each Java exception class onto
+its own Python exception type, mirroring the Java `Throwable` hierarchy,
+so `except java.lang.NullPointerException` and `except
+java.lang.IllegalArgumentException` are distinguishable, and
+`getCause()`/`getMessage()`/`printStackTrace()` remain available as
+methods on the exception object.
+
+**Python exception → Java: jep collapses to one type too, with one
+partial exception.** `process_py_exception`
+(`src/main/c/Jep/jep_exceptions.c:42-175`) is jep's only
+Python-to-Java exception path; every Python exception becomes a
+`JepException(String, long)` built from `"ExcType: message"` string
+concatenation (lines 148-163), not a distinct Java exception class per
+Python exception type — `catch SomeSpecificPythonException` isn't
+available on the Java side. One case is handled more precisely: if the
+Python exception is itself wrapping a Java exception that crossed into
+Python and back (a `PyJObject`-backed exception), jep preserves that as
+a real `Throwable` cause via a second constructor,
+`JepException(String, Throwable)` (lines 162-167) — cause-chaining for
+that specific round-trip case, not for exceptions that originate
+natively in Python.
+
+### Syntax: catching a specific failure
 
 | | jpype | jpy | jep | pyjnius |
-|---|---:|---:|---:|---:|
-| test files | 90 | 21 | 34 | 37 |
-| tests | 1,884 | 151 | 247 | 160 |
+|---|---|---|---|---|
+| Catch a specific Java exception in Python | `except java.lang.NullPointerException:` | `except RuntimeError:` (only option — no per-type distinction) | Not established in this pass | Not established in this pass |
+| Catch a specific Python exception in Java | N/A in the scope checked here | N/A | `catch (JepException e)` (only option — no per-type distinction, except the one wrapped-Java-exception case above) | N/A |
 
-Collection-protocol/Comparable/functional-interface/general-proxy support
-means jep and pyjnius both have something to port a meaningfully larger
-fraction of jpype's suite against than jpy does. `test_classhints.py`/
-`test_hints.py`/`test_customizer.py`, `test_pickle.py`/`test_serial.py`,
-and the introspection-ergonomics files are gaps for all three of
-jpy/jep/pyjnius. Multi-dimensional/buffer array tests are a gap for jpy
-(partial) and pyjnius (total) but not jep (partial, same as jpy).
+## Axis 4: Threading & GIL discipline
 
-## jpype vs. jpy
+Two separate concerns: how a thread that crosses into Java (or Python)
+gets registered and released, and how the GIL is acquired/released at
+each native entry point so concurrent calls from arbitrary threads don't
+corrupt interpreter state. Internal mechanism more than user-facing API
+— there's a small syntax table at the end for the one place a library
+exposes attach/detach as a call a user can make directly.
 
-### Features jpype has that jpy does not
+| Concern | jpype | jpy | jep | pyjnius |
+|---|---|---|---|---|
+| Thread attachment for calls crossing into Java | Daemon (`AttachCurrentThreadAsDaemon`), with explicit `attach()`/`attachAsDaemon()`/`detach()` API | Non-daemon (`AttachCurrentThread`), no detach call anywhere in source | Daemon (`AttachCurrentThreadAsDaemon`), with a comment explaining why: no hooks exist to detach later | Not established in this pass |
+| GIL acquisition at native entry points | `PyGILState_Ensure`/`Release`, `PyGILState_Check()` for subinterpreter reliability | `PyGILState_Ensure`/`Release`, ~35 call sites, rejects a call made mid-shutdown | `PyEval_AcquireThread`/`ReleaseThread` against a per-thread cached `PyThreadState` — different API family, same underlying discipline | Not established in this pass |
+| Shutdown-race guard on a callback still in flight | `isRunning()`/`is_shutting_down` check (`jp_proxy.cpp:161`), on top of `DestroyJavaVM`'s own JNI-mandated block on non-daemon threads | `Py_IsFinalizing()` check, one direction only, self-acknowledged racy (TOCTOU) | None found in the proxy-invocation path, either direction | Not established in this pass |
+| Adversarial concurrency test (many threads, shared mutable interpreter state, relying on automatic locking) | `GilConcurrencyParityNGTest` — passes | `MultiThreadedEvalTestFixture` — passes | jep's own tests pass, but exercise a narrower scenario — see below | Not established in this pass |
 
-| Feature | jpype | jpy | Evidence |
-|---|---|---|---|
-| Python collection protocols on `java.util.List`/`Map`/etc. | `list`/`dict`-like `__getitem__`, iteration, `len()` | None — Java collections are opaque wrapper objects | `jpy_jtype.c:2690-91` sets `tp_as_sequence`/`tp_as_mapping` to `NULL` unconditionally |
-| `Comparable`/`Iterable`/`Hashable` duck-typing | Java objects implementing these participate in Python's `<`, `for x in`, `hash()`, etc. | None found | no `Comparable`/`Iterable` handling in `jpy_jtype.c` |
-| Class hints / custom conversions (`@JConversion`, `JConversionCustomizer`) | Full registration system (`test_classhints.py`, `test_hints.py`, `test_customizer.py`, 54 tests) | No equivalent subsystem | grep of `jpy/src/main/c` for hints/customizer machinery: nothing |
-| Functional-interface duck typing (pass a Python `lambda`/callable directly as a Java SAM interface arg) | Supported (`test_functional.py`, `test_lambdas.py`) | Only via explicit proxy objects, not implicit lambda conversion | no functional-interface matcher in `jpy_jtype.c`/`jpy_jmethod.c` |
-| Proxy (`@JImplements`, Python object implementing a Java interface) | Supported, multithread-safe (`test_proxy.py`, `test_proxy_multithreaded.py`) | Present (`PyObject.createProxy()`) but did not produce a usable object in this checkout — see `project/benchmark/RESULTS.md` footnote | reproduced this session |
-| Multi-dimensional numpy array push (`int[][]` etc. from an ndarray) | Bulk buffer path, see `caching-multidim-push` branch | Not supported — raises `TypeError: Error matching ndarray.dtype to Java primitive type` for any ndim > 1 | reproduced via a `bench_deep_jep.py`-style harness (jpy hits its own equivalent failure) |
-| Pickling / `copyreg` support for Java objects | `test_pickle.py`, `test_serial.py` (9 tests) | No equivalent | not present in jpy source or test suite |
-| Introspection ergonomics: docstrings from Javadoc, `repr()`, Jedi/IDE completion, module/typing-stub generation | `test_docstring.py`, `test_jedi.py`, `test_repr.py`, `test_module.py`, `test_module2.py` (~37 tests) | None | no analogous test files or source in jpy |
-| Caller-sensitive JDK method handling | `test_caller_sensitive.py` (20 tests) | Not handled as a distinct case | no reference in jpy source |
-| JVM lifecycle ergonomics (`jvmfinder`, startup options, `test_startup.py`/`test_opts.py`, 40 tests) | Rich, discoverable JVM-finding + startup-option API | Different, narrower launch API (`jpy.create_jvm`) — a different shape, not a subset | jpy has no equivalent finder/options surface |
-| Per-class conversion caching with generation-based invalidation | Yes | N/A — jpy's matching is already unconditionally cheap per call (see below), so caching wasn't a gap to close | `jpy_jtype.c`/`jpy_jmethod.c` |
+**jpy: threads that call from Python into Java are attached as
+non-daemon, and never detached.** `JPy_GetJNIEnv`
+(`jpy_module.c:267-298`) calls plain `AttachCurrentThread` (line 281),
+not `AttachCurrentThreadAsDaemon`, on `JNI_EDETACHED`. There is no
+`DetachCurrentThread` call anywhere in jpy's C or Java source (confirmed
+by grep across `src/main/c/*.c`). Two consequences follow: every Python
+thread that calls a Java method keeps its JVM-side thread registration
+for the thread's whole life, with no jpy API to release it; and because
+the attach is non-daemon, `DestroyJavaVM` (JNI-mandated to block until
+all non-daemon threads exit) will wait on any such thread that's still
+alive but idle — a Python thread that made one Java call and is now
+sitting in `time.sleep()` can hold up JVM shutdown, for a reason not
+visible from the call site that triggered the attach. jpype also
+auto-attaches, but as a daemon, with the tradeoff named in its own API:
+`JPContext::getEnv()` (`native/common/jp_context.cpp:870-894`) attaches
+via `AttachCurrentThreadAsDaemon` "so that the newly attached thread does
+not deadlock the shutdown" (comment, line 885-886), and
+`java.lang.Thread.isAttached()`/`.attach()`/`.attachAsDaemon()`/
+`.detach()` (`jpype/_jthread.py:22-84`) let a long-running thread detach
+explicitly.
 
-### Where jpy does less work per call
+**jpy: `DestroyJavaVM` has no guard against a daemon thread mid-callback
+into Python.** `JPy_destroy_jvm` (`jpy_module.c:510-521`) calls
+`DestroyJavaVM()` with no `isRunning()`/shutting-down check anywhere in
+jpy's proxy-invocation path, in either direction. jpy's only
+shutdown-race guard is `Py_IsFinalizing()` (`org_jpy_PyLib.c:57-86`),
+checked at the top of every native entry point for the opposite
+direction (a Java thread calling into Python while Python is
+finalizing) — and its own comment states it "doesn't completely prevent
+the race condition (TOCTOU), but... mitigates the risk significantly."
+jpype's model (`[[jvm_shutdown_daemon_thread_safety]]`) relies on
+`DestroyJavaVM`'s own JNI-mandated block on non-daemon threads for the
+general case (`jp_context.cpp:97-101`: "VM_Exit parks all remaining
+daemon threads at the final safepoint; nothing executes Java code after
+DestroyJavaVM returns"), plus one targeted check
+(`jp_proxy.cpp:161`, `context->isRunning() || ...is_shutting_down`) for
+the one gap that guarantee doesn't cover — a daemon-thread proxy
+callback still parked when shutdown completes underneath it.
 
-Not gaps — places jpy is faster because it skips work jpype does
-deliberately.
+**jpy: GIL acquisition itself matches jpype's discipline.** Separate
+from the attachment/shutdown gaps above: `PyGILState_Ensure`/`Release`
+around every JNI entry point, ~35 call sites, rejecting a Python call
+made mid-interpreter-shutdown rather than racing it
+(`~/devel/jpy/src/main/c/jni/org_jpy_PyLib.c:65-86` and e.g. lines 284,
+407, 501, 881). jpype uses the same primitive with the same discipline:
+`PyGILState_Ensure`/`Release` around Python calls from Java threads,
+including the reentrant case (`PyGILState_LOCKED` → release is a
+documented no-op) and `PyGILState_Check()`, chosen because it stays
+reliable across subinterpreters (`native/common/jp_bridge.cpp:280-390,601-624`,
+`native/python/jp_pythontypes.cpp:407-476`). The non-daemon
+thread-attachment gap above is a separate point in the same subsystem —
+this GIL-discipline match holds independently of it.
 
-| Behavior | jpype | jpy |
+**jep: the proxy-invocation path has no liveness check at shutdown.**
+`jep.python.InvocationHandler.invoke()`
+(`src/main/java/jep/python/InvocationHandler.java:132-141`) calls
+straight into native code with no liveness check, and the native side,
+`Java_jep_python_InvocationHandler_invoke`
+(`src/main/c/Jep/python/invocationhandler.c`), has no
+`Py_IsFinalizing()`/interpreter-liveness check anywhere in the file. A
+Java thread mid-callback into a Python-implemented proxy
+(`jep.jproxy()`) when the interpreter is closing has no equivalent of
+jpype's `jp_proxy.cpp:161` `isRunning()`/`is_shutting_down` guard, and
+not even jpy's TOCTOU-checked `Py_IsFinalizing()` on the other
+direction — this is the one place neither jpy's nor jpype's guard has a
+counterpart in jep.
+
+**jep: thread attachment matches jpype's daemon approach.**
+`AttachCurrentThreadAsDaemon`, with a comment reasoning through why:
+"there are no hooks to detach the thread later[, so] daemon is the only
+way to let the process exit normally" (`src/main/c/Jep/pyembed.c:817-834`)
+— jep's authors designed around the hazard jpy's plain-`AttachCurrentThread`
+-without-detach creates, rather than hitting it and patching later.
+
+**jep: GIL discipline uses a different mechanism, no shutdown-race guard
+found.** jep acquires/releases via `PyEval_AcquireThread(jepThread->tstate)`/
+`PyEval_ReleaseThread` against a per-`JepThread`-cached `PyThreadState`
+(12+ call sites in `pyembed.c`), not the `PyGILState_*` TLS API jpy and
+jpype both use — a choice consistent with jep predating PEP 684's
+sub-interpreter story. No shutdown-race guard comparable to jpy's
+`Py_IsFinalizing()` check was found in this path.
+
+**jep: its own adversarial concurrency tests pass, for a narrower claim
+than jpype/jpy's.** Built jep's existing native lib
+(`build/lib.linux-x86_64-cpython-312`) and ran its two adversarial
+multithreading tests directly: `jep.test.synchronization.TestCrossLangSync`
+(16 Python-sub-interpreter threads + 16 Java threads on one shared
+lock/`AtomicInteger` via `obj.synchronized()`) and
+`jep.test.TestSharedModulesThreads` (16 threads concurrently creating
+`SubInterpreter`s and importing the same shared module). Both exited 0.
+Neither is the same claim as `GilConcurrencyParityNGTest`
+(`native/jpype_module/src/test/java/org/jpype/GilConcurrencyParityNGTest.java`)
+or jpy's `MultiThreadedEvalTestFixture` test: N uncoordinated threads
+mutating one shared interpreter's globals with no explicit lock, relying
+on the automatic per-call GIL guard for correctness. jep has no
+construct for that scenario — `SharedInterpreter`'s javadoc states each
+instance "still maintains distinct global variables" even though
+modules are shared, and mixing `Interpreter` instances on the same
+thread at the same time is unsupported (`SharedInterpreter.java:34-44`);
+`MainInterpreter` is bootstrap machinery for GIL-deadlock avoidance, not
+something application code runs against directly. jep's concurrency
+safety here comes from architecturally not sharing mutable interpreter
+state across threads, rather than from a guard proven safe under shared
+mutable state the way jpype's is
+(`[[jvm_shutdown_daemon_thread_safety]]`-adjacent).
+
+### Syntax: explicit attach/detach
+
+| | jpype | jpy | jep | pyjnius |
+|---|---|---|---|---|
+| Explicit thread attach/detach call | `java.lang.Thread.attach()` / `.attachAsDaemon()` / `.detach()` (`jpype/_jthread.py:22-84`) | None — attachment is automatic and permanent, no release call | None — attachment is automatic (daemon), no release call needed since it's daemon | Not established in this pass |
+
+## Axis 5: Native object lifetime / GC
+
+How each library prevents a native handle from being freed or reused
+while a JNI call is still using it — and, on the Java side, how a
+wrapped Python object's lifetime is managed. Internal mechanism, not a
+user-facing call (a user's one lifetime-relevant action, closing a
+resource with `with obj:`, is covered under `AutoCloseable` in the
+object-model axis) — no syntax table here.
+
+| Library | Mechanism | Model |
 |---|---|---|
-| Array-argument matching | Validates every element up front (needed for correct Java-style overload disambiguation) | Does not inspect elements before committing to a conversion — confirmed by reading `jpy_jtype.c`/`jpy_jmethod.c` |
-| Scalar/dispatch/proxy matching | More abstraction layers, broader general-purpose machinery (implicit numeric widening, the full `JPConversion` chain) | Leaner architecturally; not found to skip correctness in doing so — see `RESULTS.md` |
+| jpype | `org.jpype.ref.NativeReference`, a `PhantomReference` that copies the native handle onto itself at construction (`hostReference` field) | A `PhantomReference` is only enqueued once the referent is already proven unreachable, so there's no live-object race to fence against in the first place — no explicit fence needed by construction |
+| jpy | `Reference.reachabilityFence(this)` (`PyObject.java:33-40`) | Reads the native pointer off the live wrapper object, then relies on an explicit, manually-placed fence to stop the JIT from deciding the wrapper is dead early and letting GC collect it mid-call |
+| jep | Manual only — no `PhantomReference`/`Cleaner`/`reachabilityFence` anywhere in `jep.python.PyObject` | Cleanup exclusively via explicit `close()`; a `PyObject` becomes invalid once its owning interpreter closes (per its own javadoc) |
+| pyjnius | Not established in this pass | — |
 
-### Not compared here (excluded, no jpy equivalent to port to)
+jpy's and jpype's mechanisms reach the same outcome — no use-after-free
+of the native handle — two different ways: jpy adds an explicit guard
+against a hazard its design creates (reading the pointer off a live,
+GC-reachable object); jpype's design doesn't create that hazard shape to
+begin with (the phantom reference only exists once GC has already
+proven the object unreachable). jep's manual-`close()` model sidesteps
+jpy's live-pointer race entirely — there's no GC-triggered decref racing
+a JNI call, because there's no GC-triggered decref at all — but trades
+it for a pure manual-lifetime contract: forgetting to call `close()`
+leaks the native object until its owning sub-interpreter tears down. A
+third design point, distinct from both jpy's fence-guarded live-pointer
+model and jpype's phantom-reference model, rather than a strictly better
+or worse one — leak-on-`close()`-omission versus a fencing discipline
+that has to be applied correctly at every call site are different
+failure modes, not directly ranked here.
 
-Fault-injection (`test_fault.py`, 88 tests) and coverage-instrumentation
-tests (`test_coverage.py`, `test_javacoverage.py`, 50 tests) exercise
-jpype's own internal error paths, not a portable behavior — excluded per
-the original ask, not because jpy lacks the feature.
+## Axis 6: Interpreter lifecycle
 
-### jpy suite-size context
+Restart semantics, real subinterpreter isolation vs. a cheaper
+shared-globals construct, and whether a Java-side handle to a Python
+object is checked against the interpreter that actually produced it.
 
-jpype: 1,884 tests across 90 files (~21k lines), `test/jpypetest/`. jpy:
-151 tests across 21 Python test files, `~/devel/jpy/src/test/python/`.
+| Concern | jpype | jpy | jep |
+|---|---|---|---|
+| "Restart" the interpreter | No restart primitive; independently disposable subinterpreters instead (`Py_NewInterpreterFromConfig`/`Py_EndInterpreter`, `org.jpype.SubInterpreter`) | `stopPython()`/`startPython()` exists, but a real second stop after restart "currently causes a fatal error" per jpy's own javadoc; the test suite's own Maven config sets a flag that turns "stop" into a no-op rather than exercise this | No restart primitive found; real subinterpreter isolation (`Py_EndInterpreter`) same as jpype |
+| Real (own-GIL) subinterpreter isolation | Yes — `SubInterpreter` | Not established in this pass | Yes — `jep.SubInterpreter`, confirmed via `Py_EndInterpreter` at close |
+| Cheap same-interpreter, separate-globals construct | Yes — `Script` (one interpreter, N independent globals dicts) | Not established in this pass | Yes — `SharedInterpreter`, though named as a sibling of `SubInterpreter` in the same `Interpreter` API family rather than visibly separate |
+| Check that a Java-side object handle is used by the interpreter that created it | Yes — `proxy->m_Context != context` raises `RuntimeError` rather than touching the pointer (`JPClass::convertToPythonObject`, `native/common/jp_class.cpp:379-403`) | Not established in this pass | No — documented as a caller contract in javadoc, not enforced in code (see below) |
 
-Roughly 250+ of jpype's tests exercise features with no jpy counterpart
-(the table above) — those can only be noted as gaps, not ported. The
-remainder (conversion, arrays, strings, exceptions, fields/properties,
-overloads/varargs, reflect, jclass/jpackage/imports, numeric/boxing,
-buffers, inherit, hash, synchronized) is the realistic portable subset if
-this comparison is ever turned into an actual ported test run.
-
-### jpy: differences in restart, boxing, exceptions, thread attachment, and shutdown
-
-Read against jpy's own source, five behaviors where jpy's API shape
-suggests one thing and the underlying mechanism does another. Recorded
-as comparisons, not verdicts — each includes the concrete mechanism so
-the reader can judge how much it matters for a given use case.
-
-**Restarting the interpreter is disabled by default in jpy's own test
-config.** `PyLib.stopPython()`'s own javadoc
+**jpy: restarting the interpreter is disabled by default in jpy's own
+test config.** `PyLib.stopPython()`'s own javadoc
 (`~/devel/jpy/src/main/java/org/jpy/PyLib.java:243-259`) states that
 stopping the interpreter again after a restart "currently causes a fatal
 error in the Java Runtime Environment," linking jpy's own
@@ -319,169 +582,25 @@ underlying constraint: it exposes PEP 684 subinterpreters
 instances (`org.jpype.SubInterpreter`) rather than a single root
 interpreter meant to be torn down and revived.
 
-**Boxed-type selection for a generic `Object`/`Number` argument depends
-on the value's magnitude, not its declared type.**
-`JType_CreateJavaNumberFromPythonInt`
-(`~/devel/jpy/src/main/c/jpy_jtype.c:542-563`) picks `Byte`/`Short`/
-`Integer`/`Long` by testing whether the value survives a narrowing cast
-(`b`/`s`/`i` vs. `j`). The same Python `int` literal boxes to a different
-Java runtime class depending purely on its magnitude at a given call:
-`foo(5)` boxes as `Byte`, `foo(5000)` as `Short`, `foo(5_000_000)` as
-`Integer`, `foo(5_000_000_000)` as `Long`. Since Java-side overload
-resolution and `instanceof` both dispatch on the boxed object's runtime
-class, `someMethod(x)`'s effective behavior can change based on how
-large `x` happens to be, for arguments that are all equally plain
-Python `int`s — worth flagging because the boundary is a magnitude
-threshold rather than anything visible at the call site. jpype's
-equivalent path, `JPConversionBoxLong::convert`
-(`native/common/jp_classhints.cpp:1662-1697`), boxes a plain Python `int`
-to `java.lang.Long` unconditionally, independent of magnitude. jpype does
-vary the box class for numpy scalar types (`numpy.int32` → `Integer`,
-`numpy.int16` → `Short`), driven by the input's dtype identity rather
-than its magnitude.
+**jep: sub-interpreter shutdown is real, matching jpype's shape.**
+`pyembed_thread_close` calls a genuine `Py_EndInterpreter(jepThread->tstate)`
+when closing a non-main interpreter thread — no `stopIsNoOp`-style flag
+anywhere in the source (`src/main/c/Jep/pyembed.c:794-805`). jep's
+multi-`Jep`-instance isolation claim holds up architecturally, matching
+the honest shape of jpype's `SubInterpreter.close()`, not a no-op flag
+papering over a crash the way jpy's does.
 
-**Java exceptions surface as a single Python `RuntimeError`, without
-per-type distinction.** `JPy_HandleJavaException`
-(`~/devel/jpy/src/main/c/jpy_module.c:1244-1420`) is jpy's only
-Java-to-Python exception path and always ends in
-`PyErr_Format(PyExc_RuntimeError, ...)` (lines 1398/1411), regardless of
-whether the underlying exception was a `NullPointerException`, an
-`IllegalArgumentException`, or an application-defined checked exception.
-`getCause()` is walked (line 1394) to splice `"caused by "` text into
-that one message (lines 1259-1284) — there is no `__cause__`, no
-`__context__`, and no distinct Python exception object per cause. The
-detailed message text (the stack-trace walk) only runs when
-`JPy_VerboseExceptions` is set (line 1255); otherwise the message is
-`error.toString()`. Net effect: `except SomeSpecificException` isn't
-available through jpy — every failure is a `RuntimeError` to the caller.
-jpype's `JException` (`jpype/_jexception.py`, `@JImplementationFor
-("java.lang.Throwable", base=True)`) maps each Java exception class onto
-its own Python exception type, mirroring the Java `Throwable` hierarchy,
-so `except java.lang.NullPointerException` and `except
-java.lang.IllegalArgumentException` are distinguishable, and
-`getCause()`/`getMessage()`/`printStackTrace()` remain available as
-methods on the exception object.
-
-**Threads that call from Python into Java attach to the JVM as
-non-daemon, with no detach call anywhere in jpy's source.**
-`JPy_GetJNIEnv` (`jpy_module.c:267-298`) calls plain
-`AttachCurrentThread` (line 281), not `AttachCurrentThreadAsDaemon`, on
-`JNI_EDETACHED`. There is no `DetachCurrentThread` call anywhere in jpy's
-C or Java source (confirmed by grep across `src/main/c/*.c`). Two
-consequences follow: every Python thread that calls a Java method keeps
-its JVM-side thread registration for the thread's whole life, with no
-jpy API to release it; and because the attach is non-daemon,
-`DestroyJavaVM` (JNI-mandated to block until all non-daemon threads
-exit) will wait on any such thread that's still alive but idle — a
-Python thread that made one Java call and is now sitting in
-`time.sleep()` can hold up JVM shutdown, for a reason not visible from
-the call site that triggered the attach. jpype also auto-attaches, but
-as a daemon, with the tradeoff named in its own API:
-`JPContext::getEnv()` (`native/common/jp_context.cpp:870-894`) attaches
-via `AttachCurrentThreadAsDaemon` "so that the newly attached thread does
-not deadlock the shutdown" (comment, line 885-886), and
-`java.lang.Thread.isAttached()`/`.attach()`/`.attachAsDaemon()`/
-`.detach()` (`jpype/_jthread.py:22-84`) let a long-running thread detach
-explicitly.
-
-**`DestroyJavaVM` has no guard against a daemon thread mid-callback into
-Python.** `JPy_destroy_jvm` (`jpy_module.c:510-521`) calls
-`DestroyJavaVM()` with no `isRunning()`/shutting-down check anywhere in
-jpy's proxy-invocation path, in either direction. jpy's only
-shutdown-race guard is `Py_IsFinalizing()` (`org_jpy_PyLib.c:57-86`),
-checked at the top of every native entry point for the opposite
-direction (a Java thread calling into Python while Python is
-finalizing) — and its own comment states it "doesn't completely prevent
-the race condition (TOCTOU), but... mitigates the risk significantly."
-jpype's model (`[[jvm_shutdown_daemon_thread_safety]]`) relies on
-`DestroyJavaVM`'s own JNI-mandated block on non-daemon threads for the
-general case (`jp_context.cpp:97-101`: "VM_Exit parks all remaining
-daemon threads at the final safepoint; nothing executes Java code after
-DestroyJavaVM returns"), plus one targeted check
-(`jp_proxy.cpp:161`, `context->isRunning() || ...is_shutting_down`) for
-the one gap that guarantee doesn't cover — a daemon-thread proxy
-callback still parked when shutdown completes underneath it.
-
-### jpy: GIL discipline and native-handle lifetime — two places the approaches match
-
-Two properties of jpy's Java-side/threading engineering, separate from
-the C-side conversion behaviors above, where jpy and jpype land on
-equivalent (if differently-implemented) safety.
-
-| Concern | jpy's approach | jpype's approach | Evidence |
-|---|---|---|---|
-| GIL acquisition at native entry points, called from arbitrary (Java) threads | `PyGILState_Ensure`/`Release` around every JNI entry point, ~35 call sites; rejects a Python call made mid-interpreter-shutdown rather than racing it | Same primitive, same discipline: `PyGILState_Ensure`/`Release` around Python calls from Java threads, including the reentrant case (`PyGILState_LOCKED` → release is a documented no-op) and `PyGILState_Check()`, chosen because it stays reliable across subinterpreters | jpy: `~/devel/jpy/src/main/c/jni/org_jpy_PyLib.c:65-86` and ~35 call sites (e.g. 284, 407, 501, 881). jpype: `native/common/jp_bridge.cpp:280-390,601-624`, `native/python/jp_pythontypes.cpp:407-476` |
-| Preventing a native pointer from being reclaimed/reused while a JNI call using it is in flight | Reads the native pointer off the live wrapper object, then relies on `Reference.reachabilityFence(this)` (`PyObject.java:33-40`) as an explicit guard against the JIT deciding the wrapper is dead early | Never reads the pointer off a live object at cleanup time: `org.jpype.ref.NativeReference` is a `PhantomReference` that copies the native handle onto itself at construction (`hostReference` field); a `PhantomReference` is only enqueued once the referent is already proven unreachable, so there's no live-object race to fence against | jpy: `~/devel/jpy/src/main/java/org/jpy/PyObject.java:33-40`. jpype: `native/jpype_module/src/main/java/org/jpype/ref/NativeReference.java:62-108` |
-
-Same outcome (no use-after-free of the native handle, no unsafe call
-during shutdown) reached two different ways: jpy adds an explicit guard
-against a hazard its design creates; jpype's design doesn't create that
-hazard shape. The non-daemon thread-attachment behavior above is a
-separate point in the same subsystem — GIL discipline and the
-reachability fence hold up independently of it.
-
-## jpype vs. jep
-
-### Features jpype has that jep does not
-
-| Feature | jpype | jep | Evidence |
-|---|---|---|---|
-| Class hints / custom conversions (`@JConversion`, `JConversionCustomizer`) | Full registration system (54 tests) | No equivalent subsystem | no hints/customizer machinery found in `jep/src/main/c` |
-| Multi-dimensional numpy array *push* (Python ndarray → `int[][]` etc. as a method argument) | Bulk buffer path, see `caching-multidim-push` branch | Not supported — raises `TypeError: Error matching ndarray.dtype to Java primitive type` for any ndim > 1 | `jep_numpy.c`'s only `PyArray_NDIM` use (line 399) is on the opposite direction (Java array → Python ndarray return value) |
-| Pickling / `copyreg` support for Java objects | `test_pickle.py`, `test_serial.py` (9 tests) | No equivalent | not present in jep source or test suite |
-| Javadoc-derived docstrings, Jedi/IDE completion, module/typing-stub generation | `test_docstring.py`, `test_jedi.py`, `test_module.py`, `test_module2.py` | Only bare `dir()` listing of method names (`test_dir.py`) — no docstrings, no stub generation | `pyjobject`/`pyjtype` expose method names via `dir()` but no docstring text sourced from Javadoc |
-| Caller-sensitive JDK method handling | `test_caller_sensitive.py` (20 tests) | Not handled as a distinct case | no reference found in jep source |
-| Per-class conversion caching with generation-based invalidation | Yes | Not applicable the same way — jep's overload resolution already short-circuits on arity before per-argument type work (see below) | `pyjmultimethod.c:118-155`, `pyjmethod.c:284` |
-
-### jep: threading, lifecycle, and exception handling
-
-The same lens applied to jpy above (thread attachment, GIL discipline,
-sub-interpreter shutdown, exception fidelity, boxed-type selection,
-shutdown-vs-daemon-thread guarding, native-object lifetime) applied to
-jep's own source (`~/devel/jep/src/main/c/Jep/*.c`,
-`src/main/java/jep/**/*.java`).
-
-**Java-to-Python exceptions collapse into one type, `JepException`.**
-`process_py_exception` (`src/main/c/Jep/jep_exceptions.c:42-175`) is
-jep's only Python-to-Java exception path; every Python exception becomes
-a `JepException(String, long)` built from `"ExcType: message"` string
-concatenation (lines 148-163), not a distinct Java exception class per
-Python exception type — `catch SomeSpecificPythonException` isn't
-available, the same shape as jpy's `RuntimeError` collapse above. One
-case jpy's version doesn't cover: if the Python exception is itself
-wrapping a Java exception that crossed into Python and back
-(a `PyJObject`-backed exception), jep preserves that as a real
-`Throwable` cause via a second constructor, `JepException(String,
-Throwable)` (lines 162-167) — cause-chaining for that round-trip case
-specifically, not for exceptions that originate natively in Python.
-jpype's per-class `JException` mapping (`jpype/_jexception.py`) has no
-counterpart in jep for either case.
-
-**The proxy-invocation path has no liveness check at shutdown.**
-`jep.python.InvocationHandler.invoke()`
-(`src/main/java/jep/python/InvocationHandler.java:132-141`) calls
-straight into native code with no liveness check, and the native side,
-`Java_jep_python_InvocationHandler_invoke`
-(`src/main/c/Jep/python/invocationhandler.c`), has no
-`Py_IsFinalizing()`/interpreter-liveness check anywhere in the file. A
-Java thread mid-callback into a Python-implemented proxy
-(`jep.jproxy()`) when the interpreter is closing has no equivalent of
-jpype's `jp_proxy.cpp:161` `isRunning()`/`is_shutting_down` guard, and
-not even jpy's TOCTOU-checked `Py_IsFinalizing()` on the other
-direction — this is the one place neither jpy's nor jpype's guard has a
-counterpart in jep.
-
-**No check that a `PyObject` is being touched by the interpreter that
-created it.** jpype's guard for this (`JPClass::convertToPythonObject`,
-`native/common/jp_class.cpp:379-403`) exists because own-GIL
-subinterpreters have separate allocators/arenas — handing one
-interpreter's `PyObject*` to another's Python code is memory corruption,
-so `proxy->m_Context != context` is checked explicitly and raises a
-`RuntimeError` rather than touching the pointer. jep documents the same
-constraint without enforcing it: `jep.python.PyObject`'s javadoc states
-"This class is not thread safe and PyObjects can only be used on the
-Thread where they were created. When an Interpreter instance is closed
-all PyObjects from that instance will be invalid"
+**jep: no check that a `PyObject` is being touched by the interpreter
+that created it.** jpype's guard for this
+(`JPClass::convertToPythonObject`, `native/common/jp_class.cpp:379-403`)
+exists because own-GIL subinterpreters have separate allocators/arenas —
+handing one interpreter's `PyObject*` to another's Python code is memory
+corruption, so `proxy->m_Context != context` is checked explicitly and
+raises a `RuntimeError` rather than touching the pointer. jep documents
+the same constraint without enforcing it: `jep.python.PyObject`'s
+javadoc states "This class is not thread safe and PyObjects can only be
+used on the Thread where they were created. When an Interpreter instance
+is closed all PyObjects from that instance will be invalid"
 (`src/main/java/jep/python/PyObject.java:36-38`). Tracing the call path:
 `PyObject.tstate()` → `MemoryManager.getThreadState()` →
 `getThreadLocalJep()` (`src/main/java/jep/python/MemoryManager.java:124-134`)
@@ -505,11 +624,7 @@ check. (2) Closing the first interpreter, then opening a second on the
 freed thread and touching the first's stashed object returned a
 correct-looking result rather than crashing; the reason is that
 `SharedInterpreter` instances aren't separate CPython-level
-subinterpreters at all (`SharedInterpreter`'s own javadoc: instances
-"share all imported modules" and only keep *globals* distinct — the
-same underlying construct as jpype's `Script`, one interpreter with N
-independent globals dicts, not `Py_NewInterpreter`/
-`Py_NewInterpreterFromConfig` isolation). A genuine own-GIL
+subinterpreters at all (see below). A genuine own-GIL
 `SubInterpreter`-vs-`SubInterpreter` reproduction — the case that would
 actually exercise this gap, since each `new SubInterpreter()` normally
 gets its own `MemoryManager` — wasn't attempted. So: the structural gap
@@ -518,220 +633,55 @@ anywhere in jep), but the two concrete repro attempts tried here didn't
 produce a live crash, for reasons specific to which jep class each one
 exercised — an open question rather than a demonstrated crash.
 
-**`SharedInterpreter` and `Script` are the same underlying construct
-under different names.** Checked directly: opening a `SharedInterpreter`
-does `globals = PyDict_New(); PyDict_SetItemString(globals,
-"__builtins__", ...)` (`src/main/c/Jep/pyembed.c:766-768`) — a fresh
-Python dict, not `Py_NewInterpreter`/`Py_NewInterpreterFromConfig`
-anywhere in that path. Every `SharedInterpreter` instance runs in the
-same underlying CPython interpreter, one GIL, one `sys.modules`, with
-only its own `globals` dict — the same pattern as jpype's `Script`
-(`org.jpype.Script`, "a scope of variables in the Python interpreter...
-housed in Java space"), distinct from `jep.SubInterpreter` or jpype's
-own `SubInterpreter` (both `Py_NewInterpreter`-backed isolation). jep
-gives this shared-globals pattern its own class in a naming family that
-otherwise reads as "isolated interpreter" (`SubInterpreter`/
-`SharedInterpreter` share the `Interpreter` API), where jpype keeps the
-always-cheap, never-isolated version (`Script`) visibly separate from
-the opt-in real-isolation one (`SubInterpreter`).
+**jep: `SharedInterpreter` and jpype's `Script` are the same underlying
+construct under different names.** Checked directly: opening a
+`SharedInterpreter` does `globals = PyDict_New();
+PyDict_SetItemString(globals, "__builtins__", ...)`
+(`src/main/c/Jep/pyembed.c:766-768`) — a fresh Python dict, not
+`Py_NewInterpreter`/`Py_NewInterpreterFromConfig` anywhere in that path.
+Every `SharedInterpreter` instance runs in the same underlying CPython
+interpreter, one GIL, one `sys.modules`, with only its own `globals`
+dict — the same pattern as jpype's `Script` (`org.jpype.Script`, "a
+scope of variables in the Python interpreter... housed in Java space"),
+distinct from `jep.SubInterpreter` or jpype's own `SubInterpreter` (both
+`Py_NewInterpreter`-backed isolation). jep gives this shared-globals
+pattern its own class in a naming family that otherwise reads as
+"isolated interpreter" (`SubInterpreter`/`SharedInterpreter` share the
+`Interpreter` API), where jpype keeps the always-cheap, never-isolated
+version (`Script`) visibly separate from the opt-in real-isolation one
+(`SubInterpreter`).
 
-**Three comparisons where jep's approach matches jpype's or jpy's:**
+### Syntax: real isolation vs. shared-globals
 
-| Concern | jep's approach | Comparison | Evidence |
+| | jpype | jpy | jep |
 |---|---|---|---|
-| Thread attachment for calls crossing into Java | `AttachCurrentThreadAsDaemon`, with a comment reasoning through why: "there are no hooks to detach the thread later[, so] daemon is the only way to let the process exit normally" | Matches jpype's daemon-attach approach; addresses the hazard jpy's plain-`AttachCurrentThread`-without-detach creates | `src/main/c/Jep/pyembed.c:817-834` |
-| Boxed numeric type selection for a generic Java target | `pylong_as_jobject` dispatches on the declared/expected Java type via `IsAssignableFrom` checks (Long → Integer → Byte → Short → BigInteger fallback on overflow), not the Python value's magnitude | Type-stable, matching jpype's fixed-boxing approach rather than jpy's magnitude-dependent behavior above | `src/main/c/Jep/convert_p2j.c:317-368` |
-| Sub-interpreter shutdown | `pyembed_thread_close` calls `Py_EndInterpreter(jepThread->tstate)` when closing a non-main interpreter thread — no `stopIsNoOp`-style flag in the source | Matches the honest shape of jpype's `SubInterpreter.close()`; jep's multi-`Jep`-instance isolation is real, not a no-op flag around a crash | `src/main/c/Jep/pyembed.c:794-805` |
+| Real, own-GIL subinterpreter | `SubInterpreter()` | Not established in this pass | `jep.SubInterpreter()` |
+| Shared-interpreter, separate-globals only | `Script()` | Not established in this pass | `jep.SharedInterpreter()` |
+| Stop/restart the (single) root interpreter | Not offered — use `SubInterpreter` instead | `PyLib.stopPython()` / `startPython()` — see the restart caveat above | Not established in this pass |
 
-**Object lifetime: a manual-only model, distinct from both jpy's and
-jpype's.** `jep.python.PyObject` (Java) has no `PhantomReference`/
-`Cleaner`/`reachabilityFence` — cleanup is exclusively manual, via
-`close()`; a `PyObject` becomes invalid once its owning interpreter
-closes (per its own javadoc). This sidesteps jpy's live-pointer race
-(there's no GC-triggered decref racing a JNI call, because there's no
-GC-triggered decref at all), but trades it for a pure manual-lifetime
-contract: forgetting to call `close()` leaks the native object until its
-sub-interpreter tears down. A third design point, distinct from jpy's
-fence-guarded live-pointer model and jpype's phantom-reference model.
+## Axis 7: Embedding & discovery (Java hosts Python)
 
-**GIL discipline uses a different mechanism.** jep acquires/releases via
-`PyEval_AcquireThread(jepThread->tstate)`/`PyEval_ReleaseThread` against
-a per-`JepThread`-cached `PyThreadState` (12+ call sites in
-`pyembed.c`), not the `PyGILState_*` TLS API jpy and jpype both use — a
-choice consistent with jep predating PEP 684's sub-interpreter story. No
-shutdown-race guard comparable to jpy's `Py_IsFinalizing()` check was
-found in this path.
+The reverse direction from everything above: a pure Java application
+bringing up an embedded Python interpreter itself, with Java as the host
+process. jep's architecture *is* this, natively. jpy has a secondary,
+less-documented entry point for it. pyjnius has neither. jpype's version
+of this exists on `origin/reverse` — substantial, but **not yet merged
+into `review` (the main branch)**, so everything in this axis about
+jpype is a statement about that branch, not about jpype's current
+shipped behavior; treat it accordingly.
 
-**Concurrency: jep's own adversarial tests pass, for a narrower claim
-than jpype/jpy's.** Built jep's existing native lib
-(`build/lib.linux-x86_64-cpython-312`) and ran its two adversarial
-multithreading tests directly: `jep.test.synchronization.TestCrossLangSync`
-(16 Python-sub-interpreter threads + 16 Java threads on one shared
-lock/`AtomicInteger` via `obj.synchronized()`) and
-`jep.test.TestSharedModulesThreads` (16 threads concurrently creating
-`SubInterpreter`s and importing the same shared module). Both exited 0.
-Neither is the same claim as
-`GilConcurrencyParityNGTest`
-(`native/jpype_module/src/test/java/org/jpype/GilConcurrencyParityNGTest.java`)
-or jpy's `MultiThreadedEvalTestFixture` test check: N uncoordinated
-threads mutating one shared interpreter's globals with no explicit
-lock, relying on the automatic per-call GIL guard for correctness. jep
-has no construct for that scenario — `SharedInterpreter`'s javadoc
-states each instance "still maintains distinct global variables" even
-though modules are shared, and mixing `Interpreter` instances on the
-same thread at the same time is unsupported
-(`SharedInterpreter.java:34-44`); `MainInterpreter` is bootstrap
-machinery for GIL-deadlock avoidance, not something application code
-runs against directly. jep's concurrency safety here comes from
-architecturally not sharing mutable interpreter state across threads,
-rather than from a guard proven safe under shared mutable state the way
-jpype's is (`[[jvm_shutdown_daemon_thread_safety]]`-adjacent).
+| Concern | jpype (`origin/reverse`) | jpy | jep | pyjnius |
+|---|---|---|---|---|
+| Is Java-hosts-Python the library's native/primary direction? | No — bolted onto jpype's existing Python-hosts-Java architecture, on an unmerged branch | No — secondary capability alongside its usual Python-hosts-Java mode | Yes — this is jep's native architecture | N/A — no Java-hosts-Python direction found |
+| Standard JVM scripting API (JSR-223) | Yes — `org.jpype.script.JPypeScriptEngine` | Not established in this pass | No — no `javax.script` reference anywhere in `~/devel/jep/src/main/java/jep/` | N/A |
+| Context/session object (multiple independent scopes against one interpreter) | Yes — `org.jpype.Script` | Not established in this pass | Yes, but not named as a distinct concept from real isolation — see the interpreter-lifecycle axis | N/A |
+| Typed object library mirroring Python's builtin types | Yes — `python.lang`, 54 files | Not established in this pass | No — one generic `jep.python.PyObject` catch-all plus a closed, hardcoded conversion chain (see the extensibility axis for the proxy-selection version of this gap) | N/A |
 
-**From the benchmark side:**
-
-- A reproducible `OutOfMemoryError` in jep's own multi-dimensional array
-  benchmark, `array_multidim.py`, partway through its combined
-  `int`/`long`/`float`/`double` sweep, even at `-Xmx3g` (raising the heap
-  to 4GB then 6GB only postpones it). Specific to that one long-running
-  combined-sweep process — the narrower single-scenario jep scripts
-  (`array_ragged.py`, `array_noncontig.py`, `array_shape.py`) complete
-  cleanly at the same depths/sizes under the stock default heap,
-  consistent with an allocation-rate-vs-GC-throughput issue rather than
-  a fixed working-set size (`RESULTS.md` Section 10). Not root-caused at
-  the source level here.
-- jep has no `array->buffer` (Java array → numpy) bulk return path at
-  any depth — its numbers are `array->list`'s per-element cost plus a
-  redundant `np.asarray()` wrap, landing worse than its own list-pull
-  number: ~180x slower than jpype/jpy at `long[100000]` (10.7M ns vs.
-  111-116K ns, `RESULTS.md` Section 3). Same architectural gap as
-  pyjnius; see the fast-bulk-path-coverage table above for the full
-  accounting.
-
-### Features jep has that jpy lacks
-
-Noted because it changes the porting-effort picture from the jpy table
-above — these jpype-suite categories that had no jpy counterpart do have
-something to port to for jep.
-
-| Feature | jep | Evidence |
-|---|---|---|
-| Python collection protocols on `java.util.List`/`Map`/`Collection`/`Iterable` | Real `__getitem__`/`__setitem__`/slicing/iteration, backed by the actual Java collection | `pyjlist.c`, `pyjmap.c`, `pyjcollection.c`, `pyjiterable.c`, `pyjiterator.c` |
-| `Comparable`/hashing duck-typing | `tp_richcompare` delegates to `Comparable.compareTo`, `tp_hash` to `hashCode` | `pyjobject.c:155-181`, `pyjobject.c:310-312` |
-| Functional-interface duck typing (pass a Python callable directly as a Java SAM interface arg) | Detected via `isInterface` + single-abstract-method check | `pyjtype.c:259-335` (`functionalInterface`) |
-| General multi-method proxy (Python object implementing an arbitrary Java interface) | Full `InvocationHandler`-style proxy, own test file | `jep/Proxy.java`, `java_access/Proxy.c`, `test_jproxy.py` |
-| `synchronized` block support | `pyjmonitor.c`, `test_synchronized.py` | jpy has no equivalent test or source |
-
-### Where jep does less work per call
-
-Verified by reading `pyjmultimethod.c`/`pyjmethod.c`, not inferred from
-timing. jep's overload resolution filters candidates by parameter count
-only (O(1), no type inspection); the per-argument type-compatibility
-check (`PyJMethod_CheckArguments`) only runs when two or more candidates
-share the same arity. For a method with a single overload (the common
-case, and the case for every array/scalar benchmark in `RESULTS.md`),
-jep converts arguments directly against the one known parameter type in
-a single pass. jpype always runs a full `matches()` scoring scan then a
-separate `convert()`, even with no overload ambiguity, since its
-architecture doesn't special-case "only one candidate" — this is also
-why jep falls behind on the 16-overload dispatch benchmark in
-`RESULTS.md` (all candidates share arity there, so jep's shortcut can't
-fire and the more expensive check runs repeatedly).
-
-### Not compared here (excluded, no jep equivalent to port to)
-
-Same exclusion as jpy: fault-injection (`test_fault.py`) and
-coverage-instrumentation tests (`test_coverage.py`, `test_javacoverage.py`)
-exercise jpype's own internals, not portable behavior.
-
-### jep suite-size context
-
-jep: 34 Python test files, 247 tests, `~/devel/jep/src/test/python/`.
-Larger than jpy's suite, still under a fifth of jpype's 1,884. The
-collection-protocol, Comparable, functional-interface, and proxy support
-above mean a larger fraction of jpype's suite has something to port
-against for jep than for jpy — but `test_classhints.py`/
-`test_hints.py`/`test_customizer.py`, `test_pickle.py`/`test_serial.py`,
-and the introspection-ergonomics files remain gaps for jep too.
-
-## jpype vs. pyjnius
-
-### Features jpype has that pyjnius does not
-
-| Feature | jpype | pyjnius | Evidence |
-|---|---|---|---|
-| Class hints / custom conversions (`@JConversion`, `JConversionCustomizer`) | Full registration system (54 tests) | No equivalent subsystem | grep of `jnius/*.pxi`/`reflect.py` for hints/customizer/register-conversion machinery: nothing |
-| Multi-dimensional / buffer-protocol array push (`int[]`/`int[][]` etc. from an ndarray) | Bulk buffer path (`caching-multidim-push` branch), any dimension | Not supported at any dimension, including flat 1D — narrower than jpy or jep, which at least accept a 1D buffer object | `DeepBench.sumIntArray(numpy.arange(...))` raises `JavaException('Expecting a python list/tuple, got array(...)')` unconditionally, for any ndim |
-| Pickling / `copyreg` support for Java objects | `test_pickle.py`, `test_serial.py` (9 tests) | No equivalent | no `__reduce__`/pickle-registration logic in pyjnius's own source (the one `pickle` hit in the built `jnius.c` is Cython's own generated module boilerplate) |
-| Introspection ergonomics: docstrings from Javadoc, Jedi/IDE completion, module/typing-stub generation | `test_docstring.py`, `test_jedi.py`, `test_repr.py`, `test_module.py`, `test_module2.py` (~37 tests) | Only bare `dir()` listing (method names visible, `__doc__` is `None` for every bound method) — same situation as jep | no docstring-generation code found in `jnius/*.pxi`/`reflect.py` |
-| Caller-sensitive JDK method handling | `test_caller_sensitive.py` (20 tests) | Not handled as a distinct case | no reference found in pyjnius source |
-| Per-class conversion caching with generation-based invalidation | Yes | Not applicable the same way — no equivalent per-call matching cost was found to cache (see numpy-scalar-dispatch note above, which is a coverage gap, not a caching opportunity) | `jnius_conversion.pxi` |
-
-### Features pyjnius has that jpy lacks
-
-Confirmed working empirically, not just found in source.
-
-| Feature | pyjnius | Evidence |
-|---|---|---|
-| Python collection protocols on `java.util.List`/`Map`/`Collection`/`Iterator`/`Map.Entry` | Real `__getitem__`/`__setitem__`/`__len__`/`__contains__`/`__iter__`, backed by the actual Java collection | `reflect.py`'s `protocol_map`, applied automatically inside `autoclass()` to every class whose hierarchy includes one of these interfaces; verified an `ArrayList`/`HashMap` support `len()`, indexing, iteration, and `in` directly |
-| `Comparable`/`Iterable` duck-typing | `__lt__`/`__gt__`/`__eq__`/etc. delegate to `compareTo`/`equals`; `__iter__` delegates to `iterator()` | same `protocol_map`; verified `Integer(3) < Integer(5)` works directly |
-| `AutoCloseable`/`Closeable` → Python context manager protocol | `__enter__`/`__exit__` delegate to `close()` | same `protocol_map` (jpype has this too, `jpype/_jio.py` — noted here since pyjnius has it as well) |
-| Functional-interface duck typing (pass a Python `lambda`/callable directly as a Java SAM interface arg) | Supported | `jnius_conversion.pxi`'s functional-interface detection (~line 415-451); verified `DeepBench.invokeCallback(lambda x: x + 1, 5)` works directly, no proxy class needed |
-| General multi-method proxy (Python object implementing an arbitrary Java interface) | `PythonJavaClass` subclass + `@java_method('<jni-signature>')`, own test file (`test_proxy.py`) | present and works for the common case (verified `int`-arg callback) — see the reproduced defect below for one input shape it doesn't handle |
-
-### A reproduced defect in pyjnius's proxy implementation
-
-Unlike jpy's proxy gap (a construction-time failure — see the jpy table
-above) and jep's proxy support (no defect found), pyjnius's general
-proxy mechanism crashes on one specific input: a Python-implemented Java
-interface method receiving a genuinely **null** `Object` argument
-(`DeepBench.invokeObjectCallbackWithNull` — `jpype.benchmark.DeepBench`'s
-`ObjectCallback` methods exist specifically to cover this case, per
-`jp_proxy.cpp`'s own history) segfaults the JVM with a native `SIGSEGV`
-in `jni_GetObjectClass`. Reproduced independently three times against a
-fresh build in a disposable venv (checked for stale-build-state first,
-per this repo's CLAUDE.md, before treating it as real). pyjnius's
-proxy-argument-marshalling code calls `GetObjectClass`/`IsSameObject` on
-the argument without a null check.
-
-The non-crashing case (a real, non-null `Object` argument) also doesn't
-round-trip correctly: `invokeObjectCallback` returns `None` instead of
-the object the Python callback handed back. See
-`project/benchmark/RESULTS.md`'s pyjnius section and
-`project/benchmark/pyjnius/proxy.py`; that script deliberately never
-calls the null-argument variant.
-
-### Where pyjnius's behavior differs on its own tradeoffs
-
-| Behavior | jpype | pyjnius |
-|---|---|---|
-| numpy scalar dispatch for `int`/`long` parameters | Resolves all numpy scalar types (`int32`/`int64`/`float32`/`float64`) correctly and unambiguously | Same underlying gap as jpy (no fallback for non-exact-Python-type numeric args on `int`/`long` params), with a different failure mode: `Math.max(np.int32(3), 5)` raises `"No static methods called max in java/lang/Math matching your arguments... available: [...]"` rather than jpy's "ambiguous Java method call" |
-| Scalar/boxed/string/proxy call overhead generally | See `RESULTS.md` | Highest of the four libraries on every boxed/string/proxy row measured, in some cases by 5-10x (`new Integer`: 7403ns vs. 840-1257ns elsewhere; `new String`+`.toString()`: 22349ns vs. 927-2512ns; proxy: 39412ns vs. 2240-2655ns) — not attributed to a specific mechanism at the source level here |
-
-### Not compared here (excluded, no pyjnius equivalent to port to)
-
-Same exclusion as jpy/jep: fault-injection (`test_fault.py`) and
-coverage-instrumentation tests (`test_coverage.py`, `test_javacoverage.py`)
-exercise jpype's own internals, not portable behavior.
-
-### pyjnius suite-size context
-
-pyjnius: 37 Python test files, 160 tests, `~/devel/pyjnius/tests/`.
-Between jpy's 21 files and jep's 34-file/247-test suite in file count,
-but fewer total tests than jep's. The collection-protocol/Comparable/
-functional-interface/general-proxy support above means pyjnius has
-something to port against for a comparably large slice of jpype's suite
-as jep does — but `test_classhints.py`/`test_hints.py`/
-`test_customizer.py`, `test_pickle.py`/`test_serial.py`, the
-introspection-ergonomics files, and (uniquely among the three) any
-multi-dimensional/buffer array test remain gaps for pyjnius.
-
-## Future: jpype's reverse-embedding direction (`origin/reverse`)
-
-`org.jpype.MainInterpreter` (`~/devel/jpype` on `origin/reverse`,
-`native/jpype_module/src/main/java/org/jpype/MainInterpreter.java`) is a
-Java-side singleton that locates/probes/launches an embedded CPython
-interpreter from Java code, with no Python process involved in starting
-anything — the same shape as jep's "Java hosts Python" niche. Demonstrated
+**jpype (`origin/reverse`): a Java-side entry point with no Python
+process involved in starting anything.** `org.jpype.MainInterpreter`
+(`native/jpype_module/src/main/java/org/jpype/MainInterpreter.java`) is
+a Java-side singleton that locates/probes/launches an embedded CPython
+interpreter from Java code — the same shape as jep's niche. Demonstrated
 by `native/jpype_module/src/test/java/runner/HelloWorldMain.java`, a
 pure `public static void main(String[] args)` with no Python involvement
 in bootstrapping:
@@ -767,166 +717,16 @@ public static void main(String[] args) {
    `package-info.java` states the design intent: implement Java
    collection interfaces where they don't conflict with Python
    semantics, tight return types, loose parameter types, fall back to
-   `eval()` only when a wrapper can't express something.
-
-**How `python.lang` gets populated is a fourth proxy model, built on top
-of the other two.** jpype has three ways to make a Python object answer
-to a Java interface:
-
-1. **Bare-callable SAM duck typing** — a plain Python `lambda`/callable
-   passed directly where a Java functional interface argument is
-   expected, no proxy class or registration.
-2. **`@JImplements`** — a Python class declares which Java interface(s)
-   it implements, once, ahead of time (`jpype/_jproxy.py`).
-3. **`JProxy(interfaces, dict=... | inst=...)`** — hand a dict of
-   callables or an object instance to `JProxy`'s constructor directly;
-   `@JImplements`'s predecessor, still supported (`_jproxy.py:186-234`).
-4. **Automatic, structural, no user call at all** —
-   `JPConversionPython` (`native/common/jp_classhints.cpp:1908-1992`), a
-   conversion rule `JPPybaseType::findJavaConversionImpl`
-   (`jp_pybasetype.cpp:34-48`) tries for `java.lang.Object` and, by
-   inheritance, every interface type that falls through to it. Any time
-   a Python value needs to become a Java-typed value — argument, return,
-   field, not just an explicit proxy site — `matches()` calls
-   `PyJP_probe(st, Py_TYPE(object))` (`native/python/pyjp_probe.cpp`),
-   which reads the Python type's own C-level protocol slots (`tp_call`,
-   `tp_as_buffer`, `tp_as_sequence`, `tp_as_mapping`, `tp_as_number`,
-   `__enter__`/`__index__`) plus `collections.abc` subclass checks to
-   derive which `python.lang` interfaces that type structurally
-   satisfies. If a probed interface matches the target, `convert()`
-   (`jp_classhints.cpp:1972-1991`) constructs a `JProxy` on the spot —
-   `_jpype._JProxy`, the same class backing models 2 and 3, wrapping the
-   value with the method table the probe resolved. Model 4 is models
-   2/3's own machinery, invoked automatically by structural type-probing
-   instead of an explicit decorator or constructor call.
-
-jpy's typed wrappers (`PyModule`, `PyDictWrapper`, `PyListWrapper` —
-three classes total) must be constructed explicitly by the caller around
-a generic `PyObject`, with no probe-driven automatic selection; its own
-general-proxy support (`PyObject.createProxy()`) didn't produce a usable
-object in this checkout regardless. jep's Python-to-Java dispatcher,
-`PyObject_As_jobject`
-(`~/devel/jep/src/main/c/Jep/convert_p2j.c:1050-1116`), has one
-automatic, declared-type-driven case: `PyCallable_Check(pyobject) &&
-isFunctionalInterfaceType(env, expectedType)` triggers
-`PyCallable_as_functional_interface` (lines 1091-1097), converting any
-Python callable into any SAM-shaped target interface automatically, on
-both argument and return paths. Everything else in that function is a
-fixed, hardcoded C-level `if`/`else` chain (`PyLong_Check`/`PyDict_Check`/
-`PyUnicode_Check`/buffer/numpy) mapping to a closed, compiled-in set of
-concrete Java types, with `jep.python.PyObject` as the catch-all —
-adding a new target interface to jep's version means patching and
-recompiling its C source, the same extensibility gap as the
-`WrapperService`/`.pyspi` comparison below, applying here to
-proxy-selection specifically.
-
-**All four models, side by side:**
-
-| Model | jpype | jpy | jep | pyjnius |
-|---|:---:|:---:|:---:|:---:|
-| 1. Bare lambda/callable → SAM argument (forward: Python passes a callable where Java wants a functional interface) | Yes | No — only explicit proxy objects, no implicit lambda conversion | Yes (`pyjtype.c`'s `functionalInterface`) | Yes (`jnius_conversion.pxi`) |
-| 1b. Same idea, declared-type-driven on the reverse side (Java expects a functional interface back from Python, no proxy call) | Yes (subsumed into model 4) | N/A — no reverse direction | Yes — `PyCallable_as_functional_interface`, `convert_p2j.c:1091-1097` | N/A — no reverse direction |
-| 2/3. Explicit proxy (decorator and/or manual dict/inst construction) | Two forms: `@JImplements` (typed, modern) and `JProxy(dict=...\|inst=...)` (manual, older, still supported) | One form, `PyObject.createProxy()` — did not produce a usable object in this checkout | One form, `jep.jproxy()` — no defect found | One form, `PythonJavaClass` + `@java_method(...)` subclassing — works for the common case, with the null-`Object`-argument segfault and return-value bug noted above |
-| 4. Automatic, structural, no proxy call — Java declares the type it wants and gets a live proxy for free | Yes — `JPConversionPython`/`PyJP_probe`, probes Python's own C-level protocol slots, extensible to `WrapperService`-registered interfaces | No — three hand-written wrapper classes, constructed explicitly, no probing | No — `PyObject_As_jobject` is a fixed C-level type chain to a closed set of concrete Java types (plus the model-1b functional-interface case); a new target interface means patching and recompiling jep's C source | N/A — no Java-hosts-Python direction exists |
-
-jpype is the only one of the four with a structural, extensible,
-no-call-site-changes automatic path (model 4); the other three require
-the Python side to either be plain-callable (model 1) or opt into a
-proxy at construction time (models 2/3). jep independently arrived at
-the same idea as model 4, scoped to callables-as-functional-interfaces
-rather than generalized to arbitrary multi-method interfaces via
-protocol introspection. jpy and pyjnius have no reverse direction to
-compare model 4 against (jpy's exists but wasn't usable in this
-checkout; pyjnius's doesn't exist).
+   `eval()` only when a wrapper can't express something. (How Python
+   objects get mapped onto these `python.lang` types automatically is a
+   proxy-selection mechanism covered in the extensibility axis below,
+   since it's the same machinery as jpype's user-extensible SPI.)
 
 jep has no JSR-223 `ScriptEngine` implementation (checked
 `~/devel/jep/src/main/java/jep/` — no `javax.script` reference), and its
 public embedding surface is essentially one class (`Jep`, with
 `eval`/`exec`/`getValue`/`set`) plus its `pyj*` wrapper types, not three
 separated layers.
-
-**A user-extensible SPI, beyond `python.lang`'s builtin coverage.**
-`org.jpype.WrapperService` (discovered via `java.util.ServiceLoader`,
-JPMS-compatible via `provides ... with` in `module-info.java`) lets any
-Java library expose any Python class as a typed Java interface by
-registering a provider and dropping a declarative resource file per
-class (`.pyspi`: a `key: value` header naming the Python
-module/class/target Java interface, a `---` separator, then a Python
-source blob binding a `METHODS = {...}` dict) — no editing of jpype's
-own source. Example, `collections.deque.pyspi`:
-
-```
-kind: class
-module: collections
-class: deque
-interface: python.collections.PyDeque
----
-METHODS = {
-    ".addFirst": lambda x, v: x.appendleft(v),
-    ".removeFirst": lambda x: x.popleft(),
-    ".size": len,
-    ...
-}
-```
-
-— mapping Python's `deque` onto a Java interface using
-`java.util.Deque`'s own method names (`addFirst`/`removeFirst`), so Java
-code gets a collection backed transparently by the real Python object.
-jpype ships five built-in providers this way (27 `.pyspi` files,
-475/475 tests passing): `python.io` (the `io`/`_io` hierarchy —
-`BytesIO`/`StringIO`/`FileIO`/`BufferedReader`/`Writer`/`TextIOWrapper`/
-etc.), `python.collections` (`ChainMap`/`Counter`/`OrderedDict`/
-`defaultdict`/`deque`), `python.datetime` (`date`/`datetime`/
-`timedelta`), `python.decimal` (`Decimal`), `python.pathlib`
-(`PosixPath`/`WindowsPath`).
-
-None of jpy/jep/pyjnius have an equivalent. jep's collection support
-(`pyjlist.c`/`pyjmap.c`/etc.) and pyjnius's `protocol_map`
-(`reflect.py`) are both real and both verified working above, but both
-are fixed in each library's own source — adding support for a new
-Python stdlib or third-party class (say, exposing `numpy.ndarray` as a
-typed Java interface) means patching jep's or pyjnius's C/Cython source
-and rebuilding the extension. jpy has no collection-protocol support to
-compare against, let alone an extension mechanism for one.
-
-**Neither side of the bridge needs awareness of the other.**
-`JClassHints.registerClassImplementation(classname, proto)`
-(`jpype/_jcustomizer.py:222-231`, behind `@JImplementationFor`) keys
-purely on a string class name — no marker interface, no annotation, no
-jpype dependency on the target's classpath, and no requirement that the
-class exists yet at registration time (`_applyCustomizerPost` handles
-customizing a class that's already loaded). `WrapperService`/`.pyspi`
-has the same property from the other side: a Python module is declared
-as satisfying a Java interface by name, with the module itself needing
-no jpype awareness. Consequence: a closed-source, never-published Java
-library or Python module can be customized to feel native, with the
-customization living in a third location the end user writes, while the
-library or module being customized stays unaware anything is bridging
-into it. jep and jpy have no equivalent gate — the only way to get
-comparable ergonomics for a private class there is patching and
-recompiling their own C source, not an option for someone else's
-internal library.
-
-`jpype/_jcustomizer.py`'s `JImplementationFor(javaClassName)`/
-`JConversion(cls, ...)` (a string-named target Java class, a decorator
-registering a prototype whose methods get copied onto or converted to
-that class's wrapper, applied retroactively even to an already-loaded
-class) is the forward-direction version of the same pattern
-`WrapperService`/`.pyspi` implements in reverse: string-named target
-Python module/class, a declarative method binding to a named Java
-interface, discovered and replayed at startup instead of hardcoded.
-Every Python-side customizer referenced elsewhere in this doc
-(`_JCharArray` on `byte[]`/`char[]`, the `toPython()` conventions on
-`java.io` streams) is built on the forward version of this mechanism.
-
-**Status**: `origin/reverse` is 190 commits ahead of `review` (the main
-branch) and not yet merged — subinterpreters, cross-interpreter GC, an
-`InterpreterPipe`, `toPython()` conversions for
-`Instant`/`Path`/`File`/`BigDecimal`/dates, coverage raised to 90-100% on
-many modules per its own plan docs — but not yet current `review`
-behavior, and not re-verified with the same empirical rigor (actually
-running it, checking edge cases) applied to jpy/jep/pyjnius elsewhere in
-this document.
 
 jpy also has a Java-hosts-Python entry point, independent of jep's:
 `org.jpy.PyLib.startPython()`/`stopPython()`/`isPythonRunning()` lets a
@@ -938,11 +738,12 @@ architecture is natively Java-hosts-Python (its primary direction); jpy
 has it as a secondary capability alongside its usual Python-hosts-Java
 mode; pyjnius has neither (checked its Java sources specifically — only
 test fixtures and the `PythonJavaClass` proxy-callback machinery, no
-embeddable launcher). Once `origin/reverse` merges, jpype would cover
-both embedding directions — the ground jep and jpy each independently
-cover on the Java-hosts-Python side, plus jpype's existing
-Python-hosts-Java surface — while pyjnius remains the only one of the
-four with just one direction.
+embeddable launcher). If `origin/reverse` merges, jpype would cover both
+embedding directions — the ground jep and jpy each independently cover
+on the Java-hosts-Python side, plus jpype's existing Python-hosts-Java
+surface — while pyjnius remains the only one of the four with just one
+direction.
+
 
 ### Launching embedded Python from Java: three discovery models
 
@@ -1024,6 +825,240 @@ validity check, and can repair a missing install rather than fail.
 jep's approach is real discovery, not absent — the difference is that
 jpype's is the only one of the three that both queries Python directly
 and validates/self-heals its cache.
+
+
+**Status, again:** everything above about jpype in this axis describes
+`origin/reverse`, 190 commits ahead of `review` and not yet merged —
+substantial and apparently mature, but not current `review` behavior,
+and not re-verified with the same empirical rigor applied to
+jpy/jep/pyjnius elsewhere in this document.
+
+## Axis 8: Extensibility — customizers and the SPI
+
+Whether a third party can teach a library to bridge a *new* type — on
+either side of the boundary — without patching that library's own
+source. This axis leans on `origin/reverse` for its reverse-direction
+half (model 4, `python.lang`, `WrapperService`), so the same **not yet
+merged into `review`** caveat from the embedding axis applies to those
+rows; the forward-direction half (`@JImplementationFor`/`@JConversion`)
+is current, shipped jpype behavior.
+
+| Concern | jpype | jpy | jep | pyjnius |
+|---|---|---|---|---|
+| Customize how an existing Java class looks to Python, by class name, no source changes to the target | Yes — `@JImplementationFor`/`@JConversion` (`jpype/_jcustomizer.py`), string-keyed, works retroactively on an already-loaded class | Not established in this pass | Not established in this pass | Not established in this pass |
+| Automatic structural proxy: Java declares an interface, any Python object that structurally satisfies it gets proxied with no explicit call (`origin/reverse`) | Yes — `JPConversionPython`/`PyJP_probe` | No — three hand-written wrapper classes, constructed explicitly, no probing | No — fixed C-level type chain to a closed set of concrete Java types (plus one functional-interface special case, see below) | N/A — no Java-hosts-Python direction |
+| User-extensible SPI: expose a new Python class as a typed Java interface, by dropping a file, no library source changes (`origin/reverse`) | Yes — `WrapperService`/`.pyspi`, `java.util.ServiceLoader`-discovered | No equivalent | No equivalent — a new target interface means patching and recompiling jep's C source | No equivalent |
+
+**The automatic structural proxy (model 4) is models 2/3's own machinery,
+invoked by probing instead of an explicit call.** `JPConversionPython`
+(`native/common/jp_classhints.cpp:1908-1992`), a conversion rule
+`JPPybaseType::findJavaConversionImpl` (`jp_pybasetype.cpp:34-48`) tries
+for `java.lang.Object` and, by inheritance, every interface type that
+falls through to it. Any time a Python value needs to become a
+Java-typed value — argument, return, field, not just an explicit proxy
+site — `matches()` calls `PyJP_probe(st, Py_TYPE(object))`
+(`native/python/pyjp_probe.cpp`), which reads the Python type's own
+C-level protocol slots (`tp_call`, `tp_as_buffer`, `tp_as_sequence`,
+`tp_as_mapping`, `tp_as_number`, `__enter__`/`__index__`) plus
+`collections.abc` subclass checks to derive which `python.lang`
+interfaces that type structurally satisfies. If a probed interface
+matches the target, `convert()` (`jp_classhints.cpp:1972-1991`)
+constructs a `JProxy` on the spot — `_jpype._JProxy`, the same class
+backing the explicit-proxy forms in the object-model axis — wrapping the
+value with the method table the probe resolved.
+
+jpy's typed wrappers (`PyModule`, `PyDictWrapper`, `PyListWrapper` —
+three classes total) must be constructed explicitly by the caller around
+a generic `PyObject`, with no probe-driven automatic selection; its own
+general-proxy support (`PyObject.createProxy()`) didn't produce a usable
+object in this checkout regardless. jep's Python-to-Java dispatcher,
+`PyObject_As_jobject`
+(`~/devel/jep/src/main/c/Jep/convert_p2j.c:1050-1116`), has one
+automatic, declared-type-driven case: `PyCallable_Check(pyobject) &&
+isFunctionalInterfaceType(env, expectedType)` triggers
+`PyCallable_as_functional_interface` (lines 1091-1097), converting any
+Python callable into any SAM-shaped target interface automatically, on
+both argument and return paths. Everything else in that function is a
+fixed, hardcoded C-level `if`/`else` chain (`PyLong_Check`/`PyDict_Check`/
+`PyUnicode_Check`/buffer/numpy) mapping to a closed, compiled-in set of
+concrete Java types, with `jep.python.PyObject` as the catch-all —
+adding a new target interface to jep's version means patching and
+recompiling its C source, the same gap as the `WrapperService`/`.pyspi`
+comparison below, applying here to proxy-selection specifically.
+
+jpype is the only one of the four with a structural, extensible,
+no-call-site-changes automatic path; the other three require the Python
+side to either be plain-callable or opt into a proxy at construction
+time. jep independently arrived at the same idea, scoped to
+callables-as-functional-interfaces rather than generalized to arbitrary
+multi-method interfaces via protocol introspection. jpy and pyjnius have
+no reverse direction to compare this against (jpy's exists but wasn't
+usable in this checkout; pyjnius's doesn't exist).
+
+**A user-extensible SPI, beyond `python.lang`'s builtin coverage.**
+`org.jpype.WrapperService` (discovered via `java.util.ServiceLoader`,
+JPMS-compatible via `provides ... with` in `module-info.java`) lets any
+Java library expose any Python class as a typed Java interface by
+registering a provider and dropping a declarative resource file per
+class (`.pyspi`: a `key: value` header naming the Python
+module/class/target Java interface, a `---` separator, then a Python
+source blob binding a `METHODS = {...}` dict) — no editing of jpype's
+own source. Example, `collections.deque.pyspi`:
+
+```
+kind: class
+module: collections
+class: deque
+interface: python.collections.PyDeque
+---
+METHODS = {
+    ".addFirst": lambda x, v: x.appendleft(v),
+    ".removeFirst": lambda x: x.popleft(),
+    ".size": len,
+    ...
+}
+```
+
+— mapping Python's `deque` onto a Java interface using
+`java.util.Deque`'s own method names (`addFirst`/`removeFirst`), so Java
+code gets a collection backed transparently by the real Python object.
+jpype ships five built-in providers this way (27 `.pyspi` files,
+475/475 tests passing): `python.io` (the `io`/`_io` hierarchy —
+`BytesIO`/`StringIO`/`FileIO`/`BufferedReader`/`Writer`/`TextIOWrapper`/
+etc.), `python.collections` (`ChainMap`/`Counter`/`OrderedDict`/
+`defaultdict`/`deque`), `python.datetime` (`date`/`datetime`/
+`timedelta`), `python.decimal` (`Decimal`), `python.pathlib`
+(`PosixPath`/`WindowsPath`).
+
+None of jpy/jep/pyjnius have an equivalent. jep's collection support
+(`pyjlist.c`/`pyjmap.c`/etc.) and pyjnius's `protocol_map`
+(`reflect.py`) are both real and both verified working (see the
+object-model axis), but both are fixed in each library's own source —
+adding support for a new Python stdlib or third-party class (say,
+exposing `numpy.ndarray` as a typed Java interface) means patching jep's
+or pyjnius's C/Cython source and rebuilding the extension. jpy has no
+collection-protocol support to compare against, let alone an extension
+mechanism for one.
+
+**Neither side of the bridge needs awareness of the other.**
+`JClassHints.registerClassImplementation(classname, proto)`
+(`jpype/_jcustomizer.py:222-231`, behind `@JImplementationFor`) keys
+purely on a string class name — no marker interface, no annotation, no
+jpype dependency on the target's classpath, and no requirement that the
+class exists yet at registration time (`_applyCustomizerPost` handles
+customizing a class that's already loaded). `WrapperService`/`.pyspi`
+has the same property from the other side: a Python module is declared
+as satisfying a Java interface by name, with the module itself needing
+no jpype awareness. Consequence: a closed-source, never-published Java
+library or Python module can be customized to feel native, with the
+customization living in a third location the end user writes, while the
+library or module being customized stays unaware anything is bridging
+into it. jep and jpy have no equivalent gate — the only way to get
+comparable ergonomics for a private class there is patching and
+recompiling their own C source, not an option for someone else's
+internal library.
+
+`jpype/_jcustomizer.py`'s `JImplementationFor(javaClassName)`/
+`JConversion(cls, ...)` (a string-named target Java class, a decorator
+registering a prototype whose methods get copied onto or converted to
+that class's wrapper, applied retroactively even to an already-loaded
+class) is the forward-direction version of the same pattern
+`WrapperService`/`.pyspi` implements in reverse: string-named target
+Python module/class, a declarative method binding to a named Java
+interface, discovered and replayed at startup instead of hardcoded.
+Every Python-side customizer referenced elsewhere in this doc
+(`_JCharArray` on `byte[]`/`char[]`, the `toPython()` conventions on
+`java.io` streams) is built on the forward version of this mechanism.
+
+### Syntax: registering a customization
+
+| | jpype forward (Java class → Python) | jpype reverse (Python class → Java, `origin/reverse`) |
+|---|---|---|
+| Decorator/registration call | `@JImplementationFor("java.lang.String")` / `@JConversion(...)` | `.pyspi` declarative file, discovered via `ServiceLoader` |
+| Keying | String class name | String module/class name + target Java interface name |
+| Works on an already-loaded/already-imported class? | Yes — `_applyCustomizerPost` | Yes — replayed at startup, no import-order requirement found |
+
+jpy/jep/pyjnius have no equivalent mechanism on either side — this
+syntax table has no columns for them because there is nothing to fill
+in.
+
+## Axis 9: Introspection & ergonomics
+
+Things that don't change whether a program runs, but change how much a
+Python-side developer can rely on IDE tooling, `pickle`, and Java's own
+caller-sensitivity rules working transparently through the bridge.
+
+| Feature | jpype | jpy | jep | pyjnius |
+|---|---|---|---|---|
+| Pickling / `copyreg` support | Yes (9 tests) | No | No | No |
+| Caller-sensitive JDK method handling | Yes (20 tests) | No | No | No |
+| Javadoc-derived docstrings / Jedi / typing-stub generation | Yes (~37 tests) | No | No (bare `dir()` only) | No (bare `dir()` only, `__doc__ is None`) |
+
+Caller-sensitive JDK methods (`Class.forName`, `ClassLoader.getResource`,
+etc.) resolve based on the caller's declaring class, which normally
+means the JVM's own call stack — a detail invisible from a bridged
+language unless the bridge accounts for it explicitly. jpype handles
+this as a distinct case (`test_caller_sensitive.py`); no reference was
+found in jpy or jep's source, and pyjnius wasn't checked for it either.
+
+Docstrings, `repr()`, Jedi/IDE completion, and module/typing-stub
+generation are all downstream of the same question: does the bridge
+carry Javadoc text and type information across, or does a bound method
+show up to Python tooling as an opaque callable with no metadata? jep
+and pyjnius both expose method names via `dir()` (so autocomplete on
+method *names* works) but neither carries docstring text — pyjnius
+confirms `__doc__ is None` for every bound method; jep's `test_dir.py`
+covers the same bare-listing behavior. jpy has no analogous test files
+or source for any of this.
+
+### Syntax: listing what's available on an object
+
+| | jpype | jpy | jep | pyjnius |
+|---|---|---|---|---|
+| `dir(obj)` lists Java methods | Yes, with docstrings sourced from Javadoc | Not established in this pass | Yes, method names only, no docstrings | Yes, method names only, `__doc__` is `None` |
+| Pickle a Java-backed object | Yes (`test_pickle.py`, `test_serial.py`) | No | No | No |
+
+## Test-suite / porting coverage
+
+Closing summary, not an axis comparison: if jpype's test suite were
+actually ported to run against jpy/jep/pyjnius, how much of it would
+have something to run against.
+
+| | jpype | jpy | jep | pyjnius |
+|---|---:|---:|---:|---:|
+| test files | 90 | 21 | 34 | 37 |
+| tests | 1,884 | 151 | 247 | 160 |
+
+jpype: 1,884 tests across 90 files (~21k lines), `test/jpypetest/`. jpy:
+151 tests across 21 Python test files, `~/devel/jpy/src/test/python/`.
+jep: 247 tests across 34 files, `~/devel/jep/src/test/python/`. pyjnius:
+160 tests across 37 files, `~/devel/pyjnius/tests/` — between jpy's file
+count and jep's, but fewer total tests than jep's.
+
+Collection-protocol/`Comparable`/functional-interface/general-proxy
+support (axis 1) means jep and pyjnius both have something to port a
+meaningfully larger fraction of jpype's suite against than jpy does.
+`test_classhints.py`/`test_hints.py`/`test_customizer.py` (axis 8),
+`test_pickle.py`/`test_serial.py`, and the introspection-ergonomics
+files (axis 9) are gaps for all three of jpy/jep/pyjnius.
+Multi-dimensional/buffer array tests (axis 2) are a gap for jpy (partial)
+and pyjnius (total) but not jep (partial, same as jpy).
+
+Roughly 250+ of jpype's tests exercise features with no jpy counterpart
+at all — those can only be noted as gaps, not ported. The remainder
+(conversion, arrays, strings, exceptions, fields/properties,
+overloads/varargs, reflect, jclass/jpackage/imports, numeric/boxing,
+buffers, inherit, hash, synchronized) is the realistic portable subset
+against jpy if this comparison were ever turned into an actual ported
+test run. Against jep and pyjnius, that portable subset is somewhat
+larger, per the collection-protocol/proxy support noted above.
+
+**Not compared here, for all three of jpy/jep/pyjnius:** fault-injection
+tests (`test_fault.py`, 88 tests) and coverage-instrumentation tests
+(`test_coverage.py`, `test_javacoverage.py`, 50 tests) exercise jpype's
+own internal error paths, not a portable behavior — excluded from every
+axis above, not because any of jpy/jep/pyjnius specifically lack the
+feature, but because there's no "feature" there to lack.
 
 ## Further out (speculative): J2NI, and what "JPype2" could mean
 
