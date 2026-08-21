@@ -339,7 +339,7 @@ is filled from equally deep verification.
 
 | Direction | jpype | jpy | jep | pyjnius |
 |---|---|---|---|---|
-| Java exception → Python | Per-class mapping — `except java.lang.NullPointerException` distinguishable from `except java.lang.IllegalArgumentException` | Collapses to a single `RuntimeError` for every Java exception type | Not established in this pass | Collapses to a single `JavaException` for every Java exception type, but with more structured payload than jpy's — see below |
+| Java exception → Python | Per-class mapping — `except java.lang.NullPointerException` distinguishable from `except java.lang.IllegalArgumentException` | Collapses to a single `RuntimeError` for every Java exception type | Maps a fixed set of common Java exception classes to the matching built-in Python exception type (`IndexError`, `ValueError`, etc.); anything else, including `NullPointerException`, falls back to `RuntimeError` — see below | Collapses to a single `JavaException` for every Java exception type, but with more structured payload than jpy's — see below |
 | Python exception → Java | N/A in the scope checked here | N/A — jpy's embeddable direction (`PyLib.startPython()`) wasn't checked for this | Collapses to a single `JepException`, with partial cause-chaining for one specific case (see below) | N/A — no Java-hosts-Python direction |
 
 **Java exception → Python: jpy collapses to one type, no per-type
@@ -381,6 +381,31 @@ e.classname == 'java.lang.NullPointerException':` is a workable, if
 manual, substitute for jpype's/jpy's `except SomeSpecificException` that
 neither jpy nor pyjnius offer directly.
 
+**Java exception → Python: jep maps a fixed set of common exceptions to
+matching Python built-ins, unlike jpy's and pyjnius's flat collapse.**
+`process_java_exception` (`src/main/c/Jep/jep_exceptions.c:413-465`) is
+jep's Java-to-Python exception path; it calls
+`pyerrtype_from_throwable` (lines 473-527), which checks the Java
+exception's runtime type against a fixed list via `IsInstanceOf` and
+maps it to the corresponding Python built-in: `ClassNotFoundException` →
+`ImportError`, `IndexOutOfBoundsException` → `IndexError`, `IOException`
+→ `IOError`, `ClassCastException` → `TypeError`,
+`IllegalArgumentException` → `ValueError`, `ArithmeticException` →
+`ArithmeticError`, `OutOfMemoryError` → `MemoryError`, `AssertionError`
+→ `AssertionError`. Its own comment states the intent directly: "to
+enable more precise try: except: blocks in Python for Java exceptions."
+Anything not on that list — including `NullPointerException`, the
+example used throughout this axis — falls through to the same
+`RuntimeError` default jpy and pyjnius use for everything. The raised
+Python exception also isn't a plain string message: `jpyExc =
+jobject_As_PyObject(env, exception)` wraps the live Java `Throwable`
+object itself and passes it via `PyErr_SetObject(pyExceptionType,
+jpyExc)`, so the caught Python exception carries the actual wrapped Java
+object — `getMessage()`/`getCause()` remain callable on it, closer to
+jpype's model than to jpy's/pyjnius's flattened text, just gated behind
+a much narrower set of distinguishable Python exception *types* than
+jpype's per-class mapping offers.
+
 **Python exception → Java: jep collapses to one type too, with one
 partial exception.** `process_py_exception`
 (`src/main/c/Jep/jep_exceptions.c:42-175`) is jep's only
@@ -400,7 +425,7 @@ natively in Python.
 
 | | jpype | jpy | jep | pyjnius |
 |---|---|---|---|---|
-| Catch a specific Java exception in Python | `except java.lang.NullPointerException:` | `except RuntimeError:` (only option — no per-type distinction) | Not established in this pass | `except JavaException as e:`, then inspect `e.classname` — no per-type distinction at the `except` clause itself, but structured data is available inside the handler |
+| Catch a specific Java exception in Python | `except java.lang.NullPointerException:` | `except RuntimeError:` (only option — no per-type distinction) | `except IndexError:`/`except ValueError:`/etc. for the fixed set of mapped exceptions (see above); `except RuntimeError:` for everything else, including `NullPointerException` | `except JavaException as e:`, then inspect `e.classname` — no per-type distinction at the `except` clause itself, but structured data is available inside the handler |
 | Catch a specific Python exception in Java | N/A in the scope checked here | N/A | `catch (JepException e)` (only option — no per-type distinction, except the one wrapped-Java-exception case above) | N/A |
 
 ## Axis 4: Threading & GIL discipline
@@ -612,9 +637,9 @@ object is checked against the interpreter that actually produced it.
 | Concern | jpype | jpy | jep |
 |---|---|---|---|
 | "Restart" the interpreter | No restart primitive; independently disposable subinterpreters instead (`Py_NewInterpreterFromConfig`/`Py_EndInterpreter`, `org.jpype.SubInterpreter`) | `stopPython()`/`startPython()` exists, but a real second stop after restart "currently causes a fatal error" per jpy's own javadoc; the test suite's own Maven config sets a flag that turns "stop" into a no-op rather than exercise this | No restart primitive found; real subinterpreter isolation (`Py_EndInterpreter`) same as jpype |
-| Real (own-GIL) subinterpreter isolation | Yes — `SubInterpreter` | Not established in this pass | Yes — `jep.SubInterpreter`, confirmed via `Py_EndInterpreter` at close |
-| Cheap same-interpreter, separate-globals construct | Yes — `Script` (one interpreter, N independent globals dicts) | Not established in this pass | Yes — `SharedInterpreter`, though named as a sibling of `SubInterpreter` in the same `Interpreter` API family rather than visibly separate |
-| Check that a Java-side object handle is used by the interpreter that created it | Yes — `proxy->m_Context != context` raises `RuntimeError` rather than touching the pointer (`JPClass::convertToPythonObject`, `native/common/jp_class.cpp:379-403`) | Not established in this pass | No — documented as a caller contract in javadoc, not enforced in code (see below) |
+| Real (own-GIL) subinterpreter isolation | Yes — `SubInterpreter` | No — no `Py_NewInterpreter`/`Py_EndInterpreter` reference anywhere in jpy's C or Java source; jpy has no subinterpreter concept at all | Yes — `jep.SubInterpreter`, confirmed via `Py_EndInterpreter` at close |
+| Cheap same-interpreter, separate-globals construct | Yes — `Script` (one interpreter, N independent globals dicts, any of them anonymous) | Partial — `PyModule` wraps a real, `sys.modules`-registered Python module (`PyModule.importModule(name)`/`PyModule.getMain()`), not an arbitrary anonymous globals dict; usable as a separate scope only if backed by an actual importable module | Yes — `SharedInterpreter`, though named as a sibling of `SubInterpreter` in the same `Interpreter` API family rather than visibly separate |
+| Check that a Java-side object handle is used by the interpreter that created it | Yes — `proxy->m_Context != context` raises `RuntimeError` rather than touching the pointer (`JPClass::convertToPythonObject`, `native/common/jp_class.cpp:379-403`) | N/A — with no subinterpreter isolation at all, there's no separate arena boundary this kind of check would guard | No — documented as a caller contract in javadoc, not enforced in code (see below) |
 
 **jpy: restarting the interpreter is disabled by default in jpy's own
 test config.** `PyLib.stopPython()`'s own javadoc
@@ -638,6 +663,25 @@ underlying constraint: it exposes PEP 684 subinterpreters
 `native/common/jp_bridge.cpp:454-560`) as independently disposable
 instances (`org.jpype.SubInterpreter`) rather than a single root
 interpreter meant to be torn down and revived.
+
+**jpy: no subinterpreter concept at all; its nearest thing to a separate
+scope is a real Python module, not an anonymous globals dict.**
+Confirmed by grep: no `Py_NewInterpreter`/`Py_EndInterpreter` reference
+anywhere in jpy's C or Java source, so there is no own-GIL isolation to
+compare against jpype's/jep's `SubInterpreter` at all — the ownership
+check jpype has for that scenario (`proxy->m_Context != context`) has
+nothing to guard in jpy, not because jpy solved the problem but because
+the problem's precondition doesn't exist there. jpy's `PyModule`
+(`~/devel/jpy/src/main/java/org/jpy/PyModule.java`) is the closest thing
+to jpype's `Script`/jep's `SharedInterpreter` — `PyModule.getMain()`
+returns a Java handle to the interpreter's real `__main__` module, and
+`PyModule.importModule(name)` returns a handle to any other real,
+`sys.modules`-registered module — but every one of these is a genuine
+named Python module, not an arbitrary anonymous globals dict created on
+demand the way `Script`/`SharedInterpreter` are. Getting a second
+"separate scope" in jpy means importing a second real module (or
+constructing one via `CreateModule.java`), not calling a constructor
+with no name.
 
 **jep: sub-interpreter shutdown is real, matching jpype's shape.**
 `pyembed_thread_close` calls a genuine `Py_EndInterpreter(jepThread->tstate)`
@@ -712,27 +756,29 @@ version (`Script`) visibly separate from the opt-in real-isolation one
 
 | | jpype | jpy | jep |
 |---|---|---|---|
-| Real, own-GIL subinterpreter | `SubInterpreter()` | Not established in this pass | `jep.SubInterpreter()` |
-| Shared-interpreter, separate-globals only | `Script()` | Not established in this pass | `jep.SharedInterpreter()` |
-| Stop/restart the (single) root interpreter | Not offered — use `SubInterpreter` instead | `PyLib.stopPython()` / `startPython()` — see the restart caveat above | Not established in this pass |
+| Real, own-GIL subinterpreter | `SubInterpreter()` | Not offered — no subinterpreter concept exists | `jep.SubInterpreter()` |
+| Shared-interpreter, separate-globals only | `Script()` — anonymous, no name required | `PyModule.importModule("some.real.module")` / `PyModule.getMain()` — must be a real, named module | `jep.SharedInterpreter()` |
+| Stop/restart the (single) root interpreter | Not offered — use `SubInterpreter` instead | `PyLib.stopPython()` / `startPython()` — see the restart caveat above | Not offered — `MainInterpreter.close()` (`MainInterpreter.java:230-235`) just interrupts a background thread, doesn't finalize the interpreter; `setInitParams()` explicitly throws if called after the first `Interpreter` is created, implying the root config is fixed for the process |
 
 ## Axis 7: Embedding & discovery (Java hosts Python)
 
 The reverse direction from everything above: a pure Java application
 bringing up an embedded Python interpreter itself, with Java as the host
-process. jep's architecture *is* this, natively. jpy has a secondary,
-less-documented entry point for it. pyjnius has neither. jpype's version
-of this exists on `origin/reverse` — substantial, but **not yet merged
-into `review` (the main branch)**, so everything in this axis about
-jpype is a statement about that branch, not about jpype's current
-shipped behavior; treat it accordingly.
+process. jep's architecture *is* this, natively. jpy has a secondary
+entry point for it that turns out to be more built-out than "just
+start/stop" — it has its own JSR-223 implementation, checked below.
+pyjnius has neither. jpype's version of this exists on `origin/reverse`
+— substantial, but **not yet merged into `review` (the main branch)**,
+so everything in this axis about jpype is a statement about that
+branch, not about jpype's current shipped behavior; treat it
+accordingly.
 
 | Concern | jpype (`origin/reverse`) | jpy | jep | pyjnius |
 |---|---|---|---|---|
 | Is Java-hosts-Python the library's native/primary direction? | No — bolted onto jpype's existing Python-hosts-Java architecture, on an unmerged branch | No — secondary capability alongside its usual Python-hosts-Java mode | Yes — this is jep's native architecture | N/A — no Java-hosts-Python direction found |
-| Standard JVM scripting API (JSR-223) | Yes — `org.jpype.script.JPypeScriptEngine` | Not established in this pass | No — no `javax.script` reference anywhere in `~/devel/jep/src/main/java/jep/` | N/A |
-| Context/session object (multiple independent scopes against one interpreter) | Yes — `org.jpype.Script` | Not established in this pass | Yes, but not named as a distinct concept from real isolation — see the interpreter-lifecycle axis | N/A |
-| Typed object library mirroring Python's builtin types | Yes — `python.lang`, 54 files | Not established in this pass | No — one generic `jep.python.PyObject` catch-all plus a closed, hardcoded conversion chain (see the extensibility axis for the proxy-selection version of this gap) | N/A |
+| Standard JVM scripting API (JSR-223) | Yes — `org.jpype.script.JPypeScriptEngine` | Yes — `org.jpy.jsr223.ScriptEngineImpl`, same `AbstractScriptEngine`/`Invocable` interfaces jpype's implements | No — no `javax.script` reference anywhere in `~/devel/jep/src/main/java/jep/` | N/A |
+| Context/session object (multiple independent scopes against one interpreter) | Yes — `org.jpype.Script`, anonymous globals dict per instance | Partial — `PyModule`, but scoped to a real, named Python module rather than an arbitrary anonymous scope (see the interpreter-lifecycle axis) | Yes, but not named as a distinct concept from real isolation — see the interpreter-lifecycle axis | N/A |
+| Typed object library mirroring Python's builtin types | Yes — `python.lang`, 54 files | No — three wrapper classes total (`PyModule`/`PyDictWrapper`/`PyListWrapper`), no broader typed hierarchy | No — one generic `jep.python.PyObject` catch-all plus a closed, hardcoded conversion chain (see the extensibility axis for the proxy-selection version of this gap) | N/A |
 
 **jpype (`origin/reverse`): a Java-side entry point with no Python
 process involved in starting anything.** `org.jpype.MainInterpreter`
@@ -790,16 +836,40 @@ jpy also has a Java-hosts-Python entry point, independent of jep's:
 pure Java application embed and control a Python interpreter directly,
 demonstrated by a JUnit test with no Python bootstrap
 (`src/test/java/org/jpy/EmbeddableTestJunit.java` ->
-`EmbeddableTest`'s `PyLibControl` inner class, `~/devel/jpy`). So: jep's
-architecture is natively Java-hosts-Python (its primary direction); jpy
-has it as a secondary capability alongside its usual Python-hosts-Java
-mode; pyjnius has neither (checked its Java sources specifically — only
-test fixtures and the `PythonJavaClass` proxy-callback machinery, no
-embeddable launcher). If `origin/reverse` merges, jpype would cover both
-embedding directions — the ground jep and jpy each independently cover
-on the Java-hosts-Python side, plus jpype's existing Python-hosts-Java
-surface — while pyjnius remains the only one of the four with just one
-direction.
+`EmbeddableTest`'s `PyLibControl` inner class, `~/devel/jpy`).
+
+**jpy's entry point is more than bare start/stop — it has a real JSR-223
+implementation too.** `org.jpy.jsr223.ScriptEngineImpl`
+(`~/devel/jpy/src/main/java/org/jpy/jsr223/ScriptEngineImpl.java`)
+extends `AbstractScriptEngine` and implements `Invocable`, the same two
+interfaces jpype's `JPypeScriptEngine` implements on `origin/reverse` —
+`eval()` runs a script against the engine's bindings via
+`PyObject.executeCode()`, `invokeFunction()`/`invokeMethod()` call named
+Python functions/methods (`PyModule.getMain().call(name, args)` for the
+top-level case), and `getInterface()` returns a Java proxy backed by
+compiled Python functions via `PyModule.getMain().createProxy(clasz)` /
+`PyObject.createProxy(clasz)`. That last path leans on the same
+`PyObject.createProxy()` machinery this document's object-model axis
+found didn't produce a usable object in this checkout — so jpy's
+`getInterface()` is architecturally present but inherits that same
+proxy defect, worth flagging rather than counting as a clean win. jpy
+has no `python.lang`-style typed builtin-type library to go with its
+JSR-223 support — `PyModule`/`PyDictWrapper`/`PyListWrapper` remain the
+full extent of its typed wrappers, the same three classes noted
+elsewhere in this document.
+
+So: jep's architecture is natively Java-hosts-Python (its primary
+direction); jpy has it as a secondary capability alongside its usual
+Python-hosts-Java mode, and that capability is more built-out than a
+first look suggests — real JSR-223, not just raw start/stop; pyjnius has
+neither (checked its Java sources specifically — only test fixtures and
+the `PythonJavaClass` proxy-callback machinery, no embeddable launcher).
+If `origin/reverse` merges, jpype would cover both embedding directions
+— the ground jep and jpy each independently cover on the
+Java-hosts-Python side, plus jpype's existing Python-hosts-Java surface,
+and with a broader `python.lang` typed-object story than jpy's JSR-223
+alone provides — while pyjnius remains the only one of the four with
+just one direction.
 
 
 ### Launching embedded Python from Java: three discovery models
@@ -902,7 +972,7 @@ is current, shipped jpype behavior.
 
 | Concern | jpype | jpy | jep | pyjnius |
 |---|---|---|---|---|
-| Customize how an existing Java class looks to Python, by class name, no source changes to the target | Yes — `@JImplementationFor`/`@JConversion` (`jpype/_jcustomizer.py`), string-keyed, works retroactively on an already-loaded class | Not established in this pass | Not established in this pass | No equivalent found — `jclass_register` (`jnius_export_class.pxi:118`) is a memoization cache keyed by `(classname, params)` for `autoclass()`'s own generated wrapper classes, not a third-party customization point |
+| Customize how an existing Java class looks to Python, by class name, no source changes to the target | Yes — `@JImplementationFor`/`@JConversion` (`jpype/_jcustomizer.py`), string-keyed, works retroactively on an already-loaded class | No equivalent found — no `Customizer`/`ServiceLoader`/registration machinery anywhere in `~/devel/jpy/src/main/java/org/jpy` or `src/main/c` | No equivalent found — no `ServiceLoader`/`registerType`/`registerConversion` machinery anywhere in `~/devel/jep/src/main/java/jep` or `src/main/c/Jep` | No equivalent found — `jclass_register` (`jnius_export_class.pxi:118`) is a memoization cache keyed by `(classname, params)` for `autoclass()`'s own generated wrapper classes, not a third-party customization point |
 | Automatic structural proxy: Java declares an interface, any Python object that structurally satisfies it gets proxied with no explicit call (`origin/reverse`) | Yes — `JPConversionPython`/`PyJP_probe` | No — three hand-written wrapper classes, constructed explicitly, no probing | No — fixed C-level type chain to a closed set of concrete Java types (plus one functional-interface special case, see below) | N/A — no Java-hosts-Python direction |
 | User-extensible SPI: expose a new Python class as a typed Java interface, by dropping a file, no library source changes (`origin/reverse`) | Yes — `WrapperService`/`.pyspi`, `java.util.ServiceLoader`-discovered | No equivalent | No equivalent — a new target interface means patching and recompiling jep's C source | No equivalent |
 
@@ -1072,7 +1142,7 @@ or source for any of this.
 
 | | jpype | jpy | jep | pyjnius |
 |---|---|---|---|---|
-| `dir(obj)` lists Java methods | Yes, with docstrings sourced from Javadoc | Not established in this pass | Yes, method names only, no docstrings | Yes, method names only, `__doc__` is `None` |
+| `dir(obj)` lists Java methods | Yes, with docstrings sourced from Javadoc | No `__dir__` override or populated `tp_methods` found (`jpy_jtype.c:2706` sets `tp_methods` to `NULL`); attribute access instead runs through a custom `tp_getattro` (`JType_getattro`), so default `dir()` wasn't checked to actually list anything beyond Python's own type slots | Yes, method names only, no docstrings | Yes, method names only, `__doc__` is `None` |
 | Pickle a Java-backed object | Yes (`test_pickle.py`, `test_serial.py`) | No | No | No |
 
 ## Test-suite / porting coverage
