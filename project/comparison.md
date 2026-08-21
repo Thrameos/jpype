@@ -1172,6 +1172,41 @@ or source for any of this.
 | `dir(obj)` lists Java methods | Yes, with docstrings sourced from Javadoc | No `__dir__` override or populated `tp_methods` found (`jpy_jtype.c:2706` sets `tp_methods` to `NULL`); attribute access instead runs through a custom `tp_getattro` (`JType_getattro`), so default `dir()` wasn't checked to actually list anything beyond Python's own type slots | Yes, method names only, no docstrings | Yes, method names only, `__doc__` is `None` |
 | Pickle a Java-backed object | Yes (`test_pickle.py`, `test_serial.py`) | No | No | No |
 
+## Testing methodology: how each library tests itself
+
+A different question from every axis above: not what each library's
+bridge can do, but how rigorously its own test suite checks that the
+bridge does it correctly. Four sub-questions: does correctness get
+checked from both language sides independently, or only from Python?
+Is there any coverage instrumentation, or does test count stand in for
+it? Is memory/reference leaking checked at all, and if so how? Is
+error-path handling itself under test (deliberately breaking things), or
+only the happy path?
+
+| Concern | jpype | jpy | jep | pyjnius |
+|---|---|---|---|---|
+| Python-side test suite | Yes — 1,884 tests, `test/jpypetest/` | Yes — 151 tests, `src/test/python/` | Yes — 247 tests, `src/test/python/` | Yes — 160 tests, `tests/` |
+| Independent Java-side test suite (its own assertions, its own pass/fail, not just a target Python calls into) | Yes — 104 TestNG classes, `native/jpype_module/src/test/java/`, exercising the reverse-embedding direction as its own suite | Yes — 10 JUnit-annotated classes (`@Test`), `src/test/java/org/jpy/` (`LifeCycleTest`, `PyProxyTest`, `MultiThreadedEvalTestFixture`, etc.) | No independent framework — 37 files under `src/test/java/jep/test/`, but none use JUnit/TestNG/an assertion library; they're plain classes with `public static void main()`, run standalone or driven from a Python test that does the actual assertion (e.g. `TestCrossLangSync` ↔ `test_synchronized.py`) | No — Java files under `tests/java-src/` (e.g. `ClassArgument.java`) are plain fixture classes with no `main()` and no assertions, existing only to be called into from Python tests |
+| Coverage instrumentation | Yes — `coverage.sh`, merges Python (`coverage.py`), Java (JaCoCo, merged at the method level across *both* Java-side and Python-side suites since they don't produce CRC-identical classfiles), and C++ (gcov) into one report; last measured at 95.1% with every sub-100% method individually categorized (real gap / dead code, since removed / deliberately deferred) rather than left as a raw number | No coverage config, plugin, or CI step found (`pom.xml`, `setup.cfg`) | No coverage config, plugin, or CI step found (`pom.xml`) | No coverage config found (`setup.cfg`, `pyproject.toml`) |
+| Memory/reference leak checking | Yes — `test/jpypetest/leakharness.py`/`leaksweep.py`/`test_leak.py`/`test_leak2.py`: starts a small-heap JVM, measures actual process memory growth over a config-driven, time-budgeted sweep of repeated operations against a target list (`leak_targets.txt`); always runs, no special build required | None found | Yes, but narrower and conditionally skipped — `test_python_memory.py` asserts `sys.gettotalrefcount()` grows by exactly the expected delta per operation, which is more precise per-call than jpype's growth-over-many-iterations approach, but only runs on a Python built `--with-pydebug` (`@unittest.skipIf`) — not exercised on an ordinary interpreter build | None found |
+| Fault-injection (deliberately broken inputs/state exercising error paths, not just correctness on valid input) | Yes — `test_fault.py`, 88 tests | None found | None found | None found |
+
+None of jpy/jep/pyjnius run coverage-instrumented CI at all, as far as
+this document's source reading found — test *count* is the only signal
+available for those three, which is exactly why the porting-coverage
+section below leans on file/test counts rather than coverage percentages
+for the cross-library comparison. jep's Java-side files being fixtures
+rather than an independent test suite is worth sitting with for a
+moment: several results earlier in this document (`TestCrossLangSync`,
+`TestSharedModulesThreads`) were run directly as standalone Java
+programs via their own `main()` methods, not via a test framework's
+runner — a real, reproducible result, but with no independent Java-side
+pass/fail signal or reporting the way jpy's JUnit suite or jpype's
+TestNG suite provide. pyjnius is the one library here with no
+independent Java-side correctness check of any kind, and no leak
+checking on either side — its 160 Python-side tests are the entirety of
+its own verification story.
+
 ## Test-suite / porting coverage
 
 Closing summary, not an axis comparison: if jpype's test suite were
