@@ -11,7 +11,9 @@ See project/android/README.md for how this recipe fits into the overall
 build/deploy/verify loop, and for the current known rough edges.
 """
 import glob
-from os.path import join, dirname, isfile, realpath
+import zipfile
+from os import walk, sep
+from os.path import join, dirname, isfile, realpath, relpath
 import sh
 
 from pythonforandroid.recipe import PyProjectRecipe, IncludedFilesBehaviour, Recipe
@@ -236,6 +238,75 @@ class JPype1Recipe(IncludedFilesBehaviour, PyProjectRecipe):
                     '--exclude=attr/ClassWithBuffer.java',
                     join('test', 'harness', 'jpype') + '/',
                     join(self.ctx.javaclass_dir, 'jpype'))
+
+            self.generate_package_markers(arch)
+
+    def generate_package_markers(self, arch):
+        """Emit one empty marker resource per Java package Android's build
+        can reach, so JPypePackageManager.isPackage() (see
+        native/jpype_module/src/main/java/org/jpype/pkg/
+        JPypePackageManager.java) can answer "is this a valid package" via
+        a cheap classloader resource lookup instead of the jar/jrt
+        filesystem enumeration ART doesn't have. Without this,
+        jpype.imports and jpype.JPackage(...) - both of which resolve a
+        dotted name one package component at a time - fail at the very
+        first component (see doc/android.rst's "Removed JPype Services").
+
+        Scans everything that ends up on this build's classpath: the
+        Android platform stub jar (java.*, javax.*, android.*, ...) and
+        the org.jpype / test-harness sources just copied into
+        javaclass_dir above (compiled/dexed by p4a's own subsequent
+        build step, not by this recipe). For each package found, writes
+        an empty file at jpype-android-pkg-markers/<package/as/a/path>
+        under javaclass_dir, including every ancestor level (so "java" and
+        "java.lang" both get markers, not just "java.lang.String"'s
+        immediate parent) - matching how a real directory listing would
+        answer "does this directory exist" at every level of a dotted
+        lookup, one component at a time.
+        """
+        info('Generating Android package markers for jpype.imports/JPackage')
+        packages = set()
+
+        def add_with_ancestors(dotted):
+            parts = dotted.split('.')
+            for i in range(1, len(parts) + 1):
+                packages.add('.'.join(parts[:i]))
+
+        android_jar = join(self.ctx.sdk_dir, 'platforms',
+                            'android-{}'.format(self.ctx.android_api), 'android.jar')
+        with zipfile.ZipFile(android_jar) as zf:
+            for entry in zf.namelist():
+                if not entry.endswith('.class') or '$' in entry:
+                    continue
+                pkg_path = dirname(entry)
+                if not pkg_path:
+                    continue
+                add_with_ancestors(pkg_path.replace('/', '.'))
+
+        for root_name in ('org', 'jpype'):
+            root_dir = join(self.ctx.javaclass_dir, root_name)
+            for dirpath, _dirnames, filenames in walk(root_dir):
+                if not any(f.endswith('.java') for f in filenames):
+                    continue
+                rel = relpath(dirpath, self.ctx.javaclass_dir)
+                add_with_ancestors(rel.replace(sep, '.'))
+
+        # Marker files live INSIDE the directory named after their package
+        # (fixed filename, not the package path itself) - a package name
+        # can be both a leaf (has its own marker) and an ancestor of a
+        # deeper package (needs its path to still be usable as a
+        # directory), e.g. android.content.res is a real package that
+        # also has classes/subpackages beneath it. Using the package path
+        # itself as the marker's filename collides the two roles: writing
+        # a plain file at that path breaks the moment something else needs
+        # the same path as a directory.
+        marker_root = join(self.ctx.javaclass_dir, 'jpype-android-pkg-markers')
+        for pkg in packages:
+            marker_dir = join(marker_root, *pkg.split('.'))
+            ensure_dir(marker_dir)
+            with open(join(marker_dir, '.pkg-marker'), 'a'):
+                pass
+        info('Wrote {} Android package markers'.format(len(packages)))
 
 
 recipe = JPype1Recipe()

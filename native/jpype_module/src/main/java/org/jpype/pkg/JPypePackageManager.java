@@ -16,6 +16,7 @@
 package org.jpype.pkg;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -69,11 +70,93 @@ public class JPypePackageManager
    */
   public static boolean isPackage(String name)
   {
-    if (name.indexOf('.') != -1)
-      name = name.replace(".", "/");
-    if (isModulePackage(name) || isBasePackage(name) || isJarPackage(name))
+    String path = name.indexOf('.') != -1 ? name.replace(".", "/") : name;
+    if (isModulePackage(path) || isBasePackage(path) || isJarPackage(path))
       return true;
+    if (jfsp == null && modules.isEmpty())
+    {
+      if (isPackageAsset(path))
+        return true;
+      return isPackageByProbing(name);
+    }
     return false;
+  }
+
+  /**
+   * Marker-asset directory prefix used by isPackageAsset() below. A dash
+   * makes this unrepresentable as a Java package name segment, so it can
+   * never collide with a real package.
+   */
+  private static final String ANDROID_PKG_MARKER_DIR = "jpype-android-pkg-markers/";
+
+  /**
+   * Package check for platforms with no filesystem-based package
+   * enumeration at all - e.g. Android's ART, which has neither a "jar"
+   * FileSystemProvider nor a jrt:/ module filesystem (see
+   * getFileSystemProvider() and getModules() above), so the checks above
+   * can never do better than report "not found" for every name, including
+   * perfectly valid ones like "java" or "java.lang". That broke
+   * jpype.imports and jpype.JPackage(...) entirely on Android: the very
+   * first, package-only step of resolving e.g. java.lang.String always
+   * failed before ever reaching a class.
+   * <p>
+   * This mirrors what the desktop checks above do - "does this directory
+   * exist in the classpath" - using an Android-appropriate substitute for
+   * "directory": an empty marker resource bundled into the APK for every
+   * package the Android build recipe found at build time (scanning
+   * android.jar plus this project's own compiled/harness classes - see
+   * project/android/recipes/jpype1/__init__.py), one per package,
+   * named after the package itself under ANDROID_PKG_MARKER_DIR. A plain
+   * classloader resource lookup for the marker is cheap and needs no
+   * filesystem access, unlike real directory enumeration.
+   *
+   * @param path is the name to check, in path form (dots already
+   * replaced with slashes by the caller).
+   * @return true if a marker resource exists for path.
+   */
+  private static boolean isPackageAsset(String path)
+  {
+    ClassLoader cl = JPypeContext.getInstance().getClassLoader();
+    try (InputStream is = cl.getResourceAsStream(ANDROID_PKG_MARKER_DIR + path + "/.pkg-marker"))
+    {
+      return is != null;
+    } catch (IOException ex)
+    {
+      return false;
+    }
+  }
+
+  /**
+   * Last-resort fallback for a name with no marker asset (see
+   * isPackageAsset() above) - e.g. the Android build recipe's scan missed
+   * it, or it's genuinely not a package. JPypePackage.getObject() already
+   * has a fallback of its own for exactly this situation: when isPackage()
+   * says no, it probes name as a class via Class.forName(). That probe
+   * works fine on Android - reflection needs no filesystem access, unlike
+   * enumeration (this is the same mechanism JClass already relies on for
+   * the golden path). This method borrows that same probe, one level up:
+   * if name loads as a real class, it is definitely not a package. If it
+   * doesn't, there's no way to disprove it, so treat it as a plausible
+   * package - a subsequent JPypePackage.getObject() call on one of ITS
+   * attributes will apply the identical probe again, one component
+   * deeper, so a genuinely bogus name (a typo, or a name that's neither a
+   * package nor a class) still eventually fails at whichever level
+   * actually gets dereferenced as a class, rather than succeeding
+   * silently.
+   *
+   * @param name is the dotted name to check (not the path form).
+   * @return true unless name is provably a class rather than a package.
+   */
+  private static boolean isPackageByProbing(String name)
+  {
+    try
+    {
+      Class.forName(name, false, JPypeContext.getInstance().getClassLoader());
+      return false;
+    } catch (ClassNotFoundException | LinkageError ex)
+    {
+      return true;
+    }
   }
 
   /**
