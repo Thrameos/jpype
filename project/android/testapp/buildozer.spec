@@ -36,7 +36,11 @@ p4a.local_recipes = ../recipes
 # JPypePackageManager.java (native/jpype_module) reads this back via
 # AssetManager under the jpype-android-packages.txt name on the right of
 # the colon.
-android.add_assets = ../recipes/jpype1/generated/android-packages.txt:jpype-android-packages.txt
+#
+# entities.txt is org.jpype.html.Html's static resource file - same
+# non-.java-files-get-dropped problem, same fix. See Html.java's static
+# initializer and JPypePackageManager.openAndroidAsset().
+android.add_assets = ../recipes/jpype1/generated/android-packages.txt:jpype-android-packages.txt,../recipes/jpype1/generated/entities.txt:jpype-android-html-entities.txt
 
 android.api = 34
 android.minapi = 24

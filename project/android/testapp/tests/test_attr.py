@@ -26,6 +26,11 @@ class AttributeTestCase(common.JPypeTestCase):
     def setUp(self):
         common.JPypeTestCase.setUp(self)
 
+    # jpype.attr.ClassWithBuffer imports java.awt.image.BufferStrategy -
+    # AWT isn't part of Android's platform API (see doc/android.rst), so
+    # this fixture class is excluded from the Android build entirely (see
+    # project/android/recipes/jpype1/__init__.py's postbuild_arch).
+    @common.skipOnAndroid("java.awt.image.BufferStrategy not available on Android")
     def testWithBufferStrategy(self):
         j = JClass("jpype.attr.ClassWithBuffer")
         self.assertIsNone(j().bufferStrategy)

@@ -70,6 +70,27 @@ def requireAscii(func):
     return func
 
 
+def isAndroid():
+    # ANDROID_ARGUMENT is set by p4a's own bootstrap (PythonActivity.java's
+    # nativeSetenv call) before Python starts - the standard way p4a/Kivy
+    # apps detect they're running under python-for-android, rather than a
+    # plain desktop interpreter that happens to import this same file.
+    import os
+    return 'ANDROID_ARGUMENT' in os.environ
+
+
+def skipOnAndroid(reason):
+    """Gate a ported test method on actually running on Android, not just
+    on living in this Android-only tests/ package - these files are direct
+    copies of test/jpypetest/*.py, kept close to the original so a future
+    fix can be diffed easily; skipIf keeps the reason honest (an Android
+    platform limitation, not "this test is disabled") if any of these
+    files are ever run somewhere else."""
+    def deco(func):
+        return unittest.skipIf(isAndroid(), reason)(func)
+    return deco
+
+
 class UseFunc(object):
     def __init__(self, obj, func, attr):
         self.obj = obj

@@ -269,6 +269,18 @@ class JPype1Recipe(IncludedFilesBehaviour, PyProjectRecipe):
                     join('test', 'harness', 'jpype') + '/',
                     join(self.ctx.javaclass_dir, 'jpype'))
 
+            # test/harness/org/jpype/fail/* - fixtures for test_exc.py's
+            # testExcCauseChained1/2 (classes whose static initializers
+            # deliberately throw, to exercise ExceptionInInitializerError
+            # chaining). This is a sibling tree to test/harness/jpype
+            # above (rooted at org/, not jpype/) that the original rsync
+            # above never picked up - checked for AWT/annotation issues
+            # the same way the jpype/ tree was, found none.
+            info('Copying test/harness/org Java fixtures to classes build dir')
+            shprint(sh.rsync, '-a',
+                    join('test', 'harness', 'org') + '/',
+                    join(self.ctx.javaclass_dir, 'org'))
+
             self.generate_package_markers(arch)
 
     def generate_package_markers(self, arch):
@@ -367,6 +379,20 @@ class JPype1Recipe(IncludedFilesBehaviour, PyProjectRecipe):
             for pkg in sorted(packages):
                 fileh.write(pkg + '\n')
         info('Wrote {} Android package names to {}'.format(len(packages), package_list_path))
+
+        # org.jpype.html.Html's entities.txt hits the exact same
+        # non-.java-files-get-dropped problem as the package list above
+        # (it sits right next to Html.java under src/main/java, and never
+        # reached the built APK before this fix - see that class's static
+        # initializer for the AssetManager fallback that reads this copy
+        # back). It's a small, static, already-in-the-repo file, so this
+        # just stages a copy here for the same buildozer.spec
+        # android.add_assets mechanism to pick up - no scan needed.
+        entities_src = join(self.get_build_dir(arch.arch), 'native', 'jpype_module',
+                             'src', 'main', 'java', 'org', 'jpype', 'html', 'entities.txt')
+        entities_dst = join(dirname(__file__), 'generated', 'entities.txt')
+        shprint(sh.cp, entities_src, entities_dst)
+        info('Staged Android asset copy of entities.txt at {}'.format(entities_dst))
 
 
 recipe = JPype1Recipe()

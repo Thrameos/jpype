@@ -71,7 +71,14 @@ public class JavadocExtractor
   {
     InputStream is = null;
     String name = cls.getName().replace('.', '/') + ".html";
-    ClassLoader cl = ClassLoader.getSystemClassLoader();
+    // The doc HTML for a class ships wherever that class's own .class/dex
+    // entry does, so look it up via that class's own defining classloader
+    // rather than the system classloader - the latter is a boot-loader
+    // stub with no dex visibility on Android (see doc/android.rst; the
+    // same fix applies to org.jpype.html.Html's entities.txt lookup).
+    ClassLoader cl = cls.getClassLoader();
+    if (cl == null)
+      cl = ClassLoader.getSystemClassLoader();
 
     // Search the regular class path.
     is = cl.getResourceAsStream(name);

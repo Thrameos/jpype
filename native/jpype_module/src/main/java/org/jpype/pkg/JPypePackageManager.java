@@ -247,6 +247,38 @@ public class JPypePackageManager
     return androidAssetManager;
   }
 
+  /**
+   * Open a named Android asset (bundled via buildozer.spec's
+   * android.add_assets - see this class's own ANDROID_PKG_LIST_ASSET use
+   * for the pattern). Exposed publicly so other org.jpype classes that
+   * need a static resource file which doesn't survive as a plain
+   * classloader resource on Android (e.g. org.jpype.html.Html's
+   * entities.txt - see that class) don't need their own copy of the
+   * getAndroidAssetManager() reflection glue.
+   *
+   * @param name is the asset's path, as given on the right of the colon
+   * in its android.add_assets entry.
+   * @return an InputStream for the asset, or null if unavailable
+   * (desktop, Android before startup finishes, or no such asset).
+   */
+  public static InputStream openAndroidAsset(String name)
+  {
+    Object assetManager = getAndroidAssetManager();
+    if (assetManager == null)
+      return null;
+    try
+    {
+      Method open = assetManager.getClass().getMethod("open", String.class);
+      return (InputStream) open.invoke(assetManager, name);
+    } catch (ReflectiveOperationException | ClassCastException ex)
+    {
+      // NoSuchMethodException/IllegalAccessException: reflection itself
+      // failed. InvocationTargetException wraps AssetManager.open()'s
+      // IOException when the asset doesn't exist.
+      return null;
+    }
+  }
+
   // A reflective Class.forName() probe was tried here as a fallback for
   // names with no marker asset ("can't prove it ISN'T a package, so
   // assume it is") - reverted. jpype.imports' meta_path finder
