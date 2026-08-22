@@ -30,8 +30,12 @@ p4a fits: its sibling project **pyjnius** (also a Python<->Java bridge over
 JNI, architecturally the same problem JPype has) already ships a working
 recipe (``pythonforandroid/recipes/pyjnius``) that this harness's own recipe
 (``project/android/recipes/jpype1``) is modeled on, including reusing the same
-``WebView_AndroidGetJNIEnv()`` hook that p4a's "webview" bootstrap exposes for
-getting a ``JNIEnv*`` from the already-running Dalvik/ART VM.
+``WebView_AndroidGetJNIEnv()`` hook that several p4a bootstraps expose for
+getting a ``JNIEnv*`` from the already-running Dalvik/ART VM (despite the
+name, it isn't specific to the ``webview`` bootstrap - ``service_only``,
+the one this harness actually uses, exports the identical symbol from its
+own bootstrap C sources; see the SIGABRT section below for why
+``service_only`` and not ``webview``).
 
 What's in ``project/android/``
 -------------------------------
@@ -40,10 +44,13 @@ What's in ``project/android/``
   A reference implementation of ``Android_JNI_GetEnv()`` - declared
   ``extern`` in ``native/python/pyjp_module.cpp`` but deliberately never
   defined there, since it must come from whatever app embeds JPype. This
-  file supplies it for p4a's webview bootstrap specifically. A different
-  host application (a from-scratch Android Studio project, a different p4a
-  bootstrap, ...) would supply its own definition instead - that's why this
-  file lives here and not in ``native/``.
+  file supplies it for p4a's ``service_only`` bootstrap (this harness's
+  current choice - see the SIGABRT section below); it also works unchanged
+  against the ``webview`` bootstrap, since both export the same
+  ``WebView_AndroidGetJNIEnv()`` symbol. A different host application (a
+  from-scratch Android Studio project, a different p4a bootstrap, ...)
+  would supply its own definition instead - that's why this file lives
+  here and not in ``native/``.
 
 ``recipes/jpype1/__init__.py``
   The p4a recipe. Builds directly from this repo's own working tree (not a
@@ -301,17 +308,101 @@ printing ``REGRESSION CHECK #1257: ...`` at all, look for a SIGABRT /
 original #1257 crash signature, meaning something reintroduced the missing
 exception handling in ``PyJPModule_bootstrap()``.
 
-A separate, still-unexplained ``Fatal signal 6 (SIGABRT)`` /
-``FORTIFY: pthread_mutex_lock called on a destroyed mutex`` reliably appears
-in logcat *after* ``=== jpype android testapp done ===`` has already
-printed - i.e. after the script above has already finished successfully.
-This has been present identically in every single run this harness has
-ever produced, including the very first ones before any of the fixes above
-existed, which is strong evidence it's a pre-existing interpreter-teardown
-quirk in this specific CPython 3.14 / p4a webview-bootstrap combination,
-unrelated to JPype. It has not been root-caused and should not be assumed
-to be a JPype bug without further investigation - noted here as an honest
-open loose end, not swept under the rug.
+Resolved: a trailing SIGABRT after every run
+-----------------------------------------------
+
+Every run through this harness - including the very first ones, long
+before any of the fixes above existed - printed
+``=== jpype android testapp done ===`` and then crashed anyway with
+``Fatal signal 6 (SIGABRT)`` / ``FORTIFY: pthread_mutex_lock called on a
+destroyed mutex``. The full tombstone (not just the one-line summary)
+made the cause unambiguous::
+
+    pid: ..., tid: ..., name: Chrome_InProcGp
+    Abort message: 'FORTIFY: pthread_mutex_lock called on a destroyed mutex'
+    backtrace:
+      abort -> __fortify_fatal -> pthread_mutex_lock
+      -> std::__1::mutex::lock() (libc++.so)
+      -> EGLContext_t::deleteOnce -> eglDestroyContext -> eglMakeCurrent
+         (libEGL_emulation.so - the emulator's own GL passthrough)
+      -> android::egl_display_t::makeCurrent (libEGL.so)
+      -> ... libmonochrome_64.so (Chromium/TrichromeLibrary)
+
+This is entirely inside Android's WebView/Chromium GPU process
+(``Chrome_InProcGp``) and the emulator's own EGL emulation layer - nothing
+in this backtrace touches JPype, Python, or this project's code. It only
+happened because the ``webview`` p4a bootstrap (used initially) pulls in a
+real Chromium WebView instance, which this headless test app never
+actually needed - it was only chosen for the ``WebView_AndroidGetJNIEnv()``
+JNI hook.
+
+**Fix**: switched ``p4a.bootstrap`` from ``webview`` to ``service_only`` -
+p4a's headless, no-UI bootstrap. It still exports
+``WebView_AndroidGetJNIEnv()`` from its own ``pyjniusjni.c`` (confirmed by
+reading the source), so ``project/android/native/android_jnienv.c`` needed
+no changes. With no WebView/Chromium instance ever created, there is no
+GPU thread left to crash.
+
+Switching bootstraps surfaced three more bugs - all in python-for-android's
+own bootstrap/build machinery, none in JPype or this recipe:
+
+- **NDK platform cap**: ``service_only``'s own native launcher builds via
+  the legacy ``ndk-build``/``Android.mk`` path (the ``genericndkbuild``
+  recipe it depends on), not CMake. This specific NDK version
+  (25.1.8937393) caps that path at platform 33
+  (``android-34 is above the maximum supported version android-33``),
+  even though the same NDK's CMake-based toolchain (used for ``jpype1``
+  itself) handles 34 fine. Fixed by lowering ``android.api`` from 34 to 33
+  in ``buildozer.spec``.
+
+- **A real p4a bug**: buildozer deliberately skips passing
+  ``--orientation``/``--manifest-orientation`` when
+  ``p4a.bootstrap = service_only`` (an orientation makes no sense for a
+  headless service) - but the generated ``dists/<app>/build.py``'s
+  ``parse_args_and_make_package()`` unconditionally reads
+  ``args.orientation`` right after, raising
+  ``AttributeError: 'Namespace' object has no attribute 'orientation'``.
+  The same file *does* correctly guard the analogous
+  ``args.sdl_orientation_hint`` line with
+  ``if is_sdl_bootstrap():`` a few lines below - this looks like a simple
+  oversight upstream, not a design choice.
+
+- **Another real p4a bug**: ``service_only``'s generated
+  ``PythonActivity.java`` (``org.kivy.android.PythonActivity.onCreate()``)
+  passes the static ``mActivity`` field to ``PythonUtil.unpackAsset()``
+  *before* ever assigning it (``this.mActivity = this;`` runs several
+  lines later in the same method) - so it's still ``null`` at that call,
+  crashing every launch with
+  ``NullPointerException: ... getResources() on a null object reference``
+  before any Python code runs at all.
+
+Both of the last two are genuine bugs in the *generated* per-dist files
+(``dists/<app>/build.py`` and
+``dists/<app>/src/main/java/org/kivy/android/PythonActivity.java``) - not
+in anything under ``project/android/`` or in python-for-android's checked-in
+source, and not something a JPype-side recipe change can fix once and for
+all. They need to be patched by hand after each fresh ``buildozer android
+debug`` run that (re)creates the dist (i.e. whenever the five directories
+listed above get cleared, or on a first build). Until/unless these are
+fixed upstream in python-for-android, apply both patches manually:
+
+1. In ``.buildozer/android/platform/build-x86_64/dists/<app>/build.py``,
+   inside ``parse_args_and_make_package()``, wrap the
+   ``args.manifest_orientation = get_manifest_orientation(...)`` call
+   (search for it) in ``if get_bootstrap_name() != "service_only":``,
+   matching the guard already used for ``args.sdl_orientation_hint`` right
+   below it.
+
+2. In
+   ``.buildozer/android/platform/build-x86_64/dists/<app>/src/main/java/org/kivy/android/PythonActivity.java``,
+   in ``onCreate()``, move (or add) ``this.mActivity = this;`` to the very
+   first line of the method body, before ``resourceManager = new
+   ResourceManager(this)`` and before any use of ``mActivity``/``getAppRoot()``.
+
+Confirmed clean after both patches: a full run from launch to
+``=== jpype android testapp done ===`` with zero occurrences of
+``Fatal signal``, ``SIGABRT``, ``AndroidRuntime``, ``FORTIFY``, or
+``tombstone`` anywhere in logcat.
 
 Two runtime linking issues, beyond what compiles/links on the host, only
 show up once the APK actually runs on-device - both fixed in the recipe,
@@ -326,8 +417,9 @@ recipe:
 - **Android's linker namespace isolation blocks implicit cross-namespace
   symbol resolution**, even for symbols that are genuinely exported.
   ``Android_JNI_GetEnv()`` calls ``WebView_AndroidGetJNIEnv()``, exported
-  (confirmed via ``readelf --dyn-syms``) by the webview bootstrap's
-  ``libmain.so`` - but ``_jpype.so``, loaded via Python's import machinery,
+  (confirmed via ``readelf --dyn-syms``) by the bootstrap's own
+  ``libmain.so`` (true of ``webview``, where this was first found, and
+  ``service_only`` alike) - but ``_jpype.so``, loaded via Python's import machinery,
   ends up in a different linker namespace than ``libmain.so``, loaded by the
   app's native launcher, so an unresolved/deferred-to-runtime reference to
   it fails with ``dlopen failed: cannot locate symbol
