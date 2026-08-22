@@ -262,6 +262,12 @@ void JPContext::attachJVM(JNIEnv* env)
 #ifndef ANDROID
 	m_Embedded = true;
 #endif
+	// isRunning() (and thus assertJVMRunning(), checked on every subsequent
+	// JPJavaFrame::outer()) requires m_Running - startJVM() sets this after
+	// a successful launch, but attachJVM() (currently only called from
+	// PyJPModule_bootstrap() on Android) never did, so every Java call
+	// after a successful Android bootstrap failed with JVMNotRunning.
+	m_Running = true;
 	initializeResources(env, false);
 }
 

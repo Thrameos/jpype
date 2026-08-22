@@ -206,5 +206,22 @@ class JPype1Recipe(IncludedFilesBehaviour, PyProjectRecipe):
                     join('native', 'jpype_module', 'src', 'main', 'java', 'org'),
                     self.ctx.javaclass_dir)
 
+            # Reflector0.java lives outside that org/ tree on purpose -
+            # native/build.xml excludes it from the normal javac pass and
+            # compiles it separately (into META-INF/versions/0/, see that
+            # file), so its source sits at .../java/exclude/org/jpype/
+            # rather than .../java/org/jpype/ and the copy above misses it.
+            # JPypeContext.createContext() does
+            # `Class.forName("org.jpype.Reflector0", ...)` unconditionally
+            # (not Android-specific) to get a dedicated stack frame for
+            # invoking caller-sensitive Java methods correctly - without
+            # this file compiled in, that lookup fails with "Unable to
+            # create reflector", which is a missing-source bug in this
+            # recipe, not an Android/ART bytecode-generation limitation.
+            shprint(sh.cp,
+                    join('native', 'jpype_module', 'src', 'main', 'java',
+                         'exclude', 'org', 'jpype', 'Reflector0.java'),
+                    join(self.ctx.javaclass_dir, 'org', 'jpype', 'Reflector0.java'))
+
 
 recipe = JPype1Recipe()

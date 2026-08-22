@@ -71,41 +71,124 @@ What's in ``project/android/``
   crash trigger, which depended on the original reporter's own modified
   bindings and isn't practical to reproduce exactly).
 
-Changes to core ``native/``
--------------------------------------
+Changes to core ``native/`` and ``jpype/``
+-------------------------------------------
 
 Building for a real NDK target - not just adding the harness - surfaced
-several genuine bugs in the shared ``native/`` and ``native/jpype_module/``
-sources, all fixed in core, not worked around in this harness:
+seven genuine bugs, all fixed in core, not worked around in this harness.
+Each was root-caused by reading the actual source (not guessed), and each
+was verified against the full host ``test/jpypetest`` suite (1756 passed,
+173 skipped, zero regressions) before and after.
 
-- ``native/CMakeLists.txt`` gained an ``ANDROID`` branch (checked before the
-  generic ``LINUX OR UNIX`` branch, which Android would otherwise fall into
-  since it's Linux-derived): links against NDK's ``libc++_shared.so`` instead
-  of glibc's ``libstdc++.so.6``; adds ``--allow-shlib-undefined``/
-  ``--unresolved-symbols=ignore-all`` so ``Android_JNI_GetEnv()`` (see below)
-  can stay a deliberately-unresolved-at-link-time reference; compiles in
-  ``project/android/native/android_jnienv.c`` when present; and links against
-  an optional ``JPYPE_ANDROID_LIBMAIN_DIR`` (see the linker-namespace note
-  below).
-- ``native/common/jp_context.cpp``: ``AttachCurrentThread``/
-  ``AttachCurrentThreadAsDaemon`` took a ``(void**) &env`` cast that's correct
-  for desktop JNI headers, but Android's NDK ``jni.h`` declares the *same*
-  functions with a ``JNIEnv**`` parameter instead - a real, incompatible
-  header divergence between platforms, not a style difference. Fixed with an
-  ``#ifdef ANDROID`` branch per call site (3 total).
-- ``native/jpype_module/.../org/jpype/JPypeContext.java``: ``getHeapMemory()``
-  used ``java.lang.management.MemoryMXBean``, unavailable on Android's
-  platform API. Replaced with ``Runtime.getRuntime().totalMemory() -
-  freeMemory()``, which is portable to every JVM (not just an Android
-  workaround) - no platform branching needed since Java has no preprocessor.
-- ``native/jpype_module/.../org/jpype/JPypeUtilities.java``: the sealed-class
-  detection used ``MethodHandleProxies.asInterfaceInstance``, also
-  unavailable on Android. Replaced with a plain ``Method.invoke()``-based
-  lambda - portable, and no less correct than the original on desktop.
+1. ``native/python/pyjp_module.cpp``: ``PyJPModule_bootstrap()`` (the
+   Android entry point) was missing the ``JP_PY_TRY``/``JP_PY_CATCH``
+   wrapper every sibling entry point has. A failure inside it (see #4/#6
+   below - there were real failures to hit) threw a C++ exception straight
+   across the C-linkage boundary into CPython instead of becoming a Python
+   exception - this is #1257 itself.
 
-All three of these were also present, independently, in the original #1257
-reporter's own local patch - confirming they're real, load-bearing fixes any
-Android build needs, not artifacts of this particular harness.
+2. ``native/common/jp_context.cpp``: ``AttachCurrentThread``/
+   ``AttachCurrentThreadAsDaemon`` took a ``(void**) &env`` cast that's
+   correct for desktop JNI headers, but Android's NDK ``jni.h`` declares
+   the *same* functions with a ``JNIEnv**`` parameter instead - a real,
+   incompatible header divergence between platforms, not a style
+   difference. Fixed with an ``#ifdef ANDROID`` branch per call site (3
+   total). Without this, ``native/`` doesn't even compile against the NDK.
+
+3. ``native/jpype_module/.../org/jpype/JPypeContext.java``:
+   ``getHeapMemory()`` used ``java.lang.management.MemoryMXBean``,
+   unavailable on Android's platform API. Replaced with
+   ``Runtime.getRuntime().totalMemory() - freeMemory()``, portable to every
+   JVM - no platform branching needed since Java has no preprocessor.
+   ``native/jpype_module/.../org/jpype/JPypeUtilities.java``'s sealed-class
+   detection used ``MethodHandleProxies.asInterfaceInstance``, also
+   unavailable on Android; replaced with a plain ``Method.invoke()``-based
+   lambda, equally correct on desktop.
+
+   Bugs 2 and 3 were also present, independently, in the original #1257
+   reporter's own local patch - confirming they're real, load-bearing fixes
+   any Android build needs, not artifacts of this particular harness.
+
+4. **Reflector0 was missing from the Android build entirely.**
+   ``JPypeContext.createContext()`` does
+   ``Class.forName("org.jpype.Reflector0", true, loader)`` unconditionally
+   (not Android-specific) to get a dedicated Java stack frame for invoking
+   caller-sensitive methods correctly - JNI never gained an equivalent to
+   ``@CallerSensitive``'s stack-walking caller check, so without a real Java
+   frame sitting between JNI and the target call, a native caller invoking
+   reflectively has no legitimate immediate caller for that check to see.
+   ``native/build.xml`` deliberately excludes ``Reflector0.java`` from the
+   main ``org.jpype.jar`` compile and compiles it separately into
+   ``META-INF/versions/0/`` (its source lives at
+   ``native/jpype_module/src/main/java/exclude/org/jpype/Reflector0.java``,
+   a sibling of the ``org/`` tree, not inside it) - a JDK 8-era classloader
+   "doesn't trust down" constraint requires Reflector0 to be *defined by*
+   the DynamicLoader (or an ancestor), not just visible to it, which is why
+   it's loaded reflectively with an explicit loader argument rather than
+   referenced directly. This recipe's ``postbuild_arch`` was only copying
+   ``.../java/org``, missing that sibling ``exclude/`` directory entirely -
+   fixed by also copying ``Reflector0.java`` in as an ordinary source file.
+   This surfaced as ``java.lang.RuntimeException: Unable to create reflector
+   org.jpype.Reflector0`` - **not** a per-class bytecode-generation
+   limitation on ART (there is no such generation; Reflector0 is one plain,
+   static class that just calls ``method.invoke(obj, args)`` - an earlier
+   version of this doc claimed otherwise, based on an unverified guess
+   rather than reading the source; that was wrong).
+
+5. **``ClassLoader.getSystemClassLoader()`` doesn't return a dex-visible
+   loader on Android.** Even with Reflector0 correctly compiled in, the
+   same ``Class.forName(..., loader)`` call still failed, because
+   ``JPClassLoader``'s constructor (``native/common/jp_classloader.cpp``)
+   built its wrapping ``JPypeClassLoader``'s parent from
+   ``ClassLoader.getSystemClassLoader()``. That call exists to find
+   whatever classloader JPype's own ``-Djava.system.class.loader`` JVM
+   launch flag installed - a late-loading mechanism to work around JPMS
+   module-boundary restrictions on a desktop JVM launch. Android has no
+   such flag (``startJVM()`` never runs there) and no JPMS, so the call
+   answers a question that doesn't apply on Android: it returns a minimal
+   boot loader stub that can't see the app's own dex classes (including
+   ``org.jpype.*`` itself) at all - never the real
+   ``dalvik.system.PathClassLoader`` those classes actually load through.
+   Fixed with an ``#ifdef ANDROID`` branch that instead asks for the
+   classloader that defined ``org.jpype.JPypeClassLoader`` itself
+   (``dynamicLoaderClass.getClassLoader()``), which is guaranteed to have
+   that visibility on any platform. This *must* stay ``#ifdef ANDROID``:
+   trying the same substitution unconditionally was tried first and broke
+   two real desktop tests (``testNonASCIIPath``/``testOldStyleNonASCIIPath``
+   in ``test_startup.py``) that depend on the genuine desktop
+   ``getSystemClassLoader()`` late-load behavior.
+
+6. **``attachJVM()`` never marked the context as running.**
+   ``native/common/jp_context.cpp``'s ``attachJVM()`` - called exclusively
+   from ``PyJPModule_bootstrap()`` on Android, no other caller - never set
+   ``m_Running = true`` the way ``startJVM()`` does. ``isRunning()`` checks
+   that flag unconditionally, so ``assertJVMRunning()`` threw
+   ``JVMNotRunning`` on the very first ``JPJavaFrame`` created after a
+   successful bootstrap - i.e. the first real use of JPype after import,
+   such as ``JClass(...)``. One-line fix. This bug was masked by #4/#5
+   above firing first; it only became visible once those were fixed.
+
+7. ``jpype/_core.py``: the ``_JTerminate()`` ``atexit`` handler called
+   ``_jpype.shutdown(...)`` unconditionally inside a bare
+   ``except RuntimeError: pass``. Android never registers a ``shutdown``
+   function (only ``bootstrap``, see ``jpype/__init__.py``'s
+   ``hasattr(_jpype, 'bootstrap')`` check), so this raised an uncaught
+   ``AttributeError`` at interpreter shutdown on every run, logged as
+   "Exception ignored in atexit callback". Fixed by only registering the
+   hook when ``hasattr(_jpype, 'shutdown')``, mirroring the existing
+   ``bootstrap`` check.
+
+``native/CMakeLists.txt`` also gained an ``ANDROID`` branch (checked before
+the generic ``LINUX OR UNIX`` branch, which Android would otherwise fall
+into since it's Linux-derived): links against NDK's ``libc++_shared.so``
+instead of glibc's ``libstdc++.so.6``; adds ``--allow-shlib-undefined``/
+``--unresolved-symbols=ignore-all`` so ``Android_JNI_GetEnv()`` can stay a
+deliberately-unresolved-at-link-time reference; compiles in
+``project/android/native/android_jnienv.c`` when present; and links against
+an optional ``JPYPE_ANDROID_LIBMAIN_DIR`` (see the linker-namespace note
+below). This is build-system plumbing rather than a "bug" in the same
+sense as 1-7 above, but it's the other core-file change this harness
+required.
 
 Setup
 -----
@@ -200,20 +283,35 @@ If the emulator isn't already running, launch it with KVM acceleration via
     sg kvm -c "~/android-sdk/emulator/emulator -avd jpype-test -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect > /tmp/emulator.log 2>&1" &
     ~/android-sdk/platform-tools/adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 2; done'
 
-A working build/run prints (see ``testapp/main.py``)::
+A working build/run prints (see ``testapp/main.py``; this exact output was
+confirmed on-device with all seven fixes above applied)::
 
     === jpype android testapp starting ===
-    GOLDEN PATH: PASS (...)
-    REGRESSION CHECK #1257: PASS - caught ... instead of crashing
+    GOLDEN PATH: PASS (<java class 'java.lang.String'>)
+    REGRESSION CHECK #1257: PASS - second bootstrap() completed, no crash
     === jpype android testapp done ===
 
 If the golden path fails, ``main.py`` prints ``GOLDEN PATH: FAIL`` and the
 exception, then still runs the regression check (it does not exit early -
-these are two independent checks). If the regression check fails *and* the
-process aborts instead of printing ``REGRESSION CHECK #1257: ...`` at all,
-look for a SIGABRT / ``libc++abi: terminating due to uncaught exception`` in
-logcat - that is the original #1257 crash signature, meaning something
-reintroduced the missing exception handling in ``PyJPModule_bootstrap()``.
+these are two independent checks). The regression check passes whether the
+second ``_jpype.bootstrap()`` call raises or completes cleanly - either
+outcome proves the process survived it. If the process aborts instead of
+printing ``REGRESSION CHECK #1257: ...`` at all, look for a SIGABRT /
+``libc++abi: terminating due to uncaught exception`` in logcat - that is the
+original #1257 crash signature, meaning something reintroduced the missing
+exception handling in ``PyJPModule_bootstrap()``.
+
+A separate, still-unexplained ``Fatal signal 6 (SIGABRT)`` /
+``FORTIFY: pthread_mutex_lock called on a destroyed mutex`` reliably appears
+in logcat *after* ``=== jpype android testapp done ===`` has already
+printed - i.e. after the script above has already finished successfully.
+This has been present identically in every single run this harness has
+ever produced, including the very first ones before any of the fixes above
+existed, which is strong evidence it's a pre-existing interpreter-teardown
+quirk in this specific CPython 3.14 / p4a webview-bootstrap combination,
+unrelated to JPype. It has not been root-caused and should not be assumed
+to be a JPype bug without further investigation - noted here as an honest
+open loose end, not swept under the rug.
 
 Two runtime linking issues, beyond what compiles/links on the host, only
 show up once the APK actually runs on-device - both fixed in the recipe,
@@ -243,25 +341,6 @@ recipe:
   read ambient ``LDFLAGS`` the way legacy setuptools/distutils builds did;
   an env-var-only attempt at this silently has no effect on the actual link
   line, which cost real time to notice).
-
-Known limitation: JPype's reflector generation on ART
----------------------------------------------------------
-
-With everything above fixed, the harness reaches real JPype/JVM interaction
-- ``PyJPModule_bootstrap()`` succeeds, resources load, ``JClass(...)`` reaches
-real Java code - but creating a wrapped class currently fails with::
-
-    java.lang.RuntimeException: Unable to create reflector org.jpype.Reflector0
-
-JPype generates a small reflector class per wrapped Java class as part of its
-normal reflection/dispatch mechanism; this generation apparently doesn't work
-as-is on ART. This is caught cleanly as a Python ``SystemError`` - not a
-crash, so it doesn't indicate a #1257-style regression - but it does mean the
-golden path in ``testapp/main.py`` only gets as far as obtaining the
-``JClass`` object, not actually calling into it. Making JPype's reflector
-mechanism ART-compatible is real follow-up work, out of scope for this
-harness itself; this is the concrete next target for whoever picks that up,
-now that the harness can actually reproduce and iterate on it.
 
 numpy: a quick attempt, not pursued further
 ------------------------------------------------
@@ -294,3 +373,29 @@ mode (or as close an approximation as practical, as the #1257 regression
 check above does), confirm it actually fails the same way against the
 *current* code first, then fix and re-run the same build/deploy/run/logcat
 loop to confirm the fix.
+
+Follow-up: porting ``test/jpypetest`` onto this harness
+-------------------------------------------------------------
+
+``testapp/main.py`` is a minimal smoke test, not the real suite. Running
+the actual ``test/jpypetest`` tests on-device is a real next step, but a
+substantial one - not a quick extension of this harness:
+
+- ``test/jpypetest/common.py`` and ``subrun.py`` assume ``jpype.startJVM()``
+  and per-test subprocess isolation (a fresh JVM per test, or per test
+  class). Neither exists on Android: there is exactly one already-running
+  ART VM for the whole app process, started before Python even begins, and
+  ``startJVM()``/``shutdownJVM()`` are both removed entirely (see
+  :doc:`android`). Porting the suite means either adapting that
+  infrastructure to run everything in a single shared VM/process (losing
+  test isolation the desktop suite currently relies on), or building a
+  different on-device test runner altogether.
+- The suite's Java-side test fixtures (``test/harness/``) would need to be
+  compiled and dexed into the test app the same way ``org.jpype.*`` is now
+  - a much larger set of classes than the two-file fix needed for
+  Reflector0.
+- Some tests need numpy (see above - not currently buildable against this
+  NDK without a numpy-side patch) or other host-only tooling.
+
+None of this is blocked by anything found in this session; it's simply
+unstarted, larger work that should be scoped as its own effort.
