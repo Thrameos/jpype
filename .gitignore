@@ -37,6 +37,9 @@ var/
 # before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
+# buildozer.spec is a real, tracked source file (project/android/testapp/),
+# not a PyInstaller-generated one - the *.spec rule above doesn't apply to it.
+!project/android/testapp/buildozer.spec
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt

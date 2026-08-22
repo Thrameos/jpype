@@ -16,6 +16,18 @@ Latest Changes:
     causing an uncaught-exception abort (``SIGABRT``) instead of a
     catchable error. #1257
 
+  - Fixed three more Android build-blocking bugs surfaced by adding a real
+    Android build/test harness (``project/android/``, see
+    ``doc/android_build.rst``): a genuine header divergence between
+    desktop and NDK ``jni.h`` in ``AttachCurrentThread``/
+    ``AttachCurrentThreadAsDaemon``'s parameter type, and two
+    ``native/jpype_module`` Java sources (``JPypeContext.getHeapMemory()``,
+    ``JPypeUtilities``'s sealed-class detection) using
+    ``java.lang.management``/``MethodHandleProxies``, neither available on
+    Android's platform API - replaced with portable equivalents that work
+    identically on desktop and Android. All three were also present,
+    independently, in the original #1257 reporter's own local patch.
+
   - ``JBoolean``/``JByte``/``JChar``/``JInt``/``JShort``/``JLong``/``JFloat``/
     ``JDouble`` are no longer tracked by the cyclic garbage collector. They
     were previously declared as ordinary Python ``class`` statements, which

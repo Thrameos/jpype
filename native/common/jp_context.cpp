@@ -519,7 +519,16 @@ void JPContext::ReleaseGlobalRef(jobject obj)
 void JPContext::attachCurrentThread()
 {
 	JNIEnv* env;
+	// AttachCurrentThread's declared penv type differs by platform: the
+	// standard Oracle/OpenJDK jni.h (desktop) declares it `void**`, while
+	// Android's NDK jni.h declares it `JNIEnv**` - a genuine, incompatible
+	// header divergence (not a style choice), so a single cast expression
+	// can't satisfy both without triggering a compile error on one side.
+#ifdef ANDROID
+	jint res = m_JavaVM->functions->AttachCurrentThread(m_JavaVM, &env, nullptr);
+#else
 	jint res = m_JavaVM->functions->AttachCurrentThread(m_JavaVM, (void**) &env, nullptr);
+#endif
 	if (res != JNI_OK)
 		JP_RAISE(PyExc_RuntimeError, "Unable to attach to thread");
 }
@@ -527,7 +536,11 @@ void JPContext::attachCurrentThread()
 void JPContext::attachCurrentThreadAsDaemon()
 {
 	JNIEnv* env;
+#ifdef ANDROID
+	jint res = m_JavaVM->functions->AttachCurrentThreadAsDaemon(m_JavaVM, &env, nullptr);
+#else
 	jint res = m_JavaVM->functions->AttachCurrentThreadAsDaemon(m_JavaVM, (void**) &env, nullptr);
+#endif
 	if (res != JNI_OK)
 		JP_RAISE(PyExc_RuntimeError, "Unable to attach to thread as daemon");
 }
@@ -559,7 +572,11 @@ JNIEnv* JPContext::getEnv()
 	{
 		// We will attach as daemon so that the newly attached thread does
 		// not deadlock the shutdown.  The user can convert later if they want.
+#ifdef ANDROID
+		res = m_JavaVM->AttachCurrentThreadAsDaemon(&env, nullptr);
+#else
 		res = m_JavaVM->AttachCurrentThreadAsDaemon((void**) &env, nullptr);
+#endif
 		if (res != JNI_OK)
 		{
 			JP_RAISE(PyExc_RuntimeError, "Unable to attach to local thread");
