@@ -270,6 +270,16 @@ class AttributeTestCase(common.JPypeTestCase):
         self.assertEqual(c.foo(1), "foo(int) in C: 1")
         self.assertEqual(c.foo(), "foo() in A")
 
+    # Loop count below scales with Runtime.freeMemory(), tuned for a
+    # desktop JVM's heap - ART reports a much larger figure for the same
+    # physical device (its heap-growth model differs fundamentally from a
+    # fixed-heap desktop JVM), blowing the iteration count up to where a
+    # single on-device run measured well past two minutes without
+    # finishing even one full pass. Not a JPype bug: the thing under test
+    # (a passed-in object isn't kept alive past the call) isn't in
+    # question, this is purely the stress loop's sizing assumption not
+    # transferring to ART's memory model.
+    @common.skipOnAndroid("loop count scales with Runtime.freeMemory(), impractically large under ART's heap model")
     def testPassedObjectGetsCleanedUp(self):
         import platform
         if platform.python_implementation() == 'PyPy':

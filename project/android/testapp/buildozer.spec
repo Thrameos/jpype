@@ -9,7 +9,12 @@ version = 0.1
 # jpype1 is resolved via p4a.local_recipes below, against
 # project/android/recipes/jpype1, which builds from this repo's own
 # working tree (see that recipe's docstring).
-requirements = python3,jpype1
+#
+# numpy: p4a ships its own recipe (meson-based, needs android.minapi >= 24,
+# already the case below) - lets test/jpypetest's numpy-dependent tests
+# (gated behind common.requireNumpy, currently skipped on Android for lack
+# of numpy) actually run on-device instead.
+requirements = python3,jpype1,numpy
 
 # webview was evaluated against service_only (headless, no-UI) to chase
 # down a trailing SIGABRT - root-caused to a Chromium WebView GPU-thread

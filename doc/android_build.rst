@@ -461,25 +461,41 @@ recipe:
   an env-var-only attempt at this silently has no effect on the actual link
   line, which cost real time to notice).
 
-numpy: a quick attempt, not pursued further
-------------------------------------------------
+numpy
+-----
 
-p4a ships a ``numpy`` recipe, so ``requirements = python3,jpype1,numpy`` in
-``buildozer.spec`` was tried, to see how close a real ``test/jpypetest`` run
-on-device might be. It fails to compile against this NDK's libc++::
+``requirements = python3,jpype1,numpy`` in ``buildozer.spec`` now works -
+p4a ships a ``numpy`` recipe, but its exact vendored source
+(``numpy/_core/src/multiarray/unique.cpp``) fails to compile against this
+NDK's libc++::
 
     ../numpy/_core/src/multiarray/unique.cpp:123:6: error: no template named
     'unordered_map' in namespace 'std'; did you mean 'unordered_set'?
 
-This is a bug in numpy's own vendored source (that file uses
-``std::unordered_map`` while only transitively relying on
-``<unordered_set>``'s include of it, which NDK's stricter libc++ doesn't do)
-- not a JPype issue, and not something to patch from this repo. The likely
-real fix is a small patch adding ``#include <unordered_map>`` to that file,
-applied the same way p4a recipes normally patch upstream sources (a
-``.patch`` file on the ``numpy`` recipe, analogous to the ``use_cython.patch``
-pyjnius carries) - left as a documented next step rather than pursued here,
-since it's orthogonal to what this harness itself needed to prove.
+A bug in numpy's own source (that file uses ``std::unordered_map`` while
+only ``#include``-ing ``<unordered_set>``, relying on it transitively
+pulling in ``unordered_map`` - true for libstdc++, not for the NDK's
+stricter libc++), not a JPype issue, so it isn't patched in this repo's
+own ``native/`` - instead, ``project/android/recipes/numpy/__init__.py``
+subclasses p4a's bundled ``NumpyRecipe`` and adds one patch
+(``unordered_map_include.patch``) that adds the missing include. Local
+recipes take precedence over p4a's bundled ones by directory-name match
+(``Recipe.recipe_dirs()`` puts ``p4a.local_recipes`` first), so this is a
+small, self-contained override, not a fork of the whole recipe. Check
+whether a numpy release newer than the pinned ``v2.3.0`` has already fixed
+this upstream before carrying the patch forward indefinitely.
+
+One on-device test needed gating even with numpy working:
+``test_attr.py``'s ``testPassedObjectGetsCleanedUp`` sizes its stress-test
+iteration count off ``Runtime.freeMemory()``, tuned for a desktop JVM's
+heap; ART's heap-growth model reports a much larger figure for the same
+physical memory, blowing the loop count up to where a single run measured
+well past two minutes without completing even once. Not a JPype bug - the
+thing under test isn't in question, only the stress loop's sizing
+assumption - so it's gated with ``common.skipOnAndroid()`` like the
+platform-limitation tests already are, rather than fixed (there is nothing
+to fix: it is not a fixed number of iterations that could be capped
+without changing what the test is stress-testing).
 
 Stale rebuilds: when editing the jpype1 recipe or ``native/`` itself
 ------------------------------------------------------------------------
