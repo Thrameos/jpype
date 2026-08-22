@@ -469,6 +469,59 @@ applied the same way p4a recipes normally patch upstream sources (a
 pyjnius carries) - left as a documented next step rather than pursued here,
 since it's orthogonal to what this harness itself needed to prove.
 
+Stale rebuilds: when editing the jpype1 recipe or ``native/`` itself
+------------------------------------------------------------------------
+
+Running ``buildozer android debug`` again after editing something does
+**not** guarantee those edits actually get rebuilt. Two independent
+caches can each silently keep serving old output:
+
+- p4a's own dist-matching reuses an existing
+  ``.buildozer/android/platform/build-<arch>/dists/<dist_name>/`` by
+  recipe-*name* match only, with no content hash - "jpypetest has
+  compatible recipes, using this one" in the log means the entire
+  ``create`` phase (``prepare_build_dir``, and *both*
+  ``build_arch``/``postbuild_arch`` for every recipe) is skipped
+  outright, purely because the recipe list didn't change, even if a
+  recipe's own code did - including plain Python edits to ``recipe.py``
+  itself, not just ``native/``. This is the one that actually bit
+  harder in practice: it's easy to misread "the build succeeded and
+  even printed my recipe's own log lines" as proof a change took effect
+  when those log lines were really just cached ``buildozer`` output
+  scrollback from an earlier run, not this run's actual execution -
+  check for "jpypetest has compatible recipes, using this one" in the
+  *current* run's own log before trusting anything else in it.
+- Even when the ``create`` phase does run, ``Recipe.should_build()``
+  (for ``jpype1``, inherited from ``PyProjectRecipe``) checks
+  ``self.ctx.has_package(name, arch)`` - i.e. whether a wheel for
+  ``jpype1`` is already installed under
+  ``.buildozer/android/platform/build-<arch>/build/python-installs/<dist>/<arch>/``.
+  If one is, ``build_arch()`` (the actual CMake/scikit-build-core
+  compile of ``_jpype.so``) is skipped - silently, but ``postbuild_arch``
+  still runs regardless in that case, so this layer alone only masks
+  ``native/``/``pyproject.toml`` changes, not recipe.py/Java-copying
+  ones.
+
+Symptom: the build succeeds, the APK installs and runs, but a change -
+native, Java, or even a plain recipe.py edit - never actually takes
+effect. This cost real debugging time more than once while working on
+this harness (a fixed C++ bug kept reproducing as if unfixed; a recipe
+rsync exclude-list edit kept appearing to have no effect). The fix is
+to force a truly fresh recipe build before re-running
+``buildozer android debug``::
+
+    rm -rf .buildozer/android/platform/build-<arch>/dists/<dist_name>
+    rm -rf .buildozer/android/platform/build-<arch>/build/other_builds/jpype1-genericndkbuild
+    rm -rf .buildozer/android/platform/build-<arch>/build/python-installs/<dist_name>/<arch>/jpype
+    rm -rf .buildozer/android/platform/build-<arch>/build/python-installs/<dist_name>/<arch>/jpype1-*.dist-info
+    rm -f  .buildozer/android/platform/build-<arch>/build/python-installs/<dist_name>/<arch>/_jpype.so
+
+When in doubt after any ``native/`` or recipe change, do this rather than
+trusting a plain rebuild - and specifically, don't treat an unchanged
+symptom after an edit as proof the edit didn't fix the bug without first
+confirming the rebuild actually recompiled the changed file (present in
+the build log's compiler-invocation lines).
+
 Reproducing a *new* Android bug report
 -----------------------------------------
 

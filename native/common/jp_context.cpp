@@ -421,6 +421,10 @@ void JPContext::initializeResources(JNIEnv* env, bool interrupt)
 	m_Array_NewInstanceID = frame.GetStaticMethodID(m_Array.get(), "newInstance",
 			"(Ljava/lang/Class;[I)Ljava/lang/Object;");
 
+	// See JPMethod::invoke's isInterface()/IsInstanceOf(...,
+	// m_ReflectProxyClass) check for why this is needed.
+	m_ReflectProxyClass = JPClassRef(frame, frame.FindClass("java/lang/reflect/Proxy"));
+
 	jclass bufferClass = frame.FindClass("java/nio/Buffer");
 	m_Buffer_IsReadOnlyID = frame.GetMethodID(bufferClass, "isReadOnly",
 			"()Z");

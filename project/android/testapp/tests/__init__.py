@@ -22,24 +22,9 @@ and "Unsupported Java libraries" for why):
 - Anything using subrun (test/jpypetest/subrun.py): spawns a fresh
   subprocess with its own startJVM() call per test - Android has neither
   subprocesses-with-their-own-JVM nor startJVM().
-- test_annotation.py, test_reflect.py: their harness fixtures define a
-  custom @Retention(RUNTIME) annotation type with a String value() method;
-  merely having such a class in the dex (regardless of whether Python
-  code ever touches it) crashes the app at startup with an ART/CheckJNI
-  abort - "JNI DETECTED ERROR IN APPLICATION: the return type of
-  CallObjectMethodA does not match java.lang.String <type>.value()".
-  Confirmed with two independent annotation types sharing only that
-  shape, so this looks like a genuine ART limitation in this build
-  environment, not a bug in either harness file. See the exclusion
-  comment in project/android/recipes/jpype1/__init__.py's
-  postbuild_arch for the full writeup - root cause not yet identified.
 """
 TEST_MODULES = [
-    # test_annotation.py deliberately NOT ported: its harness fixture
-    # (test/harness/jpype/annotation/TestAnnotation.java) crashes the app
-    # at startup on Android - see the exclusion comment in
-    # project/android/recipes/jpype1/__init__.py's postbuild_arch for
-    # details. Root cause not yet identified.
+    'test_annotation',
     'test_array',
     'test_arrayFromBuffer',
     'test_attr',
@@ -110,10 +95,7 @@ TEST_MODULES = [
     'test_pickle',
     'test_proxy_multithreaded',
     'test_ref',
-    # test_reflect.py deliberately NOT ported: same annotation-related
-    # startup crash as test_annotation.py above (jpype.reflect.Annotation)
-    # - see the exclusion comment in project/android/recipes/jpype1/
-    # __init__.py's postbuild_arch for details.
+    'test_reflect',
     'test_repr',
     'test_serial',
     'test_sql_generic',

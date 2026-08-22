@@ -228,44 +228,28 @@ class JPype1Recipe(IncludedFilesBehaviour, PyProjectRecipe):
             # test/harness/jpype/* - the Java-side fixtures the ported
             # test/jpypetest/*.py tests need (e.g. jpype.common.Fixture,
             # jpype.array.TestArray). See project/android/testapp/tests/.
-            # Excludes:
-            # - attr/ClassWithBuffer.java, which imports
-            #   java.awt.image.BufferStrategy - AWT isn't part of Android's
-            #   platform API (see doc/android.rst) and that one file would
-            #   fail to compile against android.jar; everything else in the
-            #   harness tree was checked and has no such dependency.
-            # - annotation/ and reflect/ entirely - both define a custom
-            #   @Retention(RUNTIME) annotation type with a String value()
-            #   method (annotation/TestAnnotation.java and
-            #   reflect/Annotation.java, the latter also used directly on
-            #   reflect/ReflectionTest.java, entangling that file too).
-            #   Either annotation type simply being present in the dex -
-            #   not even anything calling it - crashes the app at startup
-            #   (SIGABRT, well before any Python test code runs - the
-            #   abort's Java stack frame is PythonActivity.nativeInit
-            #   itself) with "JNI DETECTED ERROR IN APPLICATION: the
-            #   return type of CallObjectMethodA does not match
-            #   java.lang.String <the annotation type>.value()". Confirmed
-            #   with two independent, unrelated annotation types sharing
-            #   only that shape, so this looks like a genuine ART/CheckJNI
-            #   limitation with custom runtime-retained annotations in
-            #   this build environment (API 34 emulator), not something
-            #   specific to either harness file. issue #880 (annotation
-            #   methods must use virtual JNI calls - see
-            #   native/common/jp_method.cpp's isInterface() check in
-            #   JPMethod::invoke) already handles this correctly for
-            #   JPype's own method-invocation path; this crash's stack
-            #   trace shows it happening from something else entirely
-            #   during startup (likely ART's own reflective scanning of
-            #   bundled classes, or JPype's own type-registration probing
-            #   annotations). Root cause not yet identified - excluded
-            #   pending further investigation rather than shipping a
-            #   crashing harness.
+            # Excludes attr/ClassWithBuffer.java, which imports
+            # java.awt.image.BufferStrategy - AWT isn't part of Android's
+            # platform API (see doc/android.rst) and that one file would
+            # fail to compile against android.jar; everything else in the
+            # harness tree was checked and has no such dependency.
+            #
+            # annotation/ and reflect/ (custom @Retention(RUNTIME)
+            # annotation types) were excluded for a while after an
+            # earlier build hit an ART/CheckJNI startup abort with them
+            # present. Root-caused (not a stale build, though one of
+            # those - see doc/android_build.rst's "Stale rebuilds"
+            # section - did mask the fix while investigating): a raw JNI
+            # call using a methodID cached from an interface declaration
+            # (or a java.lang.reflect.Proxy class's own getMethods()
+            # result) isn't reliably usable against that specific Proxy
+            # instance on ART's CheckJNI - see native/common/jp_method.cpp's
+            # JPMethod::invoke, the m_ReflectProxyClass check. Fixed
+            # there; the full suite, including test_annotation.py/
+            # test_reflect.py, now runs clean.
             info('Copying test/harness Java fixtures to classes build dir')
             shprint(sh.rsync, '-a',
                     '--exclude=attr/ClassWithBuffer.java',
-                    '--exclude=annotation/',
-                    '--exclude=reflect/',
                     join('test', 'harness', 'jpype') + '/',
                     join(self.ctx.javaclass_dir, 'jpype'))
 
