@@ -11,25 +11,24 @@ version = 0.1
 # working tree (see that recipe's docstring).
 requirements = python3,jpype1
 
-# service_only is a headless, no-UI bootstrap - unlike webview (used
-# initially), it doesn't instantiate a real Chromium/WebView GPU surface,
-# which was the source of an unrelated crash (a Chromium GPU-thread EGL
-# teardown crash in the Android emulator's own EGL software layer, nothing
-# to do with jpype - see doc/android_build.rst) that only ever happened
-# because webview was pulling in a whole browser engine this test app
-# never needed. It still exports the WebView_AndroidGetJNIEnv() hook
-# project/android/native/android_jnienv.c needs (confirmed: present in
-# service_only's own bootstraps/service_only/build/jni/.../pyjniusjni.c).
-p4a.bootstrap = service_only
+# webview was evaluated against service_only (headless, no-UI) to chase
+# down a trailing SIGABRT - root-caused to a Chromium WebView GPU-thread
+# EGL teardown crash in the Android emulator's own EGL layer, confirmed
+# via full tombstone to be unrelated to jpype and to happen strictly
+# *after* this app's own script already completes (see doc/android_build.rst).
+# service_only avoids it but has its own cost: it hit three real upstream
+# python-for-android bugs, two of which live in *generated* per-dist files
+# that must be hand-patched after every fresh dist creation (not durable,
+# not something a recipe change can fix). webview needs none of that and
+# is the more standard, better-trodden path, so it's used here again -
+# the trailing SIGABRT is real but harmless for testing purposes, since it
+# happens after this app's own script has already finished and reported
+# its results.
+p4a.bootstrap = webview
 
 p4a.local_recipes = ../recipes
 
-# service_only's own launcher (unlike jpype1 itself) builds via the legacy
-# ndk-build/Android.mk path (the genericndkbuild recipe it depends on), not
-# CMake - this specific NDK version caps that path's supported platform at
-# 33 ("android-34 is above the maximum supported version android-33").
-# webview's own bootstrap build didn't hit this, only service_only's does.
-android.api = 33
+android.api = 34
 android.minapi = 24
 android.ndk = 25.1.8937393
 android.archs = x86_64

@@ -223,5 +223,19 @@ class JPype1Recipe(IncludedFilesBehaviour, PyProjectRecipe):
                          'exclude', 'org', 'jpype', 'Reflector0.java'),
                     join(self.ctx.javaclass_dir, 'org', 'jpype', 'Reflector0.java'))
 
+            # test/harness/jpype/* - the Java-side fixtures the ported
+            # test/jpypetest/*.py tests need (e.g. jpype.common.Fixture,
+            # jpype.array.TestArray). See project/android/testapp/tests/.
+            # Excludes attr/ClassWithBuffer.java, which imports
+            # java.awt.image.BufferStrategy - AWT isn't part of Android's
+            # platform API (see doc/android.rst) and that one file would
+            # fail to compile against android.jar; everything else in the
+            # harness tree was checked and has no such dependency.
+            info('Copying test/harness Java fixtures to classes build dir')
+            shprint(sh.rsync, '-a',
+                    '--exclude=attr/ClassWithBuffer.java',
+                    join('test', 'harness', 'jpype') + '/',
+                    join(self.ctx.javaclass_dir, 'jpype'))
+
 
 recipe = JPype1Recipe()

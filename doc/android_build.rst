@@ -308,8 +308,8 @@ printing ``REGRESSION CHECK #1257: ...`` at all, look for a SIGABRT /
 original #1257 crash signature, meaning something reintroduced the missing
 exception handling in ``PyJPModule_bootstrap()``.
 
-Resolved: a trailing SIGABRT after every run
------------------------------------------------
+Understood, not chased further: a trailing SIGABRT after every run
+------------------------------------------------------------------------
 
 Every run through this harness - including the very first ones, long
 before any of the fixes above existed - printed
@@ -336,15 +336,30 @@ real Chromium WebView instance, which this headless test app never
 actually needed - it was only chosen for the ``WebView_AndroidGetJNIEnv()``
 JNI hook.
 
-**Fix**: switched ``p4a.bootstrap`` from ``webview`` to ``service_only`` -
-p4a's headless, no-UI bootstrap. It still exports
-``WebView_AndroidGetJNIEnv()`` from its own ``pyjniusjni.c`` (confirmed by
-reading the source), so ``project/android/native/android_jnienv.c`` needed
-no changes. With no WebView/Chromium instance ever created, there is no
-GPU thread left to crash.
+**Tried, and reverted**: switching ``p4a.bootstrap`` from ``webview`` to
+``service_only`` - p4a's headless, no-UI bootstrap - does eliminate it.
+It still exports ``WebView_AndroidGetJNIEnv()`` from its own
+``pyjniusjni.c`` (confirmed by reading the source), so
+``project/android/native/android_jnienv.c`` needed no changes, and with no
+WebView/Chromium instance ever created there's no GPU thread left to
+crash. A full run was confirmed completely clean under it - zero
+occurrences of ``Fatal signal``, ``SIGABRT``, ``AndroidRuntime``,
+``FORTIFY``, or ``tombstone`` anywhere in logcat.
 
-Switching bootstraps surfaced three more bugs - all in python-for-android's
-own bootstrap/build machinery, none in JPype or this recipe:
+But ``service_only`` traded one problem for three, all in
+python-for-android's own bootstrap/build machinery (none in JPype or this
+recipe) - detailed below. Two of them live in files p4a *generates fresh
+per dist*, not in anything tracked by python-for-android's own source or
+this repo, so they can't be fixed by a recipe change: they need to be
+hand-patched again after every fresh ``buildozer android debug`` that
+(re)creates the dist. That ongoing cost was judged worse than the SIGABRT
+itself, which - despite looking alarming in logcat - is harmless for
+actual testing purposes: it happens on Chromium's own GPU thread, strictly
+*after* this app's own script has already finished and printed its
+results (confirmed: ``=== jpype android testapp done ===`` always prints
+first). **This harness uses ``webview`` again** (see ``buildozer.spec``);
+the ``service_only`` findings below are kept for reference, in case the
+tradeoff is ever worth revisiting, or the two upstream bugs get fixed:
 
 - **NDK platform cap**: ``service_only``'s own native launcher builds via
   the legacy ``ndk-build``/``Android.mk`` path (the ``genericndkbuild``

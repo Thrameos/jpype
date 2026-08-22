@@ -129,6 +129,21 @@ public class JPypePackageManager
   /**
    * Retrieve the Jar file system.
    *
+   * Returns null, rather than throwing, if no provider for this scheme is
+   * installed - e.g. Android's ART has no "jar" FileSystemProvider at all
+   * (there is no jar-based classpath there to begin with, see
+   * doc/android.rst). Every use of the returned provider elsewhere in this
+   * class is already gated behind first checking that a URI's scheme
+   * actually equals str, so a null here simply makes those branches
+   * unreachable rather than needing a separate null check - mirroring how
+   * getModules() above already degrades to an empty list when its own
+   * filesystem ("jrt:/") isn't available. Without this, the eager throw
+   * used to fail this class's whole static initializer
+   * (ExceptionInInitializerError), permanently poisoning every subsequent
+   * use of JPypePackageManager for the rest of the JVM's lifetime
+   * (NoClassDefFoundError) - including jpype.JPackage(), used by ordinary
+   * JPype code that has nothing to do with jar-based packages at all.
+   *
    * @return
    */
   private static FileSystemProvider getFileSystemProvider(String str)
@@ -138,7 +153,7 @@ public class JPypePackageManager
       if (fsp.getScheme().equals(str))
         return fsp;
     }
-    throw new FileSystemNotFoundException("Unable to find filesystem for " + str);
+    return null;
   }
 
 //<editor-fold desc="java 8" defaultstate="collapsed">
@@ -157,20 +172,33 @@ public class JPypePackageManager
     try
     {
       // This is for Java 8 and earlier in which the API jars are in rt.jar
-      // and jce.jar
-      uri = cl.getResource("java/lang/String.class").toURI();
-      if (uri != null && uri.getScheme().equals("jar"))
+      // and jce.jar. getResource() returns null rather than throwing when
+      // the system classloader can't see the resource at all - e.g.
+      // Android's getSystemClassLoader() is a boot-loader stub with no dex
+      // visibility (see doc/android.rst), so both lookups below are always
+      // null there. Guarded rather than relying on the catch below, since
+      // a null return isn't a URISyntaxException/IOException.
+      URL stringUrl = cl.getResource("java/lang/String.class");
+      if (stringUrl != null)
       {
-        FileSystem fs = jfsp.newFileSystem(uri, env);
-        if (fs != null)
-          bases.add(fs);
+        uri = stringUrl.toURI();
+        if (uri.getScheme().equals("jar"))
+        {
+          FileSystem fs = jfsp.newFileSystem(uri, env);
+          if (fs != null)
+            bases.add(fs);
+        }
       }
-      uri = cl.getResource("javax/crypto/Cipher.class").toURI();
-      if (uri != null && uri.getScheme().equals("jar"))
+      URL cipherUrl = cl.getResource("javax/crypto/Cipher.class");
+      if (cipherUrl != null)
       {
-        FileSystem fs = jfsp.newFileSystem(uri, env);
-        if (fs != null)
-          bases.add(fs);
+        uri = cipherUrl.toURI();
+        if (uri.getScheme().equals("jar"))
+        {
+          FileSystem fs = jfsp.newFileSystem(uri, env);
+          if (fs != null)
+            bases.add(fs);
+        }
       }
     } catch (URISyntaxException | IOException ex)
     {
