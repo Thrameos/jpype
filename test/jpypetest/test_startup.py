@@ -210,6 +210,47 @@ class StartJVMCase(unittest.TestCase):
         self.assertEqual(type(classloader), test_classLoader)
         assert dir(jpype.JPackage('jpype.startup')) == ['TestSystemClassLoader']
 
+    def testUnsupportedClassVersionMessage(self):
+        """If org.jpype.jar can't be loaded because it was compiled for a
+        newer Java than the running JVM supports, startJVM must surface
+        the underlying UnsupportedClassVersionError rather than the
+        generic, uninformative "Can't find org.jpype.jar support
+        library" message. Regression test for
+        https://github.com/jpype-project/jpype/issues/1312
+        """
+        import zipfile
+        import shutil
+
+        support_lib = Path(jpype.__file__).resolve(
+        ).parent.parent / "org.jpype.jar"
+        entry = "org/jpype/JPypeClassLoader.class"
+        backup = support_lib.with_suffix(".jar.bak")
+        tmp_path = support_lib.with_suffix(".jar.tmp")
+        shutil.copyfile(support_lib, backup)
+        try:
+            with zipfile.ZipFile(support_lib, 'r') as zin:
+                data = bytearray(zin.read(entry))
+            # Class file bytes 4-8 (big endian) hold the major version.
+            # Set it far beyond anything a real JVM will ever support so
+            # loading it always fails with UnsupportedClassVersionError.
+            data[6] = 0xFF
+            data[7] = 0xFF
+            with zipfile.ZipFile(support_lib, 'r') as zin, \
+                    zipfile.ZipFile(tmp_path, 'w') as zout:
+                for item in zin.infolist():
+                    content = bytes(
+                        data) if item.filename == entry else zin.read(item.filename)
+                    zout.writestr(item, content)
+            os.replace(tmp_path, support_lib)
+
+            with self.assertRaises(RuntimeError) as cm:
+                jpype.startJVM(convertStrings=False)
+            self.assertNotEqual(
+                str(cm.exception), "Can't find org.jpype.jar support library")
+        finally:
+            shutil.copyfile(backup, support_lib)
+            os.remove(backup)
+
     @common.requireAscii
     def testOldStyleASCIIPathWithSystemClassLoader(self):
         jpype.startJVM(
