@@ -394,5 +394,37 @@ class JPype1Recipe(IncludedFilesBehaviour, PyProjectRecipe):
         shprint(sh.cp, entities_src, entities_dst)
         info('Staged Android asset copy of entities.txt at {}'.format(entities_dst))
 
+        self.generate_javadoc_assets(arch)
+
+    def generate_javadoc_assets(self, arch):
+        """Generate and stage test_javadoc.py's fixture docs (jpype.doc.Test)
+        as Android assets, same reasoning and mechanism as entities.txt
+        above: JavadocExtractor.getDocumentationAsStream() looks up
+        "<class/as/a/path>.html" via a classloader resource lookup, which
+        works on desktop only because `test/build.xml`'s `javadoc` Ant
+        target has already generated and placed that file on the
+        classpath (test/classes/jpype/doc/Test.html) as part of the
+        normal desktop test setup - nothing analogous runs for this
+        Android build, so the file never existed here at all (not even a
+        bundling gap this time, a generation gap).
+
+        Runs the exact same Ant target here, inside this recipe's own
+        build dir (a full rsynced copy of the repo, so test/build.xml and
+        test/harness/jpype/doc/Test.java are both present - see
+        prepare_build_dir above), then stages the one output file that
+        matters under generated/javadoc/, preserving jpype.doc.Test's
+        class-name-derived relative path so JavadocExtractor's Android
+        fallback (see that class) can look it up the same way for
+        whatever class, not just this one.
+        """
+        build_dir = self.get_build_dir(arch.arch)
+        with current_directory(build_dir):
+            shprint(sh.ant, '-f', join('test', 'build.xml'), 'javadoc')
+        doc_src = join(build_dir, 'test', 'classes', 'jpype', 'doc', 'Test.html')
+        doc_dst = join(dirname(__file__), 'generated', 'javadoc', 'jpype', 'doc', 'Test.html')
+        ensure_dir(dirname(doc_dst))
+        shprint(sh.cp, doc_src, doc_dst)
+        info('Staged Android asset copy of jpype.doc.Test javadoc at {}'.format(doc_dst))
+
 
 recipe = JPype1Recipe()

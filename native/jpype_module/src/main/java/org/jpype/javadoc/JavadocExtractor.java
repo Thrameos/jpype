@@ -27,6 +27,7 @@ import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 import org.jpype.html.Html;
 import org.jpype.html.Parser;
+import org.jpype.pkg.JPypePackageManager;
 import org.w3c.dom.Document;
 import org.w3c.dom.DocumentFragment;
 import org.w3c.dom.Node;
@@ -105,7 +106,15 @@ public class JavadocExtractor
     {
       // do nothing if we are not JDK 9+
     }
-    return null;
+
+    // None of the classloader-based lookups above can work on Android at
+    // all: they depend on a javadoc target having already run and placed
+    // HTML alongside compiled classes on the classpath, which nothing in
+    // the Android build does (see project/android/recipes/jpype1/
+    // __init__.py's generate_javadoc_assets, which runs that generation
+    // step itself and bundles just the resulting file(s) as a real
+    // Android asset instead, under the same per-class relative path).
+    return JPypePackageManager.openAndroidAsset("jpype-android-javadoc/" + name);
   }
 
   /**

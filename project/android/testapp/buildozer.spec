@@ -40,7 +40,19 @@ p4a.local_recipes = ../recipes
 # entities.txt is org.jpype.html.Html's static resource file - same
 # non-.java-files-get-dropped problem, same fix. See Html.java's static
 # initializer and JPypePackageManager.openAndroidAsset().
-android.add_assets = ../recipes/jpype1/generated/android-packages.txt:jpype-android-packages.txt,../recipes/jpype1/generated/entities.txt:jpype-android-html-entities.txt
+#
+# generated/javadoc/ is a directory (not a single file, unlike the two
+# above) - test/jpypetest/test_javadoc.py's testClass/testMethod need
+# jpype.doc.Test's generated javadoc HTML, which desktop gets from
+# test/build.xml's javadoc Ant target running as part of normal desktop
+# test setup. Nothing analogous runs for Android otherwise, so the
+# recipe runs that same Ant target itself and stages the one file that
+# matters (jpype/doc/Test.html, preserving that relative path) here.
+# build.py's asset-copy step copytree()s a directory source wholesale,
+# so the bundled asset preserves the same jpype/doc/Test.html layout -
+# see JavadocExtractor's Android fallback, which looks up
+# "jpype-android-javadoc/" + <the same relative path> for any class.
+android.add_assets = ../recipes/jpype1/generated/android-packages.txt:jpype-android-packages.txt,../recipes/jpype1/generated/entities.txt:jpype-android-html-entities.txt,../recipes/jpype1/generated/javadoc:jpype-android-javadoc
 
 android.api = 34
 android.minapi = 24
