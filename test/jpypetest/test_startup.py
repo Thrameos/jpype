@@ -217,39 +217,44 @@ class StartJVMCase(unittest.TestCase):
         generic, uninformative "Can't find org.jpype.jar support
         library" message. Regression test for
         https://github.com/jpype-project/jpype/issues/1312
+
+        Does not touch the real, installed org.jpype.jar: that file is
+        shared with every other test process (this test itself runs in
+        its own subrun subprocess, but the real jar is still the one
+        every *other* concurrently-running worker's JVM has open) -
+        in-place mutation of it was fine on Linux but reliably failed on
+        Windows with "Access is denied" replacing a file another
+        process still has open. Instead, this builds a private one-class
+        jar with the same corrupted org/jpype/JPypeClassLoader.class and
+        passes it via classpath= - _core.py's startJVM() always appends
+        the real support_lib to the *end* of the classpath
+        (java_class_path.append(support_lib)), so a same-named class
+        earlier in the classpath shadows it and the JVM resolves
+        org.jpype.JPypeClassLoader from the corrupted private jar
+        instead, without the real org.jpype.jar ever being touched.
         """
         import zipfile
-        import shutil
+        import tempfile
 
         support_lib = Path(jpype.__file__).resolve(
         ).parent.parent / "org.jpype.jar"
         entry = "org/jpype/JPypeClassLoader.class"
-        backup = support_lib.with_suffix(".jar.bak")
-        tmp_path = support_lib.with_suffix(".jar.tmp")
-        shutil.copyfile(support_lib, backup)
-        try:
-            with zipfile.ZipFile(support_lib, 'r') as zin:
-                data = bytearray(zin.read(entry))
-            # Class file bytes 4-8 (big endian) hold the major version.
-            # Set it far beyond anything a real JVM will ever support so
-            # loading it always fails with UnsupportedClassVersionError.
-            data[6] = 0xFF
-            data[7] = 0xFF
-            with zipfile.ZipFile(support_lib, 'r') as zin, \
-                    zipfile.ZipFile(tmp_path, 'w') as zout:
-                for item in zin.infolist():
-                    content = bytes(
-                        data) if item.filename == entry else zin.read(item.filename)
-                    zout.writestr(item, content)
-            os.replace(tmp_path, support_lib)
+        with zipfile.ZipFile(support_lib, 'r') as zin:
+            data = bytearray(zin.read(entry))
+        # Class file bytes 4-8 (big endian) hold the major version.
+        # Set it far beyond anything a real JVM will ever support so
+        # loading it always fails with UnsupportedClassVersionError.
+        data[6] = 0xFF
+        data[7] = 0xFF
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            shadow_jar = os.path.join(tmp_dir, "shadow.jar")
+            with zipfile.ZipFile(shadow_jar, 'w') as zout:
+                zout.writestr(entry, bytes(data))
 
             with self.assertRaises(RuntimeError) as cm:
-                jpype.startJVM(convertStrings=False)
+                jpype.startJVM(classpath=[shadow_jar], convertStrings=False)
             self.assertNotEqual(
                 str(cm.exception), "Can't find org.jpype.jar support library")
-        finally:
-            shutil.copyfile(backup, support_lib)
-            os.remove(backup)
 
     @common.requireAscii
     def testOldStyleASCIIPathWithSystemClassLoader(self):
