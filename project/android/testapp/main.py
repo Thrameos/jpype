@@ -60,6 +60,14 @@ try:
 except Exception as ex:
     print("GOLDEN PATH: FAIL: %r" % (ex,))
 
+print("=== package marker asset diagnostic ===")
+try:
+    ctx = jpype.JClass('org.jpype.JPypeContext').getInstance()
+    for probe in ("java", "java.lang", "jpype"):
+        print("DIAG isPackage(%r)=%r" % (probe, ctx.isPackage(probe)))
+except Exception as ex:
+    print("DIAG marker probe FAILED: %r" % (ex,))
+
 print("=== running ported test/jpypetest suite ===")
 try:
     import sys
@@ -72,9 +80,23 @@ try:
 
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
+    load_failures = []
     for name in tests.TEST_MODULES:
-        module = importlib.import_module("tests." + name)
+        # A single module that fails to import (e.g. a leftover, unused
+        # `import pytest` in an otherwise-plain-unittest file - real once
+        # already, see tests/__init__.py's test_keywords.py note for a
+        # case that needed excluding outright rather than fixing) must not
+        # take down the whole run: report it and keep going, the same way
+        # a real desktop test run isn't voided by one broken file.
+        try:
+            module = importlib.import_module("tests." + name)
+        except Exception as ex:
+            load_failures.append((name, ex))
+            continue
         suite.addTests(loader.loadTestsFromModule(module))
+
+    for name, ex in load_failures:
+        print("PORTED SUITE: FAILED TO LOAD tests.%s: %r" % (name, ex))
 
     result = unittest.TextTestRunner(stream=sys.stdout, verbosity=2).run(suite)
     print("PORTED SUITE: ran=%d failures=%d errors=%d skipped=%d" % (

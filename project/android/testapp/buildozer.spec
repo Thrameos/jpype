@@ -28,6 +28,16 @@ p4a.bootstrap = webview
 
 p4a.local_recipes = ../recipes
 
+# jpype1's recipe (postbuild_arch's generate_package_markers) writes the
+# full list of Java packages reachable on this build's classpath here, as
+# one dotted name per line - see that recipe for why it has to go through
+# add_assets rather than being written directly into any p4a-internal
+# build directory (didn't survive into the APK either way it was tried).
+# JPypePackageManager.java (native/jpype_module) reads this back via
+# AssetManager under the jpype-android-packages.txt name on the right of
+# the colon.
+android.add_assets = ../recipes/jpype1/generated/android-packages.txt:jpype-android-packages.txt
+
 android.api = 34
 android.minapi = 24
 android.ndk = 25.1.8937393

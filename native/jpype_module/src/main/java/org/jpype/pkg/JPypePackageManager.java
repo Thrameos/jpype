@@ -15,12 +15,16 @@
 **************************************************************************** */
 package org.jpype.pkg;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystemNotFoundException;
 import java.nio.file.FileSystems;
@@ -33,9 +37,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.jpype.JPypeContext;
 import org.jpype.JPypeKeywords;
 
@@ -74,20 +80,36 @@ public class JPypePackageManager
     if (isModulePackage(path) || isBasePackage(path) || isJarPackage(path))
       return true;
     if (jfsp == null && modules.isEmpty())
-    {
-      if (isPackageAsset(path))
-        return true;
-      return isPackageByProbing(name);
-    }
+      return isPackageAsset(path);
     return false;
   }
 
   /**
-   * Marker-asset directory prefix used by isPackageAsset() below. A dash
-   * makes this unrepresentable as a Java package name segment, so it can
-   * never collide with a real package.
+   * Asset name of the flat package-name list written by
+   * project/android/recipes/jpype1/__init__.py's generate_package_markers
+   * and bundled via project/android/testapp/buildozer.spec's
+   * android.add_assets. One dotted package name per line.
    */
-  private static final String ANDROID_PKG_MARKER_DIR = "jpype-android-pkg-markers/";
+  private static final String ANDROID_PKG_LIST_ASSET = "jpype-android-packages.txt";
+
+  /**
+   * Cached Android AssetManager, resolved reflectively on first use (see
+   * getAndroidAssetManager()). Not eagerly initialized: it depends on
+   * org.kivy.android.PythonActivity, a class that plainly doesn't exist
+   * on desktop, and even on Android may not have set its static
+   * mActivity field yet at JPypePackageManager class-init time.
+   */
+  private static Object androidAssetManager;
+  private static boolean androidAssetManagerResolved = false;
+
+  /**
+   * Lazily-loaded set of every package name from ANDROID_PKG_LIST_ASSET,
+   * in dotted form. Null until the first isPackageAsset() call that has a
+   * usable AssetManager; stays null forever on desktop or if the asset
+   * can't be read, in which case isPackageAsset() always returns false.
+   */
+  private static Set<String> androidPackageNames;
+  private static boolean androidPackageNamesLoaded = false;
 
   /**
    * Package check for platforms with no filesystem-based package
@@ -102,62 +124,148 @@ public class JPypePackageManager
    * <p>
    * This mirrors what the desktop checks above do - "does this directory
    * exist in the classpath" - using an Android-appropriate substitute for
-   * "directory": an empty marker resource bundled into the APK for every
-   * package the Android build recipe found at build time (scanning
-   * android.jar plus this project's own compiled/harness classes - see
-   * project/android/recipes/jpype1/__init__.py), one per package,
-   * named after the package itself under ANDROID_PKG_MARKER_DIR. A plain
-   * classloader resource lookup for the marker is cheap and needs no
-   * filesystem access, unlike real directory enumeration.
+   * "directory": a flat list of every package the Android build recipe
+   * found at build time (scanning android.jar plus this project's own
+   * compiled/harness classes - see project/android/recipes/jpype1/
+   * __init__.py's generate_package_markers), bundled as a single real
+   * Android asset and read back via AssetManager (reached reflectively
+   * through org.kivy.android.PythonActivity.mActivity - see
+   * getAndroidAssetManager() below).
+   * <p>
+   * Two earlier, different-shaped versions of this (one marker file per
+   * package, first under the Java source tree, then under the bootstrap's
+   * own src/main/assets/) both failed to actually reach the built APK for
+   * reasons that had nothing to do with AssetManager itself - see
+   * generate_package_markers' docstring for the full account (Android
+   * Gradle's java source set drops non-.java files; and separately,
+   * bootstraps/common/build/build.py's make_package() wipes and
+   * regenerates src/main/assets/ from scratch on every build, from only
+   * webview_includes/ and explicit --asset args, discarding anything
+   * written into it any other way). This version goes through that same
+   * --asset mechanism, so it doesn't fight that regeneration step.
    *
    * @param path is the name to check, in path form (dots already
    * replaced with slashes by the caller).
-   * @return true if a marker resource exists for path.
+   * @return true if path names a package found in the bundled list.
    */
   private static boolean isPackageAsset(String path)
   {
-    ClassLoader cl = JPypeContext.getInstance().getClassLoader();
-    try (InputStream is = cl.getResourceAsStream(ANDROID_PKG_MARKER_DIR + path + "/.pkg-marker"))
-    {
-      return is != null;
-    } catch (IOException ex)
-    {
+    Set<String> names = getAndroidPackageNames();
+    if (names == null)
       return false;
-    }
+    return names.contains(path.replace('/', '.'));
   }
 
   /**
-   * Last-resort fallback for a name with no marker asset (see
-   * isPackageAsset() above) - e.g. the Android build recipe's scan missed
-   * it, or it's genuinely not a package. JPypePackage.getObject() already
-   * has a fallback of its own for exactly this situation: when isPackage()
-   * says no, it probes name as a class via Class.forName(). That probe
-   * works fine on Android - reflection needs no filesystem access, unlike
-   * enumeration (this is the same mechanism JClass already relies on for
-   * the golden path). This method borrows that same probe, one level up:
-   * if name loads as a real class, it is definitely not a package. If it
-   * doesn't, there's no way to disprove it, so treat it as a plausible
-   * package - a subsequent JPypePackage.getObject() call on one of ITS
-   * attributes will apply the identical probe again, one component
-   * deeper, so a genuinely bogus name (a typo, or a name that's neither a
-   * package nor a class) still eventually fails at whichever level
-   * actually gets dereferenced as a class, rather than succeeding
-   * silently.
+   * Lazily read and cache ANDROID_PKG_LIST_ASSET into androidPackageNames.
    *
-   * @param name is the dotted name to check (not the path form).
-   * @return true unless name is provably a class rather than a package.
+   * @return the set of known package names, or null if unavailable
+   * (desktop, Android before startup finishes, or the asset is missing).
    */
-  private static boolean isPackageByProbing(String name)
+  private static synchronized Set<String> getAndroidPackageNames()
   {
+    if (androidPackageNamesLoaded)
+      return androidPackageNames;
+    Object assetManager = getAndroidAssetManager();
+    if (assetManager == null)
+      // Not necessarily permanent - e.g. Android before mActivity is set
+      // yet - so don't mark loaded, a later call may still succeed.
+      return null;
     try
     {
-      Class.forName(name, false, JPypeContext.getInstance().getClassLoader());
-      return false;
-    } catch (ClassNotFoundException | LinkageError ex)
+      Method open = assetManager.getClass().getMethod("open", String.class);
+      InputStream is = (InputStream) open.invoke(assetManager, ANDROID_PKG_LIST_ASSET);
+      Set<String> names = new HashSet<>();
+      try (BufferedReader reader = new BufferedReader(
+              new InputStreamReader(is, StandardCharsets.UTF_8)))
+      {
+        String line;
+        while ((line = reader.readLine()) != null)
+        {
+          line = line.trim();
+          if (!line.isEmpty())
+            names.add(line);
+        }
+      }
+      androidPackageNames = names;
+    } catch (ReflectiveOperationException | IOException | ClassCastException ex)
     {
-      return true;
+      // NoSuchMethodException/IllegalAccessException: reflection itself
+      // failed. InvocationTargetException wraps AssetManager.open()'s
+      // IOException when the asset is missing. Either way, this is a
+      // permanent "no list available" - the app package doesn't get
+      // rebuilt at runtime, so a later retry can't succeed either.
+      androidPackageNames = null;
     }
+    androidPackageNamesLoaded = true;
+    return androidPackageNames;
   }
+
+  /**
+   * Reflectively resolve Android's real AssetManager for the running app,
+   * through org.kivy.android.PythonActivity.mActivity (a public static
+   * field p4a's own webview bootstrap sets to the running Activity - see
+   * doc comment on isPackageAsset() for why this is needed instead of a
+   * classloader resource lookup). Purely reflective so this file - shared
+   * with the desktop build, where org.kivy.android.* doesn't exist at
+   * all - still compiles fine there; a desktop run simply never finds
+   * the class and caches a permanent null.
+   *
+   * @return the AssetManager instance, or null if unavailable (desktop,
+   * or Android before PythonActivity has set mActivity).
+   */
+  private static synchronized Object getAndroidAssetManager()
+  {
+    if (androidAssetManagerResolved)
+      return androidAssetManager;
+    Class<?> activityClass;
+    try
+    {
+      activityClass = Class.forName("org.kivy.android.PythonActivity");
+    } catch (ClassNotFoundException ex)
+    {
+      // Definitely not this Android bootstrap (or not Android at all,
+      // e.g. the desktop build) - this can never change, safe to cache.
+      androidAssetManagerResolved = true;
+      return null;
+    }
+    try
+    {
+      Object activity = activityClass.getField("mActivity").get(null);
+      if (activity == null)
+        // The class exists (we ARE on Android) but hasn't finished
+        // starting up yet - don't cache, a later call may succeed.
+        return null;
+      Method getAssets = activity.getClass().getMethod("getAssets");
+      androidAssetManager = getAssets.invoke(activity);
+      androidAssetManagerResolved = true;
+    } catch (ReflectiveOperationException ex)
+    {
+      androidAssetManagerResolved = true;
+      androidAssetManager = null;
+    }
+    return androidAssetManager;
+  }
+
+  // A reflective Class.forName() probe was tried here as a fallback for
+  // names with no marker asset ("can't prove it ISN'T a package, so
+  // assume it is") - reverted. jpype.imports' meta_path finder
+  // (jpype/imports.py's _JImportLoader.find_spec) decides whether to
+  // claim a plain `import name` statement based solely on isPackage(name)
+  // - "can't disprove it" is exactly the wrong default there: a genuinely
+  // missing top-level package (e.g. `import numpy` when numpy isn't
+  // installed) has no marker and isn't a loadable class either, so the
+  // probe would return true and the finder would silently claim it,
+  // producing a fake Java package object instead of letting Python's
+  // normal import machinery raise ModuleNotFoundError - breaking the
+  // common `try: import numpy \n except ImportError: pass` pattern
+  // used throughout test/jpypetest. The marker-asset scan (see
+  // isPackageAsset() above) is comprehensive for everything actually
+  // reachable on Android's classpath - platform API plus whatever's
+  // bundled into the dex - unlike on desktop, Android has no
+  // addClassPath()-style mechanism to add packages the scan couldn't
+  // have already seen (see doc/android.rst), so there is no real gap
+  // for a fallback to cover.
 
   /**
    * Get the list of the contents of a package.

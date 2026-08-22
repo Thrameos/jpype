@@ -6,6 +6,7 @@ Makefile*
 **/test.pic
 build/
 .buildozer
+/project/android/recipes/jpype1/generated/
 bin
 native/*.jar
 org.jpype.jar

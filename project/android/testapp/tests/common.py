@@ -26,6 +26,20 @@ def version(v):
     return tuple([int(i) for i in v.split('.')])
 
 
+def requirePythonAfter(required):
+    import re
+    import platform
+    pversion = tuple([int(re.search(r'\d+', i).group()) for i in platform.python_version_tuple()])
+
+    def g(func):
+        def f(self):
+            if pversion < required:
+                raise unittest.SkipTest("newer python required")
+            return func(self)
+        return f
+    return g
+
+
 def requireInstrumentation(func):
     def f(self):
         import _jpype

@@ -228,41 +228,103 @@ class JPype1Recipe(IncludedFilesBehaviour, PyProjectRecipe):
             # test/harness/jpype/* - the Java-side fixtures the ported
             # test/jpypetest/*.py tests need (e.g. jpype.common.Fixture,
             # jpype.array.TestArray). See project/android/testapp/tests/.
-            # Excludes attr/ClassWithBuffer.java, which imports
-            # java.awt.image.BufferStrategy - AWT isn't part of Android's
-            # platform API (see doc/android.rst) and that one file would
-            # fail to compile against android.jar; everything else in the
-            # harness tree was checked and has no such dependency.
+            # Excludes:
+            # - attr/ClassWithBuffer.java, which imports
+            #   java.awt.image.BufferStrategy - AWT isn't part of Android's
+            #   platform API (see doc/android.rst) and that one file would
+            #   fail to compile against android.jar; everything else in the
+            #   harness tree was checked and has no such dependency.
+            # - annotation/ and reflect/ entirely - both define a custom
+            #   @Retention(RUNTIME) annotation type with a String value()
+            #   method (annotation/TestAnnotation.java and
+            #   reflect/Annotation.java, the latter also used directly on
+            #   reflect/ReflectionTest.java, entangling that file too).
+            #   Either annotation type simply being present in the dex -
+            #   not even anything calling it - crashes the app at startup
+            #   (SIGABRT, well before any Python test code runs - the
+            #   abort's Java stack frame is PythonActivity.nativeInit
+            #   itself) with "JNI DETECTED ERROR IN APPLICATION: the
+            #   return type of CallObjectMethodA does not match
+            #   java.lang.String <the annotation type>.value()". Confirmed
+            #   with two independent, unrelated annotation types sharing
+            #   only that shape, so this looks like a genuine ART/CheckJNI
+            #   limitation with custom runtime-retained annotations in
+            #   this build environment (API 34 emulator), not something
+            #   specific to either harness file. issue #880 (annotation
+            #   methods must use virtual JNI calls - see
+            #   native/common/jp_method.cpp's isInterface() check in
+            #   JPMethod::invoke) already handles this correctly for
+            #   JPype's own method-invocation path; this crash's stack
+            #   trace shows it happening from something else entirely
+            #   during startup (likely ART's own reflective scanning of
+            #   bundled classes, or JPype's own type-registration probing
+            #   annotations). Root cause not yet identified - excluded
+            #   pending further investigation rather than shipping a
+            #   crashing harness.
             info('Copying test/harness Java fixtures to classes build dir')
             shprint(sh.rsync, '-a',
                     '--exclude=attr/ClassWithBuffer.java',
+                    '--exclude=annotation/',
+                    '--exclude=reflect/',
                     join('test', 'harness', 'jpype') + '/',
                     join(self.ctx.javaclass_dir, 'jpype'))
 
             self.generate_package_markers(arch)
 
     def generate_package_markers(self, arch):
-        """Emit one empty marker resource per Java package Android's build
-        can reach, so JPypePackageManager.isPackage() (see
+        """Emit a list of every Java package Android's build can reach, so
+        JPypePackageManager.isPackage() (see
         native/jpype_module/src/main/java/org/jpype/pkg/
-        JPypePackageManager.java) can answer "is this a valid package" via
-        a cheap classloader resource lookup instead of the jar/jrt
-        filesystem enumeration ART doesn't have. Without this,
-        jpype.imports and jpype.JPackage(...) - both of which resolve a
-        dotted name one package component at a time - fail at the very
-        first component (see doc/android.rst's "Removed JPype Services").
+        JPypePackageManager.java) can answer "is this a valid package"
+        cheaply instead of needing the jar/jrt filesystem enumeration ART
+        doesn't have. Without this, jpype.imports and jpype.JPackage(...)
+        - both of which resolve a dotted name one package component at a
+        time - fail at the very first component (see doc/android.rst's
+        "Removed JPype Services").
 
         Scans everything that ends up on this build's classpath: the
         Android platform stub jar (java.*, javax.*, android.*, ...) and
         the org.jpype / test-harness sources just copied into
         javaclass_dir above (compiled/dexed by p4a's own subsequent
-        build step, not by this recipe). For each package found, writes
-        an empty file at jpype-android-pkg-markers/<package/as/a/path>
-        under javaclass_dir, including every ancestor level (so "java" and
-        "java.lang" both get markers, not just "java.lang.String"'s
-        immediate parent) - matching how a real directory listing would
-        answer "does this directory exist" at every level of a dotted
-        lookup, one component at a time.
+        build step, not by this recipe).
+
+        Two earlier attempts at bundling this list both looked right at
+        the point they ran, and both turned out not to survive into the
+        actual APK:
+
+        1. Writing one empty marker file per package under javaclass_dir
+           (src/main/java), on the theory that non-.java files sitting in
+           a Java source directory ride along as generic resources -
+           false: Android Gradle's default java source set silently drops
+           anything that isn't a .java file.
+        2. Writing the same marker tree under the bootstrap's own
+           src/main/assets/ (self.ctx.bootstrap.build_dir) instead, since
+           assets/ is where the webview bootstrap's own
+           _load.html/private.tar demonstrably do survive into the APK.
+           Still didn't work, and for a subtler reason: those two files
+           don't actually originate from that source directory either -
+           bootstraps/common/build/build.py's make_package() (the step
+           that runs *after* p4a's own dist assembly, actually invoking
+           gradle) does `rmdir(assets_dir); ensure_dir(assets_dir)` and
+           repopulates it from scratch, from only two sources: the
+           bootstrap's separate webview_includes/ directory (a flat,
+           non-recursive copy - that's where _load.html really lives) and
+           whatever was passed via repeatable `--asset SRC:DEST` CLI
+           args. Anything already sitting in assets_dir from the earlier
+           `cp -r` gets wiped, unconditionally, every build.
+
+        So this now goes through that same `--asset` mechanism instead of
+        writing into any p4a-internal build directory directly: a single
+        flat package-list file at a path fixed at recipe-authoring time
+        (not per-arch, not under ctx.build_dir), which
+        project/android/testapp/buildozer.spec's `android.add_assets`
+        setting points at explicitly. That setting is what actually
+        produces the `--asset` argument build.py's asset-copy step reads
+        - see targets/android.py's `android.add_assets` handling in
+        buildozer and toolchain.py's `--add-asset` argument in p4a. A
+        single list file (one dotted package name per line) is also
+        simpler and cheaper for JPypePackageManager to read back than
+        hundreds of individual marker files/dirs would be.
         """
         info('Generating Android package markers for jpype.imports/JPackage')
         packages = set()
@@ -291,22 +353,20 @@ class JPype1Recipe(IncludedFilesBehaviour, PyProjectRecipe):
                 rel = relpath(dirpath, self.ctx.javaclass_dir)
                 add_with_ancestors(rel.replace(sep, '.'))
 
-        # Marker files live INSIDE the directory named after their package
-        # (fixed filename, not the package path itself) - a package name
-        # can be both a leaf (has its own marker) and an ancestor of a
-        # deeper package (needs its path to still be usable as a
-        # directory), e.g. android.content.res is a real package that
-        # also has classes/subpackages beneath it. Using the package path
-        # itself as the marker's filename collides the two roles: writing
-        # a plain file at that path breaks the moment something else needs
-        # the same path as a directory.
-        marker_root = join(self.ctx.javaclass_dir, 'jpype-android-pkg-markers')
-        for pkg in packages:
-            marker_dir = join(marker_root, *pkg.split('.'))
-            ensure_dir(marker_dir)
-            with open(join(marker_dir, '.pkg-marker'), 'a'):
-                pass
-        info('Wrote {} Android package markers'.format(len(packages)))
+        # Fixed path, known at buildozer.spec-authoring time (NOT under
+        # self.ctx.build_dir/bootstrap.build_dir - see the docstring above
+        # for why writing into any p4a-internal build directory doesn't
+        # survive into the final APK). buildozer.spec's `android.add_assets`
+        # references this exact path; it just needs to exist and be
+        # populated by the time build.py's asset-copy step runs, which is
+        # after this recipe's postbuild_arch (still within the same
+        # buildozer invocation).
+        ensure_dir(join(dirname(__file__), 'generated'))
+        package_list_path = join(dirname(__file__), 'generated', 'android-packages.txt')
+        with open(package_list_path, 'w') as fileh:
+            for pkg in sorted(packages):
+                fileh.write(pkg + '\n')
+        info('Wrote {} Android package names to {}'.format(len(packages), package_list_path))
 
 
 recipe = JPype1Recipe()
