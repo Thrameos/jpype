@@ -27,7 +27,7 @@ except ImportError:
     # needs it, and that fixture has nothing to do on Android anyway - the
     # JVM is already running and attached by the time `import jpype`
     # returns (see jpype/__init__.py's `_jpype.bootstrap()` call).
-    pytest = None
+    pytest = None  # type: ignore[assignment]
 import jpype
 from os import path
 import unittest  # Extensively used as common.unittest.
@@ -124,7 +124,20 @@ class UseFunc(object):
         setattr(self.obj, self.attr, self.orig)
 
 
-class _JPypeTestCaseBase(unittest.TestCase):
+class JPypeTestCase(unittest.TestCase):
+    if pytest is not None:
+        # Equivalent to decorating this class with
+        # @pytest.mark.usefixtures("jvm_session") (pytest reads either
+        # form the same way) - written this way, rather than as a
+        # decorator, so the class definition itself stays a plain,
+        # unconditional `class JPypeTestCase(unittest.TestCase):` for
+        # mypy/every subclass's benefit; only this one attribute is
+        # conditional on pytest being importable (not the case on
+        # Android - see the try/import above - where there is nothing
+        # for this fixture to do anyway, the JVM is already attached by
+        # the time `import jpype` returns).
+        pytestmark = pytest.mark.usefixtures("jvm_session")
+
     def setUp(self):
         self.jpype = jpype.JPackage('jpype')
 
@@ -141,14 +154,6 @@ class _JPypeTestCaseBase(unittest.TestCase):
 
     def useEqualityFunc(self, func):
         return UseFunc(self, func, 'assertEqual')
-
-
-if pytest is not None:
-    JPypeTestCase = pytest.mark.usefixtures("jvm_session")(_JPypeTestCaseBase)
-else:
-    # No pytest on Android to apply the jvm_session fixture marker to, and
-    # nothing for that fixture to do anyway - see the try/import above.
-    JPypeTestCase = _JPypeTestCaseBase
 
 
 @lru_cache(1)
