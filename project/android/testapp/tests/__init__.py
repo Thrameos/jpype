@@ -12,4 +12,5 @@ Add each newly-ported test/jpypetest/test_*.py file's module name here.
 """
 TEST_MODULES = [
     'test_jchar',
+    'test_jboolean',
 ]
