@@ -175,7 +175,7 @@ class CustomizerTestCase(common.JPypeTestCase):
         # is what made this easy to miss).
         hook_calls = []
 
-        @jpype.JImplementationFor("jpype.override.IRetro")
+        @jpype.JImplementationFor("jpype.override.Overrides.IRetro")
         class _RetroA:
             def __jclass_init__(cls):
                 hook_calls.append(('A', cls.__name__))
@@ -187,12 +187,12 @@ class CustomizerTestCase(common.JPypeTestCase):
         # Forces the retroactive path for the next registration: IRetro
         # (and IRetroImpl, its only implementer so far) already exist by
         # the time _RetroB below registers.
-        IRetroImpl = jpype.JClass("jpype.override.IRetroImpl")
+        IRetroImpl = jpype.JClass("jpype.override.Overrides.IRetroImpl")
         self.assertEqual(IRetroImpl().remove(None), 101)
 
         hook_calls.clear()
 
-        @jpype.JImplementationFor("jpype.override.IRetro")
+        @jpype.JImplementationFor("jpype.override.Overrides.IRetro")
         class _RetroB:
             def __jclass_init__(cls):
                 hook_calls.append(('B', cls.__name__))
@@ -205,14 +205,14 @@ class CustomizerTestCase(common.JPypeTestCase):
         # Created only now, after _RetroB's retroactive registration -
         # the case that lost _RetroA's contribution entirely before the
         # fix.
-        IRetroSub = jpype.JClass("jpype.override.IRetroSub")
+        IRetroSub = jpype.JClass("jpype.override.Overrides.IRetroSub")
 
         # Both hooks fired for IRetroSub specifically - neither the
         # up-front (_RetroA) nor the retroactive (_RetroB) registration
         # was silently dropped.
-        self.assertIn(('A', 'jpype.override.IRetroSub'), hook_calls)
-        self.assertIn(('B', 'jpype.override.IRetroSub'), hook_calls)
+        self.assertIn(('A', 'jpype.override.Overrides.IRetroSub'), hook_calls)
+        self.assertIn(('B', 'jpype.override.Overrides.IRetroSub'), hook_calls)
         # _RetroA's sticky rename survives for IRetroSub too - before the
         # fix this was never set at all for a class created after the
         # retroactive registration.
-        self.assertEqual(str(IRetroSub.removeA_), "jpype.override.IRetroSub.remove")
+        self.assertEqual(str(IRetroSub.removeA_), "jpype.override.Overrides.IRetroSub.remove")
