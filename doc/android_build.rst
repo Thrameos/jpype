@@ -252,10 +252,22 @@ unconditionally refuses ``--user`` inside any virtualenv unless
 Build, deploy, run, verify
 ----------------------------
 
-From ``project/android/testapp/``, with a JDK 21 (see above) on ``JAVA_HOME``::
+First, stage the ported ``test/jpypetest/*.py`` files into
+``testapp/tests/`` - that directory holds no checked-in copies of its own
+(other than ``__init__.py``, the manifest of which files to stage); see
+``project/android/sync_tests.py``'s docstring::
+
+    python3 project/android/sync_tests.py
+
+Then, from ``project/android/testapp/``, with a JDK 21 (see above) on
+``JAVA_HOME``::
 
     export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64   # adjust to your JDK 21
     buildozer android debug
+
+Re-run ``sync_tests.py`` any time ``test/jpypetest/*.py`` changes, or
+after adding a module name to ``testapp/tests/__init__.py``'s
+``TEST_MODULES``, before the next ``buildozer android debug``.
 
 **Whenever jpype1's source changes** (anything under ``native/``,
 ``native/jpype_module/``, or ``project/android/recipes/jpype1/``), p4a's own

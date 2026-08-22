@@ -17,7 +17,17 @@
 # *****************************************************************************
 from functools import lru_cache
 
-import pytest
+try:
+    import pytest
+except ImportError:
+    # Not bundled on Android (see project/android/testapp/main.py: the
+    # ported suite runs under plain unittest there, avoiding the open
+    # question of whether pytest itself builds/runs on Android at all).
+    # Only JPypeTestCase's `@pytest.mark.usefixtures("jvm_session")` below
+    # needs it, and that fixture has nothing to do on Android anyway - the
+    # JVM is already running and attached by the time `import jpype`
+    # returns (see jpype/__init__.py's `_jpype.bootstrap()` call).
+    pytest = None
 import jpype
 from os import path
 import unittest  # Extensively used as common.unittest.
@@ -30,6 +40,25 @@ def version(v):
     return tuple([int(i) for i in v.split('.')])
 
 
+def isAndroid():
+    # ANDROID_ARGUMENT is set by p4a's own bootstrap (PythonActivity.java's
+    # nativeSetenv call) before Python starts - the standard way p4a/Kivy
+    # apps detect they're running under python-for-android, rather than a
+    # plain desktop interpreter that happens to import this same file.
+    import os
+    return 'ANDROID_ARGUMENT' in os.environ
+
+
+def skipOnAndroid(reason):
+    """Gate a test method on an Android platform limitation (see
+    doc/android.rst's "Removed JPype Services" and "Unsupported Java
+    libraries"). A no-op everywhere else, so the same test file runs
+    unmodified on both platforms."""
+    def deco(func):
+        return unittest.skipIf(isAndroid(), reason)(func)
+    return deco
+
+
 def requirePythonAfter(required):
     import re
     import platform
@@ -38,7 +67,7 @@ def requirePythonAfter(required):
     def g(func):
         def f(self):
             if pversion < required:
-                raise unittest.SkipTest("numpy required")
+                raise unittest.SkipTest("newer python required")
             return func(self)
         return f
     return g
@@ -66,6 +95,12 @@ def requireNumpy(func):
     return f
 
 def requireAscii(func):
+    if isAndroid():
+        # No equivalent "source root" to check against on Android (the
+        # app's own data directory is always ASCII in practice), so this
+        # is simply a no-op pass-through rather than a real check.
+        return func
+
     def f(self):
         try:
             root = path.dirname(path.abspath(path.dirname(__file__)))
@@ -89,8 +124,7 @@ class UseFunc(object):
         setattr(self.obj, self.attr, self.orig)
 
 
-@pytest.mark.usefixtures("jvm_session")
-class JPypeTestCase(unittest.TestCase):
+class _JPypeTestCaseBase(unittest.TestCase):
     def setUp(self):
         self.jpype = jpype.JPackage('jpype')
 
@@ -107,6 +141,14 @@ class JPypeTestCase(unittest.TestCase):
 
     def useEqualityFunc(self, func):
         return UseFunc(self, func, 'assertEqual')
+
+
+if pytest is not None:
+    JPypeTestCase = pytest.mark.usefixtures("jvm_session")(_JPypeTestCaseBase)
+else:
+    # No pytest on Android to apply the jvm_session fixture marker to, and
+    # nothing for that fixture to do anyway - see the try/import above.
+    JPypeTestCase = _JPypeTestCaseBase
 
 
 @lru_cache(1)
