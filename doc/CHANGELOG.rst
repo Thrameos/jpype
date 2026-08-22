@@ -7,6 +7,15 @@ Latest Changes:
 
 - **1.7.2.dev0**
 
+  - Fixed the Android ``PyJPModule_bootstrap()`` entry point being missing
+    the exception-handling wrapper (``JP_PY_TRY``/``JP_PY_CATCH``) present
+    on every other module entry point. A failure while loading module
+    resources (e.g. an unhandled Java/dex classloading difference) would
+    throw a C++ exception straight across the C-linkage boundary into
+    CPython's runtime instead of becoming a normal Python exception,
+    causing an uncaught-exception abort (``SIGABRT``) instead of a
+    catchable error. #1257
+
   - ``JBoolean``/``JByte``/``JChar``/``JInt``/``JShort``/``JLong``/``JFloat``/
     ``JDouble`` are no longer tracked by the cyclic garbage collector. They
     were previously declared as ordinary Python ``class`` statements, which
