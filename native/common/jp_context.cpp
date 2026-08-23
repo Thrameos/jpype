@@ -33,6 +33,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <stdio.h>
+#include <pthread.h>
 #endif
 
 
@@ -515,6 +516,135 @@ void JPContext::ReleaseGlobalRef(jobject obj)
 
 /*****************************************************************************/
 // Thread code
+//
+// AttachCurrentThread{,AsDaemon}() registers the calling native thread with
+// the JVM; JNI has no mechanism of its own to notice when that thread later
+// exits. A thread that JPype attached (either explicitly via
+// attachCurrentThread()/attachCurrentThreadAsDaemon(), or implicitly via
+// getEnv() the first time an arbitrary native thread happens to call into
+// Java -- e.g. a plain Python threading.Thread that touches a Java object
+// once and returns) but that never calls detachCurrentThread() before
+// exiting leaks its JVM-side thread attachment permanently: HotSpot has no
+// way to detect that the underlying OS thread is gone. This is a real,
+// unbounded leak proportional to thread count, not call count -- confirmed
+// via the leak-sweep harness on jpype.synchronized() driven from a
+// short-lived worker-thread pool (test_synchronized.py's testSynchronized).
+//
+// Fixed with a per-thread destructor callback (pthread TLS on POSIX, fiber
+// local storage on Windows -- TlsAlloc has no destructor callback, FLS
+// does) that runs automatically when the OS thread exits, whether or not
+// anything else ran on that thread's way out. The callback detaches for
+// us if we're still attached at that point.
+namespace
+{
+#ifdef WIN32
+
+	VOID WINAPI autoDetachOnThreadExit(PVOID value)
+	{
+		if (value == nullptr)
+			return;
+		// The JVM may have been shut down -- and its shared library
+		// unloaded (JPPlatformAdapter::unloadLibrary(), called from
+		// JPContext::shutdownJVM() when freeJVM is set) -- in the time
+		// between this thread's attach and its eventual exit, since
+		// nothing orders those two events relative to each other. Calling
+		// through the JavaVM* captured at attach time in that case would
+		// dereference a dangling pointer into a library that may no
+		// longer be mapped at all. JPContext_global's own bookkeeping is
+		// updated by shutdownJVM() independent of any particular thread's
+		// timing, so check it first -- if the JVM isn't running, there is
+		// nothing left to detach from (shutdown already tore down every
+		// thread's attachment along with everything else) and touching
+		// the stale pointer would be unsafe rather than merely redundant.
+		if (JPContext_global == nullptr || !JPContext_global->isRunning())
+			return;
+		JavaVM* vm = (JavaVM*) value;
+		// AttachCurrentThread{,AsDaemon}() is documented to be a no-op if
+		// this thread is already attached, so calling it first -- rather
+		// than assuming we know this thread's current attachment state --
+		// guarantees the DetachCurrentThread below is always valid to
+		// call, regardless of what may have happened to this thread's
+		// attachment between registerAutoDetach() and now.
+		JNIEnv* env;
+		vm->AttachCurrentThreadAsDaemon((void**) &env, nullptr);
+		vm->DetachCurrentThread();
+	}
+
+	DWORD autoDetachSlot()
+	{
+		static DWORD slot = FlsAlloc(autoDetachOnThreadExit);
+		return slot;
+	}
+
+	void registerAutoDetach(JavaVM* vm)
+	{
+		DWORD slot = autoDetachSlot();
+		if (FlsGetValue(slot) == nullptr)
+			FlsSetValue(slot, vm);
+	}
+
+	void unregisterAutoDetach()
+	{
+		FlsSetValue(autoDetachSlot(), nullptr);
+	}
+
+#else
+
+	void autoDetachOnThreadExit(void* value)
+	{
+		if (value == nullptr)
+			return;
+		// The JVM may have been shut down -- and its shared library
+		// unloaded (JPPlatformAdapter::unloadLibrary(), called from
+		// JPContext::shutdownJVM() when freeJVM is set) -- in the time
+		// between this thread's attach and its eventual exit, since
+		// nothing orders those two events relative to each other. Calling
+		// through the JavaVM* captured at attach time in that case would
+		// dereference a dangling pointer into a library that may no
+		// longer be mapped at all. JPContext_global's own bookkeeping is
+		// updated by shutdownJVM() independent of any particular thread's
+		// timing, so check it first -- if the JVM isn't running, there is
+		// nothing left to detach from (shutdown already tore down every
+		// thread's attachment along with everything else) and touching
+		// the stale pointer would be unsafe rather than merely redundant.
+		if (JPContext_global == nullptr || !JPContext_global->isRunning())
+			return;
+		JavaVM* vm = (JavaVM*) value;
+		// AttachCurrentThread{,AsDaemon}() is documented to be a no-op if
+		// this thread is already attached, so calling it first -- rather
+		// than assuming we know this thread's current attachment state --
+		// guarantees the DetachCurrentThread below is always valid to
+		// call, regardless of what may have happened to this thread's
+		// attachment between registerAutoDetach() and now.
+		JNIEnv* env;
+		vm->AttachCurrentThreadAsDaemon((void**) &env, nullptr);
+		vm->DetachCurrentThread();
+	}
+
+	pthread_key_t autoDetachKey()
+	{
+		static pthread_key_t key = []() {
+			pthread_key_t k;
+			pthread_key_create(&k, autoDetachOnThreadExit);
+			return k;
+		}();
+		return key;
+	}
+
+	void registerAutoDetach(JavaVM* vm)
+	{
+		pthread_key_t key = autoDetachKey();
+		if (pthread_getspecific(key) == nullptr)
+			pthread_setspecific(key, vm);
+	}
+
+	void unregisterAutoDetach()
+	{
+		pthread_setspecific(autoDetachKey(), nullptr);
+	}
+
+#endif
+} // namespace
 
 void JPContext::attachCurrentThread()
 {
@@ -522,6 +652,7 @@ void JPContext::attachCurrentThread()
 	jint res = m_JavaVM->functions->AttachCurrentThread(m_JavaVM, (void**) &env, nullptr);
 	if (res != JNI_OK)
 		JP_RAISE(PyExc_RuntimeError, "Unable to attach to thread");
+	registerAutoDetach(m_JavaVM);
 }
 
 void JPContext::attachCurrentThreadAsDaemon()
@@ -530,6 +661,7 @@ void JPContext::attachCurrentThreadAsDaemon()
 	jint res = m_JavaVM->functions->AttachCurrentThreadAsDaemon(m_JavaVM, (void**) &env, nullptr);
 	if (res != JNI_OK)
 		JP_RAISE(PyExc_RuntimeError, "Unable to attach to thread as daemon");
+	registerAutoDetach(m_JavaVM);
 }
 
 bool JPContext::isThreadAttached()
@@ -541,6 +673,7 @@ bool JPContext::isThreadAttached()
 void JPContext::detachCurrentThread()
 {
 	m_JavaVM->functions->DetachCurrentThread(m_JavaVM);
+	unregisterAutoDetach();
 }
 
 JNIEnv* JPContext::getEnv()
@@ -564,6 +697,7 @@ JNIEnv* JPContext::getEnv()
 		{
 			JP_RAISE(PyExc_RuntimeError, "Unable to attach to local thread");
 		}
+		registerAutoDetach(m_JavaVM);
 	}
 	return env;
 }
