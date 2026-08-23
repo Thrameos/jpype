@@ -109,6 +109,7 @@ def main(argv=None):
 
     print()
     print("Full detail (file: line numbers) written for files above the top-N cut.")
+    return 0
 
 
 if __name__ == '__main__':
