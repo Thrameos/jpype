@@ -232,9 +232,19 @@ class StartJVMCase(unittest.TestCase):
         earlier in the classpath shadows it and the JVM resolves
         org.jpype.JPypeClassLoader from the corrupted private jar
         instead, without the real org.jpype.jar ever being touched.
+
+        The shadow jar's own directory is cleaned up with
+        ignore_errors=True, not tempfile.TemporaryDirectory()'s default
+        strict cleanup: on Windows, the JVM keeps a file handle open on
+        any classpath jar it mapped for classloading for the remaining
+        lifetime of this process, even one whose load ultimately failed
+        with UnsupportedClassVersionError - the file can't be deleted
+        until this subrun subprocess exits, so a strict rmtree here
+        always failed with "used by another process" on Windows CI.
         """
         import zipfile
         import tempfile
+        import shutil
 
         support_lib = Path(jpype.__file__).resolve(
         ).parent.parent / "org.jpype.jar"
@@ -246,7 +256,8 @@ class StartJVMCase(unittest.TestCase):
         # loading it always fails with UnsupportedClassVersionError.
         data[6] = 0xFF
         data[7] = 0xFF
-        with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_dir = tempfile.mkdtemp()
+        try:
             shadow_jar = os.path.join(tmp_dir, "shadow.jar")
             with zipfile.ZipFile(shadow_jar, 'w') as zout:
                 zout.writestr(entry, bytes(data))
@@ -255,6 +266,8 @@ class StartJVMCase(unittest.TestCase):
                 jpype.startJVM(classpath=[shadow_jar], convertStrings=False)
             self.assertNotEqual(
                 str(cm.exception), "Can't find org.jpype.jar support library")
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
     @common.requireAscii
     def testOldStyleASCIIPathWithSystemClassLoader(self):
