@@ -110,8 +110,13 @@ void PyJPProxy_dealloc(PyJPProxy* self)
 	PyObject_GC_UnTrack(self);
 	PyJPProxy_clear(self);
 	tp->tp_free(self);
+	// PyJPProxy_Type itself is created via PyType_FromSpecWithBases, and
+	// every @JImplements subclass inherits from it the same way -- so
+	// every instance reaching this dealloc always has a heap-type tp;
+	// the flag is still checked rather than assumed, in case a future
+	// non-heap PyJPProxy subtype is ever introduced.
 	if (tp->tp_flags & Py_TPFLAGS_HEAPTYPE)
-		Py_DECREF(tp);
+		Py_DECREF(tp);  // GCOVR_EXCL_BR_LINE
 	JP_PY_CATCH_NONE();
 }
 

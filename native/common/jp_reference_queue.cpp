@@ -98,11 +98,19 @@ void JPReferenceQueue::registerRef(JPJavaFrame &frame, jobject obj, PyObject* ho
 	try
 	{
 		registerRef(frame, obj, hostRef, &releasePython);
+		// GCOVR_EXCL_START
+		// This call's only site (jp_exception.cpp's Python-to-Java
+		// exception conversion) is itself wrapped in a separate,
+		// pre-existing fail-fast guard that deliberately crashes the
+		// process on any exception there -- so this catch is unreachable
+		// through that call site without also triggering that guard
+		// first. Kept as defense-in-depth for any future caller.
 	} catch (...)
 	{
 		Py_DECREF(hostRef);
 		throw;
 	}
+	// GCOVR_EXCL_STOP
 }
 
 void JPReferenceQueue::registerRef(JPJavaFrame &frame, jobject obj, void* host, JCleanupHook func)

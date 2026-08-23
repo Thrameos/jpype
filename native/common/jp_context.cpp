@@ -541,8 +541,12 @@ namespace
 
 	VOID WINAPI autoDetachOnThreadExit(PVOID value)
 	{
+		// FLS's callback contract guarantees this is only called with the
+		// actual stored value, which registerAutoDetach() never sets to
+		// null -- this can't be exercised without violating that
+		// contract, kept purely as defense-in-depth.
 		if (value == nullptr)
-			return;
+			return;  // GCOVR_EXCL_LINE
 		// The JVM may have been shut down -- and its shared library
 		// unloaded (JPPlatformAdapter::unloadLibrary(), called from
 		// JPContext::shutdownJVM() when freeJVM is set) -- in the time
@@ -550,13 +554,14 @@ namespace
 		// nothing orders those two events relative to each other. Calling
 		// through the JavaVM* captured at attach time in that case would
 		// dereference a dangling pointer into a library that may no
-		// longer be mapped at all. JPContext_global's own bookkeeping is
-		// updated by shutdownJVM() independent of any particular thread's
-		// timing, so check it first -- if the JVM isn't running, there is
-		// nothing left to detach from (shutdown already tore down every
-		// thread's attachment along with everything else) and touching
-		// the stale pointer would be unsafe rather than merely redundant.
-		if (JPContext_global == nullptr || !JPContext_global->isRunning())
+		// longer be mapped at all. JPContext_global is only ever null
+		// before the very first JVM start, long before any thread could
+		// have registered this callback -- checked anyway, since touching
+		// the stale pointer on the (believed-impossible) chance it
+		// happened would be unsafe rather than merely redundant.
+		if (JPContext_global == nullptr)
+			return;  // GCOVR_EXCL_LINE
+		if (!JPContext_global->isRunning())
 			return;
 		JavaVM* vm = (JavaVM*) value;
 		// AttachCurrentThread{,AsDaemon}() is documented to be a no-op if
@@ -592,8 +597,12 @@ namespace
 
 	void autoDetachOnThreadExit(void* value)
 	{
+		// pthread's destructor contract guarantees this is only called
+		// with the actual stored value, which registerAutoDetach() never
+		// sets to null -- this can't be exercised without violating that
+		// contract, kept purely as defense-in-depth.
 		if (value == nullptr)
-			return;
+			return;  // GCOVR_EXCL_LINE
 		// The JVM may have been shut down -- and its shared library
 		// unloaded (JPPlatformAdapter::unloadLibrary(), called from
 		// JPContext::shutdownJVM() when freeJVM is set) -- in the time
@@ -601,13 +610,14 @@ namespace
 		// nothing orders those two events relative to each other. Calling
 		// through the JavaVM* captured at attach time in that case would
 		// dereference a dangling pointer into a library that may no
-		// longer be mapped at all. JPContext_global's own bookkeeping is
-		// updated by shutdownJVM() independent of any particular thread's
-		// timing, so check it first -- if the JVM isn't running, there is
-		// nothing left to detach from (shutdown already tore down every
-		// thread's attachment along with everything else) and touching
-		// the stale pointer would be unsafe rather than merely redundant.
-		if (JPContext_global == nullptr || !JPContext_global->isRunning())
+		// longer be mapped at all. JPContext_global is only ever null
+		// before the very first JVM start, long before any thread could
+		// have registered this callback -- checked anyway, since touching
+		// the stale pointer on the (believed-impossible) chance it
+		// happened would be unsafe rather than merely redundant.
+		if (JPContext_global == nullptr)
+			return;  // GCOVR_EXCL_LINE
+		if (!JPContext_global->isRunning())
 			return;
 		JavaVM* vm = (JavaVM*) value;
 		// AttachCurrentThread{,AsDaemon}() is documented to be a no-op if

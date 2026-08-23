@@ -48,6 +48,22 @@ class ThreadTestCase(common.JPypeTestCase):
         s = jpype.JString("foo")
         self.assertTrue(jpype.isThreadAttachedToJVM())
 
+    @pytest.mark.filterwarnings("ignore::DeprecationWarning")
+    def testAttachTwiceRegistersAutoDetachOnce(self):
+        # Attaching an already-attached thread a second time without an
+        # intervening detach must not re-register the auto-detach TLS
+        # destructor a second time (native/common/jp_context.cpp's
+        # registerAutoDetach() skips re-registering if a value is already
+        # set for this thread) -- this is a no-op, not a leak or a
+        # double-detach-at-exit hazard, but exercises a branch no other
+        # test reaches.
+        jpype.attachThreadToJVM()
+        self.assertTrue(jpype.isThreadAttachedToJVM())
+        jpype.attachThreadToJVM()
+        self.assertTrue(jpype.isThreadAttachedToJVM())
+        jpype.detachThreadFromJVM()
+        self.assertFalse(jpype.isThreadAttachedToJVM())
+
     def testAttachNew(self):
         import java
         # Detach the thread
