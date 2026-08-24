@@ -381,17 +381,16 @@ vendor.  Two of those representations convert to a timezone-aware
 
 - ``java.time.OffsetTime`` and ``java.time.OffsetDateTime`` -- the
   JDK-standard (JDBC 4.2) representations, which modern drivers
-  increasingly return (verified directly: HSQLDB returns
-  ``OffsetDateTime`` for ``TIMESTAMP WITH TIME ZONE``; both H2 and HSQLDB
-  return ``OffsetTime`` for ``TIME WITH TIME ZONE``).
+  increasingly return.  HSQLDB returns ``OffsetDateTime`` for
+  ``TIMESTAMP WITH TIME ZONE``; both H2 and HSQLDB return ``OffsetTime``
+  for ``TIME WITH TIME ZONE``.
 
-A driver that instead returns its own vendor-specific class -- verified
-directly: H2's ``TIMESTAMP WITH TIME ZONE`` returns
-``org.h2.api.TimestampWithTimeZone``, not ``OffsetDateTime`` -- is not
-covered by a built-in converter (adding one for every vendor's private
-class isn't something the module should carry), and the raw Java object is
-returned instead.  Register a converter for that specific class the same
-way as any other type mapping:
+A driver that instead returns its own vendor-specific class (H2's
+``TIMESTAMP WITH TIME ZONE`` returns ``org.h2.api.TimestampWithTimeZone``,
+not ``OffsetDateTime``) is not covered by a built-in converter -- adding
+one for every vendor's private class isn't something the module should
+carry -- and the raw Java object is returned instead.  Register a
+converter for that specific class the same way as any other type mapping:
 
 .. code-block:: python
 
@@ -578,9 +577,7 @@ needed:
    cx.close()  # returns the connection to the pool; does not close the JDBC connection
 
 Repeatedly acquiring and releasing a pooled connection this way reuses the
-same underlying JDBC connection rather than opening a new one each time --
-confirmed directly by counting actual ``dbapi2.connect()`` calls across
-repeated acquire/release cycles through the pool.
+same underlying JDBC connection rather than opening a new one each time.
 
 
 `Concurrency`
@@ -605,11 +602,11 @@ shared connection:
    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
        results = list(pool.map(worker, range(50)))
 
-This has been exercised directly: 50 tasks distributed across an 8-worker
-``ThreadPoolExecutor`` (which reuses its worker threads across many tasks,
-so this also exercises JPype's JNI thread attach/detach repeatedly on the
-same OS threads, not just once each), each opening and closing its own
-connection, with no errors and correct per-worker results.
+A ``ThreadPoolExecutor`` reuses its worker threads across many tasks, so a
+workload like this also exercises JPype's JNI thread attach/detach
+repeatedly on the same OS threads rather than once each -- each worker
+opening and closing its own connection, as shown above, is well within
+what the module supports.
 
 
 `Working with Apache Drill`
@@ -621,7 +618,7 @@ directly over JDBC, and `sqlalchemy-drill
 <https://github.com/JohnOmernik/sqlalchemy-drill>`_ already ships a
 ``drill+jdbc://`` dialect that is built on ``jpype.dbapi2`` (not jaydebeapi)
 -- it does ``from jpype import dbapi2`` and returns that module as its DBAPI.
-This section is a verified, runnable recipe for both.
+This section is a runnable recipe for both.
 
 Direct connection
 ------------------
@@ -732,16 +729,14 @@ dialect" package that does this for arbitrary databases.
 The tempting shortcut is to point one of SQLAlchemy's *existing* dialects
 (e.g. the built-in ``sqlite`` one) at a ``jpype.dbapi2`` connection via
 ``create_engine("sqlite://", creator=lambda: dbapi2.connect(dsn))``.  This
-does **not** reliably work, and the failure is worth understanding rather
-than guessing around: SQLAlchemy dialects are written against a specific
-*real* DBAPI module, not just against PEP 249, and often call driver
-extension methods beyond the DB-API 2.0 surface on every new connection.
-Concretely, this was reproduced directly -- the built-in ``sqlite``
-dialect's ``on_connect`` hook unconditionally calls
-``dbapi_connection.create_function(...)`` to register SQL ``REGEXP``
-support, a ``sqlite3.Connection``-specific method that has no PEP 249
-equivalent and that ``jpype.dbapi2.Connection`` does not (and cannot
-portably) implement::
+does **not** reliably work: SQLAlchemy dialects are written against a
+specific *real* DBAPI module, not just against PEP 249, and often call
+driver extension methods beyond the DB-API 2.0 surface on every new
+connection.  Concretely, the built-in ``sqlite`` dialect's ``on_connect``
+hook unconditionally calls ``dbapi_connection.create_function(...)`` to
+register SQL ``REGEXP`` support, a ``sqlite3.Connection``-specific method
+that has no PEP 249 equivalent and that ``jpype.dbapi2.Connection`` does
+not (and cannot portably) implement::
 
     AttributeError: 'Connection' object has no attribute 'create_function'
 
