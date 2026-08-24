@@ -431,6 +431,178 @@ shutdown routine using an unprepared statement.  Though that would require
 accessing private fields.
 
 
+`Working with pandas`
+======================
+
+Since ``jpype.dbapi2`` conforms to PEP 249, results can be loaded directly
+into a `pandas <https://pandas.pydata.org/>`_ ``DataFrame`` the same way as
+any other DB-API 2.0 module.  Two patterns work:
+
+Manually, from a cursor
+------------------------
+
+Build the ``DataFrame`` from ``.fetchall()`` and the column names in
+``.description``.  This always works and gives full control over
+``dbapi2``-specific features such as ``types=`` and custom converters.
+
+.. code-block:: python
+
+   import jpype.dbapi2 as dbapi2
+   import pandas as pd
+
+   with dbapi2.connect("jdbc:sqlite::memory:") as cx, cx.cursor() as cur:
+       cur.execute("create table t (id integer, name varchar(20))")
+       cur.executemany("insert into t values (?, ?)", [(1, "a"), (2, "b")])
+       cur.execute("select * from t")
+       columns = [d[0] for d in cur.description]
+       df = pd.DataFrame(cur.fetchall(), columns=columns)
+
+Using ``pandas.read_sql``
+--------------------------
+
+``pandas.read_sql`` (and ``read_sql_query``) accept any PEP 249 ``Connection``
+object directly -- a ``jpype.dbapi2.Connection`` does not need to be wrapped
+in a SQLAlchemy engine first.  Parameters are passed through using the
+module's ``qmark`` style (``?``):
+
+.. code-block:: python
+
+   import jpype.dbapi2 as dbapi2
+   import pandas as pd
+
+   with dbapi2.connect("jdbc:sqlite::memory:") as cx, cx.cursor() as cur:
+       cur.execute("create table t (id integer, name varchar(20))")
+       cur.executemany("insert into t values (?, ?)", [(1, "a"), (2, "b"), (3, "c")])
+       df = pd.read_sql("select * from t where id > ?", cx, params=(1,))
+
+pandas emits ``UserWarning: pandas only supports SQLAlchemy connectable
+(engine/connection) or database string URI or sqlite3 DBAPI2 connection.
+Other DBAPI2 objects are not tested.`` for this -- that is pandas being
+conservative about which connection types its own test suite covers, not an
+error; the call still executes correctly.  If the warning is undesirable,
+use the manual pattern above instead, or wrap the connection with
+``sqlalchemy.create_engine("sqlite:///...", creator=lambda: cx)`` (or the
+equivalent for your driver) so pandas sees a recognized SQLAlchemy engine.
+
+Writing a DataFrame back to the database follows the normal ``executemany``
+pattern -- there is no dbapi2-specific ``to_sql`` support, so convert the
+DataFrame to row tuples first:
+
+.. code-block:: python
+
+   cur.executemany(
+       "insert into t values (?, ?)",
+       list(df.itertuples(index=False, name=None)),
+   )
+
+
+`Working with Apache Drill`
+============================
+
+Searches for "Python Apache Drill" turn up jaydebeapi or Drill's REST API
+almost exclusively.  Neither is necessary: ``jpype.dbapi2`` connects to Drill
+directly over JDBC, and `sqlalchemy-drill
+<https://github.com/JohnOmernik/sqlalchemy-drill>`_ already ships a
+``drill+jdbc://`` dialect that is built on ``jpype.dbapi2`` (not jaydebeapi)
+-- it does ``from jpype import dbapi2`` and returns that module as its DBAPI.
+This section is a verified, runnable recipe for both.
+
+Direct connection
+------------------
+
+Drill's JDBC driver is distributed as an "uber jar",
+``drill-jdbc-all-<version>.jar`` (on Maven Central under
+``org.apache.drill.exec:drill-jdbc-all``), which is enough to connect to a
+**remote** Drillbit (``jdbc:drill:drillbit=host:port``).  It is *not* enough
+on its own to run **embedded** mode (``jdbc:drill:zk=local``, which starts a
+Drillbit inside your own process) -- Drill's driver rejects that outright::
+
+    java.sql.SQLNonTransientConnectionException: Running Drill in embedded
+    mode using Drill's jdbc-all JDBC driver Jar file alone is not supported.
+
+For embedded mode you need the full Drill distribution (the tarball from
+https://archive.apache.org/dist/drill/, extracted locally) and its complete
+runtime classpath, not just the JDBC jar.  Once you have that, connecting is
+the same ``jpype.dbapi2.connect()`` pattern used throughout this guide:
+
+.. code-block:: python
+
+   import jpype
+   import jpype.dbapi2 as dbapi2
+
+   DRILL_HOME = "/path/to/apache-drill-1.20.0"  # extracted distribution
+
+   jpype.startJVM(classpath=[
+       DRILL_HOME + "/conf",
+       DRILL_HOME + "/jars/*",
+       DRILL_HOME + "/jars/ext/*",
+       DRILL_HOME + "/jars/3rdparty/*",
+       DRILL_HOME + "/jars/classb/*",
+   ])
+
+   cx = dbapi2.connect("jdbc:drill:zk=local")
+   with cx.cursor() as cur:
+       cur.execute("SELECT * FROM cp.`employee.json` LIMIT 5")
+       for row in cur.fetchall():
+           print(row)
+   cx.close()
+
+Run against a real Drill cluster, only the connection string changes --
+``jdbc:drill:drillbit=<host>:<port>`` (default port ``31010``) instead of
+``jdbc:drill:zk=local`` -- and the jdbc-all jar alone is sufficient as the
+classpath, since a remote Drillbit does the execution instead of your own
+process.
+
+**On the classpath ordering**: set the full classpath in the
+``jpype.startJVM(classpath=...)`` call *before* starting the JVM.
+``jpype.addClassPath()`` after the JVM has started does make new classes
+available to explicit ``jpype.JClass()`` lookups, but it does not
+retroactively help code that relies on ``java.util.ServiceLoader``-based
+auto-discovery -- and both JDBC's own ``DriverManager`` (used internally by
+``connect()``) and Drill's Hadoop-derived filesystem layer use exactly that
+mechanism, and each only scans the classpath once, the first time it is
+used.  In practice this means: if a driver jar is missing when
+``DriverManager`` first initializes, adding it afterward will not make
+``connect()`` find it, even though the class itself is now loadable.  Always
+put the full classpath in ``startJVM()`` up front.
+
+Working with SQLAlchemy
+------------------------
+
+``sqlalchemy-drill`` registers three dialects; only one of them is JPype-based:
+
+================= ================================================== =====================
+URL scheme        Implementation                                     DBAPI module
+================= ================================================== =====================
+``drill://``      Drill's REST API (``sqlalchemy_drill.drilldbapi``) custom, no JVM needed
+``drill+jdbc://`` JDBC, via ``jpype.dbapi2``                         ``jpype.dbapi2``
+``drill+odbc://`` ODBC, via ``pyodbc``                               ``pyodbc``
+================= ================================================== =====================
+
+Use ``drill+jdbc://`` to get JPype.  As with the direct connection above, the
+JVM must already be running (with the same classpath) before you create the
+engine -- the dialect checks ``jpype.isJVMStarted()`` and raises a clear
+error if it is not:
+
+.. code-block:: python
+
+   import jpype
+   from sqlalchemy import create_engine, text
+
+   jpype.startJVM(classpath=[...])  # same classpath as above
+
+   engine = create_engine("drill+jdbc://localhost:31010")
+   with engine.connect() as conn:
+       result = conn.execute(text("SELECT * FROM cp.`employee.json` LIMIT 5"))
+       for row in result:
+           print(row)
+
+This also means ``pandas.read_sql`` works against a Drill-backed SQLAlchemy
+engine exactly as described in `Working with pandas`_ above, since the
+engine's underlying connection is a ``jpype.dbapi2.Connection`` the whole
+way down.
+
+
 Conclusion
 ==========
 
