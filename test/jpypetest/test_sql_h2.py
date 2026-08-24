@@ -256,6 +256,16 @@ class CursorTestCase(common.JPypeTestCase):
                 "no-result statements (eg. create table)",
             )
 
+    def testDescriptionColumnAlias(self):
+        # cursor.description[x][0] must be the column's AS alias, not its
+        # underlying table column name (PEP 249: "the name or alias of
+        # the column"; JDBC distinguishes getColumnName() from
+        # getColumnLabel(), and only the latter reflects an alias).
+        with dbapi2.connect(db_name) as cx, cx.cursor() as cur:
+            cur.execute("create table booze (name varchar(20))")
+            cur.execute("select name as beverage from booze")
+            self.assertEqual(cur.description[0][0].lower(), "beverage")
+
     def testRowcount(self):
         with dbapi2.connect(db_name) as cx, cx.cursor() as cur:
             cur.execute("create table booze (name varchar(20))")
@@ -1266,6 +1276,39 @@ class TypeTestCase(common.JPypeTestCase):
 
     def testClob(self):
         self._testChars('CLOB', ('NAME', 'CLOB'), java.lang.String)
+
+    def testReinsertFetchedBlob(self):
+        # A Blob/Clob/Array fetched from the database comes back as a
+        # vendor-specific concrete class implementing the corresponding
+        # java.sql interface, not that interface itself, so it needs the
+        # SETTERS_BY_TYPE interface fallback to be usable as a parameter
+        # again (e.g. copying a LOB from one table into another).
+        with dbapi2.connect(db_name) as cx, cx.cursor() as cu:
+            cu.execute("create table test(v blob)")
+            cu.execute("insert into test(v) values(?)", [b"hello"])
+            f = cu.execute("select * from test").fetchone(types=[dbapi2.BLOB])
+            cu.execute("create table test2(v blob)")
+            cu.execute("insert into test2(v) values(?)", [f[0]])
+            f2 = cu.execute("select * from test2").fetchone()
+            self.assertEqual(bytes(f2[0]), b"hello")
+
+    def testReinsertFetchedClob(self):
+        with dbapi2.connect(db_name) as cx, cx.cursor() as cu:
+            cu.execute("create table test(v clob)")
+            cu.execute("insert into test(v) values(?)", ["hello clob"])
+            f = cu.execute("select * from test").fetchone(types=[dbapi2.CLOB])
+            cu.execute("create table test2(v clob)")
+            cu.execute("insert into test2(v) values(?)", [f[0]])
+            f2 = cu.execute("select * from test2").fetchone()
+            self.assertEqual(f2[0], "hello clob")
+
+    def testArray(self):
+        with dbapi2.connect(db_name) as cx, cx.cursor() as cu:
+            cu.execute("create table test(v array)")
+            jarr = cx.connection.createArrayOf("INTEGER", [1, 2, 3])
+            cu.execute("insert into test(v) values(?)", [jarr])
+            f = cu.execute("select * from test").fetchone(types=[dbapi2.ARRAY])
+            self.assertEqual(list(f[0].getArray()), [1, 2, 3])
 
     def testBoolean(self):
         with dbapi2.connect(db_name) as cx, cx.cursor() as cu:

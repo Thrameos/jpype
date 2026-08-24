@@ -276,6 +276,10 @@ _default_map = {ARRAY: OBJECT, OBJECT: OBJECT, NULL: OBJECT,
 
 _default_setters: typing.Dict[typing.Any, typing.Union[JDBCType, _JDBCTypePrimitive]] = {}
 
+# Fallback for SETTERS_BY_TYPE: (java interface, JDBCType) pairs checked
+# with issubclass() when the exact-type lookup in _default_setters misses.
+_default_setters_by_interface: typing.List[typing.Tuple[typing.Any, JDBCTypeProtocol]] = []
+
 _default_converters : typing.Dict[typing.Any, typing.Callable] = {}
 
 _default_adapters : typing.Dict[typing.Any, typing.Any] = {}
@@ -303,7 +307,18 @@ def SETTERS_BY_TYPE(cx, meta, col, ptype):
     from Python after adapters have been applied to determine the
     best setter.
     """
-    return _default_setters.get(ptype, None)
+    s = _default_setters.get(ptype, None)
+    if s is not None:
+        return s
+    # A value fetched from the database (java.sql.Array/Blob/Clob/...)
+    # always comes back as some vendor-specific concrete class
+    # implementing the interface, never the interface itself, so it will
+    # never match the exact-type lookup above.  Fall back to checking
+    # against the JDBC interfaces those getters can return.
+    for jtype, jdbctype in _default_setters_by_interface:
+        if issubclass(ptype, jtype):
+            return jdbctype
+    return None
 
 
 # Getters take (connection, meta, col) -> JDBCTYPE
@@ -930,7 +945,8 @@ class Cursor(object):
         Each of these sequences contains information describing one result
         column:
 
-        - name
+        - name (the column's ``AS`` alias if the query specified one,
+          otherwise its plain name)
         - type_code
         - display_size
         - internal_size
@@ -948,7 +964,7 @@ class Cursor(object):
         meta = self._resultSet.getMetaData()
         for i in range(1, meta.getColumnCount() + 1):
             size = meta.getColumnDisplaySize(i)
-            desc.append((str(meta.getColumnName(i)),
+            desc.append((str(meta.getColumnLabel(i)),
                          str(meta.getColumnTypeName(i)),
                          size,
                          size,
@@ -1492,6 +1508,19 @@ def _populateTypes():
     _default_setters[datetime.datetime] = TIMESTAMP
     _default_setters[datetime.date] = DATE
     _default_setters[datetime.time] = TIME
+
+    # A value fetched from the database as an Array/Blob/Clob/... always
+    # comes back as a vendor-specific concrete class implementing the
+    # interface (e.g. org.h2.jdbc.JdbcBlob), never java.sql.Blob itself,
+    # so the exact-type entries above never actually match one of these
+    # in practice; SETTERS_BY_TYPE falls back to this list to catch them.
+    _default_setters_by_interface.append((java.sql.Array, ARRAY))
+    _default_setters_by_interface.append((java.sql.Blob, BLOB))
+    _default_setters_by_interface.append((java.sql.Clob, CLOB))
+    _default_setters_by_interface.append((java.sql.NClob, NCLOB))
+    _default_setters_by_interface.append((java.sql.SQLXML, SQLXML))
+    _default_setters_by_interface.append((java.sql.Ref, REF))
+    _default_setters_by_interface.append((java.sql.RowId, ROWID))
 
     _default_converters[java.lang.String] = str
     _default_converters[java.sql.Date] = _asPython

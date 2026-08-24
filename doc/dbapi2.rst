@@ -422,6 +422,34 @@ entirely) shows the identical truncation on sqlite.  If timestamp
 precision looks wrong, check whether it's driver-specific before assuming
 it's a ``dbapi2`` bug.
 
+Re-using a fetched Array/Blob/Clob as a parameter
+----------------------------------------------------
+
+A value fetched from an ``ARRAY``/``BLOB``/``CLOB``/``NCLOB``/``SQLXML``/
+``REF``/``ROWID`` column comes back as whatever vendor-specific concrete
+class the driver uses to implement the corresponding ``java.sql``
+interface (e.g. H2 returns ``org.h2.jdbc.JdbcBlob`` for a fetched
+``BLOB``), never the bare interface itself.  ``SETTERS_BY_TYPE`` matches
+against that interface with ``issubclass()`` when the value's exact class
+isn't found directly, so passing such a value back in as a parameter --
+copying a LOB from one table into another, for example -- works the same
+way any other parameter does:
+
+.. code-block:: python
+
+   f = cur.execute("select v from source").fetchone(types=[dbapi2.BLOB])
+   cur.execute("insert into dest(v) values(?)", [f[0]])
+
+Inserting a plain Python ``list``/array as an ``ARRAY`` column needs one
+extra step: JDBC has no implicit conversion from a native array to
+``java.sql.Array``, so build one with ``Connection.createArrayOf()``
+first (available as ``cx.connection.createArrayOf(sql_type_name, values)``):
+
+.. code-block:: python
+
+   jarr = cx.connection.createArrayOf("INTEGER", [1, 2, 3])
+   cur.execute("insert into t values (?)", [jarr])
+
 Other
 -----
 
