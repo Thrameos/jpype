@@ -2,7 +2,33 @@
 import jpype.dbapi2 as dbapi2
 import common
 import time
+import unittest.mock as mock
 
+
+
+class ConnectionIsolationLevelTestCase(common.JPypeTestCase):
+    def setUp(self):
+        common.JPypeTestCase.setUp(self)
+
+    def _connection(self):
+        cx = object.__new__(dbapi2.Connection)
+        cx._closed = False
+        cx._jcx = mock.MagicMock()
+        cx._jcx.isClosed.return_value = False
+        return cx
+
+    def test_isolation_level_get_set(self):
+        cx = self._connection()
+        cx._jcx.getTransactionIsolation.return_value = dbapi2.TRANSACTION_READ_COMMITTED
+        self.assertEqual(cx.isolation_level, dbapi2.TRANSACTION_READ_COMMITTED)
+        cx.isolation_level = dbapi2.TRANSACTION_SERIALIZABLE
+        cx._jcx.setTransactionIsolation.assert_called_once_with(dbapi2.TRANSACTION_SERIALIZABLE)
+
+    def test_isolation_level_unsupported_raises(self):
+        cx = self._connection()
+        cx._jcx.setTransactionIsolation.side_effect = dbapi2._SQLException("nope")
+        with self.assertRaises(dbapi2.NotSupportedError):
+            cx.isolation_level = dbapi2.TRANSACTION_SERIALIZABLE
 
 
 class SQLModuleTestCase(common.JPypeTestCase):
@@ -16,6 +42,11 @@ class SQLModuleTestCase(common.JPypeTestCase):
         self.assertEqual(dbapi2.apilevel, "2.0")
         self.assertEqual(dbapi2.threadsafety, 2)
         self.assertEqual(dbapi2.paramstyle, "qmark")
+        self.assertEqual(dbapi2.TRANSACTION_NONE, 0)
+        self.assertEqual(dbapi2.TRANSACTION_READ_UNCOMMITTED, 1)
+        self.assertEqual(dbapi2.TRANSACTION_READ_COMMITTED, 2)
+        self.assertEqual(dbapi2.TRANSACTION_REPEATABLE_READ, 4)
+        self.assertEqual(dbapi2.TRANSACTION_SERIALIZABLE, 8)
 
     def testExceptions(self):
         self.assertIsSubclass(dbapi2.Warning, Exception)

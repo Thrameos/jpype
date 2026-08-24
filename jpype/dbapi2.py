@@ -1,4 +1,5 @@
 import datetime
+import decimal
 import threading
 import time
 import typing
@@ -10,11 +11,7 @@ from . import _jinit
 from . import types as _jtypes
 
 # TODO
-#  - Callable procedures
-#  - Isolation levels
-#  - Default adaptors
 #  - A complete testbench
-#  - Testbench with more than one DB
 #  - Documentation
 
 # This a generic implementation of PEP-249
@@ -31,12 +28,22 @@ __all__ = ['ARRAY', 'ASCII_STREAM', 'BIGINT', 'BINARY', 'BINARY_STREAM', 'BIT',
            'SETTERS_BY_META', 'SETTERS_BY_TYPE', 'SMALLINT', 'SQLXML', 'STRING',
            'TEXT', 'TIME', 'TIMESTAMP', 'TIMESTAMP_WITH_TIMEZONE',
            'TIME_WITH_TIMEZONE', 'TINYINT', 'Time', 'TimeFromTicks', 'Timestamp',
-           'TimestampFromTicks', 'URL', 'VARBINARY', 'VARCHAR', 'Warning',
+           'TimestampFromTicks', 'TRANSACTION_NONE', 'TRANSACTION_READ_COMMITTED',
+           'TRANSACTION_READ_UNCOMMITTED', 'TRANSACTION_REPEATABLE_READ',
+           'TRANSACTION_SERIALIZABLE', 'URL', 'VARBINARY', 'VARCHAR', 'Warning',
            'apilevel', 'connect', 'paramstyle', 'threadsafety']
 
 apilevel = "2.0"
 threadsafety = 2
 paramstyle = 'qmark'
+
+# (extension) Transaction isolation levels for Connection.isolation_level,
+# matching the java.sql.Connection.TRANSACTION_* constants.
+TRANSACTION_NONE = 0
+TRANSACTION_READ_UNCOMMITTED = 1
+TRANSACTION_READ_COMMITTED = 2
+TRANSACTION_REPEATABLE_READ = 4
+TRANSACTION_SERIALIZABLE = 8
 
 
 class JDBCTypeProtocol(typing.Protocol):
@@ -661,6 +668,27 @@ class Connection(object):
         self._jcx.setAutoCommit(enabled)
 
     @property
+    def isolation_level(self):
+        """ (extension) Property controlling the transaction isolation level.
+
+        The value is one of ``TRANSACTION_NONE``, ``TRANSACTION_READ_UNCOMMITTED``,
+        ``TRANSACTION_READ_COMMITTED``, ``TRANSACTION_REPEATABLE_READ``, or
+        ``TRANSACTION_SERIALIZABLE``.  Not every level is supported by every
+        database; consult the JDBC driver documentation for details.  Setting
+        an unsupported level will raise NotSupportedError.
+        """
+        self._validate()
+        return self._jcx.getTransactionIsolation()
+
+    @isolation_level.setter
+    def isolation_level(self, level):
+        self._validate()
+        try:
+            self._jcx.setTransactionIsolation(level)
+        except _SQLException as ex:
+            raise NotSupportedError(ex.message()) from ex
+
+    @property
     def typeinfo(self):
         """ list: The list of types that are supported by this driver.
 
@@ -1153,13 +1181,6 @@ class Cursor(object):
         if isinstance(seq_of_parameters, typing.Iterable):
             for params in seq_of_parameters:
                 counts.append(self._executeone(params))
-        elif isinstance(seq_of_parameters, typing.Iterator):
-            while True:
-                try:
-                    params = next(seq_of_parameters)
-                    counts.append(self._executeone(params))
-                except StopIteration:
-                    break
         else:
             raise _UnsupportedTypeError(
                 "'%s' is not supported" % str(type(seq_of_parameters)))
@@ -1458,6 +1479,12 @@ def _populateTypes():
     _default_converters[java.math.BigDecimal] = _asPython
     _default_converters[byteArray] = bytes
     _default_converters[type(None)] = _nop
+
+    # decimal.Decimal has no direct setter of its own; adapt it into a
+    # java.math.BigDecimal, which does (matching the read-side converter
+    # above, which turns a BigDecimal back into a decimal.Decimal).
+    _default_adapters[decimal.Decimal] = lambda x: java.math.BigDecimal(str(x))
+
     # Adaptors can be installed after the JVM is started
     # JByteArray = _jpype.JArray(_jtypes.JByte)
     # VARCHAR.adapters[memoryview] = JByteArray

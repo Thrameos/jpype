@@ -74,6 +74,21 @@ These values are constants.
     ============ ==============================================================
 
 
+.. _isolation_level_constants:
+
+`Isolation level constants`_
+    (extension) Values for `connection.isolation_level <connection.isolation_level_>`_,
+    matching ``java.sql.Connection.TRANSACTION_*``.  Not every level is
+    supported by every database; setting an unsupported level raises
+    ``NotSupportedError``.
+
+    - ``TRANSACTION_NONE`` (0)
+    - ``TRANSACTION_READ_UNCOMMITTED`` (1)
+    - ``TRANSACTION_READ_COMMITTED`` (2)
+    - ``TRANSACTION_REPEATABLE_READ`` (4)
+    - ``TRANSACTION_SERIALIZABLE`` (8)
+
+
 Exceptions
 ----------
 

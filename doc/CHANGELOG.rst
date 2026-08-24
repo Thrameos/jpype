@@ -7,6 +7,19 @@ Latest Changes:
 
 - **1.7.2.dev0**
 
+  - ``jpype.dbapi2`` closes out several long-standing TODO items:
+    added ``Connection.isolation_level`` (an extension property wrapping
+    ``java.sql.Connection.get/setTransactionIsolation()``, with new
+    ``TRANSACTION_NONE``/``TRANSACTION_READ_UNCOMMITTED``/
+    ``TRANSACTION_READ_COMMITTED``/``TRANSACTION_REPEATABLE_READ``/
+    ``TRANSACTION_SERIALIZABLE`` constants) and a default adapter for
+    ``decimal.Decimal`` parameters (adapted into ``java.math.BigDecimal``,
+    matching the existing read-side ``getBigDecimal`` -> ``decimal.Decimal``
+    converter -- previously passing a plain ``decimal.Decimal`` as a query
+    parameter raised ``InterfaceError: no setter found for 'Decimal'``).
+    Also removed dead/unreachable code in the non-batch ``executemany()``
+    fallback path.
+
   - ``JBoolean``/``JByte``/``JChar``/``JInt``/``JShort``/``JLong``/``JFloat``/
     ``JDouble`` are no longer tracked by the cyclic garbage collector. They
     were previously declared as ordinary Python ``class`` statements, which
