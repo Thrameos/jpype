@@ -31,6 +31,98 @@ class ConnectionIsolationLevelTestCase(common.JPypeTestCase):
             cx.isolation_level = dbapi2.TRANSACTION_SERIALIZABLE
 
 
+class ConnectionCommitRollbackErrorTestCase(common.JPypeTestCase):
+    def setUp(self):
+        common.JPypeTestCase.setUp(self)
+
+    def _connection(self):
+        cx = object.__new__(dbapi2.Connection)
+        cx._closed = False
+        cx._jcx = mock.MagicMock()
+        cx._jcx.isClosed.return_value = False
+        cx._jcx.getAutoCommit.return_value = False
+        return cx
+
+    def test_commit_wraps_driver_exception(self):
+        # Autocommit is off (the normal case), but the driver itself
+        # rejects the commit -- this must surface as OperationalError
+        # rather than the raw java.sql.SQLException.
+        cx = self._connection()
+        cx._jcx.commit.side_effect = dbapi2._SQLException("boom")
+        with self.assertRaises(dbapi2.OperationalError):
+            cx.commit()
+
+    def test_rollback_wraps_driver_exception(self):
+        cx = self._connection()
+        cx._jcx.rollback.side_effect = dbapi2._SQLException("boom")
+        with self.assertRaises(dbapi2.OperationalError):
+            cx.rollback()
+
+
+class ConnectionTypeinfoTestCase(common.JPypeTestCase):
+    def setUp(self):
+        common.JPypeTestCase.setUp(self)
+
+    def test_typeinfo_unknown_data_type_raises(self):
+        # A driver reporting a JDBC type code that isn't in the module's
+        # type registry must surface as DatabaseError, not a raw KeyError.
+        cx = object.__new__(dbapi2.Connection)
+        cx._closed = False
+        cx._jcx = mock.MagicMock()
+        cx._jcx.isClosed.return_value = False
+
+        rs = mock.MagicMock()
+        rs.next.side_effect = [True, False]
+        rs.getString.return_value = "WEIRDTYPE"
+        rs.getInt.return_value = -999999  # not a registered JDBC type code
+
+        type_info_cm = mock.MagicMock()
+        type_info_cm.__enter__.return_value = rs
+        type_info_cm.__exit__.return_value = False
+        cx._jcx.getMetaData.return_value.getTypeInfo.return_value = type_info_cm
+
+        with self.assertRaises(dbapi2.DatabaseError):
+            cx.typeinfo
+
+
+class CursorExecuteManyRepeatTestCase(common.JPypeTestCase):
+    def setUp(self):
+        common.JPypeTestCase.setUp(self)
+
+    def _cursor(self, batch):
+        cx = mock.MagicMock(spec=dbapi2.Connection)
+        cx._jcx = mock.MagicMock()
+        cx._jcx.isClosed.return_value = False
+        cx._batch = batch
+        cx._setters = mock.MagicMock()
+        cur = dbapi2.Cursor(cx)
+        stmt = mock.MagicMock()
+        stmt.execute.return_value = False
+        stmt.getParameterMetaData.return_value.getParameterCount.return_value = 0
+        cx._jcx.prepareStatement.return_value = stmt
+        return cur, stmt
+
+    def test_executemany_uses_repeat_fallback_when_batch_unsupported(self):
+        # When the driver doesn't support batch updates, executemany()
+        # must fall back to executing each parameter set individually
+        # via _executeRepeat rather than addBatch()/executeBatch().
+        cur, stmt = self._cursor(batch=False)
+        stmt.getUpdateCount.side_effect = [1, 1]
+        cur.executemany("insert into t values (?)", [(), ()])
+        self.assertEqual(cur.rowcount, 2)
+        self.assertEqual(stmt.execute.call_count, 2)
+        stmt.addBatch.assert_not_called()
+        stmt.executeBatch.assert_not_called()
+
+    def test_executemany_uses_batch_when_supported(self):
+        cur, stmt = self._cursor(batch=True)
+        stmt.executeBatch.return_value = [1, 1]
+        cur.executemany("insert into t values (?)", [(), ()])
+        self.assertEqual(cur.rowcount, 2)
+        self.assertEqual(stmt.addBatch.call_count, 2)
+        stmt.executeBatch.assert_called_once()
+
+
 class SQLModuleTestCase(common.JPypeTestCase):
     def setUp(self):
         common.JPypeTestCase.setUp(self)
