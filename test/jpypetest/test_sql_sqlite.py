@@ -1100,6 +1100,20 @@ class TypeTestCase(common.JPypeTestCase):
             f3 = cu.execute('select * from test').fetchone()
             self.assertEqual(f3[0], datetime.datetime(2020, 5, 21, 3, 4, 5, 123000))
 
+    def testTimestampSubMillisecondPrecision(self):
+        # sqlite-jdbc's TIMESTAMP handling only preserves millisecond
+        # resolution -- confirmed with raw JDBC calls (bypassing dbapi2's
+        # setter/getter entirely), so this is a driver limitation, not a
+        # dbapi2 bug. h2 and hsqldb round-trip full microsecond precision
+        # for the same value; see the type-mapping notes in the dbapi2
+        # guide.
+        with dbapi2.connect(db_name) as cx, cx.cursor() as cu:
+            cu.execute("create table test(NAME TIMESTAMP)")
+            cu.execute("insert into test(NAME) values(?)",
+                      [datetime.datetime(2020, 5, 21, 3, 4, 5, 123456)])
+            f = cu.execute('select * from test').fetchone()
+            self.assertEqual(f[0], datetime.datetime(2020, 5, 21, 3, 4, 5, 123000))
+
     def _testInt(self, tp, desc, jtype, null=True):
         with dbapi2.connect(db_name, getters=dbapi2.GETTERS_BY_NAME) as cx, cx.cursor() as cu:
             cu.execute("create table test(NAME %s)" % tp)

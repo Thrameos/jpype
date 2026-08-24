@@ -406,6 +406,22 @@ converter for that specific class the same way as any other type mapping:
 
    cx.converters[H2TimestampTZ] = to_py
 
+Timestamp precision is driver-dependent
+------------------------------------------
+
+Python's ``datetime`` and Java's ``java.sql.Timestamp`` both support
+sub-millisecond (microsecond/nanosecond) precision, but not every JDBC
+driver actually preserves it.  sqlite-jdbc, for example, only round-trips
+``TIMESTAMP`` values to millisecond resolution -- a value inserted with
+microsecond precision comes back truncated to the nearest millisecond.
+This is a property of the driver's storage representation, not something
+``dbapi2`` does or can correct: the same value round-trips with full
+microsecond precision through H2 and HSQLDB, and calling the driver's raw
+``setTimestamp()``/``getTimestamp()`` directly (bypassing ``dbapi2``
+entirely) shows the identical truncation on sqlite.  If timestamp
+precision looks wrong, check whether it's driver-specific before assuming
+it's a ``dbapi2`` bug.
+
 Other
 -----
 
