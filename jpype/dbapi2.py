@@ -235,6 +235,27 @@ def _asPython(x):
     return x._py()
 
 
+def _offsetTimeToPy(v):
+    """ Convert a java.time.OffsetTime (the default getObject() result for
+    TIME_WITH_TIMEZONE on drivers that support java.time natively) into a
+    timezone-aware datetime.time. """
+    offset = datetime.timezone(datetime.timedelta(seconds=v.getOffset().getTotalSeconds()))
+    return datetime.time(v.getHour(), v.getMinute(), v.getSecond(),
+                         v.getNano() // 1000, offset)
+
+
+def _offsetDateTimeToPy(v):
+    """ Convert a java.time.OffsetDateTime (the default getObject() result
+    for TIMESTAMP_WITH_TIMEZONE on drivers that support java.time natively)
+    into a timezone-aware datetime.datetime. """
+    offset = datetime.timezone(datetime.timedelta(seconds=v.getOffset().getTotalSeconds()))
+    d = v.toLocalDate()
+    t = v.toLocalTime()
+    return datetime.datetime(d.getYear(), d.getMonthValue(), d.getDayOfMonth(),
+                             t.getHour(), t.getMinute(), t.getSecond(),
+                             t.getNano() // 1000, offset)
+
+
 # This maps the types reported by the columns to the type used for the getter
 # and converter
 _default_map = {ARRAY: OBJECT, OBJECT: OBJECT, NULL: OBJECT,
@@ -1484,6 +1505,19 @@ def _populateTypes():
     # java.math.BigDecimal, which does (matching the read-side converter
     # above, which turns a BigDecimal back into a decimal.Decimal).
     _default_adapters[decimal.Decimal] = lambda x: java.math.BigDecimal(str(x))
+
+    # TIME_WITH_TIMEZONE/TIMESTAMP_WITH_TIMEZONE default to OBJECT's
+    # getObject(), which returns whatever Java type the driver uses to
+    # represent them.  java.time.OffsetTime/OffsetDateTime are the
+    # JDK-standard (JDBC 4.2) representations and are what modern drivers
+    # increasingly return (e.g. HSQLDB for both; H2 for OffsetTime), so
+    # they are always safe to convert here.  A driver that returns its own
+    # vendor-specific class instead (e.g. H2's TIMESTAMP_WITH_TIMEZONE)
+    # needs a converter registered for that class explicitly -- see the
+    # dbapi2 guide's JDBC Types section for the pattern
+    # (``cx.converters[SomeJClass] = ...``).
+    _default_converters[java.time.OffsetTime] = _offsetTimeToPy
+    _default_converters[java.time.OffsetDateTime] = _offsetDateTimeToPy
 
     # Adaptors can be installed after the JVM is started
     # JByteArray = _jpype.JArray(_jtypes.JByte)

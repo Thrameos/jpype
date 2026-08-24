@@ -7,6 +7,14 @@ Latest Changes:
 
 - **1.7.2.dev0**
 
+  - ``jpype.dbapi2`` now converts ``TIME_WITH_TIMEZONE``/
+    ``TIMESTAMP_WITH_TIMEZONE`` columns to timezone-aware
+    ``datetime.time``/``datetime.datetime`` by default when the driver
+    returns the JDK-standard ``java.time.OffsetTime``/``OffsetDateTime``
+    representation (verified against HSQLDB and H2); previously these
+    always leaked the raw, driver-specific Java object through
+    unconverted, even with default converters active.
+
   - ``jpype.dbapi2`` closes out several long-standing TODO items:
     added ``Connection.isolation_level`` (an extension property wrapping
     ``java.sql.Connection.get/setTransactionIsolation()``, with new

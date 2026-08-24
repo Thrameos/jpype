@@ -1097,6 +1097,28 @@ class TypeTestCase(common.JPypeTestCase):
             f3 = cu.execute('select * from test').fetchone()
             self.assertEqual(f3[0], datetime.datetime(2020, 5, 21, 3, 4, 5, 123122))
 
+    def testTimeWithTimezone(self):
+        # java.time.OffsetTime is the JDK-standard getObject() result for
+        # TIME WITH TIME ZONE and is converted to a timezone-aware
+        # datetime.time by default.
+        tz = datetime.timezone(datetime.timedelta(hours=2))
+        with dbapi2.connect(db_name) as cx, cx.cursor() as cu:
+            cu.execute("create table test(NAME TIME WITH TIME ZONE)")
+            cu.execute("insert into test(NAME) values(?)", ["03:04:05+02:00"])
+            f = cu.execute('select * from test').fetchone()
+            self.assertEqual(f[0], datetime.time(3, 4, 5, tzinfo=tz))
+
+    def testTimestampWithTimezone(self):
+        # HSQLDB's getObject() for TIMESTAMP WITH TIME ZONE returns the
+        # JDK-standard java.time.OffsetDateTime, converted to a
+        # timezone-aware datetime.datetime by default.
+        tz = datetime.timezone(datetime.timedelta(hours=2))
+        with dbapi2.connect(db_name) as cx, cx.cursor() as cu:
+            cu.execute("create table test(NAME TIMESTAMP WITH TIME ZONE)")
+            cu.execute("insert into test(NAME) values(?)", ["2020-05-21 03:04:05.123456+02:00"])
+            f = cu.execute('select * from test').fetchone()
+            self.assertEqual(f[0], datetime.datetime(2020, 5, 21, 3, 4, 5, 123456, tzinfo=tz))
+
     def _testInt(self, tp, desc, jtype, null=True):
         with dbapi2.connect(db_name) as cx, cx.cursor() as cu:
             cu.execute("create table test(NAME %s)" % tp)

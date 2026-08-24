@@ -371,6 +371,42 @@ STRING   VARCHAR                  getString           setString      str
 Some of these types never correspond to a SQL type but are used only to specify
 getters and setters for a particular parameter or column.
 
+``TIME_WITH_TIMEZONE``/``TIMESTAMP_WITH_TIMEZONE`` conversion
+---------------------------------------------------------------
+
+``getObject()`` on a ``TIME``/``TIMESTAMP WITH TIME ZONE`` column returns
+whichever Java type the driver uses to represent it, which varies by
+vendor.  Two of those representations convert to a timezone-aware
+``datetime.time``/``datetime.datetime`` automatically, by default:
+
+- ``java.time.OffsetTime`` and ``java.time.OffsetDateTime`` -- the
+  JDK-standard (JDBC 4.2) representations, which modern drivers
+  increasingly return (verified directly: HSQLDB returns
+  ``OffsetDateTime`` for ``TIMESTAMP WITH TIME ZONE``; both H2 and HSQLDB
+  return ``OffsetTime`` for ``TIME WITH TIME ZONE``).
+
+A driver that instead returns its own vendor-specific class -- verified
+directly: H2's ``TIMESTAMP WITH TIME ZONE`` returns
+``org.h2.api.TimestampWithTimeZone``, not ``OffsetDateTime`` -- is not
+covered by a built-in converter (adding one for every vendor's private
+class isn't something the module should carry), and the raw Java object is
+returned instead.  Register a converter for that specific class the same
+way as any other type mapping:
+
+.. code-block:: python
+
+   import jpype
+
+   H2TimestampTZ = jpype.JClass("org.h2.api.TimestampWithTimeZone")
+
+   def to_py(v):
+       offset = datetime.timezone(datetime.timedelta(seconds=v.getTimeZoneOffsetSeconds()))
+       midnight = datetime.datetime(v.getYear(), v.getMonth(), v.getDay())
+       micros = int(v.getNanosSinceMidnight()) // 1000
+       return (midnight + datetime.timedelta(microseconds=micros)).replace(tzinfo=offset)
+
+   cx.converters[H2TimestampTZ] = to_py
+
 Other
 -----
 
@@ -480,9 +516,10 @@ pandas emits ``UserWarning: pandas only supports SQLAlchemy connectable
 Other DBAPI2 objects are not tested.`` for this -- that is pandas being
 conservative about which connection types its own test suite covers, not an
 error; the call still executes correctly.  If the warning is undesirable,
-use the manual pattern above instead, or wrap the connection with
-``sqlalchemy.create_engine("sqlite:///...", creator=lambda: cx)`` (or the
-equivalent for your driver) so pandas sees a recognized SQLAlchemy engine.
+use the manual pattern above instead.  (Wrapping the connection with
+``sqlalchemy.create_engine("sqlite:///...", creator=lambda: cx)`` looks like
+an obvious fix, but does not reliably work -- see `Working with SQLAlchemy
+against other databases`_ below for why.)
 
 Writing a DataFrame back to the database follows the normal ``executemany``
 pattern -- there is no dbapi2-specific ``to_sql`` support, so convert the
@@ -494,6 +531,85 @@ DataFrame to row tuples first:
        "insert into t values (?, ?)",
        list(df.itertuples(index=False, name=None)),
    )
+
+
+`Working with Polars`
+======================
+
+`Polars <https://pola.rs/>`_'s ``read_database`` also accepts a PEP 249
+connection directly, with no warning and no SQLAlchemy engine required:
+
+.. code-block:: python
+
+   import jpype.dbapi2 as dbapi2
+   import polars as pl
+
+   with dbapi2.connect("jdbc:sqlite::memory:") as cx, cx.cursor() as cur:
+       cur.execute("create table t (id integer, name varchar(20))")
+       cur.executemany("insert into t values (?, ?)", [(1, "a"), (2, "b")])
+       df = pl.read_database(query="select * from t", connection=cx)
+
+There is no zero-copy Arrow path here: JDBC has no native Arrow transport,
+so Polars builds its (Arrow-backed) DataFrame from the rows ``dbapi2``
+fetches the ordinary DB-API way, the same as it would for any other DB-API
+2.0 module. If you need genuinely zero-copy transport from the database,
+that has to come from the driver/database speaking Arrow Flight SQL or
+similar directly -- it is not something a JDBC bridge can add.
+
+
+`Connection pooling with DBUtils`
+==================================
+
+`DBUtils <https://webwareforpython.github.io/DBUtils/>`_'s ``PooledDB``
+works with ``jpype.dbapi2`` out of the box -- the module already exposes
+the ``threadsafety`` attribute ``PooledDB`` checks for, so no wrapper is
+needed:
+
+.. code-block:: python
+
+   import jpype.dbapi2 as dbapi2
+   from dbutils.pooled_db import PooledDB
+
+   pool = PooledDB(creator=dbapi2, maxconnections=5, dsn="jdbc:sqlite::memory:")
+   cx = pool.connection()
+   cur = cx.cursor()
+   cur.execute("select 1")
+   cur.fetchall()
+   cx.close()  # returns the connection to the pool; does not close the JDBC connection
+
+Repeatedly acquiring and releasing a pooled connection this way reuses the
+same underlying JDBC connection rather than opening a new one each time --
+confirmed directly by counting actual ``dbapi2.connect()`` calls across
+repeated acquire/release cycles through the pool.
+
+
+`Concurrency`
+=============
+
+Recall from `threadsafety`_ above: the *module* can be used freely from
+multiple threads, but an individual ``Connection`` (and its cursors) is
+bound to the thread that created it.  The natural pattern for a
+multi-threaded workload is therefore one connection per worker, not one
+shared connection:
+
+.. code-block:: python
+
+   import concurrent.futures
+   import jpype.dbapi2 as dbapi2
+
+   def worker(i):
+       with dbapi2.connect("jdbc:sqlite::memory:") as cx, cx.cursor() as cur:
+           cur.execute("select ?", (i,))
+           return cur.fetchone()
+
+   with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+       results = list(pool.map(worker, range(50)))
+
+This has been exercised directly: 50 tasks distributed across an 8-worker
+``ThreadPoolExecutor`` (which reuses its worker threads across many tasks,
+so this also exercises JPype's JNI thread attach/detach repeatedly on the
+same OS threads, not just once each), each opening and closing its own
+connection, with no errors and correct per-worker results.
 
 
 `Working with Apache Drill`
@@ -601,6 +717,42 @@ This also means ``pandas.read_sql`` works against a Drill-backed SQLAlchemy
 engine exactly as described in `Working with pandas`_ above, since the
 engine's underlying connection is a ``jpype.dbapi2.Connection`` the whole
 way down.
+
+.. _`Working with SQLAlchemy against other databases`:
+
+Working with SQLAlchemy against other databases
+--------------------------------------------------
+
+``drill+jdbc://`` works because ``sqlalchemy-drill`` is a dialect written
+*specifically* for ``jpype.dbapi2`` -- its ``create_connect_args()`` builds
+the JDBC URL and nothing else, since ``jpype.dbapi2`` already satisfies
+everything else PEP 249 requires.  There is no equivalent generic "JDBC
+dialect" package that does this for arbitrary databases.
+
+The tempting shortcut is to point one of SQLAlchemy's *existing* dialects
+(e.g. the built-in ``sqlite`` one) at a ``jpype.dbapi2`` connection via
+``create_engine("sqlite://", creator=lambda: dbapi2.connect(dsn))``.  This
+does **not** reliably work, and the failure is worth understanding rather
+than guessing around: SQLAlchemy dialects are written against a specific
+*real* DBAPI module, not just against PEP 249, and often call driver
+extension methods beyond the DB-API 2.0 surface on every new connection.
+Concretely, this was reproduced directly -- the built-in ``sqlite``
+dialect's ``on_connect`` hook unconditionally calls
+``dbapi_connection.create_function(...)`` to register SQL ``REGEXP``
+support, a ``sqlite3.Connection``-specific method that has no PEP 249
+equivalent and that ``jpype.dbapi2.Connection`` does not (and cannot
+portably) implement::
+
+    AttributeError: 'Connection' object has no attribute 'create_function'
+
+This is why tools built on top of SQLAlchemy dialects -- Alembic included,
+since it drives schema changes through whatever ``Connection``/dialect
+SQLAlchemy hands it -- work well against a database that has a
+``jpype.dbapi2``-based dialect (Drill, following the pattern above), but
+are not simply portable to an arbitrary other database by reusing its
+existing SQLAlchemy dialect with a ``creator=`` connection.  Writing a
+purpose-built dialect the way ``sqlalchemy-drill`` did is the correct path,
+not patching around an existing one.
 
 
 Conclusion
