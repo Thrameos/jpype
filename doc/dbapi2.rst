@@ -8,8 +8,8 @@ JPype DBAPI2 Guide
 One common use of JPype is to provide access to databases using JDBC.  The JDBC
 API is well established, very capable, and supports most databases.
 JPype can be used to access JDBC both directly or through the use of the Python
-DBAPI2 as layed (see PEP-0249_).  Unfortunately, the Python API leaves a lot of
-behaviors undefined.  
+DBAPI2 as specified in PEP-0249_.  Unfortunately, the Python API leaves a lot of
+behaviors undefined.
 
 The JPype dbapi2 module provides our implementation of this Python API.
 Normally the Python API has to deal with two different type systems, Python
@@ -74,7 +74,7 @@ These values are constants.
     ============ ==============================================================
 
 
-.. _isolation_level_constants:
+.. _isolation level constants:
 
 `Isolation level constants`_
     (extension) Values for `connection.isolation_level <connection.isolation_level_>`_,
@@ -109,7 +109,7 @@ exceptions:
 Python exceptions are more fine grain than JDBC exceptions.  Wherever possible
 we have redirected the Java exception to the nearest Python exception.  However,
 there are cases in which the Java exception may appear.  Those exceptions
-inherit from `:py:class:jpype.dbapi2.Error`.  This is the exception inheritance layout::
+inherit from :py:class:`jpype.dbapi2.Error`.  This is the exception inheritance layout::
 
     Exception
     |__Warning
@@ -159,13 +159,17 @@ Whenever a Python type is passed to a statement, it must first be converted
 to the appropriate Java type.  This can be accomplished in a few ways.  The
 user can manually convert to the correct type by constructing a Java object or
 applying the JPype casting operator.  Some Java types have built-in implicit
-conversions from the corresponding type.  For all other conversions, an adapter.
-An adapter is defined as a type to convert from and a conversion function which 
-takes a single argument that returns a Java object.
+conversions from the corresponding type.  For all other conversions, an
+adapter must be supplied.
+
+An adapter is defined as a type to convert from and a conversion function which
+takes a single argument that returns a Java object.  For example, a
+``decimal.Decimal`` has no JDBC setter of its own, so it is adapted into a
+``java.math.BigDecimal`` by a default adapter before a setter is selected.
 
 The adapter maps are stored in the connection.  The adapter map can be
 supplied when calling `connect`_, or added to the map later
-through the `adapters <connection.adapters_>`_ property. 
+through the `adapters <connection.adapters_>`_ property.
 
 
 .. _setters:
@@ -177,9 +181,10 @@ A setter transfers the Java type into a SQL parameter.  There are multiple
 types that an individual parameter may accept.  The type of setter is determined
 by the JDBC type.  Each individual JDBC type can have its own setter.  Not
 every database supports the same setter.  There is a default setter that
-should work for most purposes.  Setters can also be set individually using 
-the ``types`` argument to the ``.execute*()`` methods.  The setter is a 
-function which processes the database metadata into a type.
+should work for most purposes.  Setters can also be set individually using
+the ``types`` argument to the ``.execute*()`` methods.  The setter is a
+configurable function that uses the database metadata to select an
+appropriate type.
 
 Setters can be supplied as a map to `connect`_ or by accessing
 the `setter <connection.setters_>`_ property on a Connection.
@@ -207,7 +212,7 @@ can be supplied as a list or a map to the ``.fetch*()`` methods.
 getters_
 --------
 
-JDBA provides more than one way to access data returned from a result.
+JDBC provides more than one way to access data returned from a result.
 In the native JDBC, each executed statement returns a result set which 
 acts as a cursor for the statement.  It is possible to access each 
 column using a different get method.  The default map will attempt
@@ -264,9 +269,9 @@ is destined for a ``DATE`` column, then it must be bound to the
 database in a particular string format.  Similar problems exist for
 "Row ID" columns or large binary items (e.g. blobs or ``RAW``
 columns).  This presents problems for Python since the parameters to
-the `.execute*()` method are untyped.  When the database module sees
+the ``.execute*()`` method are untyped.  When the database module sees
 a Python string object, it doesn't know if it should be bound as a
-simple `CHAR` column, as a raw `BINARY` item, or as a `DATE`.
+simple ``CHAR`` column, as a raw ``BINARY`` item, or as a ``DATE``.
 
 This is less of a problem in JPype dbapi2 than in a typical 
 dbapi driver as we have strong typing backing the connection,
@@ -292,77 +297,75 @@ can be used directly to communicate type information.
 
 In the Python DBAPI2, the SQL type system is normally reduced to a subset
 of the SQL types by mapping multiple types together. For example, ``STRING``
-covers types `STRING`, `CHAR`, `NCHAR` , `NVARCHAR` , `VARCHAR`, 
-and `OTHER`.  JPype dbapi2 supports both the recommended Python types and
-the fine grain JDBC types.  Each type is represented by an object 
-of type JBDCType.
+covers types ``STRING``, ``CHAR``, ``NCHAR``, ``NVARCHAR``, ``VARCHAR``,
+and ``OTHER``.  JPype dbapi2 supports both the recommended Python types and
+the fine grain JDBC types.  Each type is represented by an object
+of type ``JDBCType``.
 
 .. autoclass:: jpype.dbapi2.JDBCType
    :members:
 
-The following types are defined with the correspond Python grouping, the
+The following types are defined with the corresponding Python grouping, the
 default setter, getter, and Python type.  For types that support more than
-one type of getter, the special getter can be applied as the converter for
-the type.  For example, the default configuration has ``getter[BLOB] = BINARY.get``,
-to get the Blob type use ``getter[BLOB] = BLOB.get`` or specify it when
-calling `use <cursor.use_>`_.
-
-.. The link to cursor.use above appears to be broken. Does cursor.use exist?
+one kind of getter, the special getter can be requested explicitly by
+passing it in the ``types`` argument to a ``.fetch*()`` method (not every
+JDBC driver implements every getter, so this is driver-dependent).  For
+example, the default configuration maps ``BLOB`` to the same getter as
+``BINARY`` (returning ``bytes``); on a driver that implements
+``getBlob()``, calling ``cur.fetchone(types=[BLOB])`` instead returns the
+column as a Java ``Blob`` object.
 
 ======== ======================== =================== ============== ================= ===============
-Group    JDBC Type                Default Getter      Default Setter PyTypes           Special Getter 
+Group    JDBC Type                Default Getter      Default Setter PyTypes           Special Getter
 ======== ======================== =================== ============== ================= ===============
-DATE     DATE                     getDate             setDate        datetime.datetime                
-DATETIME TIMESTAMP                getTimestamp        setTimestamp   datetime.datetime                
-TIME     TIME                     getTime             setTime        datetime.datetime                
+DATE     DATE                     getDate             setDate        datetime.date
+DATETIME TIMESTAMP                getTimestamp        setTimestamp   datetime.datetime
+TIME     TIME                     getTime             setTime        datetime.time
 -------- ------------------------ ------------------- -------------- ----------------- ---------------
-DECIMAL  DECIMAL                  getBigDecimal       setBigDecimal  decimal.Decimal                  
-DECIMAL  NUMERIC                  getBigDecimal       setBigDecimal  decimal.Decimal                  
+DECIMAL  DECIMAL                  getBigDecimal       setBigDecimal  decimal.Decimal
+DECIMAL  NUMERIC                  getBigDecimal       setBigDecimal  decimal.Decimal
 -------- ------------------------ ------------------- -------------- ----------------- ---------------
-FLOAT    FLOAT                    getDouble           setDouble      float                            
-FLOAT    DOUBLE                   getDouble           getDouble      float                            
-FLOAT    REAL                     getFloat            setFloat       float                            
+FLOAT    FLOAT                    getDouble           setDouble      float
+FLOAT    DOUBLE                   getDouble           setDouble      float
+FLOAT    REAL                     getFloat            setFloat       float
 -------- ------------------------ ------------------- -------------- ----------------- ---------------
-NUMBER   BOOLEAN                  getBoolean          setBoolean     bool                             
-NUMBER   BIT                      getBoolean          setBoolean     bool                             
-NUMBER   TINYINT  (0..255)        getShort            setShort       int                              
-NUMBER   SMALLINT (-2^15..2^15)   getShort            getShort       int                              
-NUMBER   INTEGER  (-2^31..2^31)   getInt              getInt         int                              
-NUMBER   BIGINT   (-2^63..2^63)   getLong             getLong        int                              
+NUMBER   BOOLEAN                  getBoolean          setBoolean     bool
+NUMBER   BIT                      getBoolean          setBoolean     bool
+NUMBER   TINYINT  (0..255)        getShort            setShort       int
+NUMBER   SMALLINT (-2^15..2^15)   getShort            setShort       int
+NUMBER   INTEGER  (-2^31..2^31)   getInt              setInt         int
+NUMBER   BIGINT   (-2^63..2^63)   getLong             setLong        int
 -------- ------------------------ ------------------- -------------- ----------------- ---------------
-BINARY   BINARY                   getBytes            setBytes       bytes                            
-BINARY   BLOB                     getBytes            setBytes       bytes             getBlob        
-BINARY   LONGVARBINARY            getBytes            setBytes       bytes                            
-BINARY   VARBINARY                getBytes            setBytes       bytes                            
+BINARY   BINARY                   getBytes            setBytes       bytes
+BINARY   BLOB                     getBytes            setBytes       bytes             getBlob
+BINARY   LONGVARBINARY            getBytes            setBytes       bytes
+BINARY   VARBINARY                getBytes            setBytes       bytes
 -------- ------------------------ ------------------- -------------- ----------------- ---------------
-TEXT     CLOB                     getString           setString      str               getClob        
-TEXT     LONGNVARCHAR             getString           setString      str                              
-TEXT     LONGVARCHAR              getString           setString      str                              
-TEXT     NCLOB                    getString           setString      str               getNClob       
-TEXT     SQLXML                   getString           setString      str               getSQLXML      
+TEXT     CLOB                     getString           setString      str               getClob
+TEXT     LONGNVARCHAR             getString           setString      str
+TEXT     LONGVARCHAR              getString           setString      str
+TEXT     NCLOB                    getString           setString      str               getNClob
+TEXT     SQLXML                   getString           setString      str               getSQLXML
 -------- ------------------------ ------------------- -------------- ----------------- ---------------
-STRING   NVARCHAR                 getString           setString      str                              
-STRING   CHAR                     getString           setString      str                              
-STRING   NCHAR                    getString           setString      str                              
-STRING   VARCHAR                  getString           setString      str                              
+STRING   NVARCHAR                 getString           setString      str
+STRING   CHAR                     getString           setString      str
+STRING   NCHAR                    getString           setString      str
+STRING   VARCHAR                  getString           setString      str
 -------- ------------------------ ------------------- -------------- ----------------- ---------------
-         ARRAY                    getObject                                            getArray       
-         OBJECT                   getObject                                            getObject      
-         NULL                     getObject                                            getObject      
-         REF                      getObject                                            getRef         
-         ROWID                    getObject                                            getRowId       
-         RESULTSET                getObject                                            getObject      
-         TIME_WITH_TIMEZONE       getObject                                            getTime        
-         TIMESTAMP_WITH_TIMEZONE  getObject                                            getTimeStamp   
+--       ARRAY                    getObject           --             --                getArray
+--       OBJECT                   getObject           --             --                getObject
+--       NULL                     getObject           --             --                getObject
+--       REF                      getObject           --             --                getRef
+--       ROWID                    getObject           --             --                getRowId
+--       RESULTSET                getObject           --             --                getObject
+--       TIME_WITH_TIMEZONE       getObject           --             --                getTime
+--       TIMESTAMP_WITH_TIMEZONE  getObject           --             --                getTimestamp
 -------- ------------------------ ------------------- -------------- ----------------- ---------------
-   *     ASCII_STREAM             getAsciiStream                                                      
-   *     BINARY_STREAM            getBinaryStream                                                     
-   *     CHARACTER_STREAM         getCharacterStream                                                  
-   *     ASCII_STREAM             getAsciiStream                                                      
-   *     BINARY_STREAM            getBinaryStream                                                     
-   *     CHARACTER_STREAM         getCharacterStream                                                  
-   *     NCHARACTER_STREAM        getNCharacterStream                                                 
-   *     URL                      getURL                                                              
+*        ASCII_STREAM             getAsciiStream      --             --                --
+*        BINARY_STREAM            getBinaryStream     --             --                --
+*        CHARACTER_STREAM         getCharacterStream  --             --                --
+*        NCHARACTER_STREAM        getNCharacterStream --             --                --
+*        URL                      getURL              --             --                --
 ======== ======================== =================== ============== ================= ===============
 
 Some of these types never correspond to a SQL type but are used only to specify
@@ -388,7 +391,7 @@ so that the custom return type accurately reflects the column type.
 
    class JSONType(dbapi2.JDBCType):
       def get(self, *args):
-          rc = JDBCType.get(self, *args)
+          rc = dbapi2.JDBCType.get(self, *args)
           # Custom return converter here
           return rc
    JSON = JSONType("JSON")
@@ -406,7 +409,7 @@ causing an exception to be raised.
 This exception is due to a conflict between dbapi2, Java, and HSQLDB
 specifications.  Dbapi2 requires that statements be executed as prepared
 statements, Java requires that closing a statement yields no action if the
-connection is already closed, and HSQLBD sets the ``isValid`` to false but not
+connection is already closed, and HSQLDB sets the ``isValid`` to false but not
 ``isClosed``.  Thus executing a shutdown through dbapi2 would be expected to
 close the prepared statement on an invalid connection resulting in an error.
 
@@ -443,9 +446,8 @@ be accessed on both the connection and the cursor objects.
 
 .. _connection.rollback: #jpype.dbapi2.Connection.rollback
 .. _connection.commit: #jpype.dbapi2.Connection.commit
-.. _connection.adapters: #jpype.dbapi2.JDBCType.adapters
-.. _connection.setters: #jpype.dbapi2.JDBCType.setters
-.. _connection.converters: #jpype.dbapi2.JDBCType.converters
-.. _cursor.use: #jpype.dbapi2.Cursor.use
+.. _connection.adapters: #jpype.dbapi2.Connection.adapters
+.. _connection.setters: #jpype.dbapi2.Connection.setters
+.. _connection.converters: #jpype.dbapi2.Connection.converters
+.. _connection.isolation_level: #jpype.dbapi2.Connection.isolation_level
 .. _cursor.description: #jpype.dbapi2.Cursor.description
-.. _jdbctype.adapters: #jpype.dbapi2.Connection.adapters
