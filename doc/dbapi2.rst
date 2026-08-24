@@ -740,14 +740,19 @@ not (and cannot portably) implement::
 
     AttributeError: 'Connection' object has no attribute 'create_function'
 
-This is why tools built on top of SQLAlchemy dialects -- Alembic included,
-since it drives schema changes through whatever ``Connection``/dialect
-SQLAlchemy hands it -- work well against a database that has a
-``jpype.dbapi2``-based dialect (Drill, following the pattern above), but
-are not simply portable to an arbitrary other database by reusing its
-existing SQLAlchemy dialect with a ``creator=`` connection.  Writing a
-purpose-built dialect the way ``sqlalchemy-drill`` did is the correct path,
-not patching around an existing one.
+This is not a PEP 249 shortfall in ``jpype.dbapi2`` -- PEP 249 compliance
+is the correct and complete target for a DB-API module, and
+``jpype.dbapi2`` meets it.  The gap is one level up: SQLAlchemy's dialect
+model couples each dialect to a specific real driver module's extensions,
+not to the DB-API 2.0 contract alone, so an existing dialect cannot be
+retargeted at a different, merely-PEP-249-compliant connection.  Tools
+built on SQLAlchemy dialects -- Alembic included, since it drives schema
+changes through whatever ``Connection``/dialect SQLAlchemy hands it --
+work well against a database that has a ``jpype.dbapi2``-based dialect
+written for it (Drill, following the pattern above).  For a database that
+doesn't have one yet, writing a purpose-built dialect the way
+``sqlalchemy-drill`` did is the correct path, not patching around an
+existing one.
 
 
 Conclusion
