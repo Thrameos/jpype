@@ -49,17 +49,17 @@ struct PyJPChar
 #define _PyUnicode_WSTR(op) (((PyASCIIObject*)(op))->wstr)
 #define _PyUnicode_WSTR_LENGTH(op)  (((PyCompactUnicodeObject*)(op))->wstr_length)
 
+// The character JChar() is given, or (Py_UCS4) -1 if it is not one.
 static Py_UCS4 ord(PyObject *c)
 {
-	if (PyUnicode_Check(c))
-	{
-		if (PyUnicode_READY(c) == -1)
-			return -1;
-		if (PyUnicode_GET_LENGTH(c) == 1)
-			return PyUnicode_READ_CHAR(c, 0);
-	} else if (PyBytes_Check(c) && PyBytes_GET_SIZE(c) == 1)
-		return (Py_UCS4) ((unsigned char) *PyBytes_AS_STRING(c));
-	else if (PyByteArray_Check(c) &&  PyByteArray_GET_SIZE(c))
+	// str and bytes go through the same conversion as assignment into a
+	// char, so the rules (Latin-1 bytes, nothing outside the BMP) live in
+	// one place.
+	if ((PyUnicode_Check(c) || PyBytes_Check(c)) && JPPyString::checkCharUTF16(c))
+		return JPPyString::asCharUTF16(c);
+	// bytearray is accepted only here: checkCharUTF16 leaves it out so that
+	// it does not match char[] (#598).
+	if (PyByteArray_Check(c) && PyByteArray_GET_SIZE(c) == 1)
 		return (Py_UCS4) ((unsigned char) *PyByteArray_AS_STRING(c));
 	return (Py_UCS4) - 1;
 }
@@ -265,7 +265,21 @@ static PyObject * PyJPChar_new(PyTypeObject *type, PyObject *pyargs, PyObject * 
 
 	JPValue jv;
 	PyObject *in = PyTuple_GetItem(pyargs, 0);
+	// A Java null Character is stored as U+0000; it has no value to copy.
+	if (PyObject_TypeCheck(in, PyJPChar_Type) && assertNotNull(in))
+		return nullptr;
+	// A boxed Character of a str outside the BMP has always raised
+	// OverflowError, where JChar and assignment into a char raise
+	// ValueError; keep the type for callers that catch it.
+	if (!cls->isPrimitive() && PyUnicode_Check(in) && PyUnicode_GetLength(in) == 1
+			&& PyUnicode_ReadChar(in, 0) > 0xffff)
+	{
+		PyErr_SetString(PyExc_OverflowError, "Unable to convert int into char range");
+		return nullptr;
+	}
 	Py_UCS4 cv = ord(in);
+	if (cv == (Py_UCS4) - 1 && PyErr_Occurred())
+		return nullptr;
 
 	JPJavaFrame frame = JPJavaFrame::outer();
 	if (cv != (Py_UCS4) - 1)
@@ -369,10 +383,32 @@ static Py_ssize_t PyJPChar_len(PyJPChar *self)
 	JP_PY_CATCH(-1);  // GCOVR_EXCL_LINE
 }
 
+// The Java class of an operand only if it really is a Java char (JChar or
+// java.lang.Character).  Other Java values (String, Integer, Double, ...)
+// are not chars and must not be read with fromJPChar; they take the
+// plain-operand path instead.
+static JPClass *charOperandClass(PyObject *obj)
+{
+	if (!PyObject_TypeCheck(obj, PyJPChar_Type))
+		return nullptr;
+	return PyJPValue_getJPClass(obj);
+}
+
+// A non-char operand that is a Java null (for example JObject(None, JInt))
+// must raise rather than be handed to PyNumber_*, which would read the null
+// singleton as 0.  Plain Python operands have no Java class and pass.
+static int assertOperandNotNull(PyObject *obj)
+{
+	JPClass *cls = PyJPValue_getJPClass(obj);
+	if (cls == nullptr)
+		return 0;
+	return assertNotNullClass(obj, cls);
+}
+
 static PyObject *apply(PyObject *first, PyObject *second, PyObject* (*func)(PyObject*, PyObject*))
 {
-	JPClass *cls0 = PyJPValue_getJPClass(first);
-	JPClass *cls1 = PyJPValue_getJPClass(second);
+	JPClass *cls0 = charOperandClass(first);
+	JPClass *cls1 = charOperandClass(second);
 	if (cls0 != nullptr && cls1 != nullptr)
 	{
 		if (assertNotNullClass(first, cls0))
@@ -385,7 +421,7 @@ static PyObject *apply(PyObject *first, PyObject *second, PyObject* (*func)(PyOb
 	}
 	else if (cls0 != nullptr)
 	{
-		if (assertNotNullClass(first, cls0))
+		if (assertNotNullClass(first, cls0) || assertOperandNotNull(second))
 			return nullptr;
 		// Promote to int as per Java rules
 		JPPyObject v = JPPyObject::call(PyLong_FromLong(fromJPChar((PyJPChar*)first)));
@@ -393,7 +429,7 @@ static PyObject *apply(PyObject *first, PyObject *second, PyObject* (*func)(PyOb
 	}
 	else if (cls1 != nullptr)
 	{
-		if (assertNotNullClass(second, cls1))
+		if (assertNotNullClass(second, cls1) || assertOperandNotNull(first))
 			return nullptr;
 		// Promote to int as per Java rules
 		JPPyObject v = JPPyObject::call(PyLong_FromLong(fromJPChar((PyJPChar*)second)));
@@ -427,8 +463,8 @@ static  PyObject *PyJPChar_xor(PyObject *first, PyObject *second)
 static  PyObject *PyJPChar_add(PyObject *first, PyObject *second)
 {
 	JP_PY_TRY("PyJPChar_add");
-	JPClass *cls0 = PyJPValue_getJPClass(first);
-	JPClass *cls1 = PyJPValue_getJPClass(second);
+	JPClass *cls0 = charOperandClass(first);
+	JPClass *cls1 = charOperandClass(second);
 	if (cls0 != nullptr && cls1 != nullptr)
 	{
 		if (assertNotNullClass(first, cls0))
@@ -441,7 +477,7 @@ static  PyObject *PyJPChar_add(PyObject *first, PyObject *second)
 	}
 	else if (cls0 != nullptr)
 	{
-		if (assertNotNullClass(first, cls0))
+		if (assertNotNullClass(first, cls0) || assertOperandNotNull(second))
 			return nullptr;
 		if (PyUnicode_Check(second))
 			return PyUnicode_Concat(first, second);
@@ -452,7 +488,7 @@ static  PyObject *PyJPChar_add(PyObject *first, PyObject *second)
 	}
 	else if (cls1 != nullptr)
 	{
-		if (assertNotNullClass(second, cls1))
+		if (assertNotNullClass(second, cls1) || assertOperandNotNull(first))
 			return nullptr;
 		if (PyUnicode_Check(first))
 			return PyUnicode_Concat(first, second);

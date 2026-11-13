@@ -499,3 +499,125 @@ class JCharTestCase_2(common.JPypeTestCase):
         self.assertEqual(1 & JChar("x"), 0)
         self.assertEqual(JChar("x") | 1, 121)
         self.assertEqual(1 | JChar("x"), 121)
+
+    def testBytesAreNotSignExtended(self):
+        a = JArray(JChar)(2)
+        a[0] = b'\xe9'
+        a[1:2] = [b'\xe9']
+        self.assertEqual(ord(str(a[0])), 0xe9)
+        self.assertEqual(ord(str(a[1])), 0xe9)
+        self.assertEqual(ord(str(JChar(b'\xe9'))), 0xe9)
+        fixture = JClass("jpype.common.Fixture")()
+        fixture.char_field = b'\xe9'
+        self.assertEqual(ord(str(fixture.char_field)), 0xe9)
+
+    def testBytesToCharArrayParameterAreUTF8(self):
+        # bytes passed where Java expects a char[] are decoded as UTF-8.
+        String = JClass("java.lang.String")
+        self.assertEqual(str(String.copyValueOf(b'abc')), 'abc')
+        self.assertEqual(str(String.copyValueOf(b'\xc3\xa9')), '\xe9')
+        self.assertEqual(str(String.copyValueOf('\U0001F600'.encode())),
+                         '\U0001F600')
+        # Invalid UTF-8 raises rather than being silently cut short.
+        with self.assertRaises(UnicodeDecodeError):
+            String.copyValueOf(b'a\xe9b')
+
+    def testCharBufferIsNotSignExtended(self):
+        # A 'c' buffer item is a single byte, read as 0..255.
+        buf = memoryview(b'\xe9').cast('c')
+        self.assertEqual(ord(str(JArray.of(buf, JChar)[0])), 0xe9)
+        self.assertEqual(list(JArray(JShort)(buf)), [0xe9])
+        self.assertEqual(ord(str(JArray(JChar)(buf)[0])), 0xe9)
+
+    def testEmptyStrRejected(self):
+        a = JArray(JChar)(1)
+        with self.assertRaisesRegex(ValueError, "length 1"):
+            a[0:1] = [b'']
+        # An empty str keeps the IndexError it has always raised.
+        with self.assertRaisesRegex(IndexError, "length 1"):
+            a[0:1] = ['']
+
+    def testNonBmpRejected(self):
+        emoji = chr(0x1F600)
+        with self.assertRaises(ValueError):
+            JChar(emoji)
+        # The boxed type keeps the OverflowError it has always raised.
+        with self.assertRaises(OverflowError):
+            JClass("java.lang.Character")(emoji)
+        a = JArray(JChar)(1)
+        with self.assertRaises(ValueError):
+            a[0] = emoji
+        with self.assertRaises(ValueError):
+            a[0:1] = [emoji]
+
+    def testIntIsACast(self):
+        # Like JByte(300), JChar of an int truncates rather than raising.
+        self.assertEqual(ord(str(JChar(0x1F600))), 0xF600)
+        self.assertEqual(ord(str(JChar(-1))), 0xFFFF)
+        # Beyond a C long, keep the low 16 bits like JByte does.
+        self.assertEqual(str(JChar(2**64 + 65)), 'A')
+        self.assertEqual(str(JChar(-2**64 + 65)), 'A')
+
+    def testNullCharacterRejected(self):
+        null = jpype.JObject(None, JClass("java.lang.Character"))
+        with self.assertRaisesRegex(TypeError, "null"):
+            JChar(null)
+        with self.assertRaisesRegex(TypeError, "null"):
+            JClass("java.lang.Character")(null)
+
+    def testBytearrayLengthChecked(self):
+        self.assertEqual(ord(str(JChar(bytearray(b'a')))), 97)
+        for bad in (bytearray(b'abc'), bytearray()):
+            with self.assertRaises(TypeError):
+                JChar(bad)
+    def testArithmeticWithNonCharJavaOperand(self):
+        Integer = jpype.JClass("java.lang.Integer")
+        # The other operand must not be read as a char just because it is a
+        # Java value.
+        c = JChar('a')
+        self.assertEqual(c + Integer(7), 104)
+        self.assertEqual(Integer(7) + c, 104)
+        self.assertEqual(c * JDouble(2.0), 194.0)
+        self.assertEqual(c - JInt(7), 90)
+        self.assertEqual(c & JInt(0x0f), 1)
+        for op in (lambda a, b: a + b, lambda a, b: b + a,
+                   lambda a, b: a - b, lambda a, b: a * b):
+            with self.assertRaises(TypeError):
+                op(c, JString('xyz'))
+        self.assertEqual(c + JChar('b'), 97 + 98)
+
+    def testReflectedArithmeticWithNonCharJavaOperand(self):
+        # A non-char Java value on the left takes apply()'s reflected branch.
+        Integer = jpype.JClass("java.lang.Integer")
+        c = JChar('a')
+        self.assertEqual(JInt(100) - c, 3)
+        self.assertEqual(JDouble(2.0) * c, 194.0)
+        self.assertEqual(Integer(7) & c, 1)
+        self.assertEqual(Integer(7) | c, 103)
+
+    def testBoxedCharWithNonCharJavaOperand(self):
+        Character = jpype.JClass("java.lang.Character")
+        Integer = jpype.JClass("java.lang.Integer")
+        bc = Character('a')
+        self.assertEqual(bc + Integer(7), 104)
+        self.assertEqual(Integer(7) + bc, 104)
+        self.assertEqual(bc - JInt(7), 90)
+        self.assertEqual(JInt(100) - bc, 3)
+
+    def testNullNonCharJavaOperand(self):
+        # A null Java number must raise, not be treated as 0.
+        c = JChar('a')
+        nulls = [jpype.JObject(None, jpype.JClass(name)) for name in (
+            "java.lang.Integer", "java.lang.Long", "java.lang.Double",
+            "java.lang.Boolean")]
+        ops = (lambda a, b: a + b, lambda a, b: a - b, lambda a, b: a * b,
+               lambda a, b: a // b, divmod, lambda a, b: a & b,
+               lambda a, b: a | b, lambda a, b: a ^ b,
+               lambda a, b: a << b, lambda a, b: a >> b)
+        for null in nulls:
+            for op in ops:
+                with self.subTest(null=type(null).__name__, op=op):
+                    with self.assertRaises(TypeError):
+                        op(c, null)
+                    with self.assertRaises(TypeError):
+                        op(null, c)
